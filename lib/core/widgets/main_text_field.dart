@@ -85,7 +85,7 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
           controller: widget.controller,
           obscureText: widget.isPassword && isHidden,
           obscuringCharacter: '*',
-          style: AppFonts.b1Regular,
+          style: AppFonts.c1Regular,
           inputFormatters: widget.inputFormatters,
           decoration: InputDecoration(
             filled: true,

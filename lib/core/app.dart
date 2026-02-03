@@ -1,9 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/providers/locale_provider.dart';
+import 'package:rient_app/core/providers/theme_mode_provider.dart';
 import 'package:rient_app/core/routes/router_provider.dart';
+import 'package:rient_app/core/utils/const/app_colors.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
+
+final _supportedLocales = [
+  Locale('az'),
+  Locale('be'),
+  Locale('en'),
+  Locale('hy'),
+  Locale('kk'),
+  Locale('ky'),
+  Locale('ru'),
+  Locale('ro'),
+  Locale('tg'),
+  Locale('uk'),
+  Locale('uz'),
+];
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -11,6 +28,8 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final locale = ref.watch(localeProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
       localizationsDelegates: const [
@@ -18,8 +37,20 @@ class App extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [Locale('ru')],
-      theme: ThemeData(scaffoldBackgroundColor: Colors.white),
+      supportedLocales: _supportedLocales,
+      locale: locale,
+      themeMode: themeMode,
+      theme: ThemeData(
+        scaffoldBackgroundColor: AppColors.primaryWhite,
+        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.mainAccent),
+      ),
+      darkTheme: ThemeData(
+        scaffoldBackgroundColor: AppColors.primaryWhiteDark,
+        colorScheme: ColorScheme.dark(
+          primary: AppColors.mainAccentDark,
+          surface: AppColors.secondaryLightDark,
+        ),
+      ),
       debugShowCheckedModeBanner: false,
       key: navigatorKey,
       routeInformationParser: router.routeInformationParser,
