@@ -5,7 +5,7 @@ import 'package:rient_app/core/utils/const/app_decoration.dart';
 class DefaultContainerWidget extends StatelessWidget {
   const DefaultContainerWidget({
     super.key,
-    required this.widget,
+    required this.child,
     this.padding,
     this.color,
     this.borderRadius,
@@ -14,7 +14,7 @@ class DefaultContainerWidget extends StatelessWidget {
     this.hasShadow = true,
   });
 
-  final Widget widget;
+  final Widget child;
   final EdgeInsetsGeometry? padding;
   final Color? color;
   final BorderRadiusGeometry? borderRadius;
@@ -26,7 +26,8 @@ class DefaultContainerWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: padding ?? const EdgeInsets.all(8),
+      padding:
+          padding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         border: hasBorder
             ? Border.all(color: borderColor ?? AppColors.grey)
@@ -42,7 +43,7 @@ class DefaultContainerWidget extends StatelessWidget {
             : null,
         borderRadius: borderRadius ?? AppDecoration.borderRadius300,
       ),
-      child: widget,
+      child: child,
     );
   }
 }

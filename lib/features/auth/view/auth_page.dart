@@ -8,6 +8,7 @@ import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
 import 'package:rient_app/features/auth/components/auth_text_button.dart';
 import 'package:rient_app/features/auth/components/bottom_panel.dart';
+import 'package:rient_app/features/auth/view/otp_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class AuthPage extends StatelessWidget {
@@ -16,7 +17,7 @@ class AuthPage extends StatelessWidget {
   static const name = 'auth_page';
   static const path = '/auth_page';
 
-  static void navigate(BuildContext context) => context.goNamed(name);
+  static void navigate(BuildContext context) => context.pushNamed(name);
 
   @override
   Widget build(BuildContext context) {
@@ -58,21 +59,27 @@ class _BodyWidget extends StatelessWidget {
                   ),
 
                   Gap(24),
-
-                  // кнопка продолжить
-                  MainButton(title: 'Продолжить', onTap: () {}),
-
-                  Gap(16),
-
-                  // пользовательское соглашение
-                  AuthTextButton(
-                    title: 'Пользовательское соглашение?',
-                    onTap: () {},
-                  ),
-
-                  Gap(24),
                 ],
               ),
+            ),
+          ),
+
+          // кнопка и соглашение
+          Padding(
+            padding: AppDecoration.padding16.copyWith(bottom: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                MainButton(
+                  title: 'Продолжить',
+                  onTap: () => OtpPage.navigate(context),
+                ),
+                Gap(16),
+                AuthTextButton(
+                  title: 'Пользовательское соглашение?',
+                  onTap: () {},
+                ),
+              ],
             ),
           ),
 

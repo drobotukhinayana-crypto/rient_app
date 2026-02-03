@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/features/auth/view/auth_page.dart';
+import 'package:rient_app/features/auth/view/otp_page.dart';
+import 'package:rient_app/features/auth/view/select_branch_page.dart';
+import 'package:rient_app/features/auth/view/select_company_page.dart';
 import 'package:rient_app/features/chat/chat_page.dart';
 import 'package:rient_app/features/create/view/create_page.dart';
 import 'package:rient_app/features/home/view/home_page.dart';
@@ -30,6 +33,9 @@ class RouterNotifier extends ChangeNotifier {
   List<RouteBase> get routes => [
     _launch,
     _auth,
+    _otp,
+    _selectCompany,
+    _selectBranch,
 
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>
@@ -115,4 +121,28 @@ final GoRoute _auth = GoRoute(
   routes: const [],
   pageBuilder: (_, state) =>
       MaterialPage(key: state.pageKey, child: const AuthPage()),
+);
+
+final GoRoute _otp = GoRoute(
+  name: OtpPage.name,
+  path: OtpPage.path,
+  routes: const [],
+  pageBuilder: (_, state) =>
+      MaterialPage(key: state.pageKey, child: const OtpPage()),
+);
+
+final GoRoute _selectCompany = GoRoute(
+  name: SelectCompanyPage.name,
+  path: SelectCompanyPage.path,
+  routes: const [],
+  pageBuilder: (_, state) =>
+      MaterialPage(key: state.pageKey, child: const SelectCompanyPage()),
+);
+
+final GoRoute _selectBranch = GoRoute(
+  name: SelectBranchPage.name,
+  path: SelectBranchPage.path,
+  routes: const [],
+  pageBuilder: (_, state) =>
+      MaterialPage(key: state.pageKey, child: const SelectBranchPage()),
 );
