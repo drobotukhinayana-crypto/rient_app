@@ -139,7 +139,7 @@ class _DateStripState extends State<DateStrip> {
         const SizedBox(height: 8),
         Text(
           _fullDateText(DateTime.now()),
-          style: AppFonts.c1Medium.copyWith(color: AppColors.tabbarGrey),
+          style: AppFonts.b2Medium.copyWith(color: AppColors.grey),
         ),
       ],
     );

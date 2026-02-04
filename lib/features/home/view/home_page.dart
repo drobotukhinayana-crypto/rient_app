@@ -30,7 +30,7 @@ class _BodyWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const TopPanel(title: 'Главная'),
+        const TopPanel(title: 'Главная', showViewModeSwitcher: false),
 
         // контент
         Expanded(
