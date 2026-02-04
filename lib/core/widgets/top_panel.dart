@@ -4,6 +4,7 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/date_range_navigator.dart';
 import 'package:rient_app/core/widgets/date_strip.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/core/widgets/specialist_selector_pill.dart';
 import 'package:rient_app/core/widgets/view_mode_segmented_control.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
 import 'package:rient_app/resources/resources.dart';
@@ -111,6 +112,8 @@ class _TopPanelState extends State<TopPanel> {
               value: _viewMode,
               onChanged: _onViewModeChanged,
             ),
+            Gap(12),
+            const SpecialistSelectorPill(),
             Gap(12),
             if (_viewMode == ViewMode.week || _viewMode == ViewMode.month)
               DateRangeNavigator(
