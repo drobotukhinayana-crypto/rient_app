@@ -112,8 +112,10 @@ class _TopPanelState extends State<TopPanel> {
               value: _viewMode,
               onChanged: _onViewModeChanged,
             ),
-            Gap(12),
-            const SpecialistSelectorPill(),
+            if (_viewMode != ViewMode.day) ...[
+              Gap(12),
+              const SpecialistSelectorPill(),
+            ],
             Gap(12),
             if (_viewMode == ViewMode.week || _viewMode == ViewMode.month)
               DateRangeNavigator(

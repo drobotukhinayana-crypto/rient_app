@@ -19,6 +19,7 @@ class SpecialistSelectorPill extends StatefulWidget {
   static const _defaultSpecialists = [
     SpecialistItem(name: 'Иванов Иван', role: 'Барбер'),
     SpecialistItem(name: 'Иванова Алина', role: 'Барбер'),
+    SpecialistItem(name: 'Иван Алин', role: 'Барбер'),
   ];
 
   @override

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
+import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/app_radio.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
@@ -47,11 +48,32 @@ class SpecialistSelectDialog extends StatefulWidget {
 
 class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
   late SpecialistItem _selected;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _selected = widget.initialSelected;
+    _searchController.addListener(() {
+      setState(
+        () => _searchQuery = _searchController.text.trim().toLowerCase(),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<SpecialistItem> get _filteredSpecialists {
+    if (_searchQuery.isEmpty) return widget.specialists;
+    return widget.specialists.where((s) {
+      return s.name.toLowerCase().contains(_searchQuery) ||
+          s.role.toLowerCase().contains(_searchQuery);
+    }).toList();
   }
 
   @override
@@ -77,6 +99,26 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
               ],
             ),
             const Gap(16),
+            TextField(
+              controller: _searchController,
+              onTapOutside: (_) => FocusScope.of(context).unfocus(),
+              style: AppFonts.c1Regular,
+              decoration: InputDecoration(
+                hintText: 'Поиск',
+                hintStyle: AppFonts.c1Regular.copyWith(color: AppColors.grey),
+                filled: true,
+                fillColor: AppColors.secondaryLight,
+                border: OutlineInputBorder(
+                  borderRadius: AppDecoration.borderRadius300,
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+            ),
+            const Gap(12),
             Flexible(
               child: Container(
                 padding: const EdgeInsets.all(12),
@@ -86,15 +128,17 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
                 ),
                 child: ListView.separated(
                   shrinkWrap: true,
-                  itemCount: widget.specialists.length,
+                  itemCount: _filteredSpecialists.length,
                   separatorBuilder: (_, __) => const Gap(12),
                   itemBuilder: (context, index) {
-                    final s = widget.specialists[index];
+                    final s = _filteredSpecialists[index];
+                    final originalIndex = widget.specialists.indexWhere(
+                      (e) => e.name == s.name && e.role == s.role,
+                    );
                     return InkWell(
                       onTap: () => setState(() => _selected = s),
                       child: Row(
                         children: [
-                          // аватарка
                           Container(
                             width: 30,
                             height: 30,
@@ -103,16 +147,11 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
                               shape: BoxShape.circle,
                             ),
                           ),
-
                           Gap(6),
-
-                          // имя
                           Text(s.name, style: AppFonts.c1Regular),
                           const Spacer(),
-
-                          // радиобаттон
                           AppRadio(
-                            value: index,
+                            value: originalIndex,
                             groupValue: widget.specialists.indexWhere(
                               (e) =>
                                   e.name == _selected.name &&

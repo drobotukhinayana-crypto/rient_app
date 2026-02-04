@@ -41,4 +41,6 @@ abstract class AppColors {
 
   // general
   static const grey = Color(0xff999999);
+
+  static var primary;
 }
