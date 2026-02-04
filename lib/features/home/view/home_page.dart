@@ -4,8 +4,8 @@ import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/home/view/components/services_today_grid_view.dart';
-import 'package:rient_app/features/home/view/components/top_panel.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class HomePage extends StatelessWidget {
@@ -30,7 +30,7 @@ class _BodyWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const TopPanel(),
+        const TopPanel(title: 'Главная'),
 
         // контент
         Expanded(

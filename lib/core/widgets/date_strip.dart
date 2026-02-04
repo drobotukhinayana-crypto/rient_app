@@ -34,8 +34,8 @@ const _monthGenitive = [
 
 enum _DayState { pastWithData, selected, future }
 
-class HomeDateStrip extends StatefulWidget {
-  const HomeDateStrip({
+class DateStrip extends StatefulWidget {
+  const DateStrip({
     super.key,
     this.initialDate,
     this.daysWithData,
@@ -52,10 +52,10 @@ class HomeDateStrip extends StatefulWidget {
   final ValueChanged<DateTime>? onDateSelected;
 
   @override
-  State<HomeDateStrip> createState() => _HomeDateStripState();
+  State<DateStrip> createState() => _DateStripState();
 }
 
-class _HomeDateStripState extends State<HomeDateStrip> {
+class _DateStripState extends State<DateStrip> {
   static const _circleSize = 41.0;
 
   late List<DateTime> _dates;
@@ -67,7 +67,7 @@ class _HomeDateStripState extends State<HomeDateStrip> {
   }
 
   @override
-  void didUpdateWidget(covariant HomeDateStrip oldWidget) {
+  void didUpdateWidget(covariant DateStrip oldWidget) {
     if (oldWidget.initialDate != widget.initialDate) _buildDates();
     super.didUpdateWidget(oldWidget);
   }

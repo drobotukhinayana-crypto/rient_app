@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/date_strip.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
-import 'package:rient_app/features/home/view/components/home_date_strip.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class TopPanel extends StatelessWidget {
-  const TopPanel({super.key});
+  const TopPanel({super.key, required this.title});
+
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +31,7 @@ class TopPanel extends StatelessWidget {
               Gap(12),
 
               // заголовок
-              Text('Главная', style: AppFonts.h3Medium),
+              Text(title, style: AppFonts.h3Medium),
               const Spacer(),
 
               // выбор пользователя
@@ -39,7 +41,7 @@ class TopPanel extends StatelessWidget {
           Gap(10),
 
           // календарь
-          const HomeDateStrip(),
+          const DateStrip(),
         ],
       ),
     );
