@@ -190,11 +190,7 @@ class _DateCircleItem extends StatelessWidget {
         Text(
           weekdayShort,
           style: AppFonts.c2Tabbar.copyWith(
-            color: isSelected
-                ? AppColors.mainAccent
-                : showArc
-                ? AppColors.tabbarGrey
-                : AppColors.grey,
+            color: isSelected ? AppColors.mainAccent : AppColors.tabbarGrey,
           ),
         ),
       ],
