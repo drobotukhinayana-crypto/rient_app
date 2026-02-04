@@ -5,7 +5,11 @@ class AppImages {
 
   static const String addTab = 'assets/images/add_tab.png';
   static const String arrowDown = 'assets/images/arrow_down.png';
+  static const String arrowOutlinedDown =
+      'assets/images/arrow_outlined_down.png';
+  static const String arrowOutlinedTop = 'assets/images/arrow_outlined_top.png';
   static const String back = 'assets/images/back.png';
+  static const String burger = 'assets/images/burger.png';
   static const String calendarTab = 'assets/images/calendar_tab.png';
   static const String chatTab = 'assets/images/chat_tab.png';
   static const String check = 'assets/images/check.png';

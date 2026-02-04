@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rient_app/core/utils/const/app_colors.dart';
 
 class CreatePage extends StatelessWidget {
   const CreatePage({super.key});
@@ -8,7 +9,10 @@ class CreatePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: _BodyWidget());
+    return const Scaffold(
+      backgroundColor: AppColors.tabBarScreenBackground,
+      body: _BodyWidget(),
+    );
   }
 }
 

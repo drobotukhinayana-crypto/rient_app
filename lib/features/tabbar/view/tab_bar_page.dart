@@ -63,6 +63,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.tabBarScreenBackground,
       body: widget.navigationShell,
       bottomNavigationBar: _NavbarWidget(
         currentIndex: widget.navigationShell.currentIndex,
@@ -82,18 +83,13 @@ class _NavbarWidget extends StatelessWidget {
     final safeArea = MediaQuery.of(context).viewPadding.bottom;
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(24),
         color: Colors.white,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Divider(
-            color: Color(0xffD9D9D9),
-            height: 0.25,
-            thickness: 0.25,
-          ),
-          const Gap(8),
+          Gap(10),
           Row(
             children: [
               Expanded(

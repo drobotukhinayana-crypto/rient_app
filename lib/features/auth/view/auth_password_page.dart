@@ -34,10 +34,15 @@ class _AuthPasswordPageState extends State<AuthPasswordPage> {
                 padding: AppDecoration.padding16.copyWith(top: 54),
                 child: Column(
                   children: [
+                    // логотип
                     Image.asset(AppImages.logoBig),
                     Gap(28),
+
+                    // заголовок
                     Text('Rient', style: AppFonts.bold40),
                     Gap(32),
+
+                    // поле для ввода пароля
                     MainTextField(
                       label: 'Пароль',
                       controller: TextEditingController(),
@@ -48,6 +53,8 @@ class _AuthPasswordPageState extends State<AuthPasswordPage> {
                 ),
               ),
             ),
+
+            // кнопка
             Padding(
               padding: AppDecoration.padding16.copyWith(bottom: 24),
               child: MainButton(
@@ -55,6 +62,8 @@ class _AuthPasswordPageState extends State<AuthPasswordPage> {
                 onTap: () => TabBarPage.navigate(context),
               ),
             ),
+
+            // нижняя панель
             const BottomPanel(),
           ],
         ),

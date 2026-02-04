@@ -107,10 +107,13 @@ class _BodyWidgetState extends State<_BodyWidget> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // кнопка назад
                       GestureDetector(
                         onTap: () => context.pop(),
                         child: Image.asset(AppImages.back),
                       ),
+
+                      // кнопка информации
                       GestureDetector(
                         onTap: () => CustomDialog.show(
                           context,
@@ -157,6 +160,8 @@ class _BodyWidgetState extends State<_BodyWidget> {
                     onCompleted: _onOtpCompleted,
                     onChanged: _onOtpChanged,
                   ),
+
+                  // ошибка
                   if (_otpHasError)
                     const ErrorLabel(
                       'Неверный код, попробуйте еще раз',
@@ -182,6 +187,8 @@ class _BodyWidgetState extends State<_BodyWidget> {
                       ),
                     ),
                   ),
+
+                  // секундомер
                   if (_secondsLeft > 0) ...[
                     Gap(4),
                     Text(

@@ -18,7 +18,7 @@ class LaunchPage extends ConsumerWidget {
         loading: () {},
         error: (_) => AuthPage.navigate(context),
         loggedIn: () => TabBarPage.navigate(context),
-        notLoggedIn: () => AuthPage.navigate(context),
+        notLoggedIn: () => TabBarPage.navigate(context),
       );
     });
     return const Scaffold(body: LoadingWidget());

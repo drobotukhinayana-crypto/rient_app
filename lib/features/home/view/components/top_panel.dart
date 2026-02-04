@@ -1,0 +1,41 @@
+import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
+import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
+import 'package:rient_app/resources/resources.dart';
+
+class TopPanel extends StatelessWidget {
+  const TopPanel({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultContainerWidget(
+      borderRadius: BorderRadius.circular(24),
+      hasShadow: false,
+      padding: EdgeInsets.only(top: 52, bottom: 16, left: 16, right: 16),
+      color: Colors.white,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              // меню
+              GestureDetector(
+                onTap: () {},
+                child: Image.asset(AppImages.burger),
+              ),
+              Gap(12),
+
+              // заголовок
+              Text('Главная', style: AppFonts.h3Medium),
+              Spacer(),
+
+              // выбор пользователя
+              const ProfileSelectorPill(),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
