@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/features/auth/view/auth_page.dart';
+import 'package:rient_app/features/auth/view/auth_password_page.dart';
 import 'package:rient_app/features/auth/view/otp_page.dart';
 import 'package:rient_app/features/auth/view/select_branch_page.dart';
 import 'package:rient_app/features/auth/view/select_company_page.dart';
@@ -36,6 +37,7 @@ class RouterNotifier extends ChangeNotifier {
     _otp,
     _selectCompany,
     _selectBranch,
+    _authPassword,
 
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>
@@ -145,4 +147,12 @@ final GoRoute _selectBranch = GoRoute(
   routes: const [],
   pageBuilder: (_, state) =>
       MaterialPage(key: state.pageKey, child: const SelectBranchPage()),
+);
+
+final GoRoute _authPassword = GoRoute(
+  name: AuthPasswordPage.name,
+  path: AuthPasswordPage.path,
+  routes: const [],
+  pageBuilder: (_, state) =>
+      MaterialPage(key: state.pageKey, child: const AuthPasswordPage()),
 );

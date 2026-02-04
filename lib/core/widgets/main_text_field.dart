@@ -42,8 +42,34 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
   late bool hasError = widget.hasError;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.isPassword) {
+      widget.controller.addListener(_onPasswordTextChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (widget.isPassword) {
+      widget.controller.removeListener(_onPasswordTextChanged);
+    }
+    super.dispose();
+  }
+
+  void _onPasswordTextChanged() => setState(() {});
+
+  @override
   void didUpdateWidget(covariant MainTextField oldWidget) {
     hasError = widget.hasError;
+    if (oldWidget.controller != widget.controller) {
+      if (oldWidget.isPassword) {
+        oldWidget.controller.removeListener(_onPasswordTextChanged);
+      }
+      if (widget.isPassword) {
+        widget.controller.addListener(_onPasswordTextChanged);
+      }
+    }
     setState(() {});
     super.didUpdateWidget(oldWidget);
   }
@@ -93,14 +119,32 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
                 ? AppColors.secondaryLight
                 : AppColors.grey,
             suffixIcon: widget.isPassword
-                ? IconButton(
-                    onPressed: () {
-                      isHidden = !isHidden;
-                      setState(() {});
-                    },
-                    icon: isHidden
-                        ? Image.asset(AppImages.eyeShowLine)
-                        : Image.asset(AppImages.eyeHideLine),
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          isHidden = !isHidden;
+                          setState(() {});
+                        },
+                        icon: isHidden
+                            ? Image.asset(AppImages.eyeShowLine)
+                            : Image.asset(AppImages.eyeHideLine),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 40,
+                          minHeight: 40,
+                        ),
+                      ),
+                      if (widget.controller.text.length > 1)
+                        GestureDetector(
+                          onTap: () => widget.controller.clear(),
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 16),
+                            child: Image.asset(AppImages.close),
+                          ),
+                        ),
+                    ],
                   )
                 : const SizedBox(height: 4, width: 4),
             prefixIconConstraints: const BoxConstraints(),
