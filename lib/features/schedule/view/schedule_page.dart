@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
-import 'package:rient_app/core/widgets/date_strip.dart';
-import 'package:rient_app/core/widgets/month_calendar.dart';
-import 'package:rient_app/core/widgets/specialist_select_dialog.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
-import 'package:rient_app/core/widgets/view_mode_segmented_control.dart';
+import 'package:rient_app/features/schedule/view/components/date_strip.dart';
+import 'package:rient_app/features/schedule/view/components/month_calendar.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_list_view.dart';
+import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
+import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
 
 class SchedulePage extends StatefulWidget {
   const SchedulePage({super.key});
@@ -61,6 +61,7 @@ class _SchedulePageState extends State<SchedulePage> {
       backgroundColor: AppColors.tabBarScreenBackground,
       body: Column(
         children: [
+          // верхняя панель
           TopPanel(
             title: 'Расписание',
             showViewModeSwitcher: true,
@@ -71,6 +72,7 @@ class _SchedulePageState extends State<SchedulePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // список специалистов
                   if (_viewMode == ViewMode.day)
                     Padding(
                       padding: AppDecoration.padding16,
@@ -86,6 +88,7 @@ class _SchedulePageState extends State<SchedulePage> {
                               initialDate: _weekStart,
                               showFullDateLabel: false,
                             ),
+
                           if (_viewMode == ViewMode.month)
                             MonthCalendar(month: _monthStart),
                         ],

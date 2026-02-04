@@ -3,7 +3,7 @@ import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
-import 'package:rient_app/core/widgets/specialist_select_dialog.dart';
+import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 
 class SpecialistListView extends StatelessWidget {
   const SpecialistListView({super.key, required this.specialists});

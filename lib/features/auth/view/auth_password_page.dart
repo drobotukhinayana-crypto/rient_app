@@ -5,7 +5,7 @@ import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
-import 'package:rient_app/features/auth/components/bottom_panel.dart';
+import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/tabbar/view/tab_bar_page.dart';
 import 'package:rient_app/resources/resources.dart';
 

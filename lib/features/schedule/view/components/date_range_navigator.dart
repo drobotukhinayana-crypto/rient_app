@@ -58,13 +58,18 @@ class DateRangeNavigator extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        // кнопка назад
         _NavButton(icon: Icons.chevron_left, onTap: onPrevious),
         const SizedBox(width: 6),
+
+        // текст
         Text(
           text,
           style: AppFonts.b2Medium.copyWith(color: AppColors.mainAccent),
         ),
         const SizedBox(width: 6),
+
+        // кнопка вперед
         _NavButton(icon: Icons.chevron_right, onTap: onNext),
       ],
     );

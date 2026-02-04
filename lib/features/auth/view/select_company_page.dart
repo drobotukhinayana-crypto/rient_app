@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
-import 'package:rient_app/features/auth/components/auth_company_list_view.dart';
-import 'package:rient_app/features/auth/components/bottom_panel.dart';
+import 'package:rient_app/features/auth/view/components/auth_company_list_view.dart';
+import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/select_branch_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -49,10 +49,16 @@ class _BodyWidget extends StatelessWidget {
           Expanded(
             child: SingleChildScrollView(
               padding: AppDecoration.padding16.copyWith(top: 16),
-              child: Column(children: [const AuthCompanyListView()]),
+              child: Column(
+                children: [
+                  // список компаний
+                  const AuthCompanyListView(),
+                ],
+              ),
             ),
           ),
 
+          // кнопка продолжения
           Padding(
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
             child: MainButton(

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
-import 'package:rient_app/core/widgets/date_range_navigator.dart';
-import 'package:rient_app/core/widgets/date_strip.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
-import 'package:rient_app/core/widgets/specialist_selector_pill.dart';
-import 'package:rient_app/core/widgets/view_mode_segmented_control.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
+import 'package:rient_app/features/schedule/view/components/date_range_navigator.dart';
+import 'package:rient_app/features/schedule/view/components/date_strip.dart';
+import 'package:rient_app/features/schedule/view/components/specialist_selector_pill.dart';
+import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
 import 'package:rient_app/resources/resources.dart';
 
 /// Callback: (viewMode, weekStart, monthStart) — для отображения полоски недели

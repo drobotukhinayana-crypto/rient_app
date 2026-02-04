@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
-import 'package:rient_app/features/auth/components/auth_branch_list_view.dart';
-import 'package:rient_app/features/auth/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/auth_password_page.dart';
+import 'package:rient_app/features/auth/view/components/auth_branch_list_view.dart';
+import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class SelectBranchPage extends StatelessWidget {
@@ -36,11 +36,14 @@ class _BodyWidget extends StatelessWidget {
             padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
             child: Row(
               children: [
+                // кнопка назад
                 GestureDetector(
                   onTap: () => context.pop(),
                   child: Image.asset(AppImages.back),
                 ),
                 Gap(12),
+
+                // заголовок
                 Text('Филиалы', style: AppFonts.h4Medium),
               ],
             ),
@@ -48,9 +51,16 @@ class _BodyWidget extends StatelessWidget {
           Expanded(
             child: SingleChildScrollView(
               padding: AppDecoration.padding16.copyWith(top: 16),
-              child: Column(children: [const AuthBranchListView()]),
+              child: Column(
+                children: [
+                  // список филиалов
+                  const AuthBranchListView(),
+                ],
+              ),
             ),
           ),
+
+          // кнопка продолжения
           Padding(
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
             child: MainButton(
@@ -58,6 +68,8 @@ class _BodyWidget extends StatelessWidget {
               onTap: () => AuthPasswordPage.navigate(context),
             ),
           ),
+
+          // нижняя панель
           const BottomPanel(),
         ],
       ),

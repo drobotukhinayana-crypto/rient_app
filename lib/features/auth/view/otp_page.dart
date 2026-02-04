@@ -9,7 +9,7 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/custom_dialog.dart';
 import 'package:rient_app/core/widgets/error_label.dart';
 import 'package:rient_app/core/widgets/otp_input.dart';
-import 'package:rient_app/features/auth/components/bottom_panel.dart';
+import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/select_company_page.dart';
 import 'package:rient_app/resources/resources.dart';
 

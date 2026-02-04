@@ -3,11 +3,11 @@ import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
-import 'package:rient_app/core/widgets/country_dropdown.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
-import 'package:rient_app/features/auth/components/auth_text_button.dart';
-import 'package:rient_app/features/auth/components/bottom_panel.dart';
+import 'package:rient_app/features/auth/view/components/auth_text_button.dart';
+import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
+import 'package:rient_app/features/auth/view/components/country_dropdown.dart';
 import 'package:rient_app/features/auth/view/otp_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -70,11 +70,14 @@ class _BodyWidget extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // кнопка продолжения
                 MainButton(
                   title: 'Продолжить',
                   onTap: () => OtpPage.navigate(context),
                 ),
                 Gap(16),
+
+                // пользовательское соглашение
                 AuthTextButton(
                   title: 'Пользовательское соглашение?',
                   onTap: () {},

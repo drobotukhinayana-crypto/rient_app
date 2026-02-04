@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
-import 'package:rient_app/core/widgets/specialist_select_dialog.dart';
+import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/resources/resources.dart';
 
 /// Пилюля выбора специалиста: аватар, имя, роль, шеврон. По тапу открывает диалог.
