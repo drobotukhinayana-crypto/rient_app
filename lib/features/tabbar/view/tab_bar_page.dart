@@ -4,13 +4,14 @@ import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/features/chat/chat_page.dart';
-import 'package:rient_app/features/create/view/create_page.dart';
+import 'package:rient_app/features/create/view/add_new_entry_page.dart'
+    show AddNewEntryPage;
 import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/link/view/link_page.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
-enum Tabs { home, schedule, create, chat, link }
+enum Tabs { home, schedule, chat, link }
 
 class TabBarPage extends ConsumerStatefulWidget {
   const TabBarPage({required this.navigationShell, this.initialTab, super.key});
@@ -26,8 +27,6 @@ class TabBarPage extends ConsumerStatefulWidget {
         context.goNamed(HomePage.name, extra: initialTab);
       case Tabs.schedule:
         context.goNamed(SchedulePage.name, extra: initialTab);
-      case Tabs.create:
-        context.goNamed(CreatePage.name, extra: initialTab);
       case Tabs.chat:
         context.goNamed(ChatPage.name, extra: initialTab);
       case Tabs.link:
@@ -35,28 +34,39 @@ class TabBarPage extends ConsumerStatefulWidget {
     }
   }
 
+  static void openCreatePage(BuildContext context) {
+    context.pushNamed(AddNewEntryPage.name);
+  }
+
   @override
   ConsumerState<TabBarPage> createState() => _TabBarPageState();
 }
 
 class _TabBarPageState extends ConsumerState<TabBarPage> {
+  int get _navbarIndexFromShell => widget.navigationShell.currentIndex < 2
+      ? widget.navigationShell.currentIndex
+      : widget.navigationShell.currentIndex + 1;
+
   void navigateOnTabIndexed(int index) {
-    final alreadyHere = index == widget.navigationShell.currentIndex;
+    if (index == 2) {
+      TabBarPage.openCreatePage(context);
+      return;
+    }
+    final shellIndex = index < 2 ? index : index - 1;
+    final alreadyHere = shellIndex == widget.navigationShell.currentIndex;
     if (alreadyHere) {
-      switch (index) {
+      switch (shellIndex) {
         case 0:
           context.goNamed(HomePage.name);
         case 1:
           context.goNamed(SchedulePage.name);
         case 2:
-          context.goNamed(CreatePage.name);
-        case 3:
           context.goNamed(ChatPage.name);
-        case 4:
+        case 3:
           context.goNamed(LinkPage.name);
       }
     } else {
-      widget.navigationShell.goBranch(index);
+      widget.navigationShell.goBranch(shellIndex);
     }
   }
 
@@ -66,7 +76,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage> {
       backgroundColor: AppColors.tabBarScreenBackground,
       body: widget.navigationShell,
       bottomNavigationBar: _NavbarWidget(
-        currentIndex: widget.navigationShell.currentIndex,
+        currentIndex: _navbarIndexFromShell,
         onTabTapped: navigateOnTabIndexed,
       ),
     );

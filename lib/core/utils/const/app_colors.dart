@@ -11,6 +11,7 @@ abstract class AppColors {
   static const secondaryAccent = Color(0xff2E7EF3);
   static const red = Color(0xffB50200);
   static const secondaryLight = Color(0xffF6F7FA);
+
   static const tabBarScreenBackground = Color(0xffF5F7FA);
   static const tetriaryLight = Color(0xffF8F8F8);
   static const forthLight = Color(0xffE9E9E9);

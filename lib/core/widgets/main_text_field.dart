@@ -20,6 +20,7 @@ class MainTextField extends ConsumerStatefulWidget {
     this.label,
     this.onChanged,
     this.inputFormatters,
+    this.borderRadius,
   });
 
   final TextEditingController controller;
@@ -32,6 +33,7 @@ class MainTextField extends ConsumerStatefulWidget {
   final String? label;
   final void Function(String value)? onChanged;
   final List<TextInputFormatter>? inputFormatters;
+  final BorderRadius? borderRadius;
 
   @override
   ConsumerState<MainTextField> createState() => _MainTextFieldState();
@@ -44,31 +46,60 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
   @override
   void initState() {
     super.initState();
-    if (widget.isPassword) {
-      widget.controller.addListener(_onPasswordTextChanged);
-    }
+    widget.controller.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
-    if (widget.isPassword) {
-      widget.controller.removeListener(_onPasswordTextChanged);
-    }
+    widget.controller.removeListener(_onTextChanged);
     super.dispose();
   }
 
-  void _onPasswordTextChanged() => setState(() {});
+  void _onTextChanged() => setState(() {});
+
+  Widget _buildSuffixIcon() {
+    final showClose = widget.controller.text.length > 1;
+    if (widget.isPassword) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            onPressed: () {
+              isHidden = !isHidden;
+              setState(() {});
+            },
+            icon: isHidden
+                ? Image.asset(AppImages.eyeShowLine)
+                : Image.asset(AppImages.eyeHideLine),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          ),
+          if (showClose)
+            GestureDetector(
+              onTap: () => widget.controller.clear(),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Image.asset(AppImages.close),
+              ),
+            ),
+        ],
+      );
+    }
+    if (showClose) {
+      return GestureDetector(
+        onTap: () => widget.controller.clear(),
+        child: Image.asset(AppImages.close),
+      );
+    }
+    return const SizedBox(height: 4, width: 4);
+  }
 
   @override
   void didUpdateWidget(covariant MainTextField oldWidget) {
     hasError = widget.hasError;
     if (oldWidget.controller != widget.controller) {
-      if (oldWidget.isPassword) {
-        oldWidget.controller.removeListener(_onPasswordTextChanged);
-      }
-      if (widget.isPassword) {
-        widget.controller.addListener(_onPasswordTextChanged);
-      }
+      oldWidget.controller.removeListener(_onTextChanged);
+      widget.controller.addListener(_onTextChanged);
     }
     setState(() {});
     super.didUpdateWidget(oldWidget);
@@ -77,17 +108,17 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
   @override
   Widget build(BuildContext context) {
     final border = OutlineInputBorder(
-      borderRadius: AppDecoration.borderRadius300,
+      borderRadius: widget.borderRadius ?? AppDecoration.borderRadius300,
       borderSide: BorderSide.none,
     );
 
     final errorBorder = OutlineInputBorder(
-      borderRadius: AppDecoration.borderRadius300,
+      borderRadius: widget.borderRadius ?? AppDecoration.borderRadius300,
       borderSide: const BorderSide(color: AppColors.red),
     );
 
     final focusedBorder = OutlineInputBorder(
-      borderRadius: AppDecoration.borderRadius300,
+      borderRadius: widget.borderRadius ?? AppDecoration.borderRadius300,
       borderSide: BorderSide.none,
     );
 
@@ -95,10 +126,7 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.label != null) ...[
-          Text(
-            widget.label!,
-            style: AppFonts.c1Medium.copyWith(color: AppColors.primaryDark),
-          ),
+          Text(widget.label!, style: AppFonts.c1Medium),
           const Gap(8),
         ],
         TextField(
@@ -118,35 +146,7 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
             fillColor: widget.canEdit
                 ? AppColors.secondaryLight
                 : AppColors.grey,
-            suffixIcon: widget.isPassword
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        onPressed: () {
-                          isHidden = !isHidden;
-                          setState(() {});
-                        },
-                        icon: isHidden
-                            ? Image.asset(AppImages.eyeShowLine)
-                            : Image.asset(AppImages.eyeHideLine),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 40,
-                          minHeight: 40,
-                        ),
-                      ),
-                      if (widget.controller.text.length > 1)
-                        GestureDetector(
-                          onTap: () => widget.controller.clear(),
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 16),
-                            child: Image.asset(AppImages.close),
-                          ),
-                        ),
-                    ],
-                  )
-                : const SizedBox(height: 4, width: 4),
+            suffixIcon: _buildSuffixIcon(),
             prefixIconConstraints: const BoxConstraints(),
             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             border: widget.hasError ? errorBorder : border,

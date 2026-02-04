@@ -8,6 +8,7 @@ class AppImages {
   static const String arrowOutlinedDown =
       'assets/images/arrow_outlined_down.png';
   static const String arrowOutlinedTop = 'assets/images/arrow_outlined_top.png';
+  static const String arrowTop = 'assets/images/arrow_top.png';
   static const String back = 'assets/images/back.png';
   static const String burger = 'assets/images/burger.png';
   static const String calendarTab = 'assets/images/calendar_tab.png';
@@ -25,6 +26,7 @@ class AppImages {
   static const String logoBig = 'assets/images/logo_big.png';
   static const String logoMini = 'assets/images/logo_mini.png';
   static const String moonFill = 'assets/images/moon-fill.png';
+  static const String more = 'assets/images/more.png';
   static const String radiobutton = 'assets/images/radiobutton.png';
   static const String radiobuttonActive = 'assets/images/radiobuttonActive.png';
   static const String sunFill = 'assets/images/sun_fill.png';

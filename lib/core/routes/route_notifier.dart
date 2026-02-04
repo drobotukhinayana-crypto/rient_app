@@ -7,7 +7,8 @@ import 'package:rient_app/features/auth/view/otp_page.dart';
 import 'package:rient_app/features/auth/view/select_branch_page.dart';
 import 'package:rient_app/features/auth/view/select_company_page.dart';
 import 'package:rient_app/features/chat/chat_page.dart';
-import 'package:rient_app/features/create/view/create_page.dart';
+import 'package:rient_app/features/create/view/add_new_entry_page.dart'
+    show AddNewEntryPage;
 import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/launch/launch_page.dart';
 import 'package:rient_app/features/link/view/link_page.dart';
@@ -22,7 +23,6 @@ final _rootNavigatorHome = GlobalKey<NavigatorState>(debugLabel: 'home');
 final _rootNavigatorSchedule = GlobalKey<NavigatorState>(
   debugLabel: 'schedule',
 );
-final _rootNavigatorCreate = GlobalKey<NavigatorState>(debugLabel: 'create');
 final _rootNavigatorChat = GlobalKey<NavigatorState>(debugLabel: 'chat');
 final _rootNavigatorLink = GlobalKey<NavigatorState>(debugLabel: 'link');
 
@@ -52,10 +52,6 @@ class RouterNotifier extends ChangeNotifier {
           routes: [_scheduleTab],
         ),
         StatefulShellBranch(
-          navigatorKey: _rootNavigatorCreate,
-          routes: [_createTab],
-        ),
-        StatefulShellBranch(
           navigatorKey: _rootNavigatorChat,
           routes: [_chatTab],
         ),
@@ -65,6 +61,7 @@ class RouterNotifier extends ChangeNotifier {
         ),
       ],
     ),
+    _addNewEntryRoute,
   ];
 }
 
@@ -91,14 +88,6 @@ final GoRoute _scheduleTab = GoRoute(
   routes: [],
   pageBuilder: (_, state) =>
       MaterialPage(key: state.pageKey, child: const SchedulePage()),
-);
-
-final GoRoute _createTab = GoRoute(
-  name: CreatePage.name,
-  path: CreatePage.path,
-  routes: const [],
-  pageBuilder: (_, state) =>
-      MaterialPage(key: state.pageKey, child: const CreatePage()),
 );
 
 final GoRoute _chatTab = GoRoute(
@@ -155,4 +144,12 @@ final GoRoute _authPassword = GoRoute(
   routes: const [],
   pageBuilder: (_, state) =>
       MaterialPage(key: state.pageKey, child: const AuthPasswordPage()),
+);
+
+final GoRoute _addNewEntryRoute = GoRoute(
+  name: AddNewEntryPage.name,
+  path: AddNewEntryPage.path,
+  parentNavigatorKey: rootNavigatorKey,
+  pageBuilder: (_, state) =>
+      MaterialPage(key: state.pageKey, child: const AddNewEntryPage()),
 );
