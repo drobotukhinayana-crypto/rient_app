@@ -1,212 +1,81 @@
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
-import 'package:rient_app/core/utils/const/app_fonts.dart';
-import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/core/widgets/date_strip.dart';
+import 'package:rient_app/core/widgets/month_calendar.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
-import 'package:rient_app/features/home/view/components/services_today_grid_view.dart';
-import 'package:rient_app/resources/resources.dart';
+import 'package:rient_app/core/widgets/view_mode_segmented_control.dart';
 
-class SchedulePage extends StatelessWidget {
+class SchedulePage extends StatefulWidget {
   const SchedulePage({super.key});
 
   static const name = 'schedule_page';
   static const path = '/schedule_page';
 
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.tabBarScreenBackground,
-      body: _BodyWidget(),
-    );
-  }
+  State<SchedulePage> createState() => _SchedulePageState();
 }
 
-class _BodyWidget extends StatelessWidget {
-  const _BodyWidget();
+class _SchedulePageState extends State<SchedulePage> {
+  ViewMode _viewMode = ViewMode.week;
+  late DateTime _weekStart;
+  late DateTime _monthStart;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncToNow();
+  }
+
+  void _syncToNow() {
+    final now = DateTime.now();
+    final weekday = now.weekday;
+    _weekStart = now.subtract(Duration(days: weekday - 1));
+    _monthStart = DateTime(now.year, now.month, 1);
+  }
+
+  void _onScheduleStateChanged(
+    ViewMode viewMode,
+    DateTime weekStart,
+    DateTime monthStart,
+  ) {
+    setState(() {
+      _viewMode = viewMode;
+      _weekStart = weekStart;
+      _monthStart = monthStart;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const TopPanel(title: 'Расписание'),
-
-        // контент
-        Expanded(
-          child: SingleChildScrollView(
-            padding: AppDecoration.padding16.copyWith(top: 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _StatisticsWidget(),
-                Gap(24),
-                Text('Услуги на сегодня', style: AppFonts.h4Medium),
-                Gap(12),
-                const ServicesTodayGridView(),
-              ],
+    return Scaffold(
+      backgroundColor: AppColors.tabBarScreenBackground,
+      body: Column(
+        children: [
+          TopPanel(
+            title: 'Расписание',
+            showViewModeSwitcher: true,
+            onScheduleStateChanged: _onScheduleStateChanged,
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: AppDecoration.padding16.copyWith(top: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_viewMode == ViewMode.week)
+                    DateStrip(
+                      initialDate: _weekStart,
+                      showFullDateLabel: false,
+                    ),
+                  if (_viewMode == ViewMode.month)
+                    MonthCalendar(month: _monthStart),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatisticsWidget extends StatefulWidget {
-  const _StatisticsWidget();
-
-  @override
-  State<_StatisticsWidget> createState() => _StatisticsWidgetState();
-}
-
-class _StatisticsWidgetState extends State<_StatisticsWidget> {
-  bool _expanded = true;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: () => setState(() => _expanded = !_expanded),
-          behavior: HitTestBehavior.opaque,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Статистика', style: AppFonts.h4Medium),
-              Image.asset(
-                _expanded
-                    ? AppImages.arrowOutlinedTop
-                    : AppImages.arrowOutlinedDown,
-              ),
-            ],
-          ),
-        ),
-        if (_expanded) ...[
-          Gap(12),
-          Row(
-            children: [
-              // записей
-              Expanded(
-                child: DefaultContainerWidget(
-                  color: Colors.white,
-                  hasShadow: false,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Записей', style: AppFonts.b2Medium),
-                      Gap(8),
-                      Text(
-                        '21',
-                        style: AppFonts.h4Medium.copyWith(
-                          color: AppColors.mainAccent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Gap(8),
-
-              // новых
-              Expanded(
-                child: DefaultContainerWidget(
-                  color: Colors.white,
-                  hasShadow: false,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Новых', style: AppFonts.b2Medium),
-                      Gap(8),
-                      Text(
-                        '12',
-                        style: AppFonts.h4Medium.copyWith(
-                          color: AppColors.mainAccent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Gap(8),
-
-              // отмененных
-              Expanded(
-                child: DefaultContainerWidget(
-                  color: Colors.white,
-                  hasShadow: false,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Отменено', style: AppFonts.b2Medium),
-                      Gap(8),
-                      Text(
-                        '2',
-                        style: AppFonts.h4Medium.copyWith(color: AppColors.red),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          Gap(10),
-
-          Row(
-            children: [
-              // доход
-              Expanded(
-                child: DefaultContainerWidget(
-                  color: Colors.white,
-                  hasShadow: false,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Доход', style: AppFonts.b2Medium),
-                      Gap(8),
-                      Text(
-                        '21 300 ₽',
-                        style: AppFonts.h4Medium.copyWith(
-                          color: AppColors.mainAccent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              Gap(12),
-
-              // к выплате
-              Expanded(
-                child: DefaultContainerWidget(
-                  color: Colors.white,
-                  hasShadow: false,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('К выплате', style: AppFonts.b2Medium),
-                      Gap(8),
-                      Text(
-                        '11 300 ₽',
-                        style: AppFonts.h4Medium.copyWith(
-                          color: AppColors.mainAccent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
         ],
-      ],
+      ),
     );
   }
 }

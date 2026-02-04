@@ -40,6 +40,8 @@ class DateStrip extends StatefulWidget {
     this.initialDate,
     this.daysWithData,
     this.onDateSelected,
+    this.showFullDateLabel = true,
+    this.useGreyCircles = false,
   });
 
   /// Начальная выбранная дата (по умолчанию сегодня).
@@ -50,6 +52,12 @@ class DateStrip extends StatefulWidget {
 
   /// Callback при выборе даты.
   final ValueChanged<DateTime>? onDateSelected;
+
+  /// Показывать подпись с текущей датой (например, «Среда, 4 февраля»). В режиме недели/месяца на расписании передают [false].
+  final bool showFullDateLabel;
+
+  /// При true фон невыбранных кружков — SecondaryDark (режим «День»). При false — белый (Неделя/Месяц).
+  final bool useGreyCircles;
 
   @override
   State<DateStrip> createState() => _DateStripState();
@@ -130,17 +138,20 @@ class _DateStripState extends State<DateStrip> {
                         _stateFor(_dates[i]) == _DayState.pastWithData &&
                         _hasData(_dates[i]),
                     size: _circleSize,
+                    useGreyCircles: widget.useGreyCircles,
                   ),
                 ),
               ],
             ],
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          _fullDateText(DateTime.now()),
-          style: AppFonts.b2Medium.copyWith(color: AppColors.grey),
-        ),
+        if (widget.showFullDateLabel) ...[
+          const SizedBox(height: 8),
+          Text(
+            _fullDateText(DateTime.now()),
+            style: AppFonts.b2Medium.copyWith(color: AppColors.grey),
+          ),
+        ],
       ],
     );
   }
@@ -152,12 +163,14 @@ class _DateCircleItem extends StatelessWidget {
     required this.isSelected,
     required this.showArc,
     required this.size,
+    required this.useGreyCircles,
   });
 
   final DateTime date;
   final bool isSelected;
   final bool showArc;
   final double size;
+  final bool useGreyCircles;
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +186,7 @@ class _DateCircleItem extends StatelessWidget {
             painter: _DateCirclePainter(
               isSelected: isSelected,
               showArc: showArc,
+              useGreyCircles: useGreyCircles,
             ),
             child: Center(
               child: Text(
@@ -199,10 +213,15 @@ class _DateCircleItem extends StatelessWidget {
 }
 
 class _DateCirclePainter extends CustomPainter {
-  _DateCirclePainter({required this.isSelected, required this.showArc});
+  _DateCirclePainter({
+    required this.isSelected,
+    required this.showArc,
+    required this.useGreyCircles,
+  });
 
   final bool isSelected;
   final bool showArc;
+  final bool useGreyCircles;
   static const _arcStrokeWidth = 4.0;
 
   @override
@@ -210,9 +229,11 @@ class _DateCirclePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 1;
 
-    // Фон круга
+    final unselectedColor = useGreyCircles
+        ? AppColors.secondaryDark
+        : AppColors.primaryWhite;
     final bgPaint = Paint()
-      ..color = isSelected ? AppColors.mainAccent : AppColors.secondaryDark
+      ..color = isSelected ? AppColors.mainAccent : unselectedColor
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius, bgPaint);
 
@@ -245,6 +266,7 @@ class _DateCirclePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _DateCirclePainter oldDelegate) {
     return oldDelegate.isSelected != isSelected ||
-        oldDelegate.showArc != showArc;
+        oldDelegate.showArc != showArc ||
+        oldDelegate.useGreyCircles != useGreyCircles;
   }
 }

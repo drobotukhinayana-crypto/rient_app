@@ -59,12 +59,12 @@ class DateRangeNavigator extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _NavButton(icon: Icons.chevron_left, onTap: onPrevious),
-        const SizedBox(width: 12),
+        const SizedBox(width: 6),
         Text(
           text,
           style: AppFonts.b2Medium.copyWith(color: AppColors.mainAccent),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 6),
         _NavButton(icon: Icons.chevron_right, onTap: onNext),
       ],
     );

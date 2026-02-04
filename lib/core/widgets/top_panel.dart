@@ -8,11 +8,17 @@ import 'package:rient_app/core/widgets/view_mode_segmented_control.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
 import 'package:rient_app/resources/resources.dart';
 
+/// Callback: (viewMode, weekStart, monthStart) — для отображения полоски недели
+/// и календаря месяца вне панели (на странице).
+typedef ScheduleStateCallback =
+    void Function(ViewMode viewMode, DateTime weekStart, DateTime monthStart);
+
 class TopPanel extends StatefulWidget {
   const TopPanel({
     super.key,
     required this.title,
     this.showViewModeSwitcher = true,
+    this.onScheduleStateChanged,
   });
 
   final String title;
@@ -20,6 +26,10 @@ class TopPanel extends StatefulWidget {
   /// Показывать переключатель День/Неделя/Месяц и навигатор по датам.
   /// На главной странице передают [false].
   final bool showViewModeSwitcher;
+
+  /// Когда задан и [showViewModeSwitcher] true — полоска недели и календарь месяца
+  /// не рисуются в панели; вызывается этот callback, контент рисуют на странице.
+  final ScheduleStateCallback? onScheduleStateChanged;
 
   @override
   State<TopPanel> createState() => _TopPanelState();
@@ -34,6 +44,9 @@ class _TopPanelState extends State<TopPanel> {
   void initState() {
     super.initState();
     _syncToToday();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onScheduleStateChanged?.call(_viewMode, _weekStart, _monthStart);
+    });
   }
 
   void _syncToToday() {
@@ -50,6 +63,7 @@ class _TopPanelState extends State<TopPanel> {
       } else {
         _monthStart = DateTime(_monthStart.year, _monthStart.month - 1, 1);
       }
+      widget.onScheduleStateChanged?.call(_viewMode, _weekStart, _monthStart);
     });
   }
 
@@ -60,18 +74,13 @@ class _TopPanelState extends State<TopPanel> {
       } else {
         _monthStart = DateTime(_monthStart.year, _monthStart.month + 1, 1);
       }
+      widget.onScheduleStateChanged?.call(_viewMode, _weekStart, _monthStart);
     });
   }
 
-  DateTime get _initialDateForStrip {
-    switch (_viewMode) {
-      case ViewMode.day:
-        return DateTime.now();
-      case ViewMode.week:
-        return _weekStart;
-      case ViewMode.month:
-        return _monthStart;
-    }
+  void _onViewModeChanged(ViewMode mode) {
+    setState(() => _viewMode = mode);
+    widget.onScheduleStateChanged?.call(_viewMode, _weekStart, _monthStart);
   }
 
   @override
@@ -79,7 +88,7 @@ class _TopPanelState extends State<TopPanel> {
     return DefaultContainerWidget(
       borderRadius: BorderRadius.circular(24),
       hasShadow: false,
-      padding: const EdgeInsets.only(top: 52, bottom: 16, left: 16, right: 16),
+      padding: const EdgeInsets.only(top: 52, bottom: 8, left: 16, right: 16),
       color: Colors.white,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -100,7 +109,7 @@ class _TopPanelState extends State<TopPanel> {
             Gap(12),
             ViewModeSegmentedControl(
               value: _viewMode,
-              onChanged: (mode) => setState(() => _viewMode = mode),
+              onChanged: _onViewModeChanged,
             ),
             Gap(12),
             if (_viewMode == ViewMode.week || _viewMode == ViewMode.month)
@@ -114,14 +123,14 @@ class _TopPanelState extends State<TopPanel> {
                 onNext: _goNext,
               ),
             if (_viewMode == ViewMode.week || _viewMode == ViewMode.month)
-              Gap(12),
-          ] else
+              Gap(8),
+            if (_viewMode == ViewMode.day)
+              DateStrip(initialDate: DateTime.now(), useGreyCircles: true),
+          ] else ...[
             Gap(12),
-          DateStrip(
-            initialDate: widget.showViewModeSwitcher
-                ? _initialDateForStrip
-                : DateTime.now(),
-          ),
+            // На главной (без переключателя) — полоска с текущей датой в панели
+            DateStrip(initialDate: DateTime.now(), useGreyCircles: true),
+          ],
         ],
       ),
     );
