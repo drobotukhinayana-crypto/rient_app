@@ -123,7 +123,10 @@ class _SchedulePageState extends State<SchedulePage> {
                     children: [
                       if (_viewMode == ViewMode.week) ...[
                         Padding(
-                          padding: AppDecoration.padding16.copyWith(top: 20),
+                          padding: AppDecoration.padding16.copyWith(
+                            top: 20,
+                            left: 40,
+                          ),
                           child: DateStrip(
                             initialDate: _weekStart,
                             showFullDateLabel: false,
