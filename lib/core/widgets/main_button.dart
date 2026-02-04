@@ -67,7 +67,7 @@ class MainButton extends ConsumerWidget {
                 children: [
                   Text(
                     title,
-                    style: AppFonts.b1Regular.copyWith(
+                    style: AppFonts.b2Semi.copyWith(
                       color: isActive
                           ? textColor
                           : isDark

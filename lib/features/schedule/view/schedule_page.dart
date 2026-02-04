@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
+import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/date_strip.dart';
+import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/month_calendar.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/core/widgets/view_mode_segmented_control.dart';
@@ -63,6 +66,44 @@ class _SchedulePageState extends State<SchedulePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  SizedBox(
+                    height: 100,
+                    width: 114,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      shrinkWrap: true,
+                      itemBuilder: (BuildContext context, int index) =>
+                          DefaultContainerWidget(
+                            borderRadius: BorderRadius.circular(20),
+                            hasShadow: false,
+                            color: Colors.white,
+                            child: Column(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.grey,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                Gap(8),
+                                Text('Иван Иванов', style: AppFonts.c1Medium),
+                                Gap(4),
+                                Text(
+                                  'Барбер',
+                                  style: AppFonts.c2Tabbar.copyWith(
+                                    color: AppColors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      separatorBuilder: (BuildContext context, int index) =>
+                          Gap(4),
+                      itemCount: 5,
+                    ),
+                  ),
                   if (_viewMode == ViewMode.week)
                     DateStrip(
                       initialDate: _weekStart,
