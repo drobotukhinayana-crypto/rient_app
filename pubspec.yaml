@@ -23,6 +23,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   country_picker: ^2.0.27
+  syncfusion_flutter_calendar: ^31.1.19
   
 
 dev_dependencies:
