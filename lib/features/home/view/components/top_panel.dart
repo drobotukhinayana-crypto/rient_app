@@ -3,6 +3,7 @@ import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
+import 'package:rient_app/features/home/view/components/home_date_strip.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class TopPanel extends StatelessWidget {
@@ -13,9 +14,10 @@ class TopPanel extends StatelessWidget {
     return DefaultContainerWidget(
       borderRadius: BorderRadius.circular(24),
       hasShadow: false,
-      padding: EdgeInsets.only(top: 52, bottom: 16, left: 16, right: 16),
+      padding: const EdgeInsets.only(top: 52, bottom: 16, left: 16, right: 16),
       color: Colors.white,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -28,12 +30,16 @@ class TopPanel extends StatelessWidget {
 
               // заголовок
               Text('Главная', style: AppFonts.h3Medium),
-              Spacer(),
+              const Spacer(),
 
               // выбор пользователя
               const ProfileSelectorPill(),
             ],
           ),
+          Gap(10),
+
+          // календарь
+          const HomeDateStrip(),
         ],
       ),
     );
