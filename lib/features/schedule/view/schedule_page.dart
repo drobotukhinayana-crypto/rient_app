@@ -4,7 +4,7 @@ import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/schedule/view/components/date_strip.dart';
 import 'package:rient_app/features/schedule/view/components/month_calendar.dart';
-import 'package:rient_app/features/schedule/view/components/schedule_calendar_widget.dart';
+import 'package:rient_app/features/schedule/view/components/schedule_calendar_one_user_widget.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_list_view.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
@@ -20,15 +20,13 @@ class SchedulePage extends StatefulWidget {
 }
 
 class _SchedulePageState extends State<SchedulePage> {
-  ViewMode _viewMode = ViewMode.week;
+  ViewMode _viewMode = ViewMode.day;
   late DateTime _weekStart;
   late DateTime _monthStart;
 
   static const _specialists = [
     SpecialistItem(name: 'Иванов Иван', role: 'Барбер'),
     SpecialistItem(name: 'Иванова Алина', role: 'Барбер'),
-    SpecialistItem(name: 'Петров Пётр', role: 'Мастер маникюра'),
-    SpecialistItem(name: 'Сидорова Анна', role: 'Визажист'),
   ];
 
   @override
@@ -98,18 +96,20 @@ class _SchedulePageState extends State<SchedulePage> {
             title: 'Расписание',
             showViewModeSwitcher: true,
             onScheduleStateChanged: _onScheduleStateChanged,
+            specialists: _specialists,
           ),
           Expanded(
             child: _viewMode == ViewMode.day
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Padding(
-                        padding: AppDecoration.padding16,
-                        child: SpecialistListView(specialists: _specialists),
-                      ),
+                      if (_specialists.length >= 3)
+                        Padding(
+                          padding: AppDecoration.padding16,
+                          child: SpecialistListView(specialists: _specialists),
+                        ),
                       Expanded(
-                        child: ScheduleCalendarWidget(
+                        child: ScheduleCalendarOneUserWidget(
                           key: const ValueKey('schedule_day'),
                           date: DateTime.now(),
                           items: _scheduleItems(DateTime.now()),
@@ -133,7 +133,7 @@ class _SchedulePageState extends State<SchedulePage> {
                           ),
                         ),
                         Expanded(
-                          child: ScheduleCalendarWidget(
+                          child: ScheduleCalendarOneUserWidget(
                             key: const ValueKey('schedule_week'),
                             date: _weekStart,
                             items: _scheduleItemsForWeek(_weekStart),

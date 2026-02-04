@@ -27,8 +27,8 @@ class ScheduleAppointmentItem {
 }
 
 /// Календарь с записями и перерывом (день или неделя).
-class ScheduleCalendarWidget extends StatelessWidget {
-  const ScheduleCalendarWidget({
+class ScheduleCalendarOneUserWidget extends StatelessWidget {
+  const ScheduleCalendarOneUserWidget({
     super.key,
     required this.date,
     required this.items,

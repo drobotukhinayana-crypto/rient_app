@@ -5,6 +5,7 @@ import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
 import 'package:rient_app/features/schedule/view/components/date_range_navigator.dart';
 import 'package:rient_app/features/schedule/view/components/date_strip.dart';
+import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_selector_pill.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
 import 'package:rient_app/resources/resources.dart';
@@ -20,6 +21,7 @@ class TopPanel extends StatefulWidget {
     required this.title,
     this.showViewModeSwitcher = true,
     this.onScheduleStateChanged,
+    this.specialists,
   });
 
   final String title;
@@ -27,6 +29,9 @@ class TopPanel extends StatefulWidget {
   /// Показывать переключатель День/Неделя/Месяц и навигатор по датам.
   /// На главной странице передают [false].
   final bool showViewModeSwitcher;
+
+  /// Список специалистов для страницы расписания. Если передан и длина < 3, в режиме «День» в панели показывается [SpecialistSelectorPill].
+  final List<SpecialistItem>? specialists;
 
   /// Когда задан и [showViewModeSwitcher] true — полоска недели и календарь месяца
   /// не рисуются в панели; вызывается этот callback, контент рисуют на странице.
@@ -37,7 +42,7 @@ class TopPanel extends StatefulWidget {
 }
 
 class _TopPanelState extends State<TopPanel> {
-  ViewMode _viewMode = ViewMode.week;
+  ViewMode _viewMode = ViewMode.day;
   late DateTime _weekStart;
   late DateTime _monthStart;
 
@@ -129,8 +134,14 @@ class _TopPanelState extends State<TopPanel> {
               ),
             if (_viewMode == ViewMode.week || _viewMode == ViewMode.month)
               Gap(8),
-            if (_viewMode == ViewMode.day)
+            if (_viewMode == ViewMode.day) ...[
               DateStrip(initialDate: DateTime.now(), useGreyCircles: true),
+              if (widget.specialists != null &&
+                  widget.specialists!.length < 3) ...[
+                Gap(12),
+                SpecialistSelectorPill(specialists: widget.specialists!),
+              ],
+            ],
           ] else ...[
             Gap(12),
             // На главной (без переключателя) — полоска с текущей датой в панели
