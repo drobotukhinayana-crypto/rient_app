@@ -137,7 +137,33 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                         onTap: () => CustomDialog.show(
                           context,
                           title: 'Где найти код?',
-                          description: Text('gdfg'),
+                          description: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'Мы отправили код на вашу почту\n',
+                                  style: AppFonts.c1Medium,
+                                ),
+                                TextSpan(
+                                  text: widget.email,
+                                  style: AppFonts.c1Bold,
+                                ),
+                                TextSpan(
+                                  text:
+                                      ' проверьте входящие письма и спам, если код не пришел, нажмите кнопку ',
+                                  style: AppFonts.c1Medium,
+                                ),
+                                TextSpan(
+                                  text: '“Отправить новый код”',
+                                  style: AppFonts.c1Bold,
+                                ),
+                                TextSpan(
+                                  text: ' когда таймер закончится',
+                                  style: AppFonts.c1Medium,
+                                ),
+                              ],
+                            ),
+                          ),
                           titleButton: 'Закрыть',
                           onTap: () => context.pop(),
                         ),

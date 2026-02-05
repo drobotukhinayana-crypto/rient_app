@@ -68,33 +68,7 @@ class CustomDialog extends StatelessWidget {
                 ],
               ),
               const Gap(16),
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Мы отправили код на вашу почту\n',
-                      style: AppFonts.c1Medium,
-                    ),
-                    TextSpan(
-                      text: 'example@gmail.com,',
-                      style: AppFonts.c1Bold,
-                    ),
-                    TextSpan(
-                      text:
-                          ' проверьте входящие письма и спам, если код не пришел, нажмите кнопку ',
-                      style: AppFonts.c1Medium,
-                    ),
-                    TextSpan(
-                      text: '“Отправить новый код”',
-                      style: AppFonts.c1Bold,
-                    ),
-                    TextSpan(
-                      text: ' когда таймер закончится',
-                      style: AppFonts.c1Medium,
-                    ),
-                  ],
-                ),
-              ),
+              description,
               const Gap(16),
               MainButton(title: titleButton, onTap: onTap),
             ],
