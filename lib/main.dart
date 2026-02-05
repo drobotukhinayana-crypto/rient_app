@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/app.dart';
+import 'package:rient_app/core/services/email_storage.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stack_trace/stack_trace.dart' as stack_trace;
@@ -17,6 +18,8 @@ void main() async {
       localStorageProvider.overrideWithValue(LocalStorageImpl(prefs)),
     ],
   );
+
+  await container.read(emailStorageProvider.notifier).init();
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
 
   runApp(UncontrolledProviderScope(container: container, child: const App()));

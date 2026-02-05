@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
+import 'package:rient_app/features/auth/service/get_auth_organiztions.dart';
 import 'package:rient_app/features/auth/view/components/auth_company_list_view.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/select_branch_page.dart';
@@ -52,7 +55,16 @@ class _BodyWidget extends StatelessWidget {
               child: Column(
                 children: [
                   // список компаний
-                  const AuthCompanyListView(),
+                  Consumer(
+                    builder: (_, ref, __) => ref
+                        .watch(getAuthOrganiztionsProvider)
+                        .when(
+                          data: (data) =>
+                              AuthCompanyListView(organizations: data),
+                          error: (_, __) => Container(),
+                          loading: () => LoadingWidget(),
+                        ),
+                  ),
                 ],
               ),
             ),

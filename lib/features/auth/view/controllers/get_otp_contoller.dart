@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:rient_app/core/services/email_storage.dart';
 import 'package:rient_app/core/utils/base_state/base_state.dart';
 import 'package:rient_app/features/auth/service/auth_exception.dart';
 import 'package:rient_app/features/auth/service/auth_service.dart';
@@ -25,6 +26,8 @@ class GetOtpController extends StateNotifier<BaseState<void, Exception>> {
         captcha: captcha,
       );
 
+      await ref.read(emailStorageProvider.notifier).updateEmail(email);
+
       state = const BaseState.success();
     } on AuthException catch (e) {
       state = BaseState.error(e);
@@ -45,6 +48,8 @@ class GetOtpController extends StateNotifier<BaseState<void, Exception>> {
         captcha: captcha,
         verificationCode: verificationCode,
       );
+
+      await ref.read(emailStorageProvider.notifier).updateEmail(email);
 
       state = const BaseState.success();
     } on AuthException catch (e) {
