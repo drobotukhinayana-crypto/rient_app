@@ -118,8 +118,10 @@ final GoRoute _otp = GoRoute(
   name: OtpPage.name,
   path: OtpPage.path,
   routes: const [],
-  pageBuilder: (_, state) =>
-      MaterialPage(key: state.pageKey, child: const OtpPage()),
+  pageBuilder: (_, state) => MaterialPage(
+    key: state.pageKey,
+    child: OtpPage(email: state.extra as String),
+  ),
 );
 
 final GoRoute _selectCompany = GoRoute(

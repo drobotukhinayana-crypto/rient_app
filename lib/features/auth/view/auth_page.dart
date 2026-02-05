@@ -64,7 +64,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   Widget build(BuildContext context) {
     ref.listen(getOtpControllerProvider, (_, state) {
       state.whenOrNull(
-        success: (value) => OtpPage.navigate(context),
+        success: (value) =>
+            OtpPage.navigate(context, email: ref.read(_emailProvider)),
         error: (error) {
           ref.read(_emailErrorProvider.notifier).state =
               'Произошла неизвестная ошибка. Проверьте вашу почту и попробуйте снова';

@@ -14,21 +14,26 @@ import 'package:rient_app/features/auth/view/select_company_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class OtpPage extends StatelessWidget {
-  const OtpPage({super.key});
+  const OtpPage({required this.email, super.key});
+
+  final String email;
 
   static const name = 'otp_page';
   static const path = '/otp_page';
 
-  static void navigate(BuildContext context) => context.pushNamed(name);
+  static void navigate(BuildContext context, {required String email}) =>
+      context.pushNamed(name, extra: email);
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: _BodyWidget());
+    return Scaffold(body: _BodyWidget(email: email));
   }
 }
 
 class _BodyWidget extends StatefulWidget {
-  const _BodyWidget();
+  const _BodyWidget({required this.email});
+
+  final String email;
 
   @override
   State<_BodyWidget> createState() => _BodyWidgetState();
@@ -144,10 +149,7 @@ class _BodyWidgetState extends State<_BodyWidget> {
                             text: 'Введите код, отправленный на вашу почту\n',
                             style: AppFonts.c1Medium,
                           ),
-                          TextSpan(
-                            text: 'example@gmail.com',
-                            style: AppFonts.c1Bold,
-                          ),
+                          TextSpan(text: widget.email, style: AppFonts.c1Bold),
                         ],
                       ),
                     ),
