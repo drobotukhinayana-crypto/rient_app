@@ -7,6 +7,7 @@ import 'package:rient_app/core/utils/base_state/base_state.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/utils/exstensions/string_exstension.dart';
+import 'package:rient_app/core/widgets/error_label.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
 import 'package:rient_app/features/auth/view/components/auth_text_button.dart';
@@ -17,6 +18,7 @@ import 'package:rient_app/features/auth/view/otp_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
 final _emailProvider = StateProvider.autoDispose<String>((ref) => '');
+final _emailErrorProvider = StateProvider.autoDispose<String>((ref) => '');
 
 class AuthPage extends StatelessWidget {
   const AuthPage({super.key});
@@ -61,7 +63,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   @override
   Widget build(BuildContext context) {
     ref.listen(getOtpControllerProvider, (_, state) {
-      state.whenOrNull(success: (value) => OtpPage.navigate(context));
+      state.whenOrNull(
+        success: (value) => OtpPage.navigate(context),
+        error: (error) {
+          ref.read(_emailErrorProvider.notifier).state =
+              'Произошла неизвестная ошибка. Проверьте вашу почту и попробуйте снова';
+        },
+      );
     });
 
     return SafeArea(
@@ -89,9 +97,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   MainTextField(
                     label: 'Почта',
                     controller: emailController,
+                    hasError: ref.watch(_emailErrorProvider).isNotEmpty,
                     hintText: 'example@gmail.com',
                   ),
-
+                  if (ref.watch(_emailErrorProvider).isNotEmpty)
+                    ErrorLabel(ref.watch(_emailErrorProvider)),
                   Gap(24),
                 ],
               ),
@@ -109,14 +119,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   title: 'Продолжить',
                   isActive: ref.watch(_emailProvider).isEmail,
                   isLoading: ref.watch(getOtpControllerProvider).isLoading,
-                  onTap: () {
-                    ref
-                        .read(getOtpControllerProvider.notifier)
-                        .getOtp(
-                          ref.read(_emailProvider),
-                          '0cAFcWeA5CVv...Hd4jjnvnlP6igECB-RndwLqpKbelHe8G',
-                        );
-                  },
+                  onTap: () async => ref
+                      .read(getOtpControllerProvider.notifier)
+                      .getOtp(
+                        ref.read(_emailProvider),
+                        '0cAFcWeA5CVv...Hd4jjnjP6igECB-RndwLqpKbelHe8G',
+                      ),
                 ),
                 Gap(16),
 

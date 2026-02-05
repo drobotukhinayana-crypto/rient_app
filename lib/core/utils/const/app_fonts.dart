@@ -81,4 +81,6 @@ abstract class AppFonts {
     fontSize: 11,
     fontWeight: FontWeight.w500,
   );
+
+  static var medium14;
 }

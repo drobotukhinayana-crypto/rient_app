@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:rient_app/core/utils/base_state/base_state.dart';
+import 'package:rient_app/features/auth/service/auth_exception.dart';
 import 'package:rient_app/features/auth/service/auth_service.dart';
 
 final getOtpControllerProvider =
@@ -25,6 +26,8 @@ class GetOtpController extends StateNotifier<BaseState<void, Exception>> {
       );
 
       state = const BaseState.success();
+    } on AuthException catch (e) {
+      state = BaseState.error(e);
     } catch (e) {
       state = BaseState.error(Exception(e));
     }
