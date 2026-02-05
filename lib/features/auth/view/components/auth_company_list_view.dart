@@ -58,7 +58,7 @@ class _AuthCompanyItem extends StatelessWidget {
         child: Row(
           children: [
             CircleAvatar(
-              backgroundColor: AppColors.secondaryAccent,
+              backgroundColor: AppColors.secondaryLight,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(300),
                 child: Image.network(organization.logo ?? ''),
