@@ -89,14 +89,16 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
-  void _onOtpCompleted(String code) {
-    // TODO: заменить на реальную проверку кода через API
-    const validCode = '1234';
-    if (code == validCode) {
-      SelectCompanyPage.navigate(context);
-    } else {
-      setState(() => _otpHasError = true);
-    }
+  void _onOtpCompleted(String code) async {
+    if (_otpHasError) setState(() => _otpHasError = false);
+
+    await ref
+        .read(getOtpControllerProvider.notifier)
+        .verifyOtp(
+          widget.email,
+          '0cAFcWeA5CVv...Hd4jjnjP6igECB-RndwLqpKbelHe8G', // Использование жестко закодированной капчи
+          code,
+        );
   }
 
   void _onOtpChanged(String code) {
@@ -105,11 +107,18 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(getOtpControllerProvider, (_, state) {
-      state.whenOrNull(
-        success: (value) => _startTimer(),
+    ref.listen(getOtpControllerProvider, (previous, next) {
+      next.whenOrNull(
+        success: (value) {
+          _startTimer();
+          if (previous != null && previous.isLoading) {
+            SelectCompanyPage.navigate(context);
+          }
+        },
         error: (error) {
-          // TODO: Возможно, стоит отобразить ошибку пользователю
+          if (previous != null && previous.isLoading) {
+            setState(() => _otpHasError = true);
+          }
         },
       );
     });

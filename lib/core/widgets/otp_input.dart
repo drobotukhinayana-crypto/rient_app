@@ -6,7 +6,7 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 class OtpInput extends StatefulWidget {
   const OtpInput({
     super.key,
-    this.length = 4,
+    this.length = 6,
     this.hasError = false,
     this.onCompleted,
     this.onChanged,
