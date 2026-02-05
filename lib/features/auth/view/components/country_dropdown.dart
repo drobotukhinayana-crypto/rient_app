@@ -70,7 +70,8 @@ class _CountryDropdownState extends State<CountryDropdown> {
         ),
         const Gap(8),
         GestureDetector(
-          onTap: _openPicker,
+          onTap: () {},
+          // _openPicker,
           behavior: HitTestBehavior.opaque,
           child: Container(
             height: 45,

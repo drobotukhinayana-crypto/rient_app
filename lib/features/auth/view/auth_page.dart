@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
@@ -10,6 +12,8 @@ import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/components/country_dropdown.dart';
 import 'package:rient_app/features/auth/view/otp_page.dart';
 import 'package:rient_app/resources/resources.dart';
+
+final _emailProvider = StateProvider.autoDispose<String>((ref) => '');
 
 class AuthPage extends StatelessWidget {
   const AuthPage({super.key});
@@ -25,8 +29,31 @@ class AuthPage extends StatelessWidget {
   }
 }
 
-class _BodyWidget extends StatelessWidget {
+class _BodyWidget extends ConsumerStatefulWidget {
   const _BodyWidget();
+
+  @override
+  ConsumerState<_BodyWidget> createState() => _BodyWidgetState();
+}
+
+class _BodyWidgetState extends ConsumerState<_BodyWidget> {
+  final emailController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    emailController.addListener(emailListener);
+  }
+
+  void emailListener() =>
+      ref.read(_emailProvider.notifier).state = emailController.text;
+
+  @override
+  void dispose() {
+    emailController.removeListener(emailListener);
+    emailController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +81,7 @@ class _BodyWidget extends StatelessWidget {
                   // поле для ввода почты
                   MainTextField(
                     label: 'Почта',
-                    controller: TextEditingController(),
+                    controller: emailController,
                     hintText: 'example@gmail.com',
                   ),
 

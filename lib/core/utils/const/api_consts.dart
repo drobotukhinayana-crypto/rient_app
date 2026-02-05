@@ -6,7 +6,7 @@ class ApiConsts {
   final bool _isProd = false;
   late final _apiUrl = _isProd ? _prodUrl : _testUrl;
   final _prodUrl = '';
-  final _testUrl = '';
+  final _testUrl = 'https://apptest.triobot.ru/api/';
 
   String createUrl(String endpoint) {
     // Убираем начальный слэш из endpoint, если он есть
