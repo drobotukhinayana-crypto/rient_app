@@ -19,6 +19,14 @@ class _AuthCompanyListViewState extends State<AuthCompanyListView> {
   int? _selectedIndex;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.organizations.isNotEmpty) {
+      _selectedIndex = 0;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ListView.separated(
       shrinkWrap: true,

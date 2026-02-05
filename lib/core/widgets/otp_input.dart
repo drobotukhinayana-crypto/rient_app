@@ -173,8 +173,8 @@ class _OtpDigitFieldState extends State<_OtpDigitField> {
     final showBorder = isFocused || widget.hasError;
 
     return Container(
-      width: 50,
-      height: 50,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
         color: AppColors.secondaryLight,
         borderRadius: BorderRadius.circular(12),
