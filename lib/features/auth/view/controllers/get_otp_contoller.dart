@@ -32,4 +32,25 @@ class GetOtpController extends StateNotifier<BaseState<void, Exception>> {
       state = BaseState.error(Exception(e));
     }
   }
+
+  Future<void> verifyOtp(
+    String email,
+    String captcha,
+    String verificationCode,
+  ) async {
+    state = const BaseState.loading();
+    try {
+      await _authService.verifyVerificationCode(
+        email: email,
+        captcha: captcha,
+        verificationCode: verificationCode,
+      );
+
+      state = const BaseState.success();
+    } on AuthException catch (e) {
+      state = BaseState.error(e);
+    } catch (e) {
+      state = BaseState.error(Exception(e));
+    }
+  }
 }

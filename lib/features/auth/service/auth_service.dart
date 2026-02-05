@@ -21,4 +21,26 @@ class AuthService {
       throw Exception('${response.data}');
     }
   }
+
+  Future<void> verifyVerificationCode({
+    required String email,
+    required String captcha,
+    required String verificationCode,
+  }) async {
+    final url = ApiConsts().createUrl('accounts/verify/');
+    final response = await Dio().post<Map<String, dynamic>>(
+      url,
+      data: FormData.fromMap({
+        'email': email,
+        'captcha': captcha,
+        'verification_code': verificationCode,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    } else {
+      throw Exception('${response.data}');
+    }
+  }
 }
