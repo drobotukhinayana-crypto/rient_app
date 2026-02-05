@@ -3,13 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/utils/base_state/base_state.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/utils/exstensions/string_exstension.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
 import 'package:rient_app/features/auth/view/components/auth_text_button.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/components/country_dropdown.dart';
+import 'package:rient_app/features/auth/view/controllers/get_otp_contoller.dart';
 import 'package:rient_app/features/auth/view/otp_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -57,6 +60,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(getOtpControllerProvider, (_, state) {
+      state.whenOrNull(success: (value) => OtpPage.navigate(context));
+    });
+
     return SafeArea(
       bottom: false,
       child: Column(
@@ -100,7 +107,16 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                 // кнопка продолжения
                 MainButton(
                   title: 'Продолжить',
-                  onTap: () => OtpPage.navigate(context),
+                  isActive: ref.watch(_emailProvider).isEmail,
+                  isLoading: ref.watch(getOtpControllerProvider).isLoading,
+                  onTap: () {
+                    ref
+                        .read(getOtpControllerProvider.notifier)
+                        .getOtp(
+                          ref.read(_emailProvider),
+                          '0cAFcWeA5CVv...Hd4jjnvnlP6igECB-RndwLqpKbelHe8G',
+                        );
+                  },
                 ),
                 Gap(16),
 
