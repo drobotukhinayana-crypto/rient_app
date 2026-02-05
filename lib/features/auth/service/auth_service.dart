@@ -1,10 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
 
-final authServiceProvider = Provider<AuthService>((ref) => AuthService());
+final authServiceProvider = Provider<AuthService>((ref) => AuthService(ref));
 
 class AuthService {
+  AuthService(this.ref);
+
+  final Ref ref;
+
+  TokenStorageNotifier get _tokenStorage => ref.read(tokenProvider.notifier);
   Future<void> requestVerificationCode({
     required String email,
     required String captcha,
@@ -37,7 +43,8 @@ class AuthService {
       }),
     );
 
-    if (response.statusCode == 200) {
+    if (response.statusCode == 200 && response.data!['token'] != null) {
+      _tokenStorage.updateToken(response.data!['token'] as String);
       return;
     } else {
       throw Exception('${response.data}');
