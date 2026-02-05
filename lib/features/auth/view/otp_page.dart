@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/utils/base_state/base_state.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
@@ -10,6 +12,7 @@ import 'package:rient_app/core/widgets/custom_dialog.dart';
 import 'package:rient_app/core/widgets/error_label.dart';
 import 'package:rient_app/core/widgets/otp_input.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
+import 'package:rient_app/features/auth/view/controllers/get_otp_contoller.dart';
 import 'package:rient_app/features/auth/view/select_company_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -30,16 +33,16 @@ class OtpPage extends StatelessWidget {
   }
 }
 
-class _BodyWidget extends StatefulWidget {
+class _BodyWidget extends ConsumerStatefulWidget {
   const _BodyWidget({required this.email});
 
   final String email;
 
   @override
-  State<_BodyWidget> createState() => _BodyWidgetState();
+  ConsumerState<_BodyWidget> createState() => _BodyWidgetState();
 }
 
-class _BodyWidgetState extends State<_BodyWidget> {
+class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   bool _otpHasError = false;
   static const _resendSeconds = 45;
   int _secondsLeft = _resendSeconds;
@@ -73,8 +76,10 @@ class _BodyWidgetState extends State<_BodyWidget> {
     });
   }
 
-  void _onResendCode() {
-    // TODO: запрос на отправку нового кода
+  void _onResendCode() async {
+    await ref
+        .read(getOtpControllerProvider.notifier)
+        .getOtp(widget.email, '0cAFcWeA5CVv...Hd4jjnjP6igECB-RndwLqpKbelHe8G');
     _startTimer();
   }
 
@@ -100,6 +105,15 @@ class _BodyWidgetState extends State<_BodyWidget> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(getOtpControllerProvider, (_, state) {
+      state.whenOrNull(
+        success: (value) => _startTimer(),
+        error: (error) {
+          // TODO: Возможно, стоит отобразить ошибку пользователю
+        },
+      );
+    });
+
     return SafeArea(
       bottom: false,
       child: Column(
@@ -174,7 +188,11 @@ class _BodyWidgetState extends State<_BodyWidget> {
 
                   // кнопка отправки нового кода и секундомер
                   TextButton(
-                    onPressed: _secondsLeft > 0 ? null : _onResendCode,
+                    onPressed:
+                        _secondsLeft > 0 ||
+                            ref.watch(getOtpControllerProvider).isLoading
+                        ? null
+                        : _onResendCode,
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
@@ -183,7 +201,9 @@ class _BodyWidgetState extends State<_BodyWidget> {
                     child: Text(
                       'Отправить новый код',
                       style: AppFonts.c1Medium.copyWith(
-                        color: _secondsLeft > 0
+                        color:
+                            (_secondsLeft > 0 ||
+                                ref.watch(getOtpControllerProvider).isLoading)
                             ? AppColors.grey
                             : AppColors.mainAccent,
                       ),
