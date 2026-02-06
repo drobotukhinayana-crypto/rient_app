@@ -60,7 +60,7 @@ class _BodyWidget extends StatelessWidget {
                         .watch(getAuthOrganiztionsProvider)
                         .when(
                           data: (data) =>
-                              AuthCompanyListView(organizations: data),
+                              AuthCompanyListView(organizationMembers: data),
                           error: (_, __) => Container(),
                           loading: () => LoadingWidget(),
                         ),
