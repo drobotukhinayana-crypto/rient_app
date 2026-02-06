@@ -199,7 +199,7 @@ class _OtpDigitFieldState extends State<_OtpDigitField> {
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           errorBorder: InputBorder.none,
-          contentPadding: EdgeInsets.zero,
+          contentPadding: EdgeInsets.symmetric(vertical: 14),
         ),
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         onChanged: widget.onChanged,
