@@ -46,7 +46,8 @@ class LanguageDropdownPill extends ConsumerWidget {
       color: AppColors.secondaryLight,
       borderRadius: BorderRadius.circular(300),
       child: InkWell(
-        onTap: () => _showMenu(context, ref, code),
+        onTap: () {},
+        // onTap: () => _showMenu(context, ref, code),
         borderRadius: BorderRadius.circular(300),
         child: Padding(
           padding: const EdgeInsets.all(16),
