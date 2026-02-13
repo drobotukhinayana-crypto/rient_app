@@ -9,9 +9,16 @@ import 'package:rient_app/features/auth/data/models/organization_member/organiza
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 
 class AuthCompanyListView extends StatefulWidget {
-  const AuthCompanyListView({super.key, required this.organizationMembers});
+  const AuthCompanyListView({
+    super.key,
+    required this.organizationMembers,
+    this.onSelectedMemberChanged,
+  });
 
   final OrganizationMembers organizationMembers;
+
+  /// Вызывается при выборе компании (в т.ч. при первой загрузке).
+  final void Function(OrganizationMember member)? onSelectedMemberChanged;
 
   @override
   State<AuthCompanyListView> createState() => _AuthCompanyListViewState();
@@ -25,6 +32,19 @@ class _AuthCompanyListViewState extends State<AuthCompanyListView> {
     super.initState();
     if (widget.organizationMembers.isNotEmpty) {
       _selectedIndex = 0;
+      // Откладываем обновление провайдеров до конца построения дерева виджетов
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onSelectedMemberChanged?.call(widget.organizationMembers.first);
+      });
+    }
+  }
+
+  void _onSelectionChanged(int? index) {
+    setState(() => _selectedIndex = index);
+    if (index != null &&
+        index >= 0 &&
+        index < widget.organizationMembers.length) {
+      widget.onSelectedMemberChanged?.call(widget.organizationMembers[index]);
     }
   }
 
@@ -37,7 +57,7 @@ class _AuthCompanyListViewState extends State<AuthCompanyListView> {
         role: widget.organizationMembers[index].role,
         index: index,
         selectedIndex: _selectedIndex,
-        onChanged: (value) => setState(() => _selectedIndex = value),
+        onChanged: _onSelectionChanged,
         organization: widget.organizationMembers[index].organization,
       ),
       separatorBuilder: (BuildContext context, int index) => Gap(16),

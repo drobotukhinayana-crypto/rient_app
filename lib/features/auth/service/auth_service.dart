@@ -1,7 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/services/email_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
+import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService(ref));
 
@@ -52,16 +55,14 @@ class AuthService {
   }
 
   Future<void> getToken({
-    required String email,
     required String password,
-    required int role,
-    required String userAgent,
-    required String deviceId,
-    required int organization,
-    required bool rememberMe,
-    required List<String> branches,
+    required int userAgent,
+    required int deviceId,
   }) async {
     final url = ApiConsts().createUrl('accounts/token/');
+    final email = ref.read(emailStorageProvider);
+    final role = ref.read(roleProvider);
+    final organizationId = ref.read(organizationIdProvider);
     final response = await Dio().post<Map<String, dynamic>>(
       url,
       data: FormData.fromMap({
@@ -70,9 +71,10 @@ class AuthService {
         'role': role,
         'user_agent': userAgent,
         'device_id': deviceId,
-        'organization': organization,
+        'organization': organizationId,
         'remember_me': true,
         'branches': [],
+        'captcha': '0cAFcWeA5CVv...Hd4jjnjP6igECB-RndwLqpKbelHe8G',
       }),
     );
 

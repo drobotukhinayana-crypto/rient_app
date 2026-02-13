@@ -1,17 +1,22 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/utils/base_state/base_state.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/error_label.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
+import 'package:rient_app/features/auth/view/controllers/get_token_controller.dart';
 import 'package:rient_app/features/auth/view/select_branch_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
-final _passwordProvider = StateProvider.autoDispose<String>((ref) => '');
+final _errorPasswordProvider = StateProvider.autoDispose<String>((ref) => '');
 
 class AuthPasswordPage extends ConsumerStatefulWidget {
   const AuthPasswordPage({super.key});
@@ -29,23 +34,22 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
   final passwordController = TextEditingController();
 
   @override
-  void initState() {
-    super.initState();
-    passwordController.addListener(passwordListener);
-  }
-
-  void passwordListener() =>
-      ref.read(_passwordProvider.notifier).state = passwordController.text;
-
-  @override
   void dispose() {
-    passwordController.removeListener(passwordListener);
     passwordController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(getTokenControllerProvider, (_, state) {
+      state.whenOrNull(
+        success: (value) => SelectBranchPage.navigate(context),
+        error: (error) {
+          ref.read(_errorPasswordProvider.notifier).state =
+              'Произошла неизвестная ошибка. Проверьте ваш пароль и попробуйте снова';
+        },
+      );
+    });
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -70,7 +74,10 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
                       controller: passwordController,
                       hintText: 'qwerty12345!',
                       isPassword: true,
+                      hasError: ref.watch(_errorPasswordProvider).isNotEmpty,
                     ),
+                    if (ref.watch(_errorPasswordProvider).isNotEmpty)
+                      ErrorLabel(ref.watch(_errorPasswordProvider)),
                   ],
                 ),
               ),
@@ -81,7 +88,14 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
               padding: AppDecoration.padding16.copyWith(bottom: 24),
               child: MainButton(
                 title: 'Продолжить',
-                onTap: () => SelectBranchPage.navigate(context),
+                onTap: () {
+                  final password = passwordController.text;
+                  ref.read(getTokenControllerProvider.notifier).getToken(
+                        password: password,
+                        deviceId: Platform.operatingSystemVersion.hashCode,
+                        userAgent: Platform.operatingSystem.hashCode,
+                      );
+                },
               ),
             ),
 

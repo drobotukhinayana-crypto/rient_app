@@ -10,6 +10,8 @@ import 'package:rient_app/features/auth/service/get_auth_organiztions.dart';
 import 'package:rient_app/features/auth/view/auth_password_page.dart';
 import 'package:rient_app/features/auth/view/components/auth_company_list_view.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
+import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class SelectCompanyPage extends StatelessWidget {
@@ -59,8 +61,15 @@ class _BodyWidget extends StatelessWidget {
                     builder: (_, ref, __) => ref
                         .watch(getAuthOrganiztionsProvider)
                         .when(
-                          data: (data) =>
-                              AuthCompanyListView(organizationMembers: data),
+                          data: (data) => AuthCompanyListView(
+                            organizationMembers: data,
+                            onSelectedMemberChanged: (member) {
+                              ref.read(organizationIdProvider.notifier).state =
+                                  member.organization.id;
+                              ref.read(roleProvider.notifier).state =
+                                  member.role.value;
+                            },
+                          ),
                           error: (_, __) => Container(),
                           loading: () => LoadingWidget(),
                         ),
