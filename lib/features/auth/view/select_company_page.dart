@@ -7,9 +7,9 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/features/auth/service/get_auth_organiztions.dart';
+import 'package:rient_app/features/auth/view/auth_password_page.dart';
 import 'package:rient_app/features/auth/view/components/auth_company_list_view.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
-import 'package:rient_app/features/auth/view/select_branch_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class SelectCompanyPage extends StatelessWidget {
@@ -75,7 +75,7 @@ class _BodyWidget extends StatelessWidget {
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
             child: MainButton(
               title: 'Продолжить',
-              onTap: () => SelectBranchPage.navigate(context),
+              onTap: () => AuthPasswordPage.navigate(context),
             ),
           ),
 

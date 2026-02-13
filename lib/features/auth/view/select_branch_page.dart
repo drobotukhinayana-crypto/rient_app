@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
-import 'package:rient_app/features/auth/view/auth_password_page.dart';
 import 'package:rient_app/features/auth/view/components/auth_branch_list_view.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
+import 'package:rient_app/features/tabbar/view/tab_bar_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class SelectBranchPage extends StatelessWidget {
@@ -65,7 +65,7 @@ class _BodyWidget extends StatelessWidget {
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
             child: MainButton(
               title: 'Продолжить',
-              onTap: () => AuthPasswordPage.navigate(context),
+              onTap: () => TabBarPage.navigate(context),
             ),
           ),
 

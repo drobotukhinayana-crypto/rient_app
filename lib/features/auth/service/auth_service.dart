@@ -50,4 +50,37 @@ class AuthService {
       throw Exception('${response.data}');
     }
   }
+
+  Future<void> getToken({
+    required String email,
+    required String password,
+    required int role,
+    required String userAgent,
+    required String deviceId,
+    required int organization,
+    required bool rememberMe,
+    required List<String> branches,
+  }) async {
+    final url = ApiConsts().createUrl('accounts/token/');
+    final response = await Dio().post<Map<String, dynamic>>(
+      url,
+      data: FormData.fromMap({
+        'email': email,
+        'password': password,
+        'role': role,
+        'user_agent': userAgent,
+        'device_id': deviceId,
+        'organization': organization,
+        'remember_me': true,
+        'branches': [],
+      }),
+    );
+
+    if (response.statusCode == 200 && response.data!['token'] != null) {
+      _tokenStorage.updateToken(response.data!['token'] as String);
+      return;
+    } else {
+      throw Exception('${response.data}');
+    }
+  }
 }
