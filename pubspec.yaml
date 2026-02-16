@@ -24,7 +24,7 @@ dependencies:
     sdk: flutter
   country_picker: ^2.0.27
   syncfusion_flutter_calendar: ^31.1.19
-  
+  url_launcher: ^6.2.5
 
 dev_dependencies:
   flutter_test:

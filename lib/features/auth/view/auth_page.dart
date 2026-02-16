@@ -16,6 +16,7 @@ import 'package:rient_app/features/auth/view/components/country_dropdown.dart';
 import 'package:rient_app/features/auth/view/controllers/get_otp_contoller.dart';
 import 'package:rient_app/features/auth/view/otp_page.dart';
 import 'package:rient_app/resources/resources.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 final _emailProvider = StateProvider.autoDispose<String>((ref) => '');
 final _emailErrorProvider = StateProvider.autoDispose<String>((ref) => '');
@@ -137,7 +138,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                 // пользовательское соглашение
                 AuthTextButton(
                   title: 'Пользовательское соглашение?',
-                  onTap: () {},
+                  onTap: () async {
+                    final uri = Uri.parse('https://rient.ru/doc/agreement.pdf');
+                    launchUrl(uri, mode: LaunchMode.externalApplication);
+                  },
                 ),
               ],
             ),
