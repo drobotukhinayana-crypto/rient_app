@@ -47,10 +47,14 @@ class _GetAuthBranchesFetcherImpl implements GetAuthBranchesFetcher {
         }),
       );
 
-      final results = response.data?['results'] as List<dynamic>? ?? [];
-
-      return results
-          .map((e) => BranchesMember.fromJson(e as Map<String, dynamic>))
+      // Ответ приходит как один объект: {"role": 1, "branches": [...]}
+      final data = response.data;
+      if (data == null) return [];
+      final member = BranchesMember.fromJson(data);
+      // Делаем по одному BranchesMember на каждый филиал, чтобы список показывал все филиалы
+      if (member.branches.isEmpty) return [];
+      return member.branches
+          .map((branch) => BranchesMember(role: member.role, branches: [branch]))
           .toList();
     } catch (e) {
       throw CustomException(causedError: e);
