@@ -1,5 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:rient_app/features/auth/data/models/organization.dart';
+import 'package:rient_app/features/auth/data/models/organization/organization.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 
 part 'organization_member.freezed.dart';

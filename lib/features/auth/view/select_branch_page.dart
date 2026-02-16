@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
+import 'package:rient_app/features/auth/service/get_auth_branches.dart';
 import 'package:rient_app/features/auth/view/components/auth_branch_list_view.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
+import 'package:rient_app/features/auth/view/providers/branches_id_provider.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/tabbar/view/tab_bar_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -57,7 +62,23 @@ class _BodyWidget extends StatelessWidget {
               child: Column(
                 children: [
                   // список филиалов
-                  const AuthBranchListView(),
+                  Consumer(
+                    builder: (_, ref, __) => ref
+                        .watch(getAuthBranchesProvider)
+                        .when(
+                          data: (data) => AuthBranchListView(
+                            branchesMembers: data,
+                            onSelectedMemberChanged: (member) {
+                              ref.read(branchesIdProvider.notifier).state =
+                                  member.branches.first.id;
+                              ref.read(roleProvider.notifier).state =
+                                  member.role.value;
+                            },
+                          ),
+                          error: (_, __) => Container(),
+                          loading: () => LoadingWidget(),
+                        ),
+                  ),
                 ],
               ),
             ),

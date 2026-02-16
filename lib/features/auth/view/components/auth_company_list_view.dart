@@ -4,7 +4,7 @@ import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/app_radio.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
-import 'package:rient_app/features/auth/data/models/organization.dart';
+import 'package:rient_app/features/auth/data/models/organization/organization.dart';
 import 'package:rient_app/features/auth/data/models/organization_member/organization_member.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 

@@ -6,7 +6,7 @@ import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
-import 'package:rient_app/features/auth/service/get_auth_organiztions.dart';
+import 'package:rient_app/features/auth/service/get_auth_company.dart';
 import 'package:rient_app/features/auth/view/auth_password_page.dart';
 import 'package:rient_app/features/auth/view/components/auth_company_list_view.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
