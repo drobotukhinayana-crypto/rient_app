@@ -29,7 +29,9 @@ class OtpPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: _BodyWidget(email: email));
+    return PopScope(
+      child: Scaffold(body: _BodyWidget(email: email)),
+    );
   }
 }
 
@@ -44,6 +46,7 @@ class _BodyWidget extends ConsumerStatefulWidget {
 
 class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   bool _otpHasError = false;
+  bool _isResending = false;
   static const _resendSeconds = 45;
   int _secondsLeft = _resendSeconds;
   Timer? _timer;
@@ -77,10 +80,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }
 
   void _onResendCode() async {
+    _isResending = true;
     await ref
         .read(getOtpControllerProvider.notifier)
         .getOtp(widget.email, '0cAFcWeA5CVv...Hd4jjnjP6igECB-RndwLqpKbelHe8G');
-    _startTimer();
   }
 
   String _formatTime(int seconds) {
@@ -110,12 +113,15 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     ref.listen(getOtpControllerProvider, (previous, next) {
       next.whenOrNull(
         success: (value) {
-          _startTimer();
-          if (previous != null && previous.isLoading) {
+          if (_isResending) {
+            _startTimer();
+            _isResending = false;
+          } else if (previous != null && previous.isLoading) {
             SelectCompanyPage.navigate(context);
           }
         },
         error: (error) {
+          _isResending = false;
           if (previous != null && previous.isLoading) {
             setState(() => _otpHasError = true);
           }
@@ -127,10 +133,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
     return SafeArea(
       bottom: false,
-      child: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
+      child: GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
               padding: AppDecoration.padding16.copyWith(top: 16),
               child: Column(
                 children: [
@@ -270,6 +279,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           const BottomPanel(),
         ],
       ),
+    ),
     );
   }
 }

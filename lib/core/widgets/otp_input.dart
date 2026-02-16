@@ -85,9 +85,14 @@ class _OtpInputState extends State<OtpInput> {
 
   KeyEventResult _onKeyDown(int index, FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    if (event.logicalKey == LogicalKeyboardKey.backspace &&
-        _controllers[index].text.isEmpty &&
-        index > 0) {
+    if (event.logicalKey != LogicalKeyboardKey.backspace) return KeyEventResult.ignored;
+    if (index == 0 && _controllers[index].text.isEmpty) return KeyEventResult.ignored;
+    if (_controllers[index].text.isNotEmpty) {
+      _controllers[index].clear();
+      if (index > 0) _focusNodes[index - 1].requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (_controllers[index].text.isEmpty && index > 0) {
       _focusNodes[index - 1].requestFocus();
       _controllers[index - 1].clear();
       return KeyEventResult.handled;
