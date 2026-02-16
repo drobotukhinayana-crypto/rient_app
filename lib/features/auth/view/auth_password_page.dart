@@ -5,6 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/session_data/models/session_data.dart';
+import 'package:rient_app/core/session_data/view/controller/session_data_controller.dart';
+import 'package:rient_app/core/services/email_storage.dart';
+import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/base_state/base_state.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
@@ -48,6 +52,13 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
     ref.listen(getTokenControllerProvider, (_, state) {
       state.whenOrNull(
         success: (_) {
+          final token = ref.read(tokenProvider);
+          final email = ref.read(emailStorageProvider);
+          if (token != null && email != null && email.isNotEmpty) {
+            ref.read(sessionDataControllerProvider.notifier).saveSessionData(
+                  SessionData(email: email, password: '', token: token),
+                );
+          }
           final roleId = ref.read(roleProvider);
           // Владелец (role = 0) — сразу на TabBar, без выбора филиала
           if (roleId == UserRole.owner.value) {
