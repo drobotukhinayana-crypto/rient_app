@@ -44,8 +44,10 @@ class _AuthBranchItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return DefaultContainerWidget(
-      color: AppColors.secondaryDark,
+      hasShadow: false,
+      color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryDark,
       child: InkWell(
         onTap: () => onChanged(index),
         borderRadius: BorderRadius.circular(300),

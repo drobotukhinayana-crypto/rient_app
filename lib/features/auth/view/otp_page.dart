@@ -123,6 +123,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       );
     });
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SafeArea(
       bottom: false,
       child: Column(
@@ -138,7 +140,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       // кнопка назад
                       GestureDetector(
                         onTap: () => context.pop(),
-                        child: Image.asset(AppImages.back),
+                        child: Image.asset(
+                          isDark ? AppImages.backButtonDark : AppImages.back,
+                        ),
                       ),
 
                       // кнопка информации
@@ -176,7 +180,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                           titleButton: 'Закрыть',
                           onTap: () => context.pop(),
                         ),
-                        child: Image.asset(AppImages.info),
+                        child: Image.asset(
+                          isDark ? AppImages.infoButtonDark : AppImages.info,
+                        ),
                       ),
                     ],
                   ),

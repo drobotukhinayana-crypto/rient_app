@@ -30,7 +30,6 @@ class MainButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
       height: height,
       width: width,
@@ -42,14 +41,8 @@ class MainButton extends ConsumerWidget {
               }
             : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: isActive
-              ? isDark
-                    ? AppColors.primaryDark
-                    : color
-              : AppColors.grey,
-          disabledBackgroundColor: isDark
-              ? const Color(0xff2E334A)
-              : AppColors.grey,
+          backgroundColor: isActive ? color : AppColors.grey,
+          disabledBackgroundColor: AppColors.grey,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: AppDecoration.borderRadius300,
@@ -70,8 +63,6 @@ class MainButton extends ConsumerWidget {
                     style: AppFonts.b2Semi.copyWith(
                       color: isActive
                           ? textColor
-                          : isDark
-                          ? Colors.white.withValues(alpha: .5)
                           : const Color(0xff1F2132).withValues(alpha: .5),
                     ),
                   ),

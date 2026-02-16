@@ -10,6 +10,7 @@ class AppImages {
   static const String arrowOutlinedTop = 'assets/images/arrow_outlined_top.png';
   static const String arrowTop = 'assets/images/arrow_top.png';
   static const String back = 'assets/images/back.png';
+  static const String backButtonDark = 'assets/images/back_button_dark.png';
   static const String burger = 'assets/images/burger.png';
   static const String calendarTab = 'assets/images/calendar_tab.png';
   static const String chatTab = 'assets/images/chat_tab.png';
@@ -21,6 +22,7 @@ class AppImages {
   static const String eyeShowLine = 'assets/images/eye_show_line.png';
   static const String homeTab = 'assets/images/home_tab.png';
   static const String info = 'assets/images/info.png';
+  static const String infoButtonDark = 'assets/images/info_button_dark.png';
   static const String language = 'assets/images/language.png';
   static const String linkTab = 'assets/images/link_tab.png';
   static const String logoBig = 'assets/images/logo_big.png';
@@ -29,6 +31,10 @@ class AppImages {
   static const String more = 'assets/images/more.png';
   static const String radiobutton = 'assets/images/radiobutton.png';
   static const String radiobuttonActive = 'assets/images/radiobuttonActive.png';
+  static const String radiobuttonDarkActive =
+      'assets/images/radiobutton_dark_active.png';
+  static const String radiobuttonDarkUnactive =
+      'assets/images/radiobutton_dark_unactive.png';
   static const String sunFill = 'assets/images/sun_fill.png';
   static const String telegram = 'assets/images/telegram.png';
   static const String whatsapp = 'assets/images/whatsapp.png';

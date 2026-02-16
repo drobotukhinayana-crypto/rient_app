@@ -11,6 +11,7 @@ class BottomPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.only(top: 20, bottom: 30),
       decoration: BoxDecoration(
@@ -20,7 +21,7 @@ class BottomPanel extends ConsumerWidget {
             color: Color(0xff000000).withValues(alpha: 0.1),
           ),
         ],
-        color: AppColors.primaryWhite,
+        color: isDark ? AppColors.primaryDark : AppColors.primaryWhite,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),

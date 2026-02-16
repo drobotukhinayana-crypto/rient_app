@@ -166,6 +166,7 @@ class _OtpDigitFieldState extends State<_OtpDigitField> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isFocused = _focused;
     final borderColor = isFocused
         ? widget.focusedBorderColor
@@ -176,7 +177,7 @@ class _OtpDigitFieldState extends State<_OtpDigitField> {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: AppColors.secondaryLight,
+        color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: showBorder ? borderColor : Colors.transparent,
@@ -190,7 +191,11 @@ class _OtpDigitFieldState extends State<_OtpDigitField> {
         keyboardType: TextInputType.number,
         maxLength: widget.maxLength,
         style: AppFonts.b1Semi.copyWith(
-          color: widget.hasError ? AppColors.red : AppColors.primaryDark,
+          color: widget.hasError
+              ? AppColors.red
+              : isDark
+              ? AppColors.primaryWhite
+              : AppColors.primaryDark,
         ),
         cursorColor: widget.hasError ? AppColors.red : AppColors.mainAccent,
         decoration: const InputDecoration(

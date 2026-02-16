@@ -107,6 +107,7 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final border = OutlineInputBorder(
       borderRadius: widget.borderRadius ?? AppDecoration.borderRadius300,
       borderSide: BorderSide.none,
@@ -144,7 +145,9 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
           decoration: InputDecoration(
             filled: true,
             fillColor: widget.canEdit
-                ? AppColors.secondaryLight
+                ? isDark
+                      ? AppColors.secondaryDarkLight
+                      : AppColors.secondaryLight
                 : AppColors.grey,
             suffixIcon: _buildSuffixIcon(),
             prefixIconConstraints: const BoxConstraints(),

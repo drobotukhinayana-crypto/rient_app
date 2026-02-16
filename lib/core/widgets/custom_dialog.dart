@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/resources/resources.dart';
@@ -40,12 +41,13 @@ class CustomDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 30),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? AppColors.primaryDark : Colors.white,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Padding(

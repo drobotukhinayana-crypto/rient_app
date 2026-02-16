@@ -61,6 +61,7 @@ class _CountryDropdownState extends State<CountryDropdown> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -77,7 +78,9 @@ class _CountryDropdownState extends State<CountryDropdown> {
             height: 45,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: AppColors.secondaryLight,
+              color: isDark
+                  ? AppColors.secondaryDarkLight
+                  : AppColors.secondaryLight,
               borderRadius: AppDecoration.borderRadius300,
             ),
             alignment: Alignment.centerLeft,

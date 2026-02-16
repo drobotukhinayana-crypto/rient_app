@@ -73,16 +73,21 @@ class AuthService {
         'device_id': deviceId,
         'organization': organizationId,
         'remember_me': true,
-        'branches': [],
+        'branch': 3,
         'captcha': '0cAFcWeA5CVv...Hd4jjnjP6igECB-RndwLqpKbelHe8G',
       }),
     );
 
-    if (response.statusCode == 200 && response.data!['token'] != null) {
-      _tokenStorage.updateToken(response.data!['token'] as String);
-      return;
-    } else {
-      throw Exception('${response.data}');
+    if (response.statusCode == 200) {
+      // Новый формат: access + refresh; старый: token
+      final accessToken = response.data!['access'] as String?;
+      final legacyToken = response.data!['token'] as String?;
+      final token = accessToken ?? legacyToken;
+      if (token != null && token.isNotEmpty) {
+        await _tokenStorage.updateToken(token);
+        return;
+      }
     }
+    throw Exception('${response.data}');
   }
 }

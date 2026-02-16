@@ -9,11 +9,10 @@ class ThemeSwitchPill extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
-    final isDark = themeMode == ThemeMode.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Material(
-      color: AppColors.secondaryLight,
+      color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight,
       borderRadius: BorderRadius.circular(300),
       child: InkWell(
         onTap: () =>
@@ -46,7 +45,9 @@ class ThemeSwitchPill extends ConsumerWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppColors.primaryWhite,
+                      color: isDark
+                          ? AppColors.primaryDark
+                          : AppColors.primaryWhite,
                       borderRadius: BorderRadius.circular(300),
                       boxShadow: [
                         BoxShadow(

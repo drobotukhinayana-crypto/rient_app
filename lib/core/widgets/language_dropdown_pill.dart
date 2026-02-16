@@ -38,12 +38,13 @@ class LanguageDropdownPill extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final locale = ref.watch(localeProvider);
     final code = locale.languageCode;
     final name = _languageNames[code] ?? _languageNames['ru']!;
 
     return Material(
-      color: AppColors.secondaryLight,
+      color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight,
       borderRadius: BorderRadius.circular(300),
       child: InkWell(
         onTap: () {},

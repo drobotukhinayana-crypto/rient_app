@@ -28,6 +28,7 @@ class _BodyWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SafeArea(
       bottom: false,
       child: Column(
@@ -39,7 +40,9 @@ class _BodyWidget extends StatelessWidget {
                 // кнопка назад
                 GestureDetector(
                   onTap: () => context.pop(),
-                  child: Image.asset(AppImages.back),
+                  child: Image.asset(
+                    isDark ? AppImages.backButtonDark : AppImages.back,
+                  ),
                 ),
                 Gap(12),
 

@@ -26,6 +26,7 @@ abstract class AppColors {
   static const primaryDarkDark = Color(0xffFFFFFF);
   static const primaryWhiteDark = Color(0xff25272F);
   static const secondaryDarkDark = Color(0xff404040);
+  static const secondaryDarkLight = Color(0xff32343D);
   static const mainAccentDark = Color(0xff3784F5);
   static const secondaryAccentDark = Color(0xff78AEFF);
   static const redDark = Color(0xffD42321);
