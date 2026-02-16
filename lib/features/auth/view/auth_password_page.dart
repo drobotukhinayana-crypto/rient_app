@@ -14,7 +14,10 @@ import 'package:rient_app/core/widgets/main_text_field.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/controllers/get_token_controller.dart';
 import 'package:rient_app/features/auth/view/providers/password_provider.dart';
+import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/auth/view/select_branch_page.dart';
+import 'package:rient_app/features/tabbar/view/tab_bar_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
 final _errorPasswordProvider = StateProvider.autoDispose<String>((ref) => '');
@@ -44,7 +47,15 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
   Widget build(BuildContext context) {
     ref.listen(getTokenControllerProvider, (_, state) {
       state.whenOrNull(
-        success: (value) => SelectBranchPage.navigate(context),
+        success: (_) {
+          final roleId = ref.read(roleProvider);
+          // Владелец (role = 0) — сразу на TabBar, без выбора филиала
+          if (roleId == UserRole.owner.value) {
+            TabBarPage.navigate(context);
+          } else {
+            SelectBranchPage.navigate(context);
+          }
+        },
         error: (error) {
           ref.read(_errorPasswordProvider.notifier).state =
               'Произошла неизвестная ошибка. Проверьте ваш пароль и попробуйте снова';
