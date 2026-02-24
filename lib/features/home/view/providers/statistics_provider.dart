@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 import 'package:rient_app/features/home/service/statistics_service.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 
 final statisticsProvider = FutureProvider<Statistics>((ref) async {
   final service = ref.watch(statisticsServiceProvider);
@@ -14,17 +15,12 @@ final statisticsProvider = FutureProvider<Statistics>((ref) async {
     throw Exception('No valid branch found');
   }
 
-  // Получаем текущую дату
-  final now = DateTime.now();
+  // Получаем выбранную дату
+  final selectedDate = ref.watch(selectedDateProvider);
 
-  // Первый день текущего месяца
-  final startDate = DateTime(now.year, now.month, 1);
-
-  // Последний день текущего месяца
-  final endDate = DateTime(now.year, now.month + 1, 0);
-
+  // Используем выбранную дату как startDate и endDate (данные за один день)
   return service.getStatistics(
-    startDate: startDate,
-    endDate: endDate,
+    startDate: selectedDate,
+    endDate: selectedDate,
   );
 });
