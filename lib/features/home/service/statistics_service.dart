@@ -7,6 +7,7 @@ import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 
 final statisticsServiceProvider = Provider<StatisticsService>(
   (ref) => StatisticsService(ref),
@@ -23,7 +24,7 @@ class StatisticsService {
   }) async {
     final token = ref.read(tokenProvider);
     final organizationId = ref.read(organizationIdProvider);
-    final branchId = 3;
+    final branchId = ref.read(currentBranchIdProvider);
 
     if (token == null || token.isEmpty) {
       throw CustomException(causedError: Exception('Token is missing'));

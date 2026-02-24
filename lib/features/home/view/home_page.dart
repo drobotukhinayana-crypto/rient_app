@@ -7,6 +7,7 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/home/view/components/services_today_grid_view.dart';
+import 'package:rient_app/features/home/view/components/branch_selector.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -41,6 +42,8 @@ class _BodyWidget extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const BranchSelector(),
+                Gap(16),
                 _StatisticsWidget(),
                 Gap(24),
                 Text('Услуги на сегодня', style: AppFonts.h4Medium),

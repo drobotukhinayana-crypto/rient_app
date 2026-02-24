@@ -1,9 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 import 'package:rient_app/features/home/service/statistics_service.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 
 final statisticsProvider = FutureProvider<Statistics>((ref) async {
   final service = ref.watch(statisticsServiceProvider);
+
+  // Добавляем зависимость от выбранного филиала, чтобы статистика обновлялась при его изменении
+  ref.watch(selectedBranchProvider);
 
   // Получаем текущую дату
   final now = DateTime.now();
