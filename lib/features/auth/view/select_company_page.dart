@@ -67,8 +67,8 @@ class _BodyWidget extends StatelessWidget {
                           data: (data) => AuthCompanyListView(
                             organizationMembers: data,
                             onSelectedMemberChanged: (member) {
-                              ref.read(organizationIdProvider.notifier).state =
-                                  member.organization.id;
+                              ref.read(organizationIdProvider.notifier).setOrganizationId(
+                                  member.organization.id);
                               ref.read(roleProvider.notifier).state =
                                   member.role.value;
                             },

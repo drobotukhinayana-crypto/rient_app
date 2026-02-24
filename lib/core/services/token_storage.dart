@@ -21,7 +21,6 @@ class TokenStorageNotifier extends StateNotifier<String?> {
 
   Future<void> init() async {
     state = await localStorage.getString(_tokenKey);
-    state;
   }
 
   Future<void> updateToken(String value) async {

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
@@ -18,6 +19,11 @@ class BranchesService {
 
   Future<BranchesApiResponse> getBranches() async {
     final organizationId = ref.read(organizationIdProvider);
+    final token = ref.read(tokenProvider);
+
+    if (token == null || token.isEmpty) {
+      throw CustomException(causedError: Exception('Token is missing'));
+    }
 
     try {
       final url = ApiConsts().createUrl(
@@ -29,6 +35,7 @@ class BranchesService {
         queryParameters: {
           'page_size': 100, // Получаем все филиалы за один запрос
         },
+        options: Options(headers: {'Authorization': 'JWT $token'}),
       );
 
       if (response.statusCode == 200 && response.data != null) {

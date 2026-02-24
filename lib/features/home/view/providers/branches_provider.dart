@@ -1,10 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/service/branches_service.dart';
 
 // Provider для загрузки списка филиалов
 final branchesProvider = FutureProvider<BranchesApiResponse>((ref) async {
+  // Ждем, пока токен будет загружен
+  final token = ref.watch(tokenProvider);
+  if (token == null || token.isEmpty) {
+    throw Exception('Token not available');
+  }
+
   final service = ref.watch(branchesServiceProvider);
   return service.getBranches();
 });

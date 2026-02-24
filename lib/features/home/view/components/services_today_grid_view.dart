@@ -24,14 +24,46 @@ class ServicesTodayGridView extends ConsumerWidget {
         final date = selectedDate ?? DateTime.now();
         final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
+        // Отладка: выведем все ключи и данные
+        print('Available keys in servicesByDay: ${statistics.servicesByDay.keys.toList()}');
+        print('Looking for dateKey: $dateKey');
+        print('Data for dateKey: ${statistics.servicesByDay[dateKey]}');
+        print('Services (general): ${statistics.services.map((s) => '${s.name}: ${s.count}').toList()}');
+
         // Ищем услуги для выбранной даты
-        final servicesForDay = statistics.servicesByDay[dateKey] ?? [];
+        // Пробуем разные варианты поиска данных
+        List<ServiceByDay> servicesForDay = [];
+
+        // Вариант 1: ищем по ключу даты
+        if (statistics.servicesByDay.containsKey(dateKey)) {
+          servicesForDay = statistics.servicesByDay[dateKey]!;
+        } else {
+          // Вариант 2: если ключ - название услуги, найдем услугу с датой равной нашей дате
+          for (final entry in statistics.servicesByDay.entries) {
+            final serviceName = entry.key;
+            final serviceData = entry.value;
+
+            // Ищем в данных услуги запись с нашей датой
+            final matchingData = serviceData.where((data) => data.date == dateKey).toList();
+            if (matchingData.isNotEmpty) {
+              // Создаем новый ServiceByDay с названием услуги вместо даты
+              servicesForDay = matchingData.map((data) => ServiceByDay(date: serviceName, count: data.count)).toList();
+              break;
+            }
+          }
+        }
 
         if (servicesForDay.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(32.0),
-              child: Text('Нет услуг на выбранную дату'),
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                children: [
+                  Text('Нет услуг на выбранную дату'),
+                  Text('Дата: $dateKey', style: TextStyle(fontSize: 12)),
+                  Text('Доступные ключи: ${statistics.servicesByDay.keys.join(', ')}', style: TextStyle(fontSize: 10)),
+                ],
+              ),
             ),
           );
         }
