@@ -7,7 +7,6 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/home/view/components/services_today_grid_view.dart';
-import 'package:rient_app/features/home/view/components/branch_selector.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -42,8 +41,6 @@ class _BodyWidget extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const BranchSelector(),
-                Gap(16),
                 _StatisticsWidget(),
                 Gap(24),
                 Text('Услуги на сегодня', style: AppFonts.h4Medium),
@@ -94,7 +91,8 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
           statisticsAsync.when(
             data: (statistics) {
               // Вычисляем суммарные значения
-              final totalAppointments = statistics.appointments.completed +
+              final totalAppointments =
+                  statistics.appointments.completed +
                   statistics.appointments.canceled +
                   statistics.appointments.stalled +
                   statistics.appointments.confirmed +
@@ -169,11 +167,18 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Отменено', style: AppFonts.b2Medium),
+                              Text(
+                                'Отменено',
+                                style: AppFonts.b2Medium,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                               Gap(8),
                               Text(
                                 statistics.appointments.canceled.toString(),
-                                style: AppFonts.h4Medium.copyWith(color: AppColors.red),
+                                style: AppFonts.h4Medium.copyWith(
+                                  color: AppColors.red,
+                                ),
                               ),
                             ],
                           ),

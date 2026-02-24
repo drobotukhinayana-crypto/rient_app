@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
-import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
-import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/resources/resources.dart';
@@ -29,52 +27,40 @@ class BranchSelector extends ConsumerWidget {
           return const SizedBox.shrink();
         }
 
-        return DefaultContainerWidget(
-          color: Colors.white,
-          hasShadow: false,
-          borderRadius: BorderRadius.circular(16),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Text(
-                'Филиал:',
-                style: AppFonts.b2Medium.copyWith(color: AppColors.mainAccent),
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              currentBranch.name ?? 'Без названия',
+              style: AppFonts.b2Semi,
+            ),
+            Gap(4),
+            PopupMenuButton<BranchApi>(
+              onSelected: (BranchApi branch) {
+                ref.read(selectedBranchProvider.notifier).state = branch;
+              },
+              itemBuilder: (BuildContext context) {
+                return branchesResponse.results.map((BranchApi branch) {
+                  return PopupMenuItem<BranchApi>(
+                    value: branch,
+                    child: Text(branch.name ?? 'Без названия'),
+                  );
+                }).toList();
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(AppImages.arrowOutlinedDown, width: 16, height: 16),
+                ],
               ),
-              Gap(8),
-              Expanded(
-                child: Text(
-                  currentBranch.name ?? 'Без названия',
-                  style: AppFonts.b2Semi,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Gap(8),
-              PopupMenuButton<BranchApi>(
-                onSelected: (BranchApi branch) {
-                  ref.read(selectedBranchProvider.notifier).state = branch;
-                },
-                itemBuilder: (BuildContext context) {
-                  return branchesResponse.results.map((BranchApi branch) {
-                    return PopupMenuItem<BranchApi>(
-                      value: branch,
-                      child: Text(branch.name ?? 'Без названия'),
-                    );
-                  }).toList();
-                },
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Image.asset(AppImages.arrowOutlinedDown, width: 16, height: 16),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         );
       },
       loading: () => const SizedBox(
-        height: 50,
-        child: Center(child: CircularProgressIndicator()),
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2),
       ),
       error: (error, stack) => const SizedBox.shrink(),
     );
