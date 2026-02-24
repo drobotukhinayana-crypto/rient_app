@@ -51,7 +51,9 @@ class _BodyWidget extends ConsumerWidget {
               children: [
                 _StatisticsWidget(),
                 Gap(24),
-                ServicesTodayGridView(selectedDate: selectedDate),
+                Text('Услуги на сегодня', style: AppFonts.h4Medium),
+                Gap(12),
+                const ServicesTodayGridView(),
               ],
             ),
           ),
