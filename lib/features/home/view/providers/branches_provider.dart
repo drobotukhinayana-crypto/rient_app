@@ -1,9 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/service/branches_service.dart';
-import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 
 // Provider для загрузки списка филиалов
 final branchesProvider = FutureProvider<BranchesApiResponse>((ref) async {
@@ -15,18 +13,10 @@ final branchesProvider = FutureProvider<BranchesApiResponse>((ref) async {
 final selectedBranchProvider = StateProvider<BranchApi?>((ref) => null);
 
 // Computed provider для получения текущего branchId
-// Если пользователь владелец - возвращает 0
-// Иначе возвращает id первого филиала из списка
+// Для всех пользователей (включая владельцев) возвращает id первого филиала из списка
 final currentBranchIdProvider = Provider<int>((ref) {
-  final role = ref.watch(roleProvider);
   final branchesAsync = ref.watch(branchesProvider);
 
-  // Если пользователь владелец - branchId = 0
-  if (role == UserRole.owner.value) {
-    return 0;
-  }
-
-  // Иначе берем первый филиал из списка
   return branchesAsync.maybeWhen(
     data: (branchesResponse) {
       if (branchesResponse.results.isNotEmpty && branchesResponse.results.first.id != null) {

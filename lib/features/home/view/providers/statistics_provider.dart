@@ -6,8 +6,13 @@ import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 final statisticsProvider = FutureProvider<Statistics>((ref) async {
   final service = ref.watch(statisticsServiceProvider);
 
-  // Добавляем зависимость от выбранного филиала, чтобы статистика обновлялась при его изменении
-  ref.watch(selectedBranchProvider);
+  // Ждем загрузки списка филиалов
+  final branchesResponse = await ref.watch(branchesProvider.future);
+
+  // Проверяем, что есть хотя бы один филиал с валидным ID
+  if (branchesResponse.results.isEmpty || branchesResponse.results.first.id == null) {
+    throw Exception('No valid branch found');
+  }
 
   // Получаем текущую дату
   final now = DateTime.now();

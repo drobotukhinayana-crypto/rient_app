@@ -4,10 +4,8 @@ import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
-import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
-import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class BranchSelector extends ConsumerWidget {
@@ -15,14 +13,8 @@ class BranchSelector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final role = ref.watch(roleProvider);
     final branchesAsync = ref.watch(branchesProvider);
     final selectedBranch = ref.watch(selectedBranchProvider);
-
-    // Если пользователь владелец - не показываем селектор филиалов
-    if (role == UserRole.owner.value) {
-      return const SizedBox.shrink();
-    }
 
     return branchesAsync.when(
       data: (branchesResponse) {
