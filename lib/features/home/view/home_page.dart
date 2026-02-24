@@ -7,6 +7,7 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/home/view/components/services_today_grid_view.dart';
+import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -25,14 +26,21 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class _BodyWidget extends StatelessWidget {
+class _BodyWidget extends ConsumerWidget {
   const _BodyWidget();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedDate = ref.watch(selectedDateProvider);
+
     return Column(
       children: [
-        const TopPanel(title: 'Главная', showViewModeSwitcher: false),
+        TopPanel(
+          title: 'Главная',
+          showViewModeSwitcher: false,
+          selectedDate: selectedDate,
+          onDateSelected: (date) => ref.read(selectedDateProvider.notifier).setDate(date),
+        ),
 
         // контент
         Expanded(
@@ -43,9 +51,7 @@ class _BodyWidget extends StatelessWidget {
               children: [
                 _StatisticsWidget(),
                 Gap(24),
-                Text('Услуги на сегодня', style: AppFonts.h4Medium),
-                Gap(12),
-                const ServicesTodayGridView(),
+                ServicesTodayGridView(selectedDate: selectedDate),
               ],
             ),
           ),

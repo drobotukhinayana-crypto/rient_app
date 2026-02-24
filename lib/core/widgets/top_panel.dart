@@ -22,6 +22,9 @@ class TopPanel extends StatefulWidget {
     this.showViewModeSwitcher = true,
     this.onScheduleStateChanged,
     this.specialists,
+    this.selectedDate,
+    this.onDateSelected,
+    this.showFullDateLabel = true,
   });
 
   final String title;
@@ -36,6 +39,15 @@ class TopPanel extends StatefulWidget {
   /// Когда задан и [showViewModeSwitcher] true — полоска недели и календарь месяца
   /// не рисуются в панели; вызывается этот callback, контент рисуют на странице.
   final ScheduleStateCallback? onScheduleStateChanged;
+
+  /// Выбранная дата для DateStrip (используется когда showViewModeSwitcher = false).
+  final DateTime? selectedDate;
+
+  /// Callback при выборе даты в DateStrip.
+  final ValueChanged<DateTime>? onDateSelected;
+
+  /// Показывать подпись с датой под DateStrip.
+  final bool showFullDateLabel;
 
   @override
   State<TopPanel> createState() => _TopPanelState();
@@ -145,7 +157,13 @@ class _TopPanelState extends State<TopPanel> {
           ] else ...[
             Gap(12),
             // На главной (без переключателя) — полоска с текущей датой в панели
-            DateStrip(initialDate: DateTime.now(), useGreyCircles: true),
+            DateStrip(
+              initialDate: DateTime.now(),
+              selectedDate: widget.selectedDate,
+              onDateSelected: widget.onDateSelected,
+              showFullDateLabel: widget.showFullDateLabel,
+              useGreyCircles: true,
+            ),
           ],
         ],
       ),

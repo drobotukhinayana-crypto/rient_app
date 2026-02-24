@@ -38,6 +38,7 @@ class DateStrip extends StatefulWidget {
   const DateStrip({
     super.key,
     this.initialDate,
+    this.selectedDate,
     this.daysWithData,
     this.onDateSelected,
     this.showFullDateLabel = true,
@@ -46,6 +47,9 @@ class DateStrip extends StatefulWidget {
 
   /// Начальная выбранная дата (по умолчанию сегодня).
   final DateTime? initialDate;
+
+  /// Текущая выбранная дата. Если передана, используется вместо initialDate.
+  final DateTime? selectedDate;
 
   /// Даты, у которых есть данные (для отображения дуги).
   final Set<DateTime>? daysWithData;
@@ -81,9 +85,9 @@ class _DateStripState extends State<DateStrip> {
   }
 
   void _buildDates() {
-    final now = widget.initialDate ?? DateTime.now();
-    final weekday = now.weekday;
-    final monday = now.subtract(Duration(days: weekday - 1));
+    final selected = widget.selectedDate ?? widget.initialDate ?? DateTime.now();
+    final weekday = selected.weekday;
+    final monday = selected.subtract(Duration(days: weekday - 1));
     _dates = List.generate(7, (i) => monday.add(Duration(days: i)));
   }
 
@@ -105,10 +109,13 @@ class _DateStripState extends State<DateStrip> {
   }
 
   _DayState _stateFor(DateTime d) {
-    final today = DateTime.now();
+    final selected = widget.selectedDate ?? widget.initialDate ?? DateTime.now();
     final normalized = DateTime(d.year, d.month, d.day);
+    final selectedNorm = DateTime(selected.year, selected.month, selected.day);
+    final today = DateTime.now();
     final todayNorm = DateTime(today.year, today.month, today.day);
-    if (normalized == todayNorm) return _DayState.selected;
+
+    if (normalized == selectedNorm) return _DayState.selected;
     if (normalized.isBefore(todayNorm)) return _DayState.pastWithData;
     return _DayState.future;
   }
@@ -131,14 +138,19 @@ class _DateStripState extends State<DateStrip> {
               for (var i = 0; i < _dates.length; i++) ...[
                 if (i > 0) const SizedBox(width: 4),
                 Expanded(
-                  child: _DateCircleItem(
-                    date: _dates[i],
-                    isSelected: _stateFor(_dates[i]) == _DayState.selected,
-                    showArc:
-                        _stateFor(_dates[i]) == _DayState.pastWithData &&
-                        _hasData(_dates[i]),
-                    size: _circleSize,
-                    useGreyCircles: widget.useGreyCircles,
+                  child: GestureDetector(
+                    onTap: widget.onDateSelected != null
+                        ? () => widget.onDateSelected!(_dates[i])
+                        : null,
+                    child: _DateCircleItem(
+                      date: _dates[i],
+                      isSelected: _stateFor(_dates[i]) == _DayState.selected,
+                      showArc:
+                          _stateFor(_dates[i]) == _DayState.pastWithData &&
+                          _hasData(_dates[i]),
+                      size: _circleSize,
+                      useGreyCircles: widget.useGreyCircles,
+                    ),
                   ),
                 ),
               ],
@@ -148,7 +160,7 @@ class _DateStripState extends State<DateStrip> {
         if (widget.showFullDateLabel) ...[
           const SizedBox(height: 8),
           Text(
-            _fullDateText(DateTime.now()),
+            _fullDateText(widget.selectedDate ?? widget.initialDate ?? DateTime.now()),
             style: AppFonts.b2Medium.copyWith(color: AppColors.grey),
           ),
         ],
