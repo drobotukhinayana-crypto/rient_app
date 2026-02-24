@@ -7,15 +7,19 @@ part 'statistics.g.dart';
 sealed class Statistics with _$Statistics {
   const factory Statistics({
     required Appointments appointments,
+    @JsonKey(name: 'appointments_by_day')
     required Map<String, List<AppointmentByDay>> appointmentsByDay,
-    required List<IncomeByDay> incomeByDay,
+    @JsonKey(name: 'income_by_day') required List<IncomeByDay> incomeByDay,
     required List<Service> services,
+    @JsonKey(name: 'services_by_day')
     required Map<String, List<ServiceByDay>> servicesByDay,
     required double occupancy,
+    @JsonKey(name: 'occupancy_by_day')
     required List<OccupancyByDay> occupancyByDay,
   }) = _Statistics;
 
-  factory Statistics.fromJson(Map<String, dynamic> json) => _$StatisticsFromJson(json);
+  factory Statistics.fromJson(Map<String, dynamic> json) =>
+      _$StatisticsFromJson(json);
 }
 
 @freezed
@@ -28,17 +32,17 @@ sealed class Appointments with _$Appointments {
     required int created,
   }) = _Appointments;
 
-  factory Appointments.fromJson(Map<String, dynamic> json) => _$AppointmentsFromJson(json);
+  factory Appointments.fromJson(Map<String, dynamic> json) =>
+      _$AppointmentsFromJson(json);
 }
 
 @freezed
 sealed class AppointmentByDay with _$AppointmentByDay {
-  const factory AppointmentByDay({
-    required String date,
-    required int count,
-  }) = _AppointmentByDay;
+  const factory AppointmentByDay({required String date, required int count}) =
+      _AppointmentByDay;
 
-  factory AppointmentByDay.fromJson(Map<String, dynamic> json) => _$AppointmentByDayFromJson(json);
+  factory AppointmentByDay.fromJson(Map<String, dynamic> json) =>
+      _$AppointmentByDayFromJson(json);
 }
 
 @freezed
@@ -49,7 +53,8 @@ sealed class IncomeByDay with _$IncomeByDay {
     @JsonKey(name: 'pay_due') required double payDue,
   }) = _IncomeByDay;
 
-  factory IncomeByDay.fromJson(Map<String, dynamic> json) => _$IncomeByDayFromJson(json);
+  factory IncomeByDay.fromJson(Map<String, dynamic> json) =>
+      _$IncomeByDayFromJson(json);
 }
 
 extension IncomeByDayX on IncomeByDay {
@@ -64,17 +69,17 @@ sealed class Service with _$Service {
     required int count,
   }) = _Service;
 
-  factory Service.fromJson(Map<String, dynamic> json) => _$ServiceFromJson(json);
+  factory Service.fromJson(Map<String, dynamic> json) =>
+      _$ServiceFromJson(json);
 }
 
 @freezed
 sealed class ServiceByDay with _$ServiceByDay {
-  const factory ServiceByDay({
-    required String date,
-    required int count,
-  }) = _ServiceByDay;
+  const factory ServiceByDay({required String date, required int count}) =
+      _ServiceByDay;
 
-  factory ServiceByDay.fromJson(Map<String, dynamic> json) => _$ServiceByDayFromJson(json);
+  factory ServiceByDay.fromJson(Map<String, dynamic> json) =>
+      _$ServiceByDayFromJson(json);
 }
 
 @freezed
@@ -84,5 +89,6 @@ sealed class OccupancyByDay with _$OccupancyByDay {
     required double occupancy,
   }) = _OccupancyByDay;
 
-  factory OccupancyByDay.fromJson(Map<String, dynamic> json) => _$OccupancyByDayFromJson(json);
+  factory OccupancyByDay.fromJson(Map<String, dynamic> json) =>
+      _$OccupancyByDayFromJson(json);
 }

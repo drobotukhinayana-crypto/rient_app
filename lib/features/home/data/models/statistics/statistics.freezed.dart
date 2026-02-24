@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Statistics {
 
- Appointments get appointments; Map<String, List<AppointmentByDay>> get appointmentsByDay; List<IncomeByDay> get incomeByDay; List<Service> get services; Map<String, List<ServiceByDay>> get servicesByDay; double get occupancy; List<OccupancyByDay> get occupancyByDay;
+ Appointments get appointments;@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> get appointmentsByDay;@JsonKey(name: 'income_by_day') List<IncomeByDay> get incomeByDay; List<Service> get services;@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> get servicesByDay; double get occupancy;@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> get occupancyByDay;
 /// Create a copy of Statistics
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -48,7 +48,7 @@ abstract mixin class $StatisticsCopyWith<$Res>  {
   factory $StatisticsCopyWith(Statistics value, $Res Function(Statistics) _then) = _$StatisticsCopyWithImpl;
 @useResult
 $Res call({
- Appointments appointments, Map<String, List<AppointmentByDay>> appointmentsByDay, List<IncomeByDay> incomeByDay, List<Service> services, Map<String, List<ServiceByDay>> servicesByDay, double occupancy, List<OccupancyByDay> occupancyByDay
+ Appointments appointments,@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> appointmentsByDay,@JsonKey(name: 'income_by_day') List<IncomeByDay> incomeByDay, List<Service> services,@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> servicesByDay, double occupancy,@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> occupancyByDay
 });
 
 
@@ -165,7 +165,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Appointments appointments,  Map<String, List<AppointmentByDay>> appointmentsByDay,  List<IncomeByDay> incomeByDay,  List<Service> services,  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy,  List<OccupancyByDay> occupancyByDay)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay> incomeByDay,  List<Service> services, @JsonKey(name: 'services_by_day')  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Statistics() when $default != null:
 return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_that.services,_that.servicesByDay,_that.occupancy,_that.occupancyByDay);case _:
@@ -186,7 +186,7 @@ return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Appointments appointments,  Map<String, List<AppointmentByDay>> appointmentsByDay,  List<IncomeByDay> incomeByDay,  List<Service> services,  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy,  List<OccupancyByDay> occupancyByDay)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay> incomeByDay,  List<Service> services, @JsonKey(name: 'services_by_day')  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)  $default,) {final _that = this;
 switch (_that) {
 case _Statistics():
 return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_that.services,_that.servicesByDay,_that.occupancy,_that.occupancyByDay);}
@@ -203,7 +203,7 @@ return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Appointments appointments,  Map<String, List<AppointmentByDay>> appointmentsByDay,  List<IncomeByDay> incomeByDay,  List<Service> services,  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy,  List<OccupancyByDay> occupancyByDay)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay> incomeByDay,  List<Service> services, @JsonKey(name: 'services_by_day')  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)?  $default,) {final _that = this;
 switch (_that) {
 case _Statistics() when $default != null:
 return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_that.services,_that.servicesByDay,_that.occupancy,_that.occupancyByDay);case _:
@@ -218,19 +218,19 @@ return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_th
 @JsonSerializable()
 
 class _Statistics implements Statistics {
-  const _Statistics({required this.appointments, required final  Map<String, List<AppointmentByDay>> appointmentsByDay, required final  List<IncomeByDay> incomeByDay, required final  List<Service> services, required final  Map<String, List<ServiceByDay>> servicesByDay, required this.occupancy, required final  List<OccupancyByDay> occupancyByDay}): _appointmentsByDay = appointmentsByDay,_incomeByDay = incomeByDay,_services = services,_servicesByDay = servicesByDay,_occupancyByDay = occupancyByDay;
+  const _Statistics({required this.appointments, @JsonKey(name: 'appointments_by_day') required final  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day') required final  List<IncomeByDay> incomeByDay, required final  List<Service> services, @JsonKey(name: 'services_by_day') required final  Map<String, List<ServiceByDay>> servicesByDay, required this.occupancy, @JsonKey(name: 'occupancy_by_day') required final  List<OccupancyByDay> occupancyByDay}): _appointmentsByDay = appointmentsByDay,_incomeByDay = incomeByDay,_services = services,_servicesByDay = servicesByDay,_occupancyByDay = occupancyByDay;
   factory _Statistics.fromJson(Map<String, dynamic> json) => _$StatisticsFromJson(json);
 
 @override final  Appointments appointments;
  final  Map<String, List<AppointmentByDay>> _appointmentsByDay;
-@override Map<String, List<AppointmentByDay>> get appointmentsByDay {
+@override@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> get appointmentsByDay {
   if (_appointmentsByDay is EqualUnmodifiableMapView) return _appointmentsByDay;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableMapView(_appointmentsByDay);
 }
 
  final  List<IncomeByDay> _incomeByDay;
-@override List<IncomeByDay> get incomeByDay {
+@override@JsonKey(name: 'income_by_day') List<IncomeByDay> get incomeByDay {
   if (_incomeByDay is EqualUnmodifiableListView) return _incomeByDay;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_incomeByDay);
@@ -244,7 +244,7 @@ class _Statistics implements Statistics {
 }
 
  final  Map<String, List<ServiceByDay>> _servicesByDay;
-@override Map<String, List<ServiceByDay>> get servicesByDay {
+@override@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> get servicesByDay {
   if (_servicesByDay is EqualUnmodifiableMapView) return _servicesByDay;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableMapView(_servicesByDay);
@@ -252,7 +252,7 @@ class _Statistics implements Statistics {
 
 @override final  double occupancy;
  final  List<OccupancyByDay> _occupancyByDay;
-@override List<OccupancyByDay> get occupancyByDay {
+@override@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> get occupancyByDay {
   if (_occupancyByDay is EqualUnmodifiableListView) return _occupancyByDay;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_occupancyByDay);
@@ -292,7 +292,7 @@ abstract mixin class _$StatisticsCopyWith<$Res> implements $StatisticsCopyWith<$
   factory _$StatisticsCopyWith(_Statistics value, $Res Function(_Statistics) _then) = __$StatisticsCopyWithImpl;
 @override @useResult
 $Res call({
- Appointments appointments, Map<String, List<AppointmentByDay>> appointmentsByDay, List<IncomeByDay> incomeByDay, List<Service> services, Map<String, List<ServiceByDay>> servicesByDay, double occupancy, List<OccupancyByDay> occupancyByDay
+ Appointments appointments,@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> appointmentsByDay,@JsonKey(name: 'income_by_day') List<IncomeByDay> incomeByDay, List<Service> services,@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> servicesByDay, double occupancy,@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> occupancyByDay
 });
 
 

@@ -10,7 +10,7 @@ _Statistics _$StatisticsFromJson(Map<String, dynamic> json) => _Statistics(
   appointments: Appointments.fromJson(
     json['appointments'] as Map<String, dynamic>,
   ),
-  appointmentsByDay: (json['appointmentsByDay'] as Map<String, dynamic>).map(
+  appointmentsByDay: (json['appointments_by_day'] as Map<String, dynamic>).map(
     (k, e) => MapEntry(
       k,
       (e as List<dynamic>)
@@ -18,13 +18,13 @@ _Statistics _$StatisticsFromJson(Map<String, dynamic> json) => _Statistics(
           .toList(),
     ),
   ),
-  incomeByDay: (json['incomeByDay'] as List<dynamic>)
+  incomeByDay: (json['income_by_day'] as List<dynamic>)
       .map((e) => IncomeByDay.fromJson(e as Map<String, dynamic>))
       .toList(),
   services: (json['services'] as List<dynamic>)
       .map((e) => Service.fromJson(e as Map<String, dynamic>))
       .toList(),
-  servicesByDay: (json['servicesByDay'] as Map<String, dynamic>).map(
+  servicesByDay: (json['services_by_day'] as Map<String, dynamic>).map(
     (k, e) => MapEntry(
       k,
       (e as List<dynamic>)
@@ -33,7 +33,7 @@ _Statistics _$StatisticsFromJson(Map<String, dynamic> json) => _Statistics(
     ),
   ),
   occupancy: (json['occupancy'] as num).toDouble(),
-  occupancyByDay: (json['occupancyByDay'] as List<dynamic>)
+  occupancyByDay: (json['occupancy_by_day'] as List<dynamic>)
       .map((e) => OccupancyByDay.fromJson(e as Map<String, dynamic>))
       .toList(),
 );
@@ -41,12 +41,12 @@ _Statistics _$StatisticsFromJson(Map<String, dynamic> json) => _Statistics(
 Map<String, dynamic> _$StatisticsToJson(_Statistics instance) =>
     <String, dynamic>{
       'appointments': instance.appointments,
-      'appointmentsByDay': instance.appointmentsByDay,
-      'incomeByDay': instance.incomeByDay,
+      'appointments_by_day': instance.appointmentsByDay,
+      'income_by_day': instance.incomeByDay,
       'services': instance.services,
-      'servicesByDay': instance.servicesByDay,
+      'services_by_day': instance.servicesByDay,
       'occupancy': instance.occupancy,
-      'occupancyByDay': instance.occupancyByDay,
+      'occupancy_by_day': instance.occupancyByDay,
     };
 
 _Appointments _$AppointmentsFromJson(Map<String, dynamic> json) =>
