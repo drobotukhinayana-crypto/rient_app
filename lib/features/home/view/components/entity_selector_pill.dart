@@ -16,8 +16,12 @@ class ProfileSelectorPill extends StatefulWidget {
 
 class _ProfileSelectorPillState extends State<ProfileSelectorPill> {
   @override
-
-  void _showMenu(BuildContext context, WidgetRef ref, List<BranchApi> branches, BranchApi? selectedBranch) {
+  void _showMenu(
+    BuildContext context,
+    WidgetRef ref,
+    List<BranchApi> branches,
+    BranchApi? selectedBranch,
+  ) {
     final box = context.findRenderObject() as RenderBox?;
     final overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox?;
@@ -63,61 +67,80 @@ class _ProfileSelectorPillState extends State<ProfileSelectorPill> {
         final branchesAsync = ref.watch(branchesProvider);
         final selectedBranch = ref.watch(selectedBranchProvider);
 
-    return branchesAsync.when(
-      data: (branchesResponse) {
-        if (branchesResponse.results.isEmpty) {
-          return const SizedBox.shrink();
-        }
+        return branchesAsync.when(
+          data: (branchesResponse) {
+            if (branchesResponse.results.isEmpty) {
+              return const SizedBox.shrink();
+            }
 
-        final currentBranch = selectedBranch ??
-            (branchesResponse.results.isNotEmpty ? branchesResponse.results.first : null);
+            final currentBranch =
+                selectedBranch ??
+                (branchesResponse.results.isNotEmpty
+                    ? branchesResponse.results.first
+                    : null);
 
-        if (currentBranch == null) {
-          return const SizedBox.shrink();
-        }
+            if (currentBranch == null) {
+              return const SizedBox.shrink();
+            }
 
-        return Builder(
-          builder: (ctx) {
-            return Material(
-              color: AppColors.secondaryLight,
-              borderRadius: BorderRadius.circular(300),
-              child: InkWell(
-                onTap: () => _showMenu(ctx, ref, branchesResponse.results, selectedBranch),
-                borderRadius: BorderRadius.circular(300),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // текст
-                      Text(
-                        currentBranch.name ?? 'Без названия',
-                        style: AppFonts.b2Medium.copyWith(
-                          color: AppColors.primaryDark,
-                        ),
+            return Builder(
+              builder: (ctx) {
+                return Material(
+                  color: AppColors.secondaryLight,
+                  borderRadius: BorderRadius.circular(300),
+                  child: InkWell(
+                    onTap: () => _showMenu(
+                      ctx,
+                      ref,
+                      branchesResponse.results,
+                      selectedBranch,
+                    ),
+                    borderRadius: BorderRadius.circular(300),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // текст
+                          Builder(
+                            builder: (context) {
+                              final branchName = currentBranch.name ?? 'Без названия';
+                              final textWidth = branchName.length <= 10 ? 40.0 : 120.0;
+
+                              return SizedBox(
+                                width: textWidth,
+                                child: Text(
+                                  branchName,
+                                  style: AppFonts.b2Medium.copyWith(
+                                    color: AppColors.primaryDark,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            },
+                          ),
+                          Gap(6),
+
+                          // стрелка
+                          Image.asset(
+                            AppImages.arrowOutlinedDown,
+                            color: AppColors.mainAccent,
+                          ),
+                        ],
                       ),
-                      Gap(6),
-
-                      // стрелка
-                      Image.asset(
-                        AppImages.arrowOutlinedDown,
-                        color: AppColors.mainAccent,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
+          loading: () => const SizedBox(
+            width: 80,
+            height: 40,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          error: (error, stack) => const SizedBox.shrink(),
         );
-      },
-      loading: () => const SizedBox(
-        width: 80,
-        height: 40,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      ),
-      error: (error, stack) => const SizedBox.shrink(),
-    );
       },
     );
   }

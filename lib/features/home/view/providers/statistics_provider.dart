@@ -7,11 +7,11 @@ import 'package:rient_app/features/home/view/providers/selected_date_provider.da
 final statisticsProvider = FutureProvider<Statistics>((ref) async {
   final service = ref.watch(statisticsServiceProvider);
 
-  // Ждем загрузки списка филиалов
-  final branchesResponse = await ref.watch(branchesProvider.future);
+  // Получаем текущий branchId (учитывает выбранный филиал)
+  final branchId = ref.watch(currentBranchIdProvider);
 
-  // Проверяем, что есть хотя бы один филиал с валидным ID
-  if (branchesResponse.results.isEmpty || branchesResponse.results.first.id == null) {
+  // Проверяем, что branchId валидный
+  if (branchId == 0) {
     throw Exception('No valid branch found');
   }
 
@@ -22,5 +22,6 @@ final statisticsProvider = FutureProvider<Statistics>((ref) async {
   return service.getStatistics(
     startDate: selectedDate,
     endDate: selectedDate,
+    branchId: branchId,
   );
 });

@@ -20,12 +20,19 @@ final branchesProvider = FutureProvider<BranchesApiResponse>((ref) async {
 final selectedBranchProvider = StateProvider<BranchApi?>((ref) => null);
 
 // Computed provider для получения текущего branchId
-// Для всех пользователей (включая владельцев) возвращает id первого филиала из списка
+// Возвращает id выбранного филиала или первого из списка
 final currentBranchIdProvider = Provider<int>((ref) {
   final branchesAsync = ref.watch(branchesProvider);
+  final selectedBranch = ref.watch(selectedBranchProvider);
 
   return branchesAsync.maybeWhen(
     data: (branchesResponse) {
+      // Если есть выбранный филиал, возвращаем его ID
+      if (selectedBranch != null && selectedBranch.id != null) {
+        return selectedBranch.id!;
+      }
+
+      // Иначе возвращаем ID первого филиала
       if (branchesResponse.results.isNotEmpty && branchesResponse.results.first.id != null) {
         return branchesResponse.results.first.id!;
       }

@@ -21,10 +21,11 @@ class StatisticsService {
   Future<Statistics> getStatistics({
     required DateTime startDate,
     required DateTime endDate,
+    int? branchId,
   }) async {
     final token = ref.read(tokenProvider);
     final organizationId = ref.read(organizationIdProvider);
-    final branchId = ref.read(currentBranchIdProvider);
+    final currentBranchId = branchId ?? ref.read(currentBranchIdProvider);
 
     if (token == null || token.isEmpty) {
       throw CustomException(causedError: Exception('Token is missing'));
@@ -32,7 +33,7 @@ class StatisticsService {
 
     try {
       final url = ApiConsts().createUrl(
-        'organizations/$organizationId/branches/$branchId/statistics_one/',
+        'organizations/$organizationId/branches/$currentBranchId/statistics_one/',
       );
 
       final startDateStr =
