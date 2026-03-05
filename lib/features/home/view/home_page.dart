@@ -32,14 +32,17 @@ class _BodyWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedDate = ref.watch(selectedDateProvider);
-
+    final occupancyByDay =
+        ref.watch(statisticsProvider).value?.occupancyByDay ?? [];
     return Column(
       children: [
         TopPanel(
           title: 'Главная',
+          occupancyByDay: occupancyByDay,
           showViewModeSwitcher: false,
           selectedDate: selectedDate,
-          onDateSelected: (date) => ref.read(selectedDateProvider.notifier).setDate(date),
+          onDateSelected: (date) =>
+              ref.read(selectedDateProvider.notifier).setDate(date),
         ),
 
         // контент
@@ -106,15 +109,19 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                   statistics.appointments.confirmed +
                   statistics.appointments.created;
 
-              final totalIncome = statistics.incomeByDay.fold<double>(
-                0.0,
-                (sum, item) => sum + item.income,
-              );
+              final totalIncome =
+                  statistics.incomeByDay?.fold<double>(
+                    0.0,
+                    (sum, item) => sum + item.income,
+                  ) ??
+                  0;
 
-              final totalPayDue = statistics.incomeByDay.fold<double>(
-                0.0,
-                (sum, item) => sum + item.payDue,
-              );
+              final totalPayDue =
+                  statistics.incomeByDay?.fold<double>(
+                    0.0,
+                    (sum, item) => sum + item.payDue,
+                  ) ??
+                  0;
 
               return Column(
                 children: [

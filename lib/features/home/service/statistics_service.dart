@@ -51,7 +51,8 @@ class StatisticsService {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        return Statistics.fromJson(response.data!);
+        final statistics = Statistics.fromJson(response.data!);
+        return statistics;
       } else {
         throw CustomException(
           causedError: Exception(

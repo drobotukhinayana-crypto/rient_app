@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Statistics {
 
- Appointments get appointments;@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> get appointmentsByDay;@JsonKey(name: 'income_by_day') List<IncomeByDay> get incomeByDay; List<Service> get services;@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> get servicesByDay; double get occupancy;@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> get occupancyByDay;
+ Appointments get appointments;@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> get appointmentsByDay;@JsonKey(name: 'income_by_day') List<IncomeByDay>? get incomeByDay; List<Service> get services;@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> get servicesByDay; double get occupancy;@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> get occupancyByDay;
 /// Create a copy of Statistics
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -48,7 +48,7 @@ abstract mixin class $StatisticsCopyWith<$Res>  {
   factory $StatisticsCopyWith(Statistics value, $Res Function(Statistics) _then) = _$StatisticsCopyWithImpl;
 @useResult
 $Res call({
- Appointments appointments,@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> appointmentsByDay,@JsonKey(name: 'income_by_day') List<IncomeByDay> incomeByDay, List<Service> services,@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> servicesByDay, double occupancy,@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> occupancyByDay
+ Appointments appointments,@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> appointmentsByDay,@JsonKey(name: 'income_by_day') List<IncomeByDay>? incomeByDay, List<Service> services,@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> servicesByDay, double occupancy,@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> occupancyByDay
 });
 
 
@@ -65,12 +65,12 @@ class _$StatisticsCopyWithImpl<$Res>
 
 /// Create a copy of Statistics
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? appointments = null,Object? appointmentsByDay = null,Object? incomeByDay = null,Object? services = null,Object? servicesByDay = null,Object? occupancy = null,Object? occupancyByDay = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? appointments = null,Object? appointmentsByDay = null,Object? incomeByDay = freezed,Object? services = null,Object? servicesByDay = null,Object? occupancy = null,Object? occupancyByDay = null,}) {
   return _then(_self.copyWith(
 appointments: null == appointments ? _self.appointments : appointments // ignore: cast_nullable_to_non_nullable
 as Appointments,appointmentsByDay: null == appointmentsByDay ? _self.appointmentsByDay : appointmentsByDay // ignore: cast_nullable_to_non_nullable
-as Map<String, List<AppointmentByDay>>,incomeByDay: null == incomeByDay ? _self.incomeByDay : incomeByDay // ignore: cast_nullable_to_non_nullable
-as List<IncomeByDay>,services: null == services ? _self.services : services // ignore: cast_nullable_to_non_nullable
+as Map<String, List<AppointmentByDay>>,incomeByDay: freezed == incomeByDay ? _self.incomeByDay : incomeByDay // ignore: cast_nullable_to_non_nullable
+as List<IncomeByDay>?,services: null == services ? _self.services : services // ignore: cast_nullable_to_non_nullable
 as List<Service>,servicesByDay: null == servicesByDay ? _self.servicesByDay : servicesByDay // ignore: cast_nullable_to_non_nullable
 as Map<String, List<ServiceByDay>>,occupancy: null == occupancy ? _self.occupancy : occupancy // ignore: cast_nullable_to_non_nullable
 as double,occupancyByDay: null == occupancyByDay ? _self.occupancyByDay : occupancyByDay // ignore: cast_nullable_to_non_nullable
@@ -165,7 +165,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay> incomeByDay,  List<Service> services, @JsonKey(name: 'services_by_day')  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay>? incomeByDay,  List<Service> services, @JsonKey(name: 'services_by_day')  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Statistics() when $default != null:
 return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_that.services,_that.servicesByDay,_that.occupancy,_that.occupancyByDay);case _:
@@ -186,7 +186,7 @@ return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay> incomeByDay,  List<Service> services, @JsonKey(name: 'services_by_day')  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay>? incomeByDay,  List<Service> services, @JsonKey(name: 'services_by_day')  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)  $default,) {final _that = this;
 switch (_that) {
 case _Statistics():
 return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_that.services,_that.servicesByDay,_that.occupancy,_that.occupancyByDay);}
@@ -203,7 +203,7 @@ return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay> incomeByDay,  List<Service> services, @JsonKey(name: 'services_by_day')  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay>? incomeByDay,  List<Service> services, @JsonKey(name: 'services_by_day')  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)?  $default,) {final _that = this;
 switch (_that) {
 case _Statistics() when $default != null:
 return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_that.services,_that.servicesByDay,_that.occupancy,_that.occupancyByDay);case _:
@@ -217,8 +217,8 @@ return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_th
 /// @nodoc
 @JsonSerializable()
 
-class _Statistics implements Statistics {
-  const _Statistics({required this.appointments, @JsonKey(name: 'appointments_by_day') required final  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day') required final  List<IncomeByDay> incomeByDay, required final  List<Service> services, @JsonKey(name: 'services_by_day') required final  Map<String, List<ServiceByDay>> servicesByDay, required this.occupancy, @JsonKey(name: 'occupancy_by_day') required final  List<OccupancyByDay> occupancyByDay}): _appointmentsByDay = appointmentsByDay,_incomeByDay = incomeByDay,_services = services,_servicesByDay = servicesByDay,_occupancyByDay = occupancyByDay;
+class _Statistics extends Statistics {
+  const _Statistics({required this.appointments, @JsonKey(name: 'appointments_by_day') required final  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day') required final  List<IncomeByDay>? incomeByDay, required final  List<Service> services, @JsonKey(name: 'services_by_day') required final  Map<String, List<ServiceByDay>> servicesByDay, required this.occupancy, @JsonKey(name: 'occupancy_by_day') required final  List<OccupancyByDay> occupancyByDay}): _appointmentsByDay = appointmentsByDay,_incomeByDay = incomeByDay,_services = services,_servicesByDay = servicesByDay,_occupancyByDay = occupancyByDay,super._();
   factory _Statistics.fromJson(Map<String, dynamic> json) => _$StatisticsFromJson(json);
 
 @override final  Appointments appointments;
@@ -229,11 +229,13 @@ class _Statistics implements Statistics {
   return EqualUnmodifiableMapView(_appointmentsByDay);
 }
 
- final  List<IncomeByDay> _incomeByDay;
-@override@JsonKey(name: 'income_by_day') List<IncomeByDay> get incomeByDay {
+ final  List<IncomeByDay>? _incomeByDay;
+@override@JsonKey(name: 'income_by_day') List<IncomeByDay>? get incomeByDay {
+  final value = _incomeByDay;
+  if (value == null) return null;
   if (_incomeByDay is EqualUnmodifiableListView) return _incomeByDay;
   // ignore: implicit_dynamic_type
-  return EqualUnmodifiableListView(_incomeByDay);
+  return EqualUnmodifiableListView(value);
 }
 
  final  List<Service> _services;
@@ -292,7 +294,7 @@ abstract mixin class _$StatisticsCopyWith<$Res> implements $StatisticsCopyWith<$
   factory _$StatisticsCopyWith(_Statistics value, $Res Function(_Statistics) _then) = __$StatisticsCopyWithImpl;
 @override @useResult
 $Res call({
- Appointments appointments,@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> appointmentsByDay,@JsonKey(name: 'income_by_day') List<IncomeByDay> incomeByDay, List<Service> services,@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> servicesByDay, double occupancy,@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> occupancyByDay
+ Appointments appointments,@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> appointmentsByDay,@JsonKey(name: 'income_by_day') List<IncomeByDay>? incomeByDay, List<Service> services,@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> servicesByDay, double occupancy,@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> occupancyByDay
 });
 
 
@@ -309,12 +311,12 @@ class __$StatisticsCopyWithImpl<$Res>
 
 /// Create a copy of Statistics
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? appointments = null,Object? appointmentsByDay = null,Object? incomeByDay = null,Object? services = null,Object? servicesByDay = null,Object? occupancy = null,Object? occupancyByDay = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? appointments = null,Object? appointmentsByDay = null,Object? incomeByDay = freezed,Object? services = null,Object? servicesByDay = null,Object? occupancy = null,Object? occupancyByDay = null,}) {
   return _then(_Statistics(
 appointments: null == appointments ? _self.appointments : appointments // ignore: cast_nullable_to_non_nullable
 as Appointments,appointmentsByDay: null == appointmentsByDay ? _self._appointmentsByDay : appointmentsByDay // ignore: cast_nullable_to_non_nullable
-as Map<String, List<AppointmentByDay>>,incomeByDay: null == incomeByDay ? _self._incomeByDay : incomeByDay // ignore: cast_nullable_to_non_nullable
-as List<IncomeByDay>,services: null == services ? _self._services : services // ignore: cast_nullable_to_non_nullable
+as Map<String, List<AppointmentByDay>>,incomeByDay: freezed == incomeByDay ? _self._incomeByDay : incomeByDay // ignore: cast_nullable_to_non_nullable
+as List<IncomeByDay>?,services: null == services ? _self._services : services // ignore: cast_nullable_to_non_nullable
 as List<Service>,servicesByDay: null == servicesByDay ? _self._servicesByDay : servicesByDay // ignore: cast_nullable_to_non_nullable
 as Map<String, List<ServiceByDay>>,occupancy: null == occupancy ? _self.occupancy : occupancy // ignore: cast_nullable_to_non_nullable
 as double,occupancyByDay: null == occupancyByDay ? _self._occupancyByDay : occupancyByDay // ignore: cast_nullable_to_non_nullable
@@ -867,7 +869,7 @@ as int,
 /// @nodoc
 mixin _$IncomeByDay {
 
- String get date; double get income;@JsonKey(name: 'pay_due') double get payDue;
+ DateTime get date; double get income;@JsonKey(name: 'pay_due') double get payDue;
 /// Create a copy of IncomeByDay
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -900,7 +902,7 @@ abstract mixin class $IncomeByDayCopyWith<$Res>  {
   factory $IncomeByDayCopyWith(IncomeByDay value, $Res Function(IncomeByDay) _then) = _$IncomeByDayCopyWithImpl;
 @useResult
 $Res call({
- String date, double income,@JsonKey(name: 'pay_due') double payDue
+ DateTime date, double income,@JsonKey(name: 'pay_due') double payDue
 });
 
 
@@ -920,7 +922,7 @@ class _$IncomeByDayCopyWithImpl<$Res>
 @pragma('vm:prefer-inline') @override $Res call({Object? date = null,Object? income = null,Object? payDue = null,}) {
   return _then(_self.copyWith(
 date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
-as String,income: null == income ? _self.income : income // ignore: cast_nullable_to_non_nullable
+as DateTime,income: null == income ? _self.income : income // ignore: cast_nullable_to_non_nullable
 as double,payDue: null == payDue ? _self.payDue : payDue // ignore: cast_nullable_to_non_nullable
 as double,
   ));
@@ -1004,7 +1006,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String date,  double income, @JsonKey(name: 'pay_due')  double payDue)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( DateTime date,  double income, @JsonKey(name: 'pay_due')  double payDue)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _IncomeByDay() when $default != null:
 return $default(_that.date,_that.income,_that.payDue);case _:
@@ -1025,7 +1027,7 @@ return $default(_that.date,_that.income,_that.payDue);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String date,  double income, @JsonKey(name: 'pay_due')  double payDue)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( DateTime date,  double income, @JsonKey(name: 'pay_due')  double payDue)  $default,) {final _that = this;
 switch (_that) {
 case _IncomeByDay():
 return $default(_that.date,_that.income,_that.payDue);}
@@ -1042,7 +1044,7 @@ return $default(_that.date,_that.income,_that.payDue);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String date,  double income, @JsonKey(name: 'pay_due')  double payDue)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( DateTime date,  double income, @JsonKey(name: 'pay_due')  double payDue)?  $default,) {final _that = this;
 switch (_that) {
 case _IncomeByDay() when $default != null:
 return $default(_that.date,_that.income,_that.payDue);case _:
@@ -1060,7 +1062,7 @@ class _IncomeByDay implements IncomeByDay {
   const _IncomeByDay({required this.date, required this.income, @JsonKey(name: 'pay_due') required this.payDue});
   factory _IncomeByDay.fromJson(Map<String, dynamic> json) => _$IncomeByDayFromJson(json);
 
-@override final  String date;
+@override final  DateTime date;
 @override final  double income;
 @override@JsonKey(name: 'pay_due') final  double payDue;
 
@@ -1097,7 +1099,7 @@ abstract mixin class _$IncomeByDayCopyWith<$Res> implements $IncomeByDayCopyWith
   factory _$IncomeByDayCopyWith(_IncomeByDay value, $Res Function(_IncomeByDay) _then) = __$IncomeByDayCopyWithImpl;
 @override @useResult
 $Res call({
- String date, double income,@JsonKey(name: 'pay_due') double payDue
+ DateTime date, double income,@JsonKey(name: 'pay_due') double payDue
 });
 
 
@@ -1117,7 +1119,7 @@ class __$IncomeByDayCopyWithImpl<$Res>
 @override @pragma('vm:prefer-inline') $Res call({Object? date = null,Object? income = null,Object? payDue = null,}) {
   return _then(_IncomeByDay(
 date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
-as String,income: null == income ? _self.income : income // ignore: cast_nullable_to_non_nullable
+as DateTime,income: null == income ? _self.income : income // ignore: cast_nullable_to_non_nullable
 as double,payDue: null == payDue ? _self.payDue : payDue // ignore: cast_nullable_to_non_nullable
 as double,
   ));
@@ -1650,7 +1652,7 @@ as int,
 /// @nodoc
 mixin _$OccupancyByDay {
 
- String get date; double get occupancy;
+ DateTime get date; double get occupancy;
 /// Create a copy of OccupancyByDay
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1683,7 +1685,7 @@ abstract mixin class $OccupancyByDayCopyWith<$Res>  {
   factory $OccupancyByDayCopyWith(OccupancyByDay value, $Res Function(OccupancyByDay) _then) = _$OccupancyByDayCopyWithImpl;
 @useResult
 $Res call({
- String date, double occupancy
+ DateTime date, double occupancy
 });
 
 
@@ -1703,7 +1705,7 @@ class _$OccupancyByDayCopyWithImpl<$Res>
 @pragma('vm:prefer-inline') @override $Res call({Object? date = null,Object? occupancy = null,}) {
   return _then(_self.copyWith(
 date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
-as String,occupancy: null == occupancy ? _self.occupancy : occupancy // ignore: cast_nullable_to_non_nullable
+as DateTime,occupancy: null == occupancy ? _self.occupancy : occupancy // ignore: cast_nullable_to_non_nullable
 as double,
   ));
 }
@@ -1786,7 +1788,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String date,  double occupancy)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( DateTime date,  double occupancy)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _OccupancyByDay() when $default != null:
 return $default(_that.date,_that.occupancy);case _:
@@ -1807,7 +1809,7 @@ return $default(_that.date,_that.occupancy);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String date,  double occupancy)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( DateTime date,  double occupancy)  $default,) {final _that = this;
 switch (_that) {
 case _OccupancyByDay():
 return $default(_that.date,_that.occupancy);}
@@ -1824,7 +1826,7 @@ return $default(_that.date,_that.occupancy);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String date,  double occupancy)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( DateTime date,  double occupancy)?  $default,) {final _that = this;
 switch (_that) {
 case _OccupancyByDay() when $default != null:
 return $default(_that.date,_that.occupancy);case _:
@@ -1842,7 +1844,7 @@ class _OccupancyByDay implements OccupancyByDay {
   const _OccupancyByDay({required this.date, required this.occupancy});
   factory _OccupancyByDay.fromJson(Map<String, dynamic> json) => _$OccupancyByDayFromJson(json);
 
-@override final  String date;
+@override final  DateTime date;
 @override final  double occupancy;
 
 /// Create a copy of OccupancyByDay
@@ -1878,7 +1880,7 @@ abstract mixin class _$OccupancyByDayCopyWith<$Res> implements $OccupancyByDayCo
   factory _$OccupancyByDayCopyWith(_OccupancyByDay value, $Res Function(_OccupancyByDay) _then) = __$OccupancyByDayCopyWithImpl;
 @override @useResult
 $Res call({
- String date, double occupancy
+ DateTime date, double occupancy
 });
 
 
@@ -1898,7 +1900,7 @@ class __$OccupancyByDayCopyWithImpl<$Res>
 @override @pragma('vm:prefer-inline') $Res call({Object? date = null,Object? occupancy = null,}) {
   return _then(_OccupancyByDay(
 date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
-as String,occupancy: null == occupancy ? _self.occupancy : occupancy // ignore: cast_nullable_to_non_nullable
+as DateTime,occupancy: null == occupancy ? _self.occupancy : occupancy // ignore: cast_nullable_to_non_nullable
 as double,
   ));
 }

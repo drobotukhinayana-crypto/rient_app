@@ -53,7 +53,9 @@ class ServicesTodayGridView extends ConsumerWidget {
                   ),
                   Text(
                     '${service.count}',
-                    style: AppFonts.b2Semi.copyWith(color: AppColors.mainAccent),
+                    style: AppFonts.b2Semi.copyWith(
+                      color: AppColors.mainAccent,
+                    ),
                   ),
                 ],
               ),

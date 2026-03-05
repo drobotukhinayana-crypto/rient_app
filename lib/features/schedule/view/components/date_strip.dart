@@ -1,6 +1,9 @@
+import 'package:collection/collection.dart';
+import 'package:dart_date/dart_date.dart';
 import 'package:flutter/material.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 
 /// Короткие названия дней недели (Пн, Вт, ...).
 const _weekdayShort = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
@@ -37,6 +40,7 @@ enum _DayState { pastWithData, selected, future }
 class DateStrip extends StatefulWidget {
   const DateStrip({
     super.key,
+    this.occupancyByDay,
     this.initialDate,
     this.selectedDate,
     this.daysWithData,
@@ -62,6 +66,7 @@ class DateStrip extends StatefulWidget {
 
   /// При true фон невыбранных кружков — SecondaryDark (режим «День»). При false — белый (Неделя/Месяц).
   final bool useGreyCircles;
+  final List<OccupancyByDay>? occupancyByDay;
 
   @override
   State<DateStrip> createState() => _DateStripState();
@@ -85,7 +90,8 @@ class _DateStripState extends State<DateStrip> {
   }
 
   void _buildDates() {
-    final selected = widget.selectedDate ?? widget.initialDate ?? DateTime.now();
+    final selected =
+        widget.selectedDate ?? widget.initialDate ?? DateTime.now();
     final weekday = selected.weekday;
     final monday = selected.subtract(Duration(days: weekday - 1));
     _dates = List.generate(7, (i) => monday.add(Duration(days: i)));
@@ -109,7 +115,8 @@ class _DateStripState extends State<DateStrip> {
   }
 
   _DayState _stateFor(DateTime d) {
-    final selected = widget.selectedDate ?? widget.initialDate ?? DateTime.now();
+    final selected =
+        widget.selectedDate ?? widget.initialDate ?? DateTime.now();
     final normalized = DateTime(d.year, d.month, d.day);
     final selectedNorm = DateTime(selected.year, selected.month, selected.day);
     final today = DateTime.now();
@@ -150,6 +157,13 @@ class _DateStripState extends State<DateStrip> {
                           _hasData(_dates[i]),
                       size: _circleSize,
                       useGreyCircles: widget.useGreyCircles,
+                      occupancyPercent:
+                          widget.occupancyByDay
+                              ?.firstWhereOrNull(
+                                (element) => element.date.isSameDay(_dates[i]),
+                              )
+                              ?.occupancy ??
+                          0,
                     ),
                   ),
                 ),
@@ -160,7 +174,9 @@ class _DateStripState extends State<DateStrip> {
         if (widget.showFullDateLabel) ...[
           const SizedBox(height: 8),
           Text(
-            _fullDateText(widget.selectedDate ?? widget.initialDate ?? DateTime.now()),
+            _fullDateText(
+              widget.selectedDate ?? widget.initialDate ?? DateTime.now(),
+            ),
             style: AppFonts.b2Medium.copyWith(color: AppColors.grey),
           ),
         ],
@@ -171,6 +187,7 @@ class _DateStripState extends State<DateStrip> {
 
 class _DateCircleItem extends StatelessWidget {
   const _DateCircleItem({
+    this.occupancyPercent = 0,
     required this.date,
     required this.isSelected,
     required this.showArc,
@@ -178,6 +195,7 @@ class _DateCircleItem extends StatelessWidget {
     required this.useGreyCircles,
   });
 
+  final double occupancyPercent;
   final DateTime date;
   final bool isSelected;
   final bool showArc;
@@ -199,6 +217,7 @@ class _DateCircleItem extends StatelessWidget {
               isSelected: isSelected,
               showArc: showArc,
               useGreyCircles: useGreyCircles,
+              occupancyPercent: occupancyPercent,
             ),
             child: Center(
               child: Text(
@@ -229,11 +248,13 @@ class _DateCirclePainter extends CustomPainter {
     required this.isSelected,
     required this.showArc,
     required this.useGreyCircles,
+    required this.occupancyPercent,
   });
 
   final bool isSelected;
   final bool showArc;
   final bool useGreyCircles;
+  final double occupancyPercent;
   static const _arcStrokeWidth = 4.0;
 
   @override
@@ -250,25 +271,59 @@ class _DateCirclePainter extends CustomPainter {
     canvas.drawCircle(center, radius, bgPaint);
 
     if (isSelected) {
-      // Обводка выбранного дня — SecondaryAccent
-      final outlinePaint = Paint()
-        ..color = AppColors.secondaryAccent
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = _arcStrokeWidth;
-      canvas.drawCircle(center, radius - 1, outlinePaint);
+      // Если есть данные или заполняемость
+      if (showArc || occupancyPercent > 0) {
+        // Базовая обводка выбранного дня — MainAccent (синий)
+        // Теперь MainAccent — это основной цвет заполнения
+        final baseOutlinePaint = Paint()
+          ..color = AppColors.mainAccent
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = _arcStrokeWidth;
+        canvas.drawCircle(center, radius - 1, baseOutlinePaint);
+
+        // Дуга "свободного" места или акцентная дуга поверх — SecondaryAccent (светлый)
+        // Если вы хотите, чтобы 10% были светлыми на синем фоне:
+        if (occupancyPercent > 0) {
+          final arcPaint = Paint()
+            ..color = AppColors.secondaryAccent
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = _arcStrokeWidth
+            ..strokeCap = StrokeCap.round;
+
+          final percent = occupancyPercent.clamp(0.0, 100.0);
+          final sweepAngle = (2 * 3.1415926535) * (percent / 100.0);
+          const startAngle = -3.1415926535 / 2;
+
+          canvas.drawArc(
+            Rect.fromCircle(center: center, radius: radius - 1),
+            startAngle,
+            sweepAngle,
+            false,
+            arcPaint,
+          );
+        }
+      }
     }
 
     if (!isSelected && showArc) {
-      // Дуга внизу круга (7–5 ч) — есть данные
+      // Базовая обводка невыбранного дня (если нужна под дугой)
+      // Если вы хотите, чтобы у невыбранных тоже была подложка, можно добавить drawCircle здесь
+
+      // Дуга вокруг круга для невыбранного дня
       final arcPaint = Paint()
         ..color = AppColors.mainAccent
         ..style = PaintingStyle.stroke
         ..strokeWidth = _arcStrokeWidth
         ..strokeCap = StrokeCap.round;
+
+      final percent = occupancyPercent.clamp(0.0, 100.0);
+      final sweepAngle = (2 * 3.1415926535) * (percent / 100.0);
+      const startAngle = -3.1415926535 / 2;
+
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius - 1),
-        1.15 * 3.14159, // ~7 ч
-        1.0 * 3.14159, // до ~5 ч
+        startAngle,
+        sweepAngle,
         false,
         arcPaint,
       );
@@ -279,6 +334,7 @@ class _DateCirclePainter extends CustomPainter {
   bool shouldRepaint(covariant _DateCirclePainter oldDelegate) {
     return oldDelegate.isSelected != isSelected ||
         oldDelegate.showArc != showArc ||
-        oldDelegate.useGreyCircles != useGreyCircles;
+        oldDelegate.useGreyCircles != useGreyCircles ||
+        oldDelegate.occupancyPercent != occupancyPercent;
   }
 }

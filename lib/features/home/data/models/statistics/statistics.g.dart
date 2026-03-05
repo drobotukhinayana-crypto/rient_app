@@ -18,8 +18,8 @@ _Statistics _$StatisticsFromJson(Map<String, dynamic> json) => _Statistics(
           .toList(),
     ),
   ),
-  incomeByDay: (json['income_by_day'] as List<dynamic>)
-      .map((e) => IncomeByDay.fromJson(e as Map<String, dynamic>))
+  incomeByDay: (json['income_by_day'] as List<dynamic>?)
+      ?.map((e) => IncomeByDay.fromJson(e as Map<String, dynamic>))
       .toList(),
   services: (json['services'] as List<dynamic>)
       .map((e) => Service.fromJson(e as Map<String, dynamic>))
@@ -77,14 +77,14 @@ Map<String, dynamic> _$AppointmentByDayToJson(_AppointmentByDay instance) =>
     <String, dynamic>{'date': instance.date, 'count': instance.count};
 
 _IncomeByDay _$IncomeByDayFromJson(Map<String, dynamic> json) => _IncomeByDay(
-  date: json['date'] as String,
+  date: DateTime.parse(json['date'] as String),
   income: (json['income'] as num).toDouble(),
   payDue: (json['pay_due'] as num).toDouble(),
 );
 
 Map<String, dynamic> _$IncomeByDayToJson(_IncomeByDay instance) =>
     <String, dynamic>{
-      'date': instance.date,
+      'date': instance.date.toIso8601String(),
       'income': instance.income,
       'pay_due': instance.payDue,
     };
@@ -110,9 +110,12 @@ Map<String, dynamic> _$ServiceByDayToJson(_ServiceByDay instance) =>
 
 _OccupancyByDay _$OccupancyByDayFromJson(Map<String, dynamic> json) =>
     _OccupancyByDay(
-      date: json['date'] as String,
+      date: DateTime.parse(json['date'] as String),
       occupancy: (json['occupancy'] as num).toDouble(),
     );
 
 Map<String, dynamic> _$OccupancyByDayToJson(_OccupancyByDay instance) =>
-    <String, dynamic>{'date': instance.date, 'occupancy': instance.occupancy};
+    <String, dynamic>{
+      'date': instance.date.toIso8601String(),
+      'occupancy': instance.occupancy,
+    };

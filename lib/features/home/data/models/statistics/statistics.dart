@@ -9,7 +9,7 @@ sealed class Statistics with _$Statistics {
     required Appointments appointments,
     @JsonKey(name: 'appointments_by_day')
     required Map<String, List<AppointmentByDay>> appointmentsByDay,
-    @JsonKey(name: 'income_by_day') required List<IncomeByDay> incomeByDay,
+    @JsonKey(name: 'income_by_day') required List<IncomeByDay>? incomeByDay,
     required List<Service> services,
     @JsonKey(name: 'services_by_day')
     required Map<String, List<ServiceByDay>> servicesByDay,
@@ -17,6 +17,8 @@ sealed class Statistics with _$Statistics {
     @JsonKey(name: 'occupancy_by_day')
     required List<OccupancyByDay> occupancyByDay,
   }) = _Statistics;
+
+  const Statistics._();
 
   factory Statistics.fromJson(Map<String, dynamic> json) =>
       _$StatisticsFromJson(json);
@@ -48,7 +50,7 @@ sealed class AppointmentByDay with _$AppointmentByDay {
 @freezed
 sealed class IncomeByDay with _$IncomeByDay {
   const factory IncomeByDay({
-    required String date,
+    required DateTime date,
     required double income,
     @JsonKey(name: 'pay_due') required double payDue,
   }) = _IncomeByDay;
@@ -85,7 +87,7 @@ sealed class ServiceByDay with _$ServiceByDay {
 @freezed
 sealed class OccupancyByDay with _$OccupancyByDay {
   const factory OccupancyByDay({
-    required String date,
+    required DateTime date,
     required double occupancy,
   }) = _OccupancyByDay;
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
 import 'package:rient_app/features/schedule/view/components/date_range_navigator.dart';
 import 'package:rient_app/features/schedule/view/components/date_strip.dart';
@@ -18,7 +19,9 @@ typedef ScheduleStateCallback =
 class TopPanel extends StatefulWidget {
   const TopPanel({
     super.key,
+
     required this.title,
+    this.occupancyByDay,
     this.showViewModeSwitcher = true,
     this.onScheduleStateChanged,
     this.specialists,
@@ -48,6 +51,9 @@ class TopPanel extends StatefulWidget {
 
   /// Показывать подпись с датой под DateStrip.
   final bool showFullDateLabel;
+
+  /// От 0 до 100
+  final List<OccupancyByDay>? occupancyByDay;
 
   @override
   State<TopPanel> createState() => _TopPanelState();
@@ -163,6 +169,7 @@ class _TopPanelState extends State<TopPanel> {
               onDateSelected: widget.onDateSelected,
               showFullDateLabel: widget.showFullDateLabel,
               useGreyCircles: true,
+              occupancyByDay: widget.occupancyByDay,
             ),
           ],
         ],
