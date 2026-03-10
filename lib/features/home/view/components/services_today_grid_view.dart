@@ -1,8 +1,10 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
 
 class ServicesTodayGridView extends ConsumerWidget {
@@ -11,10 +13,16 @@ class ServicesTodayGridView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statisticsAsync = ref.watch(statisticsProvider);
+    final selectedDate = ref.watch(selectedDateProvider);
+    final selectedDateStr =
+        '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
 
     return statisticsAsync.when(
       data: (statistics) {
-        final services = statistics.services;
+        final dayItem = statistics.servicesByDay
+            .where((e) => e.date == selectedDateStr)
+            .firstOrNull;
+        final services = dayItem?.services ?? {};
         if (services.isEmpty) {
           return const Center(
             child: Padding(

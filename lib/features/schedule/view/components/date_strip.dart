@@ -305,11 +305,8 @@ class _DateCirclePainter extends CustomPainter {
       }
     }
 
-    if (!isSelected && showArc) {
-      // Базовая обводка невыбранного дня (если нужна под дугой)
-      // Если вы хотите, чтобы у невыбранных тоже была подложка, можно добавить drawCircle здесь
-
-      // Дуга вокруг круга для невыбранного дня
+    // Дуга occupancy для невыбранного дня — показываем у всех дней недели, у которых есть данные
+    if (!isSelected && (showArc || occupancyPercent > 0)) {
       final arcPaint = Paint()
         ..color = AppColors.mainAccent
         ..style = PaintingStyle.stroke

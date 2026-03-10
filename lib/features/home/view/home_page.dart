@@ -101,22 +101,24 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
           Gap(12),
           statisticsAsync.when(
             data: (statistics) {
-              // Вычисляем суммарные значения
-              final totalAppointments = statistics.appointments.total;
+              final selectedDate = ref.watch(selectedDateProvider);
+              final selectedDateStr =
+                  '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
 
-              final totalIncome =
-                  statistics.incomeByDay?.fold<double>(
-                    0.0,
-                    (sum, item) => sum + item.income,
-                  ) ??
-                  0;
+              final dayAppointments = statistics.appointmentsByDay
+                  .where((e) => e.date == selectedDateStr)
+                  .firstOrNull
+                  ?.appointments;
+              final dayIncome = statistics.incomeByDay?.where((e) =>
+                  e.date.year == selectedDate.year &&
+                  e.date.month == selectedDate.month &&
+                  e.date.day == selectedDate.day).firstOrNull;
 
-              final totalPayDue =
-                  statistics.incomeByDay?.fold<double>(
-                    0.0,
-                    (sum, item) => sum + item.payDue,
-                  ) ??
-                  0;
+              final totalAppointments = dayAppointments?.total ?? 0;
+              final newCount = dayAppointments?.newCount ?? 0;
+              final cancelled = dayAppointments?.cancelled ?? 0;
+              final dayIncomeValue = dayIncome?.income ?? 0.0;
+              final dayPayDueValue = dayIncome?.payDue ?? 0.0;
 
               return Column(
                 children: [
@@ -157,7 +159,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                               Text('Новых', style: AppFonts.b2Medium),
                               Gap(8),
                               Text(
-                                statistics.appointments.newCount.toString(),
+                                newCount.toString(),
                                 style: AppFonts.h4Medium.copyWith(
                                   color: AppColors.mainAccent,
                                 ),
@@ -185,7 +187,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                               ),
                               Gap(8),
                               Text(
-                                statistics.appointments.cancelled.toString(),
+                                cancelled.toString(),
                                 style: AppFonts.h4Medium.copyWith(
                                   color: AppColors.red,
                                 ),
@@ -213,7 +215,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                               Text('Доход', style: AppFonts.b2Medium),
                               Gap(8),
                               Text(
-                                '${totalIncome.toStringAsFixed(0)} ₽',
+                                '${dayIncomeValue.toStringAsFixed(0)} ₽',
                                 style: AppFonts.h4Medium.copyWith(
                                   color: AppColors.mainAccent,
                                 ),
@@ -237,7 +239,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                               Text('К выплате', style: AppFonts.b2Medium),
                               Gap(8),
                               Text(
-                                '${totalPayDue.toStringAsFixed(0)} ₽',
+                                '${dayPayDueValue.toStringAsFixed(0)} ₽',
                                 style: AppFonts.h4Medium.copyWith(
                                   color: AppColors.mainAccent,
                                 ),

@@ -15,13 +15,17 @@ final statisticsProvider = FutureProvider<Statistics>((ref) async {
     throw Exception('No valid branch found');
   }
 
-  // Получаем выбранную дату
+  // Получаем выбранную дату и границы текущей недели (пн–вс) для occupancy по дням
   final selectedDate = ref.watch(selectedDateProvider);
+  final selectedNorm =
+      DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+  final weekStart =
+      selectedNorm.subtract(Duration(days: selectedDate.weekday - 1));
+  final weekEnd = weekStart.add(const Duration(days: 6));
 
-  // Используем выбранную дату как startDate и endDate (данные за один день)
   return service.getStatistics(
-    startDate: selectedDate,
-    endDate: selectedDate,
+    startDate: weekStart,
+    endDate: weekEnd,
     branchId: branchId,
   );
 });
