@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Statistics {
 
- Appointments get appointments;@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> get appointmentsByDay;@JsonKey(name: 'income_by_day') List<IncomeByDay>? get incomeByDay; List<Service> get services;@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> get servicesByDay; double get occupancy;@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> get occupancyByDay;
+ Appointments get appointments;@JsonKey(name: 'appointments_by_day') List<AppointmentByDayItem> get appointmentsByDay;@JsonKey(name: 'income_by_day') List<IncomeByDay>? get incomeByDay; Map<String, int> get services;@JsonKey(name: 'services_by_day') List<ServiceByDayItem> get servicesByDay; double get occupancy;@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> get occupancyByDay;
 /// Create a copy of Statistics
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -48,7 +48,7 @@ abstract mixin class $StatisticsCopyWith<$Res>  {
   factory $StatisticsCopyWith(Statistics value, $Res Function(Statistics) _then) = _$StatisticsCopyWithImpl;
 @useResult
 $Res call({
- Appointments appointments,@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> appointmentsByDay,@JsonKey(name: 'income_by_day') List<IncomeByDay>? incomeByDay, List<Service> services,@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> servicesByDay, double occupancy,@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> occupancyByDay
+ Appointments appointments,@JsonKey(name: 'appointments_by_day') List<AppointmentByDayItem> appointmentsByDay,@JsonKey(name: 'income_by_day') List<IncomeByDay>? incomeByDay, Map<String, int> services,@JsonKey(name: 'services_by_day') List<ServiceByDayItem> servicesByDay, double occupancy,@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> occupancyByDay
 });
 
 
@@ -69,10 +69,10 @@ class _$StatisticsCopyWithImpl<$Res>
   return _then(_self.copyWith(
 appointments: null == appointments ? _self.appointments : appointments // ignore: cast_nullable_to_non_nullable
 as Appointments,appointmentsByDay: null == appointmentsByDay ? _self.appointmentsByDay : appointmentsByDay // ignore: cast_nullable_to_non_nullable
-as Map<String, List<AppointmentByDay>>,incomeByDay: freezed == incomeByDay ? _self.incomeByDay : incomeByDay // ignore: cast_nullable_to_non_nullable
+as List<AppointmentByDayItem>,incomeByDay: freezed == incomeByDay ? _self.incomeByDay : incomeByDay // ignore: cast_nullable_to_non_nullable
 as List<IncomeByDay>?,services: null == services ? _self.services : services // ignore: cast_nullable_to_non_nullable
-as List<Service>,servicesByDay: null == servicesByDay ? _self.servicesByDay : servicesByDay // ignore: cast_nullable_to_non_nullable
-as Map<String, List<ServiceByDay>>,occupancy: null == occupancy ? _self.occupancy : occupancy // ignore: cast_nullable_to_non_nullable
+as Map<String, int>,servicesByDay: null == servicesByDay ? _self.servicesByDay : servicesByDay // ignore: cast_nullable_to_non_nullable
+as List<ServiceByDayItem>,occupancy: null == occupancy ? _self.occupancy : occupancy // ignore: cast_nullable_to_non_nullable
 as double,occupancyByDay: null == occupancyByDay ? _self.occupancyByDay : occupancyByDay // ignore: cast_nullable_to_non_nullable
 as List<OccupancyByDay>,
   ));
@@ -165,7 +165,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay>? incomeByDay,  List<Service> services, @JsonKey(name: 'services_by_day')  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  List<AppointmentByDayItem> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay>? incomeByDay,  Map<String, int> services, @JsonKey(name: 'services_by_day')  List<ServiceByDayItem> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Statistics() when $default != null:
 return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_that.services,_that.servicesByDay,_that.occupancy,_that.occupancyByDay);case _:
@@ -186,7 +186,7 @@ return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay>? incomeByDay,  List<Service> services, @JsonKey(name: 'services_by_day')  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  List<AppointmentByDayItem> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay>? incomeByDay,  Map<String, int> services, @JsonKey(name: 'services_by_day')  List<ServiceByDayItem> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)  $default,) {final _that = this;
 switch (_that) {
 case _Statistics():
 return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_that.services,_that.servicesByDay,_that.occupancy,_that.occupancyByDay);}
@@ -203,7 +203,7 @@ return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay>? incomeByDay,  List<Service> services, @JsonKey(name: 'services_by_day')  Map<String, List<ServiceByDay>> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Appointments appointments, @JsonKey(name: 'appointments_by_day')  List<AppointmentByDayItem> appointmentsByDay, @JsonKey(name: 'income_by_day')  List<IncomeByDay>? incomeByDay,  Map<String, int> services, @JsonKey(name: 'services_by_day')  List<ServiceByDayItem> servicesByDay,  double occupancy, @JsonKey(name: 'occupancy_by_day')  List<OccupancyByDay> occupancyByDay)?  $default,) {final _that = this;
 switch (_that) {
 case _Statistics() when $default != null:
 return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_that.services,_that.servicesByDay,_that.occupancy,_that.occupancyByDay);case _:
@@ -218,15 +218,15 @@ return $default(_that.appointments,_that.appointmentsByDay,_that.incomeByDay,_th
 @JsonSerializable()
 
 class _Statistics extends Statistics {
-  const _Statistics({required this.appointments, @JsonKey(name: 'appointments_by_day') required final  Map<String, List<AppointmentByDay>> appointmentsByDay, @JsonKey(name: 'income_by_day') required final  List<IncomeByDay>? incomeByDay, required final  List<Service> services, @JsonKey(name: 'services_by_day') required final  Map<String, List<ServiceByDay>> servicesByDay, required this.occupancy, @JsonKey(name: 'occupancy_by_day') required final  List<OccupancyByDay> occupancyByDay}): _appointmentsByDay = appointmentsByDay,_incomeByDay = incomeByDay,_services = services,_servicesByDay = servicesByDay,_occupancyByDay = occupancyByDay,super._();
+  const _Statistics({required this.appointments, @JsonKey(name: 'appointments_by_day') required final  List<AppointmentByDayItem> appointmentsByDay, @JsonKey(name: 'income_by_day') required final  List<IncomeByDay>? incomeByDay, required final  Map<String, int> services, @JsonKey(name: 'services_by_day') required final  List<ServiceByDayItem> servicesByDay, required this.occupancy, @JsonKey(name: 'occupancy_by_day') required final  List<OccupancyByDay> occupancyByDay}): _appointmentsByDay = appointmentsByDay,_incomeByDay = incomeByDay,_services = services,_servicesByDay = servicesByDay,_occupancyByDay = occupancyByDay,super._();
   factory _Statistics.fromJson(Map<String, dynamic> json) => _$StatisticsFromJson(json);
 
 @override final  Appointments appointments;
- final  Map<String, List<AppointmentByDay>> _appointmentsByDay;
-@override@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> get appointmentsByDay {
-  if (_appointmentsByDay is EqualUnmodifiableMapView) return _appointmentsByDay;
+ final  List<AppointmentByDayItem> _appointmentsByDay;
+@override@JsonKey(name: 'appointments_by_day') List<AppointmentByDayItem> get appointmentsByDay {
+  if (_appointmentsByDay is EqualUnmodifiableListView) return _appointmentsByDay;
   // ignore: implicit_dynamic_type
-  return EqualUnmodifiableMapView(_appointmentsByDay);
+  return EqualUnmodifiableListView(_appointmentsByDay);
 }
 
  final  List<IncomeByDay>? _incomeByDay;
@@ -238,18 +238,18 @@ class _Statistics extends Statistics {
   return EqualUnmodifiableListView(value);
 }
 
- final  List<Service> _services;
-@override List<Service> get services {
-  if (_services is EqualUnmodifiableListView) return _services;
+ final  Map<String, int> _services;
+@override Map<String, int> get services {
+  if (_services is EqualUnmodifiableMapView) return _services;
   // ignore: implicit_dynamic_type
-  return EqualUnmodifiableListView(_services);
+  return EqualUnmodifiableMapView(_services);
 }
 
- final  Map<String, List<ServiceByDay>> _servicesByDay;
-@override@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> get servicesByDay {
-  if (_servicesByDay is EqualUnmodifiableMapView) return _servicesByDay;
+ final  List<ServiceByDayItem> _servicesByDay;
+@override@JsonKey(name: 'services_by_day') List<ServiceByDayItem> get servicesByDay {
+  if (_servicesByDay is EqualUnmodifiableListView) return _servicesByDay;
   // ignore: implicit_dynamic_type
-  return EqualUnmodifiableMapView(_servicesByDay);
+  return EqualUnmodifiableListView(_servicesByDay);
 }
 
 @override final  double occupancy;
@@ -294,7 +294,7 @@ abstract mixin class _$StatisticsCopyWith<$Res> implements $StatisticsCopyWith<$
   factory _$StatisticsCopyWith(_Statistics value, $Res Function(_Statistics) _then) = __$StatisticsCopyWithImpl;
 @override @useResult
 $Res call({
- Appointments appointments,@JsonKey(name: 'appointments_by_day') Map<String, List<AppointmentByDay>> appointmentsByDay,@JsonKey(name: 'income_by_day') List<IncomeByDay>? incomeByDay, List<Service> services,@JsonKey(name: 'services_by_day') Map<String, List<ServiceByDay>> servicesByDay, double occupancy,@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> occupancyByDay
+ Appointments appointments,@JsonKey(name: 'appointments_by_day') List<AppointmentByDayItem> appointmentsByDay,@JsonKey(name: 'income_by_day') List<IncomeByDay>? incomeByDay, Map<String, int> services,@JsonKey(name: 'services_by_day') List<ServiceByDayItem> servicesByDay, double occupancy,@JsonKey(name: 'occupancy_by_day') List<OccupancyByDay> occupancyByDay
 });
 
 
@@ -315,10 +315,10 @@ class __$StatisticsCopyWithImpl<$Res>
   return _then(_Statistics(
 appointments: null == appointments ? _self.appointments : appointments // ignore: cast_nullable_to_non_nullable
 as Appointments,appointmentsByDay: null == appointmentsByDay ? _self._appointmentsByDay : appointmentsByDay // ignore: cast_nullable_to_non_nullable
-as Map<String, List<AppointmentByDay>>,incomeByDay: freezed == incomeByDay ? _self._incomeByDay : incomeByDay // ignore: cast_nullable_to_non_nullable
+as List<AppointmentByDayItem>,incomeByDay: freezed == incomeByDay ? _self._incomeByDay : incomeByDay // ignore: cast_nullable_to_non_nullable
 as List<IncomeByDay>?,services: null == services ? _self._services : services // ignore: cast_nullable_to_non_nullable
-as List<Service>,servicesByDay: null == servicesByDay ? _self._servicesByDay : servicesByDay // ignore: cast_nullable_to_non_nullable
-as Map<String, List<ServiceByDay>>,occupancy: null == occupancy ? _self.occupancy : occupancy // ignore: cast_nullable_to_non_nullable
+as Map<String, int>,servicesByDay: null == servicesByDay ? _self._servicesByDay : servicesByDay // ignore: cast_nullable_to_non_nullable
+as List<ServiceByDayItem>,occupancy: null == occupancy ? _self.occupancy : occupancy // ignore: cast_nullable_to_non_nullable
 as double,occupancyByDay: null == occupancyByDay ? _self._occupancyByDay : occupancyByDay // ignore: cast_nullable_to_non_nullable
 as List<OccupancyByDay>,
   ));
@@ -340,7 +340,7 @@ $AppointmentsCopyWith<$Res> get appointments {
 /// @nodoc
 mixin _$Appointments {
 
- int get completed; int get canceled; int get stalled; int get confirmed; int get created;
+ int get total; int get cancelled;@JsonKey(name: 'new') int get newCount;
 /// Create a copy of Appointments
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -353,16 +353,16 @@ $AppointmentsCopyWith<Appointments> get copyWith => _$AppointmentsCopyWithImpl<A
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Appointments&&(identical(other.completed, completed) || other.completed == completed)&&(identical(other.canceled, canceled) || other.canceled == canceled)&&(identical(other.stalled, stalled) || other.stalled == stalled)&&(identical(other.confirmed, confirmed) || other.confirmed == confirmed)&&(identical(other.created, created) || other.created == created));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Appointments&&(identical(other.total, total) || other.total == total)&&(identical(other.cancelled, cancelled) || other.cancelled == cancelled)&&(identical(other.newCount, newCount) || other.newCount == newCount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,completed,canceled,stalled,confirmed,created);
+int get hashCode => Object.hash(runtimeType,total,cancelled,newCount);
 
 @override
 String toString() {
-  return 'Appointments(completed: $completed, canceled: $canceled, stalled: $stalled, confirmed: $confirmed, created: $created)';
+  return 'Appointments(total: $total, cancelled: $cancelled, newCount: $newCount)';
 }
 
 
@@ -373,7 +373,7 @@ abstract mixin class $AppointmentsCopyWith<$Res>  {
   factory $AppointmentsCopyWith(Appointments value, $Res Function(Appointments) _then) = _$AppointmentsCopyWithImpl;
 @useResult
 $Res call({
- int completed, int canceled, int stalled, int confirmed, int created
+ int total, int cancelled,@JsonKey(name: 'new') int newCount
 });
 
 
@@ -390,13 +390,11 @@ class _$AppointmentsCopyWithImpl<$Res>
 
 /// Create a copy of Appointments
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? completed = null,Object? canceled = null,Object? stalled = null,Object? confirmed = null,Object? created = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? total = null,Object? cancelled = null,Object? newCount = null,}) {
   return _then(_self.copyWith(
-completed: null == completed ? _self.completed : completed // ignore: cast_nullable_to_non_nullable
-as int,canceled: null == canceled ? _self.canceled : canceled // ignore: cast_nullable_to_non_nullable
-as int,stalled: null == stalled ? _self.stalled : stalled // ignore: cast_nullable_to_non_nullable
-as int,confirmed: null == confirmed ? _self.confirmed : confirmed // ignore: cast_nullable_to_non_nullable
-as int,created: null == created ? _self.created : created // ignore: cast_nullable_to_non_nullable
+total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,cancelled: null == cancelled ? _self.cancelled : cancelled // ignore: cast_nullable_to_non_nullable
+as int,newCount: null == newCount ? _self.newCount : newCount // ignore: cast_nullable_to_non_nullable
 as int,
   ));
 }
@@ -479,10 +477,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int completed,  int canceled,  int stalled,  int confirmed,  int created)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int total,  int cancelled, @JsonKey(name: 'new')  int newCount)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Appointments() when $default != null:
-return $default(_that.completed,_that.canceled,_that.stalled,_that.confirmed,_that.created);case _:
+return $default(_that.total,_that.cancelled,_that.newCount);case _:
   return orElse();
 
 }
@@ -500,10 +498,10 @@ return $default(_that.completed,_that.canceled,_that.stalled,_that.confirmed,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int completed,  int canceled,  int stalled,  int confirmed,  int created)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int total,  int cancelled, @JsonKey(name: 'new')  int newCount)  $default,) {final _that = this;
 switch (_that) {
 case _Appointments():
-return $default(_that.completed,_that.canceled,_that.stalled,_that.confirmed,_that.created);}
+return $default(_that.total,_that.cancelled,_that.newCount);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -517,10 +515,10 @@ return $default(_that.completed,_that.canceled,_that.stalled,_that.confirmed,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int completed,  int canceled,  int stalled,  int confirmed,  int created)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int total,  int cancelled, @JsonKey(name: 'new')  int newCount)?  $default,) {final _that = this;
 switch (_that) {
 case _Appointments() when $default != null:
-return $default(_that.completed,_that.canceled,_that.stalled,_that.confirmed,_that.created);case _:
+return $default(_that.total,_that.cancelled,_that.newCount);case _:
   return null;
 
 }
@@ -532,14 +530,12 @@ return $default(_that.completed,_that.canceled,_that.stalled,_that.confirmed,_th
 @JsonSerializable()
 
 class _Appointments implements Appointments {
-  const _Appointments({required this.completed, required this.canceled, required this.stalled, required this.confirmed, required this.created});
+  const _Appointments({required this.total, required this.cancelled, @JsonKey(name: 'new') required this.newCount});
   factory _Appointments.fromJson(Map<String, dynamic> json) => _$AppointmentsFromJson(json);
 
-@override final  int completed;
-@override final  int canceled;
-@override final  int stalled;
-@override final  int confirmed;
-@override final  int created;
+@override final  int total;
+@override final  int cancelled;
+@override@JsonKey(name: 'new') final  int newCount;
 
 /// Create a copy of Appointments
 /// with the given fields replaced by the non-null parameter values.
@@ -554,16 +550,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Appointments&&(identical(other.completed, completed) || other.completed == completed)&&(identical(other.canceled, canceled) || other.canceled == canceled)&&(identical(other.stalled, stalled) || other.stalled == stalled)&&(identical(other.confirmed, confirmed) || other.confirmed == confirmed)&&(identical(other.created, created) || other.created == created));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Appointments&&(identical(other.total, total) || other.total == total)&&(identical(other.cancelled, cancelled) || other.cancelled == cancelled)&&(identical(other.newCount, newCount) || other.newCount == newCount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,completed,canceled,stalled,confirmed,created);
+int get hashCode => Object.hash(runtimeType,total,cancelled,newCount);
 
 @override
 String toString() {
-  return 'Appointments(completed: $completed, canceled: $canceled, stalled: $stalled, confirmed: $confirmed, created: $created)';
+  return 'Appointments(total: $total, cancelled: $cancelled, newCount: $newCount)';
 }
 
 
@@ -574,7 +570,7 @@ abstract mixin class _$AppointmentsCopyWith<$Res> implements $AppointmentsCopyWi
   factory _$AppointmentsCopyWith(_Appointments value, $Res Function(_Appointments) _then) = __$AppointmentsCopyWithImpl;
 @override @useResult
 $Res call({
- int completed, int canceled, int stalled, int confirmed, int created
+ int total, int cancelled,@JsonKey(name: 'new') int newCount
 });
 
 
@@ -591,13 +587,11 @@ class __$AppointmentsCopyWithImpl<$Res>
 
 /// Create a copy of Appointments
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? completed = null,Object? canceled = null,Object? stalled = null,Object? confirmed = null,Object? created = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? total = null,Object? cancelled = null,Object? newCount = null,}) {
   return _then(_Appointments(
-completed: null == completed ? _self.completed : completed // ignore: cast_nullable_to_non_nullable
-as int,canceled: null == canceled ? _self.canceled : canceled // ignore: cast_nullable_to_non_nullable
-as int,stalled: null == stalled ? _self.stalled : stalled // ignore: cast_nullable_to_non_nullable
-as int,confirmed: null == confirmed ? _self.confirmed : confirmed // ignore: cast_nullable_to_non_nullable
-as int,created: null == created ? _self.created : created // ignore: cast_nullable_to_non_nullable
+total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,cancelled: null == cancelled ? _self.cancelled : cancelled // ignore: cast_nullable_to_non_nullable
+as int,newCount: null == newCount ? _self.newCount : newCount // ignore: cast_nullable_to_non_nullable
 as int,
   ));
 }
@@ -607,71 +601,80 @@ as int,
 
 
 /// @nodoc
-mixin _$AppointmentByDay {
+mixin _$AppointmentByDayItem {
 
- String get date; int get count;
-/// Create a copy of AppointmentByDay
+ String get date; Appointments get appointments;
+/// Create a copy of AppointmentByDayItem
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-$AppointmentByDayCopyWith<AppointmentByDay> get copyWith => _$AppointmentByDayCopyWithImpl<AppointmentByDay>(this as AppointmentByDay, _$identity);
+$AppointmentByDayItemCopyWith<AppointmentByDayItem> get copyWith => _$AppointmentByDayItemCopyWithImpl<AppointmentByDayItem>(this as AppointmentByDayItem, _$identity);
 
-  /// Serializes this AppointmentByDay to a JSON map.
+  /// Serializes this AppointmentByDayItem to a JSON map.
   Map<String, dynamic> toJson();
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AppointmentByDay&&(identical(other.date, date) || other.date == date)&&(identical(other.count, count) || other.count == count));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AppointmentByDayItem&&(identical(other.date, date) || other.date == date)&&(identical(other.appointments, appointments) || other.appointments == appointments));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,date,count);
+int get hashCode => Object.hash(runtimeType,date,appointments);
 
 @override
 String toString() {
-  return 'AppointmentByDay(date: $date, count: $count)';
+  return 'AppointmentByDayItem(date: $date, appointments: $appointments)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class $AppointmentByDayCopyWith<$Res>  {
-  factory $AppointmentByDayCopyWith(AppointmentByDay value, $Res Function(AppointmentByDay) _then) = _$AppointmentByDayCopyWithImpl;
+abstract mixin class $AppointmentByDayItemCopyWith<$Res>  {
+  factory $AppointmentByDayItemCopyWith(AppointmentByDayItem value, $Res Function(AppointmentByDayItem) _then) = _$AppointmentByDayItemCopyWithImpl;
 @useResult
 $Res call({
- String date, int count
+ String date, Appointments appointments
 });
 
 
-
+$AppointmentsCopyWith<$Res> get appointments;
 
 }
 /// @nodoc
-class _$AppointmentByDayCopyWithImpl<$Res>
-    implements $AppointmentByDayCopyWith<$Res> {
-  _$AppointmentByDayCopyWithImpl(this._self, this._then);
+class _$AppointmentByDayItemCopyWithImpl<$Res>
+    implements $AppointmentByDayItemCopyWith<$Res> {
+  _$AppointmentByDayItemCopyWithImpl(this._self, this._then);
 
-  final AppointmentByDay _self;
-  final $Res Function(AppointmentByDay) _then;
+  final AppointmentByDayItem _self;
+  final $Res Function(AppointmentByDayItem) _then;
 
-/// Create a copy of AppointmentByDay
+/// Create a copy of AppointmentByDayItem
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? date = null,Object? count = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? date = null,Object? appointments = null,}) {
   return _then(_self.copyWith(
 date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
-as String,count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
-as int,
+as String,appointments: null == appointments ? _self.appointments : appointments // ignore: cast_nullable_to_non_nullable
+as Appointments,
   ));
 }
-
+/// Create a copy of AppointmentByDayItem
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$AppointmentsCopyWith<$Res> get appointments {
+  
+  return $AppointmentsCopyWith<$Res>(_self.appointments, (value) {
+    return _then(_self.copyWith(appointments: value));
+  });
+}
 }
 
 
-/// Adds pattern-matching-related methods to [AppointmentByDay].
-extension AppointmentByDayPatterns on AppointmentByDay {
+/// Adds pattern-matching-related methods to [AppointmentByDayItem].
+extension AppointmentByDayItemPatterns on AppointmentByDayItem {
 /// A variant of `map` that fallback to returning `orElse`.
 ///
 /// It is equivalent to doing:
@@ -684,10 +687,10 @@ extension AppointmentByDayPatterns on AppointmentByDay {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _AppointmentByDay value)?  $default,{required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _AppointmentByDayItem value)?  $default,{required TResult orElse(),}){
 final _that = this;
 switch (_that) {
-case _AppointmentByDay() when $default != null:
+case _AppointmentByDayItem() when $default != null:
 return $default(_that);case _:
   return orElse();
 
@@ -706,10 +709,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _AppointmentByDay value)  $default,){
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _AppointmentByDayItem value)  $default,){
 final _that = this;
 switch (_that) {
-case _AppointmentByDay():
+case _AppointmentByDayItem():
 return $default(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
@@ -724,10 +727,10 @@ return $default(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _AppointmentByDay value)?  $default,){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _AppointmentByDayItem value)?  $default,){
 final _that = this;
 switch (_that) {
-case _AppointmentByDay() when $default != null:
+case _AppointmentByDayItem() when $default != null:
 return $default(_that);case _:
   return null;
 
@@ -745,10 +748,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String date,  int count)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String date,  Appointments appointments)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
-case _AppointmentByDay() when $default != null:
-return $default(_that.date,_that.count);case _:
+case _AppointmentByDayItem() when $default != null:
+return $default(_that.date,_that.appointments);case _:
   return orElse();
 
 }
@@ -766,10 +769,10 @@ return $default(_that.date,_that.count);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String date,  int count)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String date,  Appointments appointments)  $default,) {final _that = this;
 switch (_that) {
-case _AppointmentByDay():
-return $default(_that.date,_that.count);}
+case _AppointmentByDayItem():
+return $default(_that.date,_that.appointments);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -783,10 +786,10 @@ return $default(_that.date,_that.count);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String date,  int count)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String date,  Appointments appointments)?  $default,) {final _that = this;
 switch (_that) {
-case _AppointmentByDay() when $default != null:
-return $default(_that.date,_that.count);case _:
+case _AppointmentByDayItem() when $default != null:
+return $default(_that.date,_that.appointments);case _:
   return null;
 
 }
@@ -797,72 +800,81 @@ return $default(_that.date,_that.count);case _:
 /// @nodoc
 @JsonSerializable()
 
-class _AppointmentByDay implements AppointmentByDay {
-  const _AppointmentByDay({required this.date, required this.count});
-  factory _AppointmentByDay.fromJson(Map<String, dynamic> json) => _$AppointmentByDayFromJson(json);
+class _AppointmentByDayItem implements AppointmentByDayItem {
+  const _AppointmentByDayItem({required this.date, required this.appointments});
+  factory _AppointmentByDayItem.fromJson(Map<String, dynamic> json) => _$AppointmentByDayItemFromJson(json);
 
 @override final  String date;
-@override final  int count;
+@override final  Appointments appointments;
 
-/// Create a copy of AppointmentByDay
+/// Create a copy of AppointmentByDayItem
 /// with the given fields replaced by the non-null parameter values.
 @override @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-_$AppointmentByDayCopyWith<_AppointmentByDay> get copyWith => __$AppointmentByDayCopyWithImpl<_AppointmentByDay>(this, _$identity);
+_$AppointmentByDayItemCopyWith<_AppointmentByDayItem> get copyWith => __$AppointmentByDayItemCopyWithImpl<_AppointmentByDayItem>(this, _$identity);
 
 @override
 Map<String, dynamic> toJson() {
-  return _$AppointmentByDayToJson(this, );
+  return _$AppointmentByDayItemToJson(this, );
 }
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AppointmentByDay&&(identical(other.date, date) || other.date == date)&&(identical(other.count, count) || other.count == count));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AppointmentByDayItem&&(identical(other.date, date) || other.date == date)&&(identical(other.appointments, appointments) || other.appointments == appointments));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,date,count);
+int get hashCode => Object.hash(runtimeType,date,appointments);
 
 @override
 String toString() {
-  return 'AppointmentByDay(date: $date, count: $count)';
+  return 'AppointmentByDayItem(date: $date, appointments: $appointments)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class _$AppointmentByDayCopyWith<$Res> implements $AppointmentByDayCopyWith<$Res> {
-  factory _$AppointmentByDayCopyWith(_AppointmentByDay value, $Res Function(_AppointmentByDay) _then) = __$AppointmentByDayCopyWithImpl;
+abstract mixin class _$AppointmentByDayItemCopyWith<$Res> implements $AppointmentByDayItemCopyWith<$Res> {
+  factory _$AppointmentByDayItemCopyWith(_AppointmentByDayItem value, $Res Function(_AppointmentByDayItem) _then) = __$AppointmentByDayItemCopyWithImpl;
 @override @useResult
 $Res call({
- String date, int count
+ String date, Appointments appointments
 });
 
 
-
+@override $AppointmentsCopyWith<$Res> get appointments;
 
 }
 /// @nodoc
-class __$AppointmentByDayCopyWithImpl<$Res>
-    implements _$AppointmentByDayCopyWith<$Res> {
-  __$AppointmentByDayCopyWithImpl(this._self, this._then);
+class __$AppointmentByDayItemCopyWithImpl<$Res>
+    implements _$AppointmentByDayItemCopyWith<$Res> {
+  __$AppointmentByDayItemCopyWithImpl(this._self, this._then);
 
-  final _AppointmentByDay _self;
-  final $Res Function(_AppointmentByDay) _then;
+  final _AppointmentByDayItem _self;
+  final $Res Function(_AppointmentByDayItem) _then;
 
-/// Create a copy of AppointmentByDay
+/// Create a copy of AppointmentByDayItem
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? date = null,Object? count = null,}) {
-  return _then(_AppointmentByDay(
+@override @pragma('vm:prefer-inline') $Res call({Object? date = null,Object? appointments = null,}) {
+  return _then(_AppointmentByDayItem(
 date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
-as String,count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
-as int,
+as String,appointments: null == appointments ? _self.appointments : appointments // ignore: cast_nullable_to_non_nullable
+as Appointments,
   ));
 }
 
-
+/// Create a copy of AppointmentByDayItem
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$AppointmentsCopyWith<$Res> get appointments {
+  
+  return $AppointmentsCopyWith<$Res>(_self.appointments, (value) {
+    return _then(_self.copyWith(appointments: value));
+  });
+}
 }
 
 
@@ -1130,42 +1142,42 @@ as double,
 
 
 /// @nodoc
-mixin _$Service {
+mixin _$ServiceByDayItem {
 
-@JsonKey(name: '_name') String get name; int get count;
-/// Create a copy of Service
+ String get date; Map<String, int> get services;
+/// Create a copy of ServiceByDayItem
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-$ServiceCopyWith<Service> get copyWith => _$ServiceCopyWithImpl<Service>(this as Service, _$identity);
+$ServiceByDayItemCopyWith<ServiceByDayItem> get copyWith => _$ServiceByDayItemCopyWithImpl<ServiceByDayItem>(this as ServiceByDayItem, _$identity);
 
-  /// Serializes this Service to a JSON map.
+  /// Serializes this ServiceByDayItem to a JSON map.
   Map<String, dynamic> toJson();
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Service&&(identical(other.name, name) || other.name == name)&&(identical(other.count, count) || other.count == count));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ServiceByDayItem&&(identical(other.date, date) || other.date == date)&&const DeepCollectionEquality().equals(other.services, services));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,name,count);
+int get hashCode => Object.hash(runtimeType,date,const DeepCollectionEquality().hash(services));
 
 @override
 String toString() {
-  return 'Service(name: $name, count: $count)';
+  return 'ServiceByDayItem(date: $date, services: $services)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class $ServiceCopyWith<$Res>  {
-  factory $ServiceCopyWith(Service value, $Res Function(Service) _then) = _$ServiceCopyWithImpl;
+abstract mixin class $ServiceByDayItemCopyWith<$Res>  {
+  factory $ServiceByDayItemCopyWith(ServiceByDayItem value, $Res Function(ServiceByDayItem) _then) = _$ServiceByDayItemCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: '_name') String name, int count
+ String date, Map<String, int> services
 });
 
 
@@ -1173,288 +1185,28 @@ $Res call({
 
 }
 /// @nodoc
-class _$ServiceCopyWithImpl<$Res>
-    implements $ServiceCopyWith<$Res> {
-  _$ServiceCopyWithImpl(this._self, this._then);
+class _$ServiceByDayItemCopyWithImpl<$Res>
+    implements $ServiceByDayItemCopyWith<$Res> {
+  _$ServiceByDayItemCopyWithImpl(this._self, this._then);
 
-  final Service _self;
-  final $Res Function(Service) _then;
+  final ServiceByDayItem _self;
+  final $Res Function(ServiceByDayItem) _then;
 
-/// Create a copy of Service
+/// Create a copy of ServiceByDayItem
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? name = null,Object? count = null,}) {
-  return _then(_self.copyWith(
-name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
-as String,count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
-as int,
-  ));
-}
-
-}
-
-
-/// Adds pattern-matching-related methods to [Service].
-extension ServicePatterns on Service {
-/// A variant of `map` that fallback to returning `orElse`.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case _:
-///     return orElse();
-/// }
-/// ```
-
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _Service value)?  $default,{required TResult orElse(),}){
-final _that = this;
-switch (_that) {
-case _Service() when $default != null:
-return $default(_that);case _:
-  return orElse();
-
-}
-}
-/// A `switch`-like method, using callbacks.
-///
-/// Callbacks receives the raw object, upcasted.
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case final Subclass2 value:
-///     return ...;
-/// }
-/// ```
-
-@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _Service value)  $default,){
-final _that = this;
-switch (_that) {
-case _Service():
-return $default(_that);}
-}
-/// A variant of `map` that fallback to returning `null`.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case _:
-///     return null;
-/// }
-/// ```
-
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _Service value)?  $default,){
-final _that = this;
-switch (_that) {
-case _Service() when $default != null:
-return $default(_that);case _:
-  return null;
-
-}
-}
-/// A variant of `when` that fallback to an `orElse` callback.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case _:
-///     return orElse();
-/// }
-/// ```
-
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: '_name')  String name,  int count)?  $default,{required TResult orElse(),}) {final _that = this;
-switch (_that) {
-case _Service() when $default != null:
-return $default(_that.name,_that.count);case _:
-  return orElse();
-
-}
-}
-/// A `switch`-like method, using callbacks.
-///
-/// As opposed to `map`, this offers destructuring.
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case Subclass2(:final field2):
-///     return ...;
-/// }
-/// ```
-
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: '_name')  String name,  int count)  $default,) {final _that = this;
-switch (_that) {
-case _Service():
-return $default(_that.name,_that.count);}
-}
-/// A variant of `when` that fallback to returning `null`
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case _:
-///     return null;
-/// }
-/// ```
-
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: '_name')  String name,  int count)?  $default,) {final _that = this;
-switch (_that) {
-case _Service() when $default != null:
-return $default(_that.name,_that.count);case _:
-  return null;
-
-}
-}
-
-}
-
-/// @nodoc
-@JsonSerializable()
-
-class _Service implements Service {
-  const _Service({@JsonKey(name: '_name') required this.name, required this.count});
-  factory _Service.fromJson(Map<String, dynamic> json) => _$ServiceFromJson(json);
-
-@override@JsonKey(name: '_name') final  String name;
-@override final  int count;
-
-/// Create a copy of Service
-/// with the given fields replaced by the non-null parameter values.
-@override @JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-_$ServiceCopyWith<_Service> get copyWith => __$ServiceCopyWithImpl<_Service>(this, _$identity);
-
-@override
-Map<String, dynamic> toJson() {
-  return _$ServiceToJson(this, );
-}
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Service&&(identical(other.name, name) || other.name == name)&&(identical(other.count, count) || other.count == count));
-}
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode => Object.hash(runtimeType,name,count);
-
-@override
-String toString() {
-  return 'Service(name: $name, count: $count)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class _$ServiceCopyWith<$Res> implements $ServiceCopyWith<$Res> {
-  factory _$ServiceCopyWith(_Service value, $Res Function(_Service) _then) = __$ServiceCopyWithImpl;
-@override @useResult
-$Res call({
-@JsonKey(name: '_name') String name, int count
-});
-
-
-
-
-}
-/// @nodoc
-class __$ServiceCopyWithImpl<$Res>
-    implements _$ServiceCopyWith<$Res> {
-  __$ServiceCopyWithImpl(this._self, this._then);
-
-  final _Service _self;
-  final $Res Function(_Service) _then;
-
-/// Create a copy of Service
-/// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? name = null,Object? count = null,}) {
-  return _then(_Service(
-name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
-as String,count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
-as int,
-  ));
-}
-
-
-}
-
-
-/// @nodoc
-mixin _$ServiceByDay {
-
- String get date; int get count;
-/// Create a copy of ServiceByDay
-/// with the given fields replaced by the non-null parameter values.
-@JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-$ServiceByDayCopyWith<ServiceByDay> get copyWith => _$ServiceByDayCopyWithImpl<ServiceByDay>(this as ServiceByDay, _$identity);
-
-  /// Serializes this ServiceByDay to a JSON map.
-  Map<String, dynamic> toJson();
-
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ServiceByDay&&(identical(other.date, date) || other.date == date)&&(identical(other.count, count) || other.count == count));
-}
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode => Object.hash(runtimeType,date,count);
-
-@override
-String toString() {
-  return 'ServiceByDay(date: $date, count: $count)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class $ServiceByDayCopyWith<$Res>  {
-  factory $ServiceByDayCopyWith(ServiceByDay value, $Res Function(ServiceByDay) _then) = _$ServiceByDayCopyWithImpl;
-@useResult
-$Res call({
- String date, int count
-});
-
-
-
-
-}
-/// @nodoc
-class _$ServiceByDayCopyWithImpl<$Res>
-    implements $ServiceByDayCopyWith<$Res> {
-  _$ServiceByDayCopyWithImpl(this._self, this._then);
-
-  final ServiceByDay _self;
-  final $Res Function(ServiceByDay) _then;
-
-/// Create a copy of ServiceByDay
-/// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? date = null,Object? count = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? date = null,Object? services = null,}) {
   return _then(_self.copyWith(
 date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
-as String,count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
-as int,
+as String,services: null == services ? _self.services : services // ignore: cast_nullable_to_non_nullable
+as Map<String, int>,
   ));
 }
 
 }
 
 
-/// Adds pattern-matching-related methods to [ServiceByDay].
-extension ServiceByDayPatterns on ServiceByDay {
+/// Adds pattern-matching-related methods to [ServiceByDayItem].
+extension ServiceByDayItemPatterns on ServiceByDayItem {
 /// A variant of `map` that fallback to returning `orElse`.
 ///
 /// It is equivalent to doing:
@@ -1467,10 +1219,10 @@ extension ServiceByDayPatterns on ServiceByDay {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _ServiceByDay value)?  $default,{required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _ServiceByDayItem value)?  $default,{required TResult orElse(),}){
 final _that = this;
 switch (_that) {
-case _ServiceByDay() when $default != null:
+case _ServiceByDayItem() when $default != null:
 return $default(_that);case _:
   return orElse();
 
@@ -1489,10 +1241,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _ServiceByDay value)  $default,){
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _ServiceByDayItem value)  $default,){
 final _that = this;
 switch (_that) {
-case _ServiceByDay():
+case _ServiceByDayItem():
 return $default(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
@@ -1507,10 +1259,10 @@ return $default(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _ServiceByDay value)?  $default,){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _ServiceByDayItem value)?  $default,){
 final _that = this;
 switch (_that) {
-case _ServiceByDay() when $default != null:
+case _ServiceByDayItem() when $default != null:
 return $default(_that);case _:
   return null;
 
@@ -1528,10 +1280,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String date,  int count)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String date,  Map<String, int> services)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
-case _ServiceByDay() when $default != null:
-return $default(_that.date,_that.count);case _:
+case _ServiceByDayItem() when $default != null:
+return $default(_that.date,_that.services);case _:
   return orElse();
 
 }
@@ -1549,10 +1301,10 @@ return $default(_that.date,_that.count);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String date,  int count)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String date,  Map<String, int> services)  $default,) {final _that = this;
 switch (_that) {
-case _ServiceByDay():
-return $default(_that.date,_that.count);}
+case _ServiceByDayItem():
+return $default(_that.date,_that.services);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -1566,10 +1318,10 @@ return $default(_that.date,_that.count);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String date,  int count)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String date,  Map<String, int> services)?  $default,) {final _that = this;
 switch (_that) {
-case _ServiceByDay() when $default != null:
-return $default(_that.date,_that.count);case _:
+case _ServiceByDayItem() when $default != null:
+return $default(_that.date,_that.services);case _:
   return null;
 
 }
@@ -1580,47 +1332,53 @@ return $default(_that.date,_that.count);case _:
 /// @nodoc
 @JsonSerializable()
 
-class _ServiceByDay implements ServiceByDay {
-  const _ServiceByDay({required this.date, required this.count});
-  factory _ServiceByDay.fromJson(Map<String, dynamic> json) => _$ServiceByDayFromJson(json);
+class _ServiceByDayItem implements ServiceByDayItem {
+  const _ServiceByDayItem({required this.date, required final  Map<String, int> services}): _services = services;
+  factory _ServiceByDayItem.fromJson(Map<String, dynamic> json) => _$ServiceByDayItemFromJson(json);
 
 @override final  String date;
-@override final  int count;
+ final  Map<String, int> _services;
+@override Map<String, int> get services {
+  if (_services is EqualUnmodifiableMapView) return _services;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_services);
+}
 
-/// Create a copy of ServiceByDay
+
+/// Create a copy of ServiceByDayItem
 /// with the given fields replaced by the non-null parameter values.
 @override @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-_$ServiceByDayCopyWith<_ServiceByDay> get copyWith => __$ServiceByDayCopyWithImpl<_ServiceByDay>(this, _$identity);
+_$ServiceByDayItemCopyWith<_ServiceByDayItem> get copyWith => __$ServiceByDayItemCopyWithImpl<_ServiceByDayItem>(this, _$identity);
 
 @override
 Map<String, dynamic> toJson() {
-  return _$ServiceByDayToJson(this, );
+  return _$ServiceByDayItemToJson(this, );
 }
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ServiceByDay&&(identical(other.date, date) || other.date == date)&&(identical(other.count, count) || other.count == count));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ServiceByDayItem&&(identical(other.date, date) || other.date == date)&&const DeepCollectionEquality().equals(other._services, _services));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,date,count);
+int get hashCode => Object.hash(runtimeType,date,const DeepCollectionEquality().hash(_services));
 
 @override
 String toString() {
-  return 'ServiceByDay(date: $date, count: $count)';
+  return 'ServiceByDayItem(date: $date, services: $services)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class _$ServiceByDayCopyWith<$Res> implements $ServiceByDayCopyWith<$Res> {
-  factory _$ServiceByDayCopyWith(_ServiceByDay value, $Res Function(_ServiceByDay) _then) = __$ServiceByDayCopyWithImpl;
+abstract mixin class _$ServiceByDayItemCopyWith<$Res> implements $ServiceByDayItemCopyWith<$Res> {
+  factory _$ServiceByDayItemCopyWith(_ServiceByDayItem value, $Res Function(_ServiceByDayItem) _then) = __$ServiceByDayItemCopyWithImpl;
 @override @useResult
 $Res call({
- String date, int count
+ String date, Map<String, int> services
 });
 
 
@@ -1628,20 +1386,20 @@ $Res call({
 
 }
 /// @nodoc
-class __$ServiceByDayCopyWithImpl<$Res>
-    implements _$ServiceByDayCopyWith<$Res> {
-  __$ServiceByDayCopyWithImpl(this._self, this._then);
+class __$ServiceByDayItemCopyWithImpl<$Res>
+    implements _$ServiceByDayItemCopyWith<$Res> {
+  __$ServiceByDayItemCopyWithImpl(this._self, this._then);
 
-  final _ServiceByDay _self;
-  final $Res Function(_ServiceByDay) _then;
+  final _ServiceByDayItem _self;
+  final $Res Function(_ServiceByDayItem) _then;
 
-/// Create a copy of ServiceByDay
+/// Create a copy of ServiceByDayItem
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? date = null,Object? count = null,}) {
-  return _then(_ServiceByDay(
+@override @pragma('vm:prefer-inline') $Res call({Object? date = null,Object? services = null,}) {
+  return _then(_ServiceByDayItem(
 date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
-as String,count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
-as int,
+as String,services: null == services ? _self._services : services // ignore: cast_nullable_to_non_nullable
+as Map<String, int>,
   ));
 }
 

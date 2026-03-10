@@ -102,12 +102,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
           statisticsAsync.when(
             data: (statistics) {
               // Вычисляем суммарные значения
-              final totalAppointments =
-                  statistics.appointments.completed +
-                  statistics.appointments.canceled +
-                  statistics.appointments.stalled +
-                  statistics.appointments.confirmed +
-                  statistics.appointments.created;
+              final totalAppointments = statistics.appointments.total;
 
               final totalIncome =
                   statistics.incomeByDay?.fold<double>(
@@ -162,7 +157,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                               Text('Новых', style: AppFonts.b2Medium),
                               Gap(8),
                               Text(
-                                statistics.appointments.created.toString(),
+                                statistics.appointments.newCount.toString(),
                                 style: AppFonts.h4Medium.copyWith(
                                   color: AppColors.mainAccent,
                                 ),
@@ -190,7 +185,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                               ),
                               Gap(8),
                               Text(
-                                statistics.appointments.canceled.toString(),
+                                statistics.appointments.cancelled.toString(),
                                 style: AppFonts.h4Medium.copyWith(
                                   color: AppColors.red,
                                 ),

@@ -24,6 +24,7 @@ class ServicesTodayGridView extends ConsumerWidget {
           );
         }
 
+        final entries = services.entries.toList();
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -34,9 +35,11 @@ class ServicesTodayGridView extends ConsumerWidget {
             crossAxisSpacing: 12,
             childAspectRatio: 3.5,
           ),
-          itemCount: services.length,
+          itemCount: entries.length,
           itemBuilder: (context, index) {
-            final service = services[index];
+            final entry = entries[index];
+            final name = entry.key;
+            final count = entry.value;
             return DefaultContainerWidget(
               color: Colors.white,
               hasShadow: false,
@@ -46,13 +49,13 @@ class ServicesTodayGridView extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      service.name,
+                      name,
                       style: AppFonts.b2Medium,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Text(
-                    '${service.count}',
+                    '$count',
                     style: AppFonts.b2Semi.copyWith(
                       color: AppColors.mainAccent,
                     ),

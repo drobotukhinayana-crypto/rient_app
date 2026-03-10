@@ -8,11 +8,11 @@ sealed class Statistics with _$Statistics {
   const factory Statistics({
     required Appointments appointments,
     @JsonKey(name: 'appointments_by_day')
-    required Map<String, List<AppointmentByDay>> appointmentsByDay,
+    required List<AppointmentByDayItem> appointmentsByDay,
     @JsonKey(name: 'income_by_day') required List<IncomeByDay>? incomeByDay,
-    required List<Service> services,
+    required Map<String, int> services,
     @JsonKey(name: 'services_by_day')
-    required Map<String, List<ServiceByDay>> servicesByDay,
+    required List<ServiceByDayItem> servicesByDay,
     required double occupancy,
     @JsonKey(name: 'occupancy_by_day')
     required List<OccupancyByDay> occupancyByDay,
@@ -27,11 +27,9 @@ sealed class Statistics with _$Statistics {
 @freezed
 sealed class Appointments with _$Appointments {
   const factory Appointments({
-    required int completed,
-    required int canceled,
-    required int stalled,
-    required int confirmed,
-    required int created,
+    required int total,
+    required int cancelled,
+    @JsonKey(name: 'new') required int newCount,
   }) = _Appointments;
 
   factory Appointments.fromJson(Map<String, dynamic> json) =>
@@ -39,12 +37,14 @@ sealed class Appointments with _$Appointments {
 }
 
 @freezed
-sealed class AppointmentByDay with _$AppointmentByDay {
-  const factory AppointmentByDay({required String date, required int count}) =
-      _AppointmentByDay;
+sealed class AppointmentByDayItem with _$AppointmentByDayItem {
+  const factory AppointmentByDayItem({
+    required String date,
+    required Appointments appointments,
+  }) = _AppointmentByDayItem;
 
-  factory AppointmentByDay.fromJson(Map<String, dynamic> json) =>
-      _$AppointmentByDayFromJson(json);
+  factory AppointmentByDayItem.fromJson(Map<String, dynamic> json) =>
+      _$AppointmentByDayItemFromJson(json);
 }
 
 @freezed
@@ -59,29 +59,15 @@ sealed class IncomeByDay with _$IncomeByDay {
       _$IncomeByDayFromJson(json);
 }
 
-extension IncomeByDayX on IncomeByDay {
-  @JsonKey(name: 'pay_due')
-  double get payDue => this.payDue;
-}
-
 @freezed
-sealed class Service with _$Service {
-  const factory Service({
-    @JsonKey(name: '_name') required String name,
-    required int count,
-  }) = _Service;
+sealed class ServiceByDayItem with _$ServiceByDayItem {
+  const factory ServiceByDayItem({
+    required String date,
+    required Map<String, int> services,
+  }) = _ServiceByDayItem;
 
-  factory Service.fromJson(Map<String, dynamic> json) =>
-      _$ServiceFromJson(json);
-}
-
-@freezed
-sealed class ServiceByDay with _$ServiceByDay {
-  const factory ServiceByDay({required String date, required int count}) =
-      _ServiceByDay;
-
-  factory ServiceByDay.fromJson(Map<String, dynamic> json) =>
-      _$ServiceByDayFromJson(json);
+  factory ServiceByDayItem.fromJson(Map<String, dynamic> json) =>
+      _$ServiceByDayItemFromJson(json);
 }
 
 @freezed
