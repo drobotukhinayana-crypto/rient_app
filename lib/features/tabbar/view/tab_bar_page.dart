@@ -6,6 +6,7 @@ import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/features/chat/chat_page.dart';
 import 'package:rient_app/features/create/view/add_new_entry_page.dart'
     show AddNewEntryPage;
+import 'package:rient_app/features/home/view/components/restore_selected_branch.dart';
 import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/link/view/link_page.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
@@ -72,12 +73,14 @@ class _TabBarPageState extends ConsumerState<TabBarPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.tabBarScreenBackground,
-      body: widget.navigationShell,
-      bottomNavigationBar: _NavbarWidget(
-        currentIndex: _navbarIndexFromShell,
-        onTabTapped: navigateOnTabIndexed,
+    return RestoreSelectedBranch(
+      child: Scaffold(
+        backgroundColor: AppColors.tabBarScreenBackground,
+        body: widget.navigationShell,
+        bottomNavigationBar: _NavbarWidget(
+          currentIndex: _navbarIndexFromShell,
+          onTabTapped: navigateOnTabIndexed,
+        ),
       ),
     );
   }

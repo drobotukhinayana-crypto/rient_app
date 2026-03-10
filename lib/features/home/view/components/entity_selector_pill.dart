@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
+import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
@@ -15,7 +16,6 @@ class ProfileSelectorPill extends StatefulWidget {
 }
 
 class _ProfileSelectorPillState extends State<ProfileSelectorPill> {
-  @override
   void _showMenu(
     BuildContext context,
     WidgetRef ref,
@@ -53,9 +53,14 @@ class _ProfileSelectorPillState extends State<ProfileSelectorPill> {
           ),
         );
       }).toList(),
-    ).then((value) {
+    ).then((value) async {
       if (value != null) {
         ref.read(selectedBranchProvider.notifier).state = value;
+        final storage = ref.read(localStorageProvider);
+        await storage.saveString(
+          selectedBranchIdStorageKey,
+          value.id.toString(),
+        );
       }
     });
   }
@@ -104,8 +109,11 @@ class _ProfileSelectorPillState extends State<ProfileSelectorPill> {
                           // текст
                           Builder(
                             builder: (context) {
-                              final branchName = currentBranch.name ?? 'Без названия';
-                              final textWidth = branchName.length <= 10 ? 40.0 : 120.0;
+                              final branchName =
+                                  currentBranch.name ?? 'Без названия';
+                              final textWidth = branchName.length <= 10
+                                  ? 40.0
+                                  : 120.0;
 
                               return SizedBox(
                                 width: textWidth,

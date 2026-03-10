@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
+import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
@@ -36,8 +37,13 @@ class BranchSelector extends ConsumerWidget {
             ),
             Gap(4),
             PopupMenuButton<BranchApi>(
-              onSelected: (BranchApi branch) {
+              onSelected: (BranchApi branch) async {
                 ref.read(selectedBranchProvider.notifier).state = branch;
+                final storage = ref.read(localStorageProvider);
+                await storage.saveString(
+                  selectedBranchIdStorageKey,
+                  branch.id.toString(),
+                );
               },
               itemBuilder: (BuildContext context) {
                 return branchesResponse.results.map((BranchApi branch) {

@@ -4,6 +4,9 @@ import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/service/branches_service.dart';
 
+/// Ключ для сохранения id выбранного филиала в локальное хранилище.
+const selectedBranchIdStorageKey = 'selected_branch_id';
+
 // Provider для загрузки списка филиалов
 final branchesProvider = FutureProvider<BranchesApiResponse>((ref) async {
   // Ждем, пока токен будет загружен
