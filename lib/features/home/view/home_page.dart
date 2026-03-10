@@ -199,57 +199,56 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                     ],
                   ),
 
-                  Gap(10),
-
-                  Row(
-                    children: [
-                      // доход
-                      Expanded(
-                        child: DefaultContainerWidget(
-                          color: Colors.white,
-                          hasShadow: false,
-                          borderRadius: BorderRadius.circular(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Доход', style: AppFonts.b2Medium),
-                              Gap(8),
-                              Text(
-                                '${dayIncomeValue.toStringAsFixed(0)} ₽',
-                                style: AppFonts.h4Medium.copyWith(
-                                  color: AppColors.mainAccent,
+                  if (statistics.incomeByDay != null) ...[
+                    Gap(10),
+                    Row(
+                      children: [
+                        // доход
+                        Expanded(
+                          child: DefaultContainerWidget(
+                            color: Colors.white,
+                            hasShadow: false,
+                            borderRadius: BorderRadius.circular(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Доход', style: AppFonts.b2Medium),
+                                Gap(8),
+                                Text(
+                                  '${dayIncomeValue.toStringAsFixed(0)} ₽',
+                                  style: AppFonts.h4Medium.copyWith(
+                                    color: AppColors.mainAccent,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-
-                      Gap(12),
-
-                      // к выплате
-                      Expanded(
-                        child: DefaultContainerWidget(
-                          color: Colors.white,
-                          hasShadow: false,
-                          borderRadius: BorderRadius.circular(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('К выплате', style: AppFonts.b2Medium),
-                              Gap(8),
-                              Text(
-                                '${dayPayDueValue.toStringAsFixed(0)} ₽',
-                                style: AppFonts.h4Medium.copyWith(
-                                  color: AppColors.mainAccent,
+                        Gap(12),
+                        // к выплате
+                        Expanded(
+                          child: DefaultContainerWidget(
+                            color: Colors.white,
+                            hasShadow: false,
+                            borderRadius: BorderRadius.circular(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('К выплате', style: AppFonts.b2Medium),
+                                Gap(8),
+                                Text(
+                                  '${dayPayDueValue.toStringAsFixed(0)} ₽',
+                                  style: AppFonts.h4Medium.copyWith(
+                                    color: AppColors.mainAccent,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
               );
             },
