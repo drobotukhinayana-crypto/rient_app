@@ -26,6 +26,7 @@ class TopPanel extends StatefulWidget {
     this.onScheduleStateChanged,
     this.specialists,
     this.initialSelectedSpecialist,
+    this.onSpecialistSelected,
     this.selectedDate,
     this.onDateSelected,
     this.showFullDateLabel = true,
@@ -42,6 +43,9 @@ class TopPanel extends StatefulWidget {
 
   /// Выбранный по умолчанию специалист (например первый из списка). Если не передан, пилюля выберет первого из [specialists].
   final SpecialistItem? initialSelectedSpecialist;
+
+  /// Callback при выборе специалиста в диалоге (чтобы сохранить выбор снаружи).
+  final ValueChanged<SpecialistItem>? onSpecialistSelected;
 
   /// Когда задан и [showViewModeSwitcher] true — полоска недели и календарь месяца
   /// не рисуются в панели; вызывается этот callback, контент рисуют на странице.
@@ -147,6 +151,7 @@ class _TopPanelState extends State<TopPanel> {
                 specialists: widget.specialists!,
                 initialSelected: widget.initialSelectedSpecialist ??
                     widget.specialists!.first,
+                onSelected: widget.onSpecialistSelected,
               ),
             ],
             Gap(12),
@@ -173,6 +178,7 @@ class _TopPanelState extends State<TopPanel> {
                       (widget.specialists!.isNotEmpty
                           ? widget.specialists!.first
                           : null),
+                  onSelected: widget.onSpecialistSelected,
                 ),
               ],
             ],

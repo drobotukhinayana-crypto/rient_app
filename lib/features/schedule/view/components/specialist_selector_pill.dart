@@ -11,10 +11,14 @@ class SpecialistSelectorPill extends StatefulWidget {
     super.key,
     this.specialists = _defaultSpecialists,
     this.initialSelected,
+    this.onSelected,
   });
 
   final List<SpecialistItem> specialists;
   final SpecialistItem? initialSelected;
+
+  /// Вызывается при сохранении выбора в диалоге (чтобы сохранить выбор снаружи).
+  final ValueChanged<SpecialistItem>? onSelected;
 
   static const _defaultSpecialists = [
     SpecialistItem(name: 'Иванов Иван', role: 'Барбер'),
@@ -58,7 +62,10 @@ class _SpecialistSelectorPillState extends State<SpecialistSelectorPill> {
       context,
       specialists: widget.specialists,
       initialSelected: _selected,
-      onSave: (s) => setState(() => _selected = s),
+      onSave: (s) {
+        setState(() => _selected = s);
+        widget.onSelected?.call(s);
+      },
     );
   }
 

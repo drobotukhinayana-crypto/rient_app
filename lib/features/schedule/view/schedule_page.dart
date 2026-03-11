@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
@@ -102,6 +103,30 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       data: (response) => _workersToSpecialists(response.results),
       orElse: () => <SpecialistItem>[],
     );
+    final savedSelectedId = ref.watch(selectedSpecialistIdProvider);
+    final initialSelected = specialists.isEmpty
+        ? null
+        : (savedSelectedId != null
+            ? specialists.firstWhere(
+                (s) => s.id == savedSelectedId,
+                orElse: () => specialists.first,
+              )
+            : specialists.first);
+
+    ref.listen(scheduleWorkersProvider, (prev, next) {
+      next.whenData((_) async {
+        if (ref.read(restoredSpecialistSelectionProvider)) return;
+        final storage = ref.read(localStorageProvider);
+        final idStr = await storage.getString(selectedSpecialistIdStorageKey);
+        final id = int.tryParse(idStr ?? '');
+        if (id != null && context.mounted) {
+          ref.read(selectedSpecialistIdProvider.notifier).state = id;
+        }
+        if (context.mounted) {
+          ref.read(restoredSpecialistSelectionProvider.notifier).state = true;
+        }
+      });
+    });
 
     return Scaffold(
       backgroundColor: AppColors.tabBarScreenBackground,
@@ -112,8 +137,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
             showViewModeSwitcher: true,
             onScheduleStateChanged: _onScheduleStateChanged,
             specialists: specialists,
-            initialSelectedSpecialist:
-                specialists.isNotEmpty ? specialists.first : null,
+            initialSelectedSpecialist: initialSelected,
+            onSpecialistSelected: (s) async {
+              ref.read(selectedSpecialistIdProvider.notifier).state = s.id;
+              final storage = ref.read(localStorageProvider);
+              await storage.saveString(
+                selectedSpecialistIdStorageKey,
+                s.id.toString(),
+              );
+            },
           ),
           Expanded(
             child: workersAsync.when(
