@@ -139,9 +139,15 @@ class _TopPanelState extends State<TopPanel> {
               value: _viewMode,
               onChanged: _onViewModeChanged,
             ),
-            if (_viewMode != ViewMode.day) ...[
+            if (_viewMode != ViewMode.day &&
+                widget.specialists != null &&
+                widget.specialists!.isNotEmpty) ...[
               Gap(12),
-              const SpecialistSelectorPill(),
+              SpecialistSelectorPill(
+                specialists: widget.specialists!,
+                initialSelected: widget.initialSelectedSpecialist ??
+                    widget.specialists!.first,
+              ),
             ],
             Gap(12),
             if (_viewMode == ViewMode.week || _viewMode == ViewMode.month)
