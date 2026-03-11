@@ -8,9 +8,16 @@ import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class SpecialistItem {
-  const SpecialistItem({required this.name, required this.role});
+  const SpecialistItem({
+    required this.name,
+    required this.role,
+    this.id,
+    this.pictureUrl,
+  });
   final String name;
   final String role;
+  final int? id;
+  final String? pictureUrl;
 }
 
 class SpecialistSelectDialog extends StatefulWidget {
@@ -139,14 +146,7 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
                       onTap: () => setState(() => _selected = s),
                       child: Row(
                         children: [
-                          Container(
-                            width: 30,
-                            height: 30,
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
+                          _SpecialistAvatarSmall(pictureUrl: s.pictureUrl),
                           Gap(6),
                           Text(s.name, style: AppFonts.c1Regular),
                           const Spacer(),
@@ -176,6 +176,39 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SpecialistAvatarSmall extends StatelessWidget {
+  const _SpecialistAvatarSmall({this.pictureUrl});
+
+  final String? pictureUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    if (pictureUrl != null && pictureUrl!.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          pictureUrl!,
+          width: 30,
+          height: 30,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _placeholder(),
+        ),
+      );
+    }
+    return _placeholder();
+  }
+
+  Widget _placeholder() {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
       ),
     );
   }

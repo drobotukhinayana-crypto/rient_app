@@ -30,14 +30,7 @@ class SpecialistListView extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.secondaryLight,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
+                  _SpecialistAvatar(pictureUrl: item.pictureUrl),
                   Gap(12),
                   Text(
                     item.name,
@@ -59,6 +52,39 @@ class SpecialistListView extends StatelessWidget {
         },
         separatorBuilder: (BuildContext context, int index) => Gap(4),
         itemCount: specialists.length,
+      ),
+    );
+  }
+}
+
+class _SpecialistAvatar extends StatelessWidget {
+  const _SpecialistAvatar({this.pictureUrl});
+
+  final String? pictureUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    if (pictureUrl != null && pictureUrl!.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          pictureUrl!,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _placeholder(),
+        ),
+      );
+    }
+    return _placeholder();
+  }
+
+  Widget _placeholder() {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: AppColors.secondaryLight,
+        shape: BoxShape.circle,
       ),
     );
   }

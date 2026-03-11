@@ -44,6 +44,10 @@ class _SpecialistSelectorPillState extends State<SpecialistSelectorPill> {
     if (widget.initialSelected != null &&
         widget.initialSelected != oldWidget.initialSelected) {
       _selected = widget.initialSelected!;
+    } else if (widget.initialSelected == null &&
+        widget.specialists.isNotEmpty &&
+        _selected == _fallback) {
+      _selected = widget.specialists.first;
     }
     super.didUpdateWidget(oldWidget);
   }
@@ -70,14 +74,7 @@ class _SpecialistSelectorPillState extends State<SpecialistSelectorPill> {
           padding: EdgeInsets.all(12),
           child: Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-              ),
+              _PillAvatar(pictureUrl: _selected.pictureUrl),
               Gap(12),
 
               Expanded(
@@ -106,6 +103,39 @@ class _SpecialistSelectorPillState extends State<SpecialistSelectorPill> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PillAvatar extends StatelessWidget {
+  const _PillAvatar({this.pictureUrl});
+
+  final String? pictureUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    if (pictureUrl != null && pictureUrl!.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          pictureUrl!,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _placeholder(),
+        ),
+      );
+    }
+    return _placeholder();
+  }
+
+  Widget _placeholder() {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
       ),
     );
   }
