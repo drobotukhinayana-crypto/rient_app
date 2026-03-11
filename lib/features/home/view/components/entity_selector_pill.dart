@@ -113,7 +113,7 @@ class _ProfileSelectorPillState extends State<ProfileSelectorPill> {
                                   currentBranch.name ?? 'Без названия';
                               final textWidth = branchName.length <= 10
                                   ? 40.0
-                                  : 120.0;
+                                  : 80.0;
 
                               return SizedBox(
                                 width: textWidth,
