@@ -22,6 +22,8 @@ String scheduleMonthKey(DateTime date) {
 }
 
 /// Статистика (в т.ч. заполненность по дням) для заданного месяца.
+/// Запрашиваем по неделям (те же диапазоны, что и в режиме «Неделя»), затем объединяем
+/// [occupancyByDay], чтобы данные в месяце совпадали с недельным видом.
 /// [monthKey] — ключ в формате YYYY-MM (см. [scheduleMonthKey]).
 final scheduleStatisticsForMonthProvider =
     FutureProvider.family<Statistics, String>((ref, monthKey) async {
@@ -36,13 +38,51 @@ final scheduleStatisticsForMonthProvider =
   if (y == null || m == null) throw Exception('Invalid month key: $monthKey');
   final monthStart = DateTime(y, m, 1);
   final monthEnd = DateTime(y, m + 1, 0);
+
   final service = ref.watch(statisticsServiceProvider);
-  return service.getStatistics(
-    startDate: monthStart,
-    endDate: monthEnd,
-    branchId: branchId,
+  final mergedOccupancyByDay = <DateTime, OccupancyByDay>{};
+  Statistics? firstStats;
+
+  // Понедельник первой недели, которая пересекается с месяцем
+  DateTime currentWeekStart = monthStart.subtract(
+    Duration(days: monthStart.weekday - 1),
   );
+
+  while (true) {
+    final weekEnd = currentWeekStart.add(const Duration(days: 6));
+    if (_dateOnly(weekEnd).isBefore(monthStart)) {
+      currentWeekStart = currentWeekStart.add(const Duration(days: 7));
+      continue;
+    }
+    if (_dateOnly(currentWeekStart).isAfter(monthEnd)) break;
+
+    final stats = await service.getStatistics(
+      startDate: currentWeekStart,
+      endDate: weekEnd,
+      branchId: branchId,
+    );
+    firstStats ??= stats;
+    for (final o in stats.occupancyByDay) {
+      final key = _dateOnly(o.date);
+      if (key.isBefore(monthStart) || key.isAfter(monthEnd)) continue;
+      mergedOccupancyByDay[key] = o;
+    }
+    currentWeekStart = currentWeekStart.add(const Duration(days: 7));
+  }
+
+  final sortedOccupancy = mergedOccupancyByDay.values.toList()
+    ..sort((a, b) => a.date.compareTo(b.date));
+
+  final base = firstStats ??
+      await service.getStatistics(
+        startDate: monthStart,
+        endDate: monthEnd,
+        branchId: branchId,
+      );
+  return base.copyWith(occupancyByDay: sortedOccupancy);
 });
+
+DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
 /// Статистика (в т.ч. заполненность по дням) для заданной недели.
 /// [weekKey] — ключ понедельника в формате YYYY-MM-DD (см. [scheduleWeekKey]).
