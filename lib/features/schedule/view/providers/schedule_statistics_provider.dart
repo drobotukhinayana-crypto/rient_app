@@ -14,6 +14,36 @@ String scheduleWeekKey(DateTime date) {
   return '$y-$m-$d';
 }
 
+/// Ключ месяца: YYYY-MM (для кэша по месяцам).
+String scheduleMonthKey(DateTime date) {
+  final y = date.year;
+  final m = date.month.toString().padLeft(2, '0');
+  return '$y-$m';
+}
+
+/// Статистика (в т.ч. заполненность по дням) для заданного месяца.
+/// [monthKey] — ключ в формате YYYY-MM (см. [scheduleMonthKey]).
+final scheduleStatisticsForMonthProvider =
+    FutureProvider.family<Statistics, String>((ref, monthKey) async {
+  final branchId = ref.watch(currentBranchIdProvider);
+  if (branchId == 0) {
+    throw Exception('No valid branch selected');
+  }
+  final parts = monthKey.split('-');
+  if (parts.length != 2) throw Exception('Invalid month key: $monthKey');
+  final y = int.tryParse(parts[0]);
+  final m = int.tryParse(parts[1]);
+  if (y == null || m == null) throw Exception('Invalid month key: $monthKey');
+  final monthStart = DateTime(y, m, 1);
+  final monthEnd = DateTime(y, m + 1, 0);
+  final service = ref.watch(statisticsServiceProvider);
+  return service.getStatistics(
+    startDate: monthStart,
+    endDate: monthEnd,
+    branchId: branchId,
+  );
+});
+
 /// Статистика (в т.ч. заполненность по дням) для заданной недели.
 /// [weekKey] — ключ понедельника в формате YYYY-MM-DD (см. [scheduleWeekKey]).
 final scheduleStatisticsForWeekProvider =

@@ -1,6 +1,8 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 
 const _weekdayLabels = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
 
@@ -12,6 +14,7 @@ class MonthCalendar extends StatelessWidget {
     super.key,
     required this.month,
     this.slotsByDay,
+    this.occupancyByDay,
     this.onDayTap,
   });
 
@@ -21,7 +24,24 @@ class MonthCalendar extends StatelessWidget {
   /// Количество слотов по дням (день месяца -> число). Если null, плейсхолдер +2/+7.
   final Map<int, int>? slotsByDay;
 
+  /// Заполненность по дням (для отрисовки дуги на кружках).
+  final List<OccupancyByDay>? occupancyByDay;
+
   final ValueChanged<DateTime>? onDayTap;
+
+  static double _occupancyForDate(
+    List<OccupancyByDay> list,
+    DateTime date,
+  ) {
+    final d = DateTime(date.year, date.month, date.day);
+    final item = list.firstWhereOrNull(
+      (e) =>
+          e.date.year == d.year &&
+          e.date.month == d.month &&
+          e.date.day == d.day,
+    );
+    return item?.occupancy ?? 0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,10 +92,14 @@ class MonthCalendar extends StatelessWidget {
                     final date = firstDay.subtract(
                       Duration(days: leadingEmpty - index),
                     );
+                    final occupancy = occupancyByDay != null
+                        ? _occupancyForDate(occupancyByDay!, date)
+                        : 0.0;
                     return _DayCell(
                       date: date,
                       isCurrentMonth: false,
                       slots: null,
+                      occupancyPercent: occupancy,
                       onTap: onDayTap != null ? () => onDayTap!(date) : null,
                     );
                   }
@@ -87,10 +111,14 @@ class MonthCalendar extends StatelessWidget {
                       nextMonth.month,
                       dayNum,
                     );
+                    final occupancy = occupancyByDay != null
+                        ? _occupancyForDate(occupancyByDay!, date)
+                        : 0.0;
                     return _DayCell(
                       date: date,
                       isCurrentMonth: false,
                       slots: null,
+                      occupancyPercent: occupancy,
                       onTap: onDayTap != null ? () => onDayTap!(date) : null,
                     );
                   }
@@ -101,11 +129,15 @@ class MonthCalendar extends StatelessWidget {
                   final showArc = slotsByDay != null
                       ? slotsByDay!.containsKey(dayNum)
                       : true;
+                  final occupancy = occupancyByDay != null
+                      ? _occupancyForDate(occupancyByDay!, date)
+                      : 0.0;
                   return _DayCell(
                     date: date,
                     isCurrentMonth: true,
                     slots: slots,
                     showArc: showArc && slots > 0,
+                    occupancyPercent: occupancy,
                     onTap: onDayTap != null ? () => onDayTap!(date) : null,
                   );
                 }),
@@ -123,6 +155,7 @@ class _DayCell extends StatelessWidget {
     required this.isCurrentMonth,
     this.slots,
     this.showArc = false,
+    this.occupancyPercent = 0,
     this.onTap,
   });
 
@@ -130,6 +163,7 @@ class _DayCell extends StatelessWidget {
   final bool isCurrentMonth;
   final int? slots;
   final bool showArc;
+  final double occupancyPercent;
   final VoidCallback? onTap;
 
   static const _cellSize = 40.0;
@@ -151,6 +185,7 @@ class _DayCell extends StatelessWidget {
                 painter: _MonthDayCirclePainter(
                   isCurrentMonth: isCurrentMonth,
                   showArc: showArc,
+                  occupancyPercent: occupancyPercent,
                 ),
                 child: Center(
                   child: Text(
@@ -179,10 +214,17 @@ class _DayCell extends StatelessWidget {
 }
 
 class _MonthDayCirclePainter extends CustomPainter {
-  _MonthDayCirclePainter({required this.isCurrentMonth, required this.showArc});
+  _MonthDayCirclePainter({
+    required this.isCurrentMonth,
+    required this.showArc,
+    this.occupancyPercent = 0,
+  });
 
   final bool isCurrentMonth;
   final bool showArc;
+  final double occupancyPercent;
+
+  static const _arcStrokeWidth = 2.5;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -194,16 +236,21 @@ class _MonthDayCirclePainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius, bgPaint);
 
-    if (showArc && isCurrentMonth) {
+    // Дуга заполненности (как в полоске дат): обводка по кругу по проценту
+    if (isCurrentMonth && (showArc || occupancyPercent > 0)) {
+      final percent = occupancyPercent.clamp(0.0, 100.0);
+      final sweepAngle = (2 * 3.1415926535) * (percent / 100.0);
+      const startAngle = -3.1415926535 / 2;
+
       final arcPaint = Paint()
         ..color = AppColors.mainAccent
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5
+        ..strokeWidth = _arcStrokeWidth
         ..strokeCap = StrokeCap.round;
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius - 1),
-        -0.1 * 3.14159,
-        0.5 * 3.14159,
+        startAngle,
+        sweepAngle,
         false,
         arcPaint,
       );
@@ -212,5 +259,7 @@ class _MonthDayCirclePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _MonthDayCirclePainter old) =>
-      old.isCurrentMonth != isCurrentMonth || old.showArc != showArc;
+      old.isCurrentMonth != isCurrentMonth ||
+      old.showArc != showArc ||
+      old.occupancyPercent != occupancyPercent;
 }

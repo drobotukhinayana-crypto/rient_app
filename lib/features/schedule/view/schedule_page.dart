@@ -119,8 +119,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final weekKey = scheduleWeekKey(
       _viewMode == ViewMode.day ? selectedDate : _weekStart,
     );
+    final monthKey = scheduleMonthKey(_monthStart);
     final occupancyByDay =
         ref.watch(scheduleStatisticsForWeekProvider(weekKey)).value?.occupancyByDay ?? [];
+    final monthOccupancyByDay =
+        ref.watch(scheduleStatisticsForMonthProvider(monthKey)).value?.occupancyByDay ?? [];
     final schedulesAsync = ref.watch(
       scheduleForDateProvider(scheduleDateKey(selectedDate)),
     );
@@ -273,7 +276,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                 top: 20,
                               ),
                               child: SingleChildScrollView(
-                                child: MonthCalendar(month: _monthStart),
+                                child: MonthCalendar(
+                                  key: ValueKey('month_$monthKey'),
+                                  month: _monthStart,
+                                  occupancyByDay: monthOccupancyByDay,
+                                ),
                               ),
                             ),
                           ),
