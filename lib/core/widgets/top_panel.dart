@@ -27,6 +27,8 @@ class TopPanel extends StatefulWidget {
     this.specialists,
     this.initialSelectedSpecialist,
     this.onSpecialistSelected,
+    this.scheduleSelectedDate,
+    this.onScheduleDateSelected,
     this.selectedDate,
     this.onDateSelected,
     this.showFullDateLabel = true,
@@ -46,6 +48,12 @@ class TopPanel extends StatefulWidget {
 
   /// Callback при выборе специалиста в диалоге (чтобы сохранить выбор снаружи).
   final ValueChanged<SpecialistItem>? onSpecialistSelected;
+
+  /// Выбранная дата в режиме «День» (для полоски дат и фильтра специалистов).
+  final DateTime? scheduleSelectedDate;
+
+  /// Callback при выборе даты в полоске в режиме «День».
+  final ValueChanged<DateTime>? onScheduleDateSelected;
 
   /// Когда задан и [showViewModeSwitcher] true — полоска недели и календарь месяца
   /// не рисуются в панели; вызывается этот callback, контент рисуют на странице.
@@ -168,16 +176,20 @@ class _TopPanelState extends State<TopPanel> {
             if (_viewMode == ViewMode.week || _viewMode == ViewMode.month)
               Gap(8),
             if (_viewMode == ViewMode.day) ...[
-              DateStrip(initialDate: DateTime.now(), useGreyCircles: true),
+              DateStrip(
+                initialDate: widget.scheduleSelectedDate ?? DateTime.now(),
+                selectedDate: widget.scheduleSelectedDate,
+                onDateSelected: widget.onScheduleDateSelected,
+                useGreyCircles: true,
+              ),
               if (widget.specialists != null &&
+                  widget.specialists!.isNotEmpty &&
                   widget.specialists!.length < 3) ...[
                 Gap(12),
                 SpecialistSelectorPill(
                   specialists: widget.specialists!,
                   initialSelected: widget.initialSelectedSpecialist ??
-                      (widget.specialists!.isNotEmpty
-                          ? widget.specialists!.first
-                          : null),
+                      widget.specialists!.first,
                   onSelected: widget.onSpecialistSelected,
                 ),
               ],

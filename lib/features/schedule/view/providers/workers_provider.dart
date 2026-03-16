@@ -22,3 +22,9 @@ final selectedSpecialistIdProvider = StateProvider<int?>((ref) => null);
 
 /// Флаг: восстановлен ли выбор специалиста из хранилища в этой сессии.
 final restoredSpecialistSelectionProvider = StateProvider<bool>((ref) => false);
+
+/// Выбранная дата на странице расписания (для фильтра «кто работает в этот день»). По умолчанию — сегодня.
+final selectedScheduleDateProvider = StateProvider<DateTime>((ref) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day);
+});

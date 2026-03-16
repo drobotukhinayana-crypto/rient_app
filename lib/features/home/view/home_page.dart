@@ -109,10 +109,14 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                   .where((e) => e.date == selectedDateStr)
                   .firstOrNull
                   ?.appointments;
-              final dayIncome = statistics.incomeByDay?.where((e) =>
-                  e.date.year == selectedDate.year &&
-                  e.date.month == selectedDate.month &&
-                  e.date.day == selectedDate.day).firstOrNull;
+              final dayIncome = statistics.incomeByDay
+                  ?.where(
+                    (e) =>
+                        e.date.year == selectedDate.year &&
+                        e.date.month == selectedDate.month &&
+                        e.date.day == selectedDate.day,
+                  )
+                  .firstOrNull;
 
               final totalAppointments = dayAppointments?.total ?? 0;
               final newCount = dayAppointments?.newCount ?? 0;

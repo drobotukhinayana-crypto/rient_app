@@ -4,6 +4,7 @@ import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
+import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/view/components/date_strip.dart';
 import 'package:rient_app/features/schedule/view/components/month_calendar.dart';
@@ -11,6 +12,7 @@ import 'package:rient_app/features/schedule/view/components/schedule_calendar_on
 import 'package:rient_app/features/schedule/view/components/specialist_list_view.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
+import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 
 class SchedulePage extends ConsumerStatefulWidget {
@@ -99,19 +101,43 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   @override
   Widget build(BuildContext context) {
     final workersAsync = ref.watch(scheduleWorkersProvider);
-    final specialists = workersAsync.maybeWhen(
+    final allSpecialists = workersAsync.maybeWhen(
       data: (response) => _workersToSpecialists(response.results),
       orElse: () => <SpecialistItem>[],
     );
+    final selectedDate = ref.watch(selectedScheduleDateProvider);
+    final schedulesAsync = ref.watch(
+      scheduleForDateProvider(scheduleDateKey(selectedDate)),
+    );
+    final workingIds = schedulesAsync.maybeWhen(
+      data: (res) => res.results
+          .where((s) => s.active && s.workerId != null)
+          .map((s) => s.workerId!)
+          .toSet(),
+      orElse: () => <int>{},
+    );
+    // В режиме «день» показываем только тех, у кого есть расписание на дату.
+    // Если расписаний нет (пустой ответ или нет записей worker/*) — показываем всех.
+    final specialists = _viewMode == ViewMode.day
+        ? schedulesAsync.maybeWhen(
+            data: (_) {
+              if (workingIds.isEmpty) return allSpecialists;
+              return allSpecialists
+                  .where((s) => s.id != null && workingIds.contains(s.id!))
+                  .toList();
+            },
+            orElse: () => allSpecialists,
+          )
+        : allSpecialists;
     final savedSelectedId = ref.watch(selectedSpecialistIdProvider);
     final initialSelected = specialists.isEmpty
         ? null
         : (savedSelectedId != null
-            ? specialists.firstWhere(
-                (s) => s.id == savedSelectedId,
-                orElse: () => specialists.first,
-              )
-            : specialists.first);
+              ? specialists.firstWhere(
+                  (s) => s.id == savedSelectedId,
+                  orElse: () => specialists.first,
+                )
+              : specialists.first);
 
     ref.listen(scheduleWorkersProvider, (prev, next) {
       next.whenData((_) async {
@@ -146,6 +172,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                 s.id.toString(),
               );
             },
+            scheduleSelectedDate: selectedDate,
+            onScheduleDateSelected: (date) {
+              ref.read(selectedScheduleDateProvider.notifier).state = DateTime(
+                date.year,
+                date.month,
+                date.day,
+              );
+            },
           ),
           Expanded(
             child: workersAsync.when(
@@ -170,9 +204,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                           ),
                         Expanded(
                           child: ScheduleCalendarOneUserWidget(
-                            key: const ValueKey('schedule_day'),
-                            date: DateTime.now(),
-                            items: _scheduleItems(DateTime.now()),
+                            key: ValueKey(
+                              'schedule_day_${scheduleDateKey(selectedDate)}',
+                            ),
+                            date: selectedDate,
+                            items: _scheduleItems(selectedDate),
                             viewMode: ViewMode.day,
                           ),
                         ),
@@ -204,7 +240,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                         if (_viewMode == ViewMode.month)
                           Expanded(
                             child: Padding(
-                              padding: AppDecoration.padding16.copyWith(top: 20),
+                              padding: AppDecoration.padding16.copyWith(
+                                top: 20,
+                              ),
                               child: SingleChildScrollView(
                                 child: MonthCalendar(month: _monthStart),
                               ),
