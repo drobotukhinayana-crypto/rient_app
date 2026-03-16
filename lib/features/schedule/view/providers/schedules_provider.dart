@@ -25,24 +25,27 @@ DateTime? _parseDateKey(String dateKey) {
 /// Расписания на одну дату по текущему филиалу.
 final scheduleForDateProvider =
     FutureProvider.family<SchedulesApiResponse, String>((ref, dateKey) async {
-  final date = _parseDateKey(dateKey);
-  if (date == null) throw Exception('Invalid date key: $dateKey');
-  final branchId = ref.watch(currentBranchIdProvider);
-  if (branchId == 0) throw Exception('No valid branch selected');
-  final service = ref.watch(schedulesServiceProvider);
-  return service.getSchedules(
-    branchId: branchId,
-    dateGte: date,
-    dateLte: date,
-    pageSize: 500,
-  );
-});
+      final date = _parseDateKey(dateKey);
+      if (date == null) throw Exception('Invalid date key: $dateKey');
+      final branchId = ref.watch(currentBranchIdProvider);
+      if (branchId == 0) throw Exception('No valid branch selected');
+      final service = ref.watch(schedulesServiceProvider);
+      return service.getSchedules(
+        branchId: branchId,
+        dateGte: date,
+        dateLte: date,
+        pageSize: 500,
+      );
+    });
 
 /// Id сотрудников, которые работают в указанный день.
-final workerIdsWorkingOnDateProvider =
-    Provider.family<List<int>, DateTime>((ref, date) {
-  final schedulesAsync =
-      ref.watch(scheduleForDateProvider(scheduleDateKey(date)));
+final workerIdsWorkingOnDateProvider = Provider.family<List<int>, DateTime>((
+  ref,
+  date,
+) {
+  final schedulesAsync = ref.watch(
+    scheduleForDateProvider(scheduleDateKey(date)),
+  );
   return schedulesAsync.maybeWhen(
     data: (response) => response.results
         .where((s) => s.active && s.workerId != null)
