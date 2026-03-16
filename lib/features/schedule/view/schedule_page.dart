@@ -66,6 +66,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       _weekStart = weekStart;
       _monthStart = monthStart;
     });
+    // При смене недели синхронизируем выбранную дату с понедельником этой недели,
+    // чтобы полоска дат и календарь показывали актуальную неделю и выбранный день.
+    if (viewMode == ViewMode.week) {
+      ref.read(selectedScheduleDateProvider.notifier).state = DateTime(
+        weekStart.year,
+        weekStart.month,
+        weekStart.day,
+      );
+    }
   }
 
   static List<ScheduleAppointmentItem> _scheduleItems(DateTime day) => [
@@ -107,7 +116,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       orElse: () => <SpecialistItem>[],
     );
     final selectedDate = ref.watch(selectedScheduleDateProvider);
-    final occupancyByDay = ref.watch(scheduleStatisticsProvider).value?.occupancyByDay ?? [];
+    final weekKey = scheduleWeekKey(
+      _viewMode == ViewMode.day ? selectedDate : _weekStart,
+    );
+    final occupancyByDay =
+        ref.watch(scheduleStatisticsForWeekProvider(weekKey)).value?.occupancyByDay ?? [];
     final schedulesAsync = ref.watch(
       scheduleForDateProvider(scheduleDateKey(selectedDate)),
     );
@@ -227,13 +240,26 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                               left: 40,
                             ),
                             child: DateStrip(
+                              key: ValueKey('week_strip_$weekKey'),
                               initialDate: _weekStart,
+                              selectedDate: selectedDate,
+                              onDateSelected: (date) {
+                                ref
+                                    .read(selectedScheduleDateProvider.notifier)
+                                    .state = DateTime(
+                                  date.year,
+                                  date.month,
+                                  date.day,
+                                );
+                              },
                               showFullDateLabel: false,
+                              useGreyCircles: true,
+                              occupancyByDay: occupancyByDay,
                             ),
                           ),
                           Expanded(
                             child: ScheduleCalendarOneUserWidget(
-                              key: const ValueKey('schedule_week'),
+                              key: ValueKey('schedule_week_$weekKey'),
                               date: _weekStart,
                               items: _scheduleItemsForWeek(_weekStart),
                               viewMode: ViewMode.week,

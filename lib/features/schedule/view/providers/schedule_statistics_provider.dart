@@ -2,19 +2,35 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 import 'package:rient_app/features/home/service/statistics_service.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
-import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 
-/// Статистика (в т.ч. заполненность по дням) для недели выбранной даты на странице расписания.
-final scheduleStatisticsProvider =
-    FutureProvider<Statistics>((ref) async {
+/// Ключ недели: YYYY-MM-DD понедельника (для кэша по неделям).
+String scheduleWeekKey(DateTime date) {
+  final weekStart = date.subtract(
+    Duration(days: date.weekday - 1),
+  );
+  final y = weekStart.year;
+  final m = weekStart.month.toString().padLeft(2, '0');
+  final d = weekStart.day.toString().padLeft(2, '0');
+  return '$y-$m-$d';
+}
+
+/// Статистика (в т.ч. заполненность по дням) для заданной недели.
+/// [weekKey] — ключ понедельника в формате YYYY-MM-DD (см. [scheduleWeekKey]).
+final scheduleStatisticsForWeekProvider =
+    FutureProvider.family<Statistics, String>((ref, weekKey) async {
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0) {
     throw Exception('No valid branch selected');
   }
-  final selectedDate = ref.watch(selectedScheduleDateProvider);
-  final weekStart = selectedDate.subtract(
-    Duration(days: selectedDate.weekday - 1),
-  );
+  final parts = weekKey.split('-');
+  if (parts.length != 3) throw Exception('Invalid week key: $weekKey');
+  final y = int.tryParse(parts[0]);
+  final m = int.tryParse(parts[1]);
+  final d = int.tryParse(parts[2]);
+  if (y == null || m == null || d == null) {
+    throw Exception('Invalid week key: $weekKey');
+  }
+  final weekStart = DateTime(y, m, d);
   final weekEnd = weekStart.add(const Duration(days: 6));
   final service = ref.watch(statisticsServiceProvider);
   return service.getStatistics(
