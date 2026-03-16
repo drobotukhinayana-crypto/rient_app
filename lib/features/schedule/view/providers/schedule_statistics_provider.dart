@@ -41,6 +41,7 @@ final scheduleStatisticsForMonthProvider =
 
   final service = ref.watch(statisticsServiceProvider);
   final mergedOccupancyByDay = <DateTime, OccupancyByDay>{};
+  final mergedAppointmentsByDay = <String, AppointmentByDayItem>{};
   Statistics? firstStats;
 
   // Понедельник первой недели, которая пересекается с месяцем
@@ -67,10 +68,19 @@ final scheduleStatisticsForMonthProvider =
       if (key.isBefore(monthStart) || key.isAfter(monthEnd)) continue;
       mergedOccupancyByDay[key] = o;
     }
+    for (final a in stats.appointmentsByDay) {
+      final parsed = DateTime.tryParse(a.date);
+      if (parsed == null) continue;
+      final key = _dateOnly(parsed);
+      if (key.isBefore(monthStart) || key.isAfter(monthEnd)) continue;
+      mergedAppointmentsByDay[a.date] = a;
+    }
     currentWeekStart = currentWeekStart.add(const Duration(days: 7));
   }
 
   final sortedOccupancy = mergedOccupancyByDay.values.toList()
+    ..sort((a, b) => a.date.compareTo(b.date));
+  final sortedAppointmentsByDay = mergedAppointmentsByDay.values.toList()
     ..sort((a, b) => a.date.compareTo(b.date));
 
   final base = firstStats ??
@@ -79,7 +89,10 @@ final scheduleStatisticsForMonthProvider =
         endDate: monthEnd,
         branchId: branchId,
       );
-  return base.copyWith(occupancyByDay: sortedOccupancy);
+  return base.copyWith(
+    occupancyByDay: sortedOccupancy,
+    appointmentsByDay: sortedAppointmentsByDay,
+  );
 });
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);

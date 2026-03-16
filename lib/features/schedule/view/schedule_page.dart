@@ -12,6 +12,7 @@ import 'package:rient_app/features/schedule/view/components/schedule_calendar_on
 import 'package:rient_app/features/schedule/view/components/specialist_list_view.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
+import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
@@ -108,6 +109,23 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     return items;
   }
 
+  /// Количество записей по дням месяца из [appointmentsByDay] (день месяца 1–31 → total).
+  static Map<int, int> _slotsByDayFromAppointments(
+    List<AppointmentByDayItem> appointmentsByDay,
+    DateTime month,
+  ) {
+    final result = <int, int>{};
+    final year = month.year;
+    final monthNum = month.month;
+    for (final item in appointmentsByDay) {
+      final parsed = DateTime.tryParse(item.date);
+      if (parsed == null) continue;
+      if (parsed.year != year || parsed.month != monthNum) continue;
+      result[parsed.day] = item.appointments.total;
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final workersAsync = ref.watch(scheduleWorkersProvider);
@@ -127,6 +145,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final monthOccupancyByDay =
         monthStatisticsAsync.value?.occupancyByDay ?? [];
     final monthStatisticsLoading = monthStatisticsAsync.isLoading;
+    final monthAppointmentsByDay =
+        monthStatisticsAsync.value?.appointmentsByDay ?? [];
+    final slotsByDay = _slotsByDayFromAppointments(
+      monthAppointmentsByDay,
+      _monthStart,
+    );
     final schedulesAsync = ref.watch(
       scheduleForDateProvider(scheduleDateKey(selectedDate)),
     );
@@ -284,6 +308,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                     child: MonthCalendar(
                                       key: ValueKey('month_$monthKey'),
                                       month: _monthStart,
+                                      slotsByDay: slotsByDay,
                                       occupancyByDay: monthOccupancyByDay,
                                     ),
                                   ),
