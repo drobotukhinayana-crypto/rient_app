@@ -12,6 +12,7 @@ import 'package:rient_app/features/schedule/view/components/schedule_calendar_on
 import 'package:rient_app/features/schedule/view/components/specialist_list_view.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 
@@ -106,6 +107,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       orElse: () => <SpecialistItem>[],
     );
     final selectedDate = ref.watch(selectedScheduleDateProvider);
+    final occupancyByDay = ref.watch(scheduleStatisticsProvider).value?.occupancyByDay ?? [];
     final schedulesAsync = ref.watch(
       scheduleForDateProvider(scheduleDateKey(selectedDate)),
     );
@@ -173,6 +175,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
               );
             },
             scheduleSelectedDate: selectedDate,
+            occupancyByDay: occupancyByDay,
             onScheduleDateSelected: (date) {
               ref.read(selectedScheduleDateProvider.notifier).state = DateTime(
                 date.year,

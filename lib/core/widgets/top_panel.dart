@@ -181,6 +181,7 @@ class _TopPanelState extends State<TopPanel> {
                 selectedDate: widget.scheduleSelectedDate,
                 onDateSelected: widget.onScheduleDateSelected,
                 useGreyCircles: true,
+                occupancyByDay: widget.occupancyByDay,
               ),
               if (widget.specialists != null &&
                   widget.specialists!.isNotEmpty &&
