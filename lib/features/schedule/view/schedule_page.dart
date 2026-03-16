@@ -122,8 +122,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final monthKey = scheduleMonthKey(_monthStart);
     final occupancyByDay =
         ref.watch(scheduleStatisticsForWeekProvider(weekKey)).value?.occupancyByDay ?? [];
+    final monthStatisticsAsync =
+        ref.watch(scheduleStatisticsForMonthProvider(monthKey));
     final monthOccupancyByDay =
-        ref.watch(scheduleStatisticsForMonthProvider(monthKey)).value?.occupancyByDay ?? [];
+        monthStatisticsAsync.value?.occupancyByDay ?? [];
+    final monthStatisticsLoading = monthStatisticsAsync.isLoading;
     final schedulesAsync = ref.watch(
       scheduleForDateProvider(scheduleDateKey(selectedDate)),
     );
@@ -271,17 +274,31 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                         ],
                         if (_viewMode == ViewMode.month)
                           Expanded(
-                            child: Padding(
-                              padding: AppDecoration.padding16.copyWith(
-                                top: 20,
-                              ),
-                              child: SingleChildScrollView(
-                                child: MonthCalendar(
-                                  key: ValueKey('month_$monthKey'),
-                                  month: _monthStart,
-                                  occupancyByDay: monthOccupancyByDay,
+                            child: Stack(
+                              children: [
+                                Padding(
+                                  padding: AppDecoration.padding16.copyWith(
+                                    top: 20,
+                                  ),
+                                  child: SingleChildScrollView(
+                                    child: MonthCalendar(
+                                      key: ValueKey('month_$monthKey'),
+                                      month: _monthStart,
+                                      occupancyByDay: monthOccupancyByDay,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                if (monthStatisticsLoading)
+                                  Positioned.fill(
+                                    child: Container(
+                                      color: AppColors.tabBarScreenBackground
+                                          .withValues(alpha: 0.5),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                       ],
