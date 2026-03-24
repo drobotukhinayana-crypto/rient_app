@@ -35,6 +35,7 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
     this.viewMode = ViewMode.week,
     this.startHour = 9,
     this.endHour = 21,
+    this.weekWorkHoursByWeekday,
   });
 
   /// Для дня — выбранная дата, для недели — понедельник недели.
@@ -43,18 +44,63 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
   final ViewMode viewMode;
   final double startHour;
   final double endHour;
+  final Map<int, ({double startHour, double endHour})>? weekWorkHoursByWeekday;
 
   List<TimeRegion> _getSpecialRegions() {
-    DateTime at(int h, int m) =>
-        DateTime(date.year, date.month, date.day, h, m);
-    return [
+    DateTime at(DateTime base, double hour) {
+      final h = hour.floor();
+      final m = ((hour - h) * 60).round();
+      return DateTime(base.year, base.month, base.day, h, m);
+    }
+
+    final regions = <TimeRegion>[
       TimeRegion(
-        startTime: at(12, 0),
-        endTime: at(14, 0),
+        startTime: DateTime(date.year, date.month, date.day, 12, 0),
+        endTime: DateTime(date.year, date.month, date.day, 14, 0),
         enablePointerInteraction: false,
         recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
       ),
     ];
+
+    if (viewMode == ViewMode.week && weekWorkHoursByWeekday != null) {
+      final weekStart = DateTime(date.year, date.month, date.day);
+      for (var i = 0; i < 7; i++) {
+        final day = weekStart.add(Duration(days: i));
+        final hours = weekWorkHoursByWeekday![day.weekday];
+
+        if (hours == null) {
+          regions.add(
+            TimeRegion(
+              startTime: at(day, startHour),
+              endTime: at(day, endHour),
+              enablePointerInteraction: false,
+            ),
+          );
+          continue;
+        }
+
+        if (hours.startHour > startHour) {
+          regions.add(
+            TimeRegion(
+              startTime: at(day, startHour),
+              endTime: at(day, hours.startHour),
+              enablePointerInteraction: false,
+            ),
+          );
+        }
+        if (hours.endHour < endHour) {
+          regions.add(
+            TimeRegion(
+              startTime: at(day, hours.endHour),
+              endTime: at(day, endHour),
+              enablePointerInteraction: false,
+            ),
+          );
+        }
+      }
+    }
+
+    return regions;
   }
 
   CalendarDataSource _calendarDataSource() {
@@ -264,6 +310,7 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
       key: ValueKey(viewMode),
       view: _calendarView,
       initialDisplayDate: date,
+      firstDayOfWeek: 1,
       headerHeight: 0,
       viewHeaderHeight: 0,
       showDatePickerButton: false,

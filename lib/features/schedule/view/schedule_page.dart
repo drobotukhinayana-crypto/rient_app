@@ -206,6 +206,44 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     return (startHour: minStart, endHour: maxEnd);
   }
 
+  static int? _weekdayFromPatternDay(String? day) {
+    switch ((day ?? '').toLowerCase()) {
+      case 'mon':
+        return DateTime.monday;
+      case 'tue':
+        return DateTime.tuesday;
+      case 'wen':
+      case 'wed':
+        return DateTime.wednesday;
+      case 'thu':
+        return DateTime.thursday;
+      case 'fri':
+        return DateTime.friday;
+      case 'sat':
+        return DateTime.saturday;
+      case 'sun':
+        return DateTime.sunday;
+      default:
+        return null;
+    }
+  }
+
+  static Map<int, ({double startHour, double endHour})> _workHoursByWeekday(
+    List<SchedulePattern> patterns,
+  ) {
+    final result = <int, ({double startHour, double endHour})>{};
+    for (final pattern in patterns) {
+      if (!(pattern.active ?? false)) continue;
+      final weekday = _weekdayFromPatternDay(pattern.day);
+      if (weekday == null) continue;
+      final start = _timeToHour(pattern.timeStart);
+      final end = _timeToHour(pattern.timeEnd);
+      if (start <= 0 || end <= 0 || end <= start) continue;
+      result[weekday] = (startHour: start, endHour: end);
+    }
+    return result;
+  }
+
   /// Количество записей по дням месяца из [appointmentsByDay] (день месяца 1–31 → total).
   static Map<int, int> _slotsByDayFromAppointments(
     List<AppointmentByDayItem> appointmentsByDay,
@@ -278,6 +316,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       currentBranch?.schedulePatterns ?? const [],
     );
     final weekWorkHours = _workHoursForWeek(
+      currentBranch?.schedulePatterns ?? const [],
+    );
+    final weekWorkHoursByWeekday = _workHoursByWeekday(
       currentBranch?.schedulePatterns ?? const [],
     );
 
@@ -403,6 +444,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         viewMode: ViewMode.week,
                                         startHour: weekWorkHours.startHour,
                                         endHour: weekWorkHours.endHour,
+                                        weekWorkHoursByWeekday: weekWorkHoursByWeekday,
                                       ),
                                     ),
                                   ],
