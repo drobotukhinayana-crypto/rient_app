@@ -209,6 +209,27 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     return (startHour: minStart, endHour: maxEnd);
   }
 
+  static ({String? breakStart, String? breakEnd}) _breakForSpecialist(
+    List<AvailableWorkerShift> shifts,
+    int? specialistId,
+  ) {
+    if (shifts.isEmpty) {
+      return (breakStart: null, breakEnd: null);
+    }
+    AvailableWorkerShift? shift;
+    if (specialistId == null) {
+      shift = shifts.first;
+    } else {
+      for (final item in shifts) {
+        if (item.worker.id == specialistId) {
+          shift = item;
+          break;
+        }
+      }
+    }
+    return (breakStart: shift?.breakStart, breakEnd: shift?.breakEnd);
+  }
+
   static int? _weekdayFromPatternDay(String? day) {
     switch ((day ?? '').toLowerCase()) {
       case 'mon':
@@ -322,6 +343,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       selectedDate,
       currentBranch?.schedulePatterns ?? const [],
     );
+    final selectedSpecialistId = initialSelected?.id;
+    final selectedBreak = _breakForSpecialist(
+      availableWorkersAsync.value ?? const [],
+      selectedSpecialistId,
+    );
     final weekWorkHours = _workHoursForWeek(
       currentBranch?.schedulePatterns ?? const [],
     );
@@ -404,6 +430,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                 viewMode: ViewMode.day,
                                 startHour: dayWorkHours.startHour,
                                 endHour: dayWorkHours.endHour,
+                                breakStart: selectedBreak.breakStart,
+                                breakEnd: selectedBreak.breakEnd,
                               ),
                             ),
                           ],
@@ -454,6 +482,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         endHour: weekWorkHours.endHour,
                                         weekWorkHoursByWeekday:
                                             weekWorkHoursByWeekday,
+                                        breakStart: selectedBreak.breakStart,
+                                        breakEnd: selectedBreak.breakEnd,
                                       ),
                                     ),
                                   ],

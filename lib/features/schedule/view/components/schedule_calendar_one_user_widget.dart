@@ -36,6 +36,8 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
     this.startHour = 9,
     this.endHour = 21,
     this.weekWorkHoursByWeekday,
+    this.breakStart,
+    this.breakEnd,
   });
 
   /// Для дня — выбранная дата, для недели — понедельник недели.
@@ -45,6 +47,8 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
   final double startHour;
   final double endHour;
   final Map<int, ({double startHour, double endHour})>? weekWorkHoursByWeekday;
+  final String? breakStart;
+  final String? breakEnd;
 
   List<TimeRegion> _getSpecialRegions() {
     DateTime at(DateTime base, double hour) {
@@ -53,14 +57,33 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
       return DateTime(base.year, base.month, base.day, h, m);
     }
 
-    final regions = <TimeRegion>[
-      TimeRegion(
-        startTime: DateTime(date.year, date.month, date.day, 12, 0),
-        endTime: DateTime(date.year, date.month, date.day, 14, 0),
-        enablePointerInteraction: false,
-        recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
-      ),
-    ];
+    double? parseTimeToHour(String? value) {
+      if (value == null || value.isEmpty) return null;
+      final parts = value.split(':');
+      if (parts.length < 2) return null;
+      final hour = int.tryParse(parts[0]);
+      final minute = int.tryParse(parts[1]);
+      if (hour == null || minute == null) return null;
+      return hour + (minute / 60);
+    }
+
+    final regions = <TimeRegion>[];
+    final breakStartHour = parseTimeToHour(breakStart);
+    final breakEndHour = parseTimeToHour(breakEnd);
+    if (breakStartHour != null &&
+        breakEndHour != null &&
+        breakEndHour > breakStartHour) {
+      regions.add(
+        TimeRegion(
+          startTime: at(date, breakStartHour),
+          endTime: at(date, breakEndHour),
+          enablePointerInteraction: false,
+          recurrenceRule: viewMode == ViewMode.week
+              ? 'FREQ=DAILY;INTERVAL=1'
+              : null,
+        ),
+      );
+    }
 
     if (viewMode == ViewMode.week && weekWorkHoursByWeekday != null) {
       final weekStart = DateTime(date.year, date.month, date.day);
