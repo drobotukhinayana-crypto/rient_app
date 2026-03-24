@@ -1,3 +1,5 @@
+import 'dart:math' show min;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/local_storage.dart';
@@ -36,6 +38,33 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   ViewMode _viewMode = ViewMode.day;
   late DateTime _weekStart;
   late DateTime _monthStart;
+
+  final PageController _dayTrioPageController = PageController();
+  DateTime? _lastDayTrioScheduleDate;
+
+  @override
+  void dispose() {
+    _dayTrioPageController.dispose();
+    super.dispose();
+  }
+
+  void _syncDayTrioPaging(DateTime selectedDate, int specialistCount) {
+    if (specialistCount < 3) return;
+    final d = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+    final dateChanged = _lastDayTrioScheduleDate != d;
+    _lastDayTrioScheduleDate = d;
+    final maxPage = (specialistCount + 2) ~/ 3 - 1;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_dayTrioPageController.hasClients) return;
+      if (dateChanged) {
+        _dayTrioPageController.jumpToPage(0);
+      }
+      final cur = _dayTrioPageController.page?.round() ?? 0;
+      if (cur > maxPage) {
+        _dayTrioPageController.jumpToPage(maxPage);
+      }
+    });
+  }
 
   static List<SpecialistItem> _availableToSpecialists(
     List<AvailableWorkerShift> shifts,
@@ -85,14 +114,27 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       _weekStart = weekStart;
       _monthStart = monthStart;
     });
-    // При смене недели синхронизируем выбранную дату с понедельником этой недели,
-    // чтобы полоска дат и календарь показывали актуальную неделю и выбранный день.
+    // Если выбранный день не попадает в видимую неделю (например, вчера в режиме
+    // «День», а навигатор показывает текущую неделю) — переносим на сегодня в
+    // пределах этой недели, чтобы полоска и календарь совпадали.
     if (viewMode == ViewMode.week) {
-      ref.read(selectedScheduleDateProvider.notifier).state = DateTime(
-        weekStart.year,
-        weekStart.month,
-        weekStart.day,
-      );
+      final ws = DateTime(weekStart.year, weekStart.month, weekStart.day);
+      final sunday = ws.add(const Duration(days: 6));
+      final cur = ref.read(selectedScheduleDateProvider);
+      final curNorm = DateTime(cur.year, cur.month, cur.day);
+      if (curNorm.isBefore(ws) || curNorm.isAfter(sunday)) {
+        final n = DateTime.now();
+        final today = DateTime(n.year, n.month, n.day);
+        DateTime clamped;
+        if (today.isBefore(ws)) {
+          clamped = ws;
+        } else if (today.isAfter(sunday)) {
+          clamped = sunday;
+        } else {
+          clamped = today;
+        }
+        ref.read(selectedScheduleDateProvider.notifier).state = clamped;
+      }
     }
   }
 
@@ -484,45 +526,31 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         .subtract(const Duration(milliseconds: 1));
     final multiDayColumns =
         _viewMode == ViewMode.day && specialists.length >= 3;
-    final dayAppointmentsSingleAsync = ref.watch(
-      scheduleAppointmentsProvider(
-        multiDayColumns
-            ? AppointmentsQuery(
-                workerId: null,
-                dateTimeGte: dayStart,
-                dateTimeLte: dayEnd,
-              )
-            : AppointmentsQuery(
+    final dayAppsBySpecialistIndex = multiDayColumns
+        ? <AsyncValue<List<AppointmentApi>>>[
+            for (var i = 0; i < specialists.length; i++)
+              ref.watch(
+                scheduleAppointmentsProvider(
+                  AppointmentsQuery(
+                    workerId: specialists[i].id,
+                    dateTimeGte: dayStart,
+                    dateTimeLte: dayEnd,
+                  ),
+                ),
+              ),
+          ]
+        : const <AsyncValue<List<AppointmentApi>>>[];
+    final dayAppointmentsSingleAsync = multiDayColumns
+        ? const AsyncValue.data(<AppointmentApi>[])
+        : ref.watch(
+            scheduleAppointmentsProvider(
+              AppointmentsQuery(
                 workerId: selectedSpecialistId,
                 dateTimeGte: dayStart,
                 dateTimeLte: dayEnd,
               ),
-      ),
-    );
-    final dayQuery0 = AppointmentsQuery(
-      workerId: multiDayColumns && specialists.isNotEmpty
-          ? specialists[0].id
-          : null,
-      dateTimeGte: dayStart,
-      dateTimeLte: dayEnd,
-    );
-    final dayQuery1 = AppointmentsQuery(
-      workerId: multiDayColumns && specialists.length > 1
-          ? specialists[1].id
-          : null,
-      dateTimeGte: dayStart,
-      dateTimeLte: dayEnd,
-    );
-    final dayQuery2 = AppointmentsQuery(
-      workerId: multiDayColumns && specialists.length > 2
-          ? specialists[2].id
-          : null,
-      dateTimeGte: dayStart,
-      dateTimeLte: dayEnd,
-    );
-    final dayApp0 = ref.watch(scheduleAppointmentsProvider(dayQuery0));
-    final dayApp1 = ref.watch(scheduleAppointmentsProvider(dayQuery1));
-    final dayApp2 = ref.watch(scheduleAppointmentsProvider(dayQuery2));
+            ),
+          );
     final weekAppointmentsAsync = ref.watch(
       scheduleAppointmentsProvider(
         AppointmentsQuery(
@@ -543,7 +571,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       weekEndDate,
     );
     final dayAppointmentsLoading = multiDayColumns
-        ? (dayApp0.isLoading || dayApp1.isLoading || dayApp2.isLoading)
+        ? dayAppsBySpecialistIndex.any((a) => a.isLoading)
         : dayAppointmentsSingleAsync.isLoading;
     final showGlobalLoader =
         availableWorkersLoading ||
@@ -551,6 +579,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         (_viewMode == ViewMode.week && weekAppointmentsAsync.isLoading) ||
         (_viewMode == ViewMode.week && weekStatisticsLoading) ||
         (_viewMode == ViewMode.month && monthStatisticsLoading);
+
+    if (multiDayColumns) {
+      _syncDayTrioPaging(selectedDate, specialists.length);
+    }
 
     ref.listen(scheduleWorkersProvider, (prev, next) {
       next.whenData((_) async {
@@ -610,62 +642,94 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (specialists.length >= 3)
-                              Padding(
-                                padding: AppDecoration.padding16,
-                                child: SpecialistListView(
-                                  specialists: specialists,
-                                ),
-                              ),
                             Expanded(
                               child: specialists.length >= 3
-                                  ? ScheduleCalendarDayMultiColumn(
-                                      key: ValueKey(
-                                        'schedule_day_multi_${scheduleDateKey(selectedDate)}',
-                                      ),
-                                      date: selectedDate,
-                                      branchStartHour: dayWorkHours.startHour,
-                                      branchEndHour: dayWorkHours.endHour,
-                                      columns: () {
-                                        final shifts =
-                                            availableWorkersAsync.value ??
-                                            const [];
-                                        final dayApis = [
-                                          dayApp0,
-                                          dayApp1,
-                                          dayApp2,
-                                        ];
-                                        return [
-                                          for (var i = 0; i < 3; i++)
-                                            ScheduleCalendarDayColumn(
-                                              workerId: specialists[i].id!,
-                                              name: specialists[i].name,
-                                              items: _mapAppointmentsForRange(
-                                                dayApis[i].value ?? const [],
-                                                dayStart,
-                                                dayEnd,
+                                  ? PageView.builder(
+                                      controller: _dayTrioPageController,
+                                      itemCount:
+                                          (specialists.length + 2) ~/ 3,
+                                      itemBuilder: (context, pageIndex) {
+                                        final start = pageIndex * 3;
+                                        final end = min(
+                                          start + 3,
+                                          specialists.length,
+                                        );
+                                        final slice = specialists.sublist(
+                                          start,
+                                          end,
+                                        );
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Padding(
+                                              padding:
+                                                  AppDecoration.padding16,
+                                              child: SpecialistListView(
+                                                specialists: slice,
                                               ),
-                                              breakStart: _breakForSpecialist(
-                                                shifts,
-                                                specialists[i].id,
-                                              ).breakStart,
-                                              breakEnd: _breakForSpecialist(
-                                                shifts,
-                                                specialists[i].id,
-                                              ).breakEnd,
-                                              workerStartHour:
-                                                  _workerShiftHoursForId(
-                                                    shifts,
-                                                    specialists[i].id!,
-                                                  ).start,
-                                              workerEndHour:
-                                                  _workerShiftHoursForId(
-                                                    shifts,
-                                                    specialists[i].id!,
-                                                  ).end,
                                             ),
-                                        ];
-                                      }(),
+                                            Expanded(
+                                              child:
+                                                  ScheduleCalendarDayMultiColumn(
+                                                key: ValueKey(
+                                                  'schedule_day_multi_${scheduleDateKey(selectedDate)}_$pageIndex',
+                                                ),
+                                                date: selectedDate,
+                                                branchStartHour:
+                                                    dayWorkHours.startHour,
+                                                branchEndHour:
+                                                    dayWorkHours.endHour,
+                                                columns: () {
+                                                  final shifts =
+                                                      availableWorkersAsync
+                                                              .value ??
+                                                          const [];
+                                                  return [
+                                                    for (var i = 0;
+                                                        i < slice.length;
+                                                        i++)
+                                                      ScheduleCalendarDayColumn(
+                                                        workerId:
+                                                            slice[i].id!,
+                                                        name: slice[i].name,
+                                                        items:
+                                                            _mapAppointmentsForRange(
+                                                          dayAppsBySpecialistIndex[
+                                                                  start + i]
+                                                              .value ??
+                                                              const [],
+                                                          dayStart,
+                                                          dayEnd,
+                                                        ),
+                                                        breakStart:
+                                                            _breakForSpecialist(
+                                                          shifts,
+                                                          slice[i].id,
+                                                        ).breakStart,
+                                                        breakEnd:
+                                                            _breakForSpecialist(
+                                                          shifts,
+                                                          slice[i].id,
+                                                        ).breakEnd,
+                                                        workerStartHour:
+                                                            _workerShiftHoursForId(
+                                                          shifts,
+                                                          slice[i].id!,
+                                                        ).start,
+                                                        workerEndHour:
+                                                            _workerShiftHoursForId(
+                                                          shifts,
+                                                          slice[i].id!,
+                                                        ).end,
+                                                      ),
+                                                  ];
+                                                }(),
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
                                     )
                                   : ScheduleCalendarOneUserWidget(
                                       key: ValueKey(
@@ -702,6 +766,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         key: ValueKey('week_strip_$weekKey'),
                                         initialDate: _weekStart,
                                         selectedDate: selectedDate,
+                                        visibleWeekStart: _weekStart,
                                         onDateSelected: null,
                                         showFullDateLabel: false,
                                         useGreyCircles: true,

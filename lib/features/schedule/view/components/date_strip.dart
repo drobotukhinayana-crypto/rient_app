@@ -43,6 +43,7 @@ class DateStrip extends StatefulWidget {
     this.occupancyByDay,
     this.initialDate,
     this.selectedDate,
+    this.visibleWeekStart,
     this.daysWithData,
     this.onDateSelected,
     this.showFullDateLabel = true,
@@ -54,6 +55,11 @@ class DateStrip extends StatefulWidget {
 
   /// Текущая выбранная дата. Если передана, используется вместо initialDate.
   final DateTime? selectedDate;
+
+  /// Понедельник видимой недели (режим «Неделя» в расписании). Если задан,
+  /// семь кружков всегда соответствуют этой неделе, а [selectedDate] только
+  /// подсвечивает день; иначе неделя строится вокруг [selectedDate]/[initialDate].
+  final DateTime? visibleWeekStart;
 
   /// Даты, у которых есть данные (для отображения дуги).
   final Set<DateTime>? daysWithData;
@@ -85,15 +91,25 @@ class _DateStripState extends State<DateStrip> {
 
   @override
   void didUpdateWidget(covariant DateStrip oldWidget) {
-    if (oldWidget.initialDate != widget.initialDate) _buildDates();
+    if (oldWidget.initialDate != widget.initialDate ||
+        oldWidget.selectedDate != widget.selectedDate ||
+        oldWidget.visibleWeekStart != widget.visibleWeekStart) {
+      _buildDates();
+    }
     super.didUpdateWidget(oldWidget);
   }
 
   void _buildDates() {
-    final selected =
-        widget.selectedDate ?? widget.initialDate ?? DateTime.now();
-    final weekday = selected.weekday;
-    final monday = selected.subtract(Duration(days: weekday - 1));
+    final DateTime anchor;
+    if (widget.visibleWeekStart != null) {
+      final d = widget.visibleWeekStart!;
+      anchor = DateTime(d.year, d.month, d.day);
+    } else {
+      final selected =
+          widget.selectedDate ?? widget.initialDate ?? DateTime.now();
+      anchor = DateTime(selected.year, selected.month, selected.day);
+    }
+    final monday = anchor.subtract(Duration(days: anchor.weekday - 1));
     _dates = List.generate(7, (i) => monday.add(Duration(days: i)));
   }
 
