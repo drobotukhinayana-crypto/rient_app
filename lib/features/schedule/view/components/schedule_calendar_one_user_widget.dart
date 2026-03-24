@@ -27,7 +27,7 @@ class ScheduleAppointmentItem {
 }
 
 /// Календарь с записями и перерывом (день или неделя).
-class ScheduleCalendarOneUserWidget extends StatelessWidget {
+class ScheduleCalendarOneUserWidget extends StatefulWidget {
   const ScheduleCalendarOneUserWidget({
     super.key,
     required this.date,
@@ -38,7 +38,13 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
     this.weekWorkHoursByWeekday,
     this.breakStart,
     this.breakEnd,
+    this.workerStartHour,
+    this.workerEndHour,
+    this.timeRulerSize = kDefaultTimeRulerSize,
+    this.onScrollPositionReady,
   });
+
+  static const kDefaultTimeRulerSize = 50.0;
 
   /// Для дня — выбранная дата, для недели — понедельник недели.
   final DateTime date;
@@ -49,6 +55,34 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
   final Map<int, ({double startHour, double endHour})>? weekWorkHoursByWeekday;
   final String? breakStart;
   final String? breakEnd;
+
+  /// Окно смены мастера в дне: штриховка до/после относительно [startHour]/[endHour] филиала.
+  final double? workerStartHour;
+  final double? workerEndHour;
+
+  /// Ширина шкалы времени (0 — только у первой колонки в мультидне).
+  final double timeRulerSize;
+
+  /// Для синхронной прокрутки нескольких календарей дня (один общий [ScrollPosition]).
+  final ValueChanged<ScrollPosition>? onScrollPositionReady;
+
+  @override
+  State<ScheduleCalendarOneUserWidget> createState() =>
+      _ScheduleCalendarOneUserWidgetState();
+}
+
+class _ScheduleCalendarOneUserWidgetState
+    extends State<ScheduleCalendarOneUserWidget> {
+  bool _scrollRegistered = false;
+
+  @override
+  void didUpdateWidget(covariant ScheduleCalendarOneUserWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.date != widget.date ||
+        oldWidget.onScrollPositionReady != widget.onScrollPositionReady) {
+      _scrollRegistered = false;
+    }
+  }
 
   List<TimeRegion> _getSpecialRegions() {
     DateTime at(DateTime base, double hour) {
@@ -68,54 +102,50 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
     }
 
     final regions = <TimeRegion>[];
-    final breakStartHour = parseTimeToHour(breakStart);
-    final breakEndHour = parseTimeToHour(breakEnd);
+    final breakStartHour = parseTimeToHour(widget.breakStart);
+    final breakEndHour = parseTimeToHour(widget.breakEnd);
     if (breakStartHour != null &&
         breakEndHour != null &&
         breakEndHour > breakStartHour) {
       regions.add(
         TimeRegion(
-          startTime: at(date, breakStartHour),
-          endTime: at(date, breakEndHour),
+          startTime: at(widget.date, breakStartHour),
+          endTime: at(widget.date, breakEndHour),
           enablePointerInteraction: false,
-          recurrenceRule: viewMode == ViewMode.week
+          recurrenceRule: widget.viewMode == ViewMode.week
               ? 'FREQ=DAILY;INTERVAL=1'
               : null,
         ),
       );
     }
 
-    if (viewMode == ViewMode.week && weekWorkHoursByWeekday != null) {
-      final weekStart = DateTime(date.year, date.month, date.day);
-      for (var i = 0; i < 7; i++) {
-        final day = weekStart.add(Duration(days: i));
-        final hours = weekWorkHoursByWeekday![day.weekday];
-
-        if (hours == null) {
+    if (widget.viewMode == ViewMode.day &&
+        widget.workerStartHour != null &&
+        widget.workerEndHour != null &&
+        widget.workerEndHour! > widget.workerStartHour!) {
+      final branchStart = widget.startHour;
+      final branchEnd = widget.endHour;
+      final wStart = widget.workerStartHour!;
+      final wEnd = widget.workerEndHour!;
+      if (wStart > branchStart) {
+        final leftEnd = wStart < branchEnd ? wStart : branchEnd;
+        if (leftEnd > branchStart) {
           regions.add(
             TimeRegion(
-              startTime: at(day, startHour),
-              endTime: at(day, endHour),
-              enablePointerInteraction: false,
-            ),
-          );
-          continue;
-        }
-
-        if (hours.startHour > startHour) {
-          regions.add(
-            TimeRegion(
-              startTime: at(day, startHour),
-              endTime: at(day, hours.startHour),
+              startTime: at(widget.date, branchStart),
+              endTime: at(widget.date, leftEnd),
               enablePointerInteraction: false,
             ),
           );
         }
-        if (hours.endHour < endHour) {
+      }
+      if (wEnd < branchEnd) {
+        final rightStart = wEnd > branchStart ? wEnd : branchStart;
+        if (branchEnd > rightStart) {
           regions.add(
             TimeRegion(
-              startTime: at(day, hours.endHour),
-              endTime: at(day, endHour),
+              startTime: at(widget.date, rightStart),
+              endTime: at(widget.date, branchEnd),
               enablePointerInteraction: false,
             ),
           );
@@ -123,11 +153,64 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
       }
     }
 
+    if (widget.viewMode == ViewMode.week &&
+        widget.weekWorkHoursByWeekday != null) {
+      final weekStart = DateTime(
+        widget.date.year,
+        widget.date.month,
+        widget.date.day,
+      );
+      for (var i = 0; i < 7; i++) {
+        final day = weekStart.add(Duration(days: i));
+        final hours = widget.weekWorkHoursByWeekday![day.weekday];
+
+        if (hours == null) {
+          regions.add(
+            TimeRegion(
+              startTime: at(day, widget.startHour),
+              endTime: at(day, widget.endHour),
+              enablePointerInteraction: false,
+            ),
+          );
+          continue;
+        }
+
+        if (hours.startHour > widget.startHour) {
+          regions.add(
+            TimeRegion(
+              startTime: at(day, widget.startHour),
+              endTime: at(day, hours.startHour),
+              enablePointerInteraction: false,
+            ),
+          );
+        }
+        if (hours.endHour < widget.endHour) {
+          regions.add(
+            TimeRegion(
+              startTime: at(day, hours.endHour),
+              endTime: at(day, widget.endHour),
+              enablePointerInteraction: false,
+            ),
+          );
+        }
+      }
+    }
+
+    if (widget.onScrollPositionReady != null && regions.isEmpty) {
+      regions.add(
+        TimeRegion(
+          startTime: at(widget.date, widget.startHour),
+          endTime: at(widget.date, widget.startHour + 1 / 60),
+          enablePointerInteraction: false,
+        ),
+      );
+    }
+
     return regions;
   }
 
   CalendarDataSource _calendarDataSource() {
-    final appointments = items
+    final appointments = widget.items
         .map(
           (e) => Appointment(
             startTime: e.startTime,
@@ -142,7 +225,7 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
   }
 
   ScheduleAppointmentItem? _findItem(Appointment a) {
-    for (final e in items) {
+    for (final e in widget.items) {
       if (e.startTime == a.startTime &&
           e.endTime == a.endTime &&
           e.subject == a.subject) {
@@ -152,10 +235,23 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
     return null;
   }
 
-  static const _timeRulerSize = 50.0;
-
   Widget _buildTimeRegion(BuildContext context, TimeRegionDetails details) {
-    return CustomPaint(painter: _HatchPainter(timeRulerWidth: _timeRulerSize));
+    if (widget.onScrollPositionReady != null && !_scrollRegistered) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _scrollRegistered) return;
+        final scrollable = Scrollable.maybeOf(context);
+        if (scrollable != null) {
+          _scrollRegistered = true;
+          widget.onScrollPositionReady!(scrollable.position);
+        }
+      });
+    }
+    if (details.bounds.height < 2) {
+      return const SizedBox.shrink();
+    }
+    return CustomPaint(
+      painter: _HatchPainter(timeRulerWidth: widget.timeRulerSize),
+    );
   }
 
   Widget _buildScheduleEntry(
@@ -176,7 +272,7 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
     final backgroundColor =
         item?.backgroundColor ?? a.color.withValues(alpha: 0.2);
 
-    if (viewMode == ViewMode.week) {
+    if (widget.viewMode == ViewMode.week) {
       return Container(
         width: bounds.width,
         height: bounds.height,
@@ -342,14 +438,14 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
   }
 
   CalendarView get _calendarView =>
-      viewMode == ViewMode.day ? CalendarView.day : CalendarView.week;
+      widget.viewMode == ViewMode.day ? CalendarView.day : CalendarView.week;
 
   @override
   Widget build(BuildContext context) {
     return SfCalendar(
-      key: ValueKey(viewMode),
+      key: ValueKey(widget.viewMode),
       view: _calendarView,
-      initialDisplayDate: date,
+      initialDisplayDate: widget.date,
       firstDayOfWeek: 1,
 
       /// Не переключать вид (например неделя → день) по тапу по шапке с датами.
@@ -365,11 +461,11 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
       specialRegions: _getSpecialRegions(),
       timeRegionBuilder: _buildTimeRegion,
       timeSlotViewSettings: TimeSlotViewSettings(
-        startHour: startHour,
-        endHour: endHour,
+        startHour: widget.startHour,
+        endHour: widget.endHour,
         timeIntervalHeight: 60,
         timeFormat: 'HH:mm',
-        timeRulerSize: _timeRulerSize,
+        timeRulerSize: widget.timeRulerSize,
       ),
     );
   }
