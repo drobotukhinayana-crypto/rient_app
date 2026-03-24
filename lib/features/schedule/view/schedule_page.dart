@@ -12,7 +12,9 @@ import 'package:rient_app/features/schedule/view/components/schedule_calendar_on
 import 'package:rient_app/features/schedule/view/components/specialist_list_view.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
+import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
@@ -122,6 +124,63 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     return items;
   }
 
+  static double _timeToHour(String? value) {
+    if (value == null || value.isEmpty) return 0;
+    final parts = value.split(':');
+    if (parts.length < 2) return 0;
+    final hour = int.tryParse(parts[0]) ?? 0;
+    final minute = int.tryParse(parts[1]) ?? 0;
+    return hour + (minute / 60);
+  }
+
+  static String _weekdayKey(DateTime date) {
+    switch (date.weekday) {
+      case DateTime.monday:
+        return 'mon';
+      case DateTime.tuesday:
+        return 'tue';
+      case DateTime.wednesday:
+        return 'wen';
+      case DateTime.thursday:
+        return 'thu';
+      case DateTime.friday:
+        return 'fri';
+      case DateTime.saturday:
+        return 'sat';
+      case DateTime.sunday:
+      default:
+        return 'sun';
+    }
+  }
+
+  static ({double startHour, double endHour}) _workHoursForDate(
+    DateTime date,
+    List<SchedulePattern> patterns,
+  ) {
+    final day = _weekdayKey(date);
+    SchedulePattern? pattern;
+    for (final item in patterns) {
+      final patternDay = (item.day ?? '').toLowerCase();
+      final isSameDay = patternDay == day || (day == 'wen' && patternDay == 'wed');
+      if (isSameDay && (item.active ?? false)) {
+        pattern = item;
+        break;
+      }
+    }
+
+    if (pattern == null) {
+      return (startHour: 9.0, endHour: 21.0);
+    }
+
+    final start = _timeToHour(pattern.timeStart);
+    final end = _timeToHour(pattern.timeEnd);
+    if (start <= 0 || end <= 0 || end <= start) {
+      return (startHour: 9.0, endHour: 21.0);
+    }
+
+    return (startHour: start, endHour: end);
+  }
+
   /// Количество записей по дням месяца из [appointmentsByDay] (день месяца 1–31 → total).
   static Map<int, int> _slotsByDayFromAppointments(
     List<AppointmentByDayItem> appointmentsByDay,
@@ -142,6 +201,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   @override
   Widget build(BuildContext context) {
     final workersAsync = ref.watch(scheduleWorkersProvider);
+    final currentBranch = ref.watch(currentBranchProvider);
     final selectedDate = ref.watch(selectedScheduleDateProvider);
     final availableWorkersAsync = ref.watch(availableWorkersForDateProvider(selectedDate));
     final availableWorkersLoading = availableWorkersAsync.isLoading;
@@ -188,6 +248,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                   orElse: () => specialists.first,
                 )
               : specialists.first);
+    final dayWorkHours = _workHoursForDate(
+      selectedDate,
+      currentBranch?.schedulePatterns ?? const [],
+    );
 
     ref.listen(scheduleWorkersProvider, (prev, next) {
       next.whenData((_) async {
@@ -263,6 +327,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                 date: selectedDate,
                                 items: _scheduleItems(selectedDate),
                                 viewMode: ViewMode.day,
+                                startHour: dayWorkHours.startHour,
+                                endHour: dayWorkHours.endHour,
                               ),
                             ),
                           ],

@@ -33,12 +33,16 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
     required this.date,
     required this.items,
     this.viewMode = ViewMode.week,
+    this.startHour = 9,
+    this.endHour = 21,
   });
 
   /// Для дня — выбранная дата, для недели — понедельник недели.
   final DateTime date;
   final List<ScheduleAppointmentItem> items;
   final ViewMode viewMode;
+  final double startHour;
+  final double endHour;
 
   List<TimeRegion> _getSpecialRegions() {
     DateTime at(int h, int m) =>
@@ -270,8 +274,8 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
       specialRegions: _getSpecialRegions(),
       timeRegionBuilder: _buildTimeRegion,
       timeSlotViewSettings: TimeSlotViewSettings(
-        startHour: 9,
-        endHour: 21,
+        startHour: startHour,
+        endHour: endHour,
         timeIntervalHeight: 60,
         timeFormat: 'HH:mm',
         timeRulerSize: _timeRulerSize,

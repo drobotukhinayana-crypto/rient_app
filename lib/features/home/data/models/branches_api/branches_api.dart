@@ -31,7 +31,7 @@ sealed class BranchApi with _$BranchApi {
     required int? workspaces,
     required String? phone,
     required String? email,
-    required List<SchedulePattern>? schedulePatterns,
+    @JsonKey(name: 'schedule_patterns') required List<SchedulePattern>? schedulePatterns,
     @JsonKey(name: 'has_chat_settings') required bool? hasChatSettings,
     @JsonKey(name: 'is_blocked') required bool? isBlocked,
     @JsonKey(name: 'is_available') required bool? isAvailable,

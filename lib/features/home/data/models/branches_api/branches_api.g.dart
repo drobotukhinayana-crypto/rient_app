@@ -40,7 +40,7 @@ _BranchApi _$BranchApiFromJson(Map<String, dynamic> json) => _BranchApi(
   workspaces: (json['workspaces'] as num?)?.toInt(),
   phone: json['phone'] as String?,
   email: json['email'] as String?,
-  schedulePatterns: (json['schedulePatterns'] as List<dynamic>?)
+  schedulePatterns: (json['schedule_patterns'] as List<dynamic>?)
       ?.map((e) => SchedulePattern.fromJson(e as Map<String, dynamic>))
       .toList(),
   hasChatSettings: json['has_chat_settings'] as bool?,
@@ -65,7 +65,7 @@ Map<String, dynamic> _$BranchApiToJson(_BranchApi instance) =>
       'workspaces': instance.workspaces,
       'phone': instance.phone,
       'email': instance.email,
-      'schedulePatterns': instance.schedulePatterns,
+      'schedule_patterns': instance.schedulePatterns,
       'has_chat_settings': instance.hasChatSettings,
       'is_blocked': instance.isBlocked,
       'is_available': instance.isAvailable,
