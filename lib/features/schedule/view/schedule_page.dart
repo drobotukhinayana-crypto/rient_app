@@ -181,6 +181,31 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     return (startHour: start, endHour: end);
   }
 
+  static ({double startHour, double endHour}) _workHoursForWeek(
+    List<SchedulePattern> patterns,
+  ) {
+    final active = patterns.where((p) => p.active ?? false).toList();
+    if (active.isEmpty) {
+      return (startHour: 9.0, endHour: 21.0);
+    }
+
+    double? minStart;
+    double? maxEnd;
+    for (final pattern in active) {
+      final start = _timeToHour(pattern.timeStart);
+      final end = _timeToHour(pattern.timeEnd);
+      if (start <= 0 || end <= 0 || end <= start) continue;
+      minStart = minStart == null ? start : (start < minStart ? start : minStart);
+      maxEnd = maxEnd == null ? end : (end > maxEnd ? end : maxEnd);
+    }
+
+    if (minStart == null || maxEnd == null || maxEnd <= minStart) {
+      return (startHour: 9.0, endHour: 21.0);
+    }
+
+    return (startHour: minStart, endHour: maxEnd);
+  }
+
   /// Количество записей по дням месяца из [appointmentsByDay] (день месяца 1–31 → total).
   static Map<int, int> _slotsByDayFromAppointments(
     List<AppointmentByDayItem> appointmentsByDay,
@@ -250,6 +275,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
               : specialists.first);
     final dayWorkHours = _workHoursForDate(
       selectedDate,
+      currentBranch?.schedulePatterns ?? const [],
+    );
+    final weekWorkHours = _workHoursForWeek(
       currentBranch?.schedulePatterns ?? const [],
     );
 
@@ -373,6 +401,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         date: _weekStart,
                                         items: _scheduleItemsForWeek(_weekStart),
                                         viewMode: ViewMode.week,
+                                        startHour: weekWorkHours.startHour,
+                                        endHour: weekWorkHours.endHour,
                                       ),
                                     ),
                                   ],
