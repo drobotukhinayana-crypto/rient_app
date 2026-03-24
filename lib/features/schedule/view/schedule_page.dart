@@ -107,12 +107,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   }
 
   /// Цвета по статусу записи: 0 жёлтый, 1 фиолетовый, 2 зелёный, 3–4 красный.
-  static ({Color backgroundColor, Color accentColor}) _colorsForAppointmentStatus(
-    int status,
-  ) {
+  static ({Color backgroundColor, Color accentColor})
+  _colorsForAppointmentStatus(int status) {
     switch (status) {
       case 0:
-        return (backgroundColor: AppColors.lightYel, accentColor: AppColors.yel);
+        return (
+          backgroundColor: AppColors.lightYel,
+          accentColor: AppColors.yel,
+        );
       case 1:
         return (
           backgroundColor: AppColors.lightPurple,
@@ -125,7 +127,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         );
       case 3:
       case 4:
-        return (backgroundColor: AppColors.lightRed, accentColor: AppColors.red);
+        return (
+          backgroundColor: AppColors.lightRed,
+          accentColor: AppColors.red,
+        );
       default:
         return (
           backgroundColor: AppColors.lightGreen,
@@ -148,7 +153,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       final first = appointment.services.first;
       start = _safeParseToLocal(first.datetime, fallbackStart);
       var maxEnd = start.add(
-        Duration(minutes: first.totalDurationMinutes <= 0 ? 30 : first.totalDurationMinutes),
+        Duration(
+          minutes: first.totalDurationMinutes <= 0
+              ? 30
+              : first.totalDurationMinutes,
+        ),
       );
       for (final service in appointment.services) {
         final serviceStart = _safeParseToLocal(service.datetime, start);
@@ -632,8 +641,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                               workerId: specialists[i].id!,
                                               name: specialists[i].name,
                                               items: _mapAppointmentsForRange(
-                                                dayApis[i].value ??
-                                                    const [],
+                                                dayApis[i].value ?? const [],
                                                 dayStart,
                                                 dayEnd,
                                               ),
@@ -647,14 +655,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                               ).breakEnd,
                                               workerStartHour:
                                                   _workerShiftHoursForId(
-                                                shifts,
-                                                specialists[i].id!,
-                                              ).start,
+                                                    shifts,
+                                                    specialists[i].id!,
+                                                  ).start,
                                               workerEndHour:
                                                   _workerShiftHoursForId(
-                                                shifts,
-                                                specialists[i].id!,
-                                              ).end,
+                                                    shifts,
+                                                    specialists[i].id!,
+                                                  ).end,
                                             ),
                                         ];
                                       }(),
@@ -672,8 +680,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       breakEnd: selectedBreak.breakEnd,
                                       workerStartHour:
                                           selectedWorkerHours.start,
-                                      workerEndHour:
-                                          selectedWorkerHours.end,
+                                      workerEndHour: selectedWorkerHours.end,
                                     ),
                             ),
                           ],

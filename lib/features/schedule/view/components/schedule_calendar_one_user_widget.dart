@@ -350,42 +350,23 @@ class _ScheduleCalendarOneUserWidgetState
                   Padding(
                     padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.center,
-                              child: Text(
-                                timeStr,
-                                maxLines: 2,
-                                overflow: TextOverflow.clip,
-                                textAlign: TextAlign.center,
-                                style: AppFonts.c1Medium.copyWith(
-                                  color: accentColor,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.1,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Flexible(
-                              child: Text(
-                                customerName,
-                                style: AppFonts.c1Medium.copyWith(
-                                  color: accentColor,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                            Text(
+                              '$timeStartLine$timeEndLine',
+                              maxLines: 1,
+                              overflow: TextOverflow.clip,
+                              textAlign: TextAlign.center,
+                              style: AppFonts.c1Medium.copyWith(
+                                color: accentColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                height: 1.1,
                               ),
                             ),
                             if (item?.hasComment == true) ...[
-                              const SizedBox(width: 8),
                               Image.asset(
                                 AppImages.comment,
                                 width: 18,
@@ -395,39 +376,39 @@ class _ScheduleCalendarOneUserWidgetState
                             ],
                           ],
                         ),
-                        const SizedBox(height: 6),
+
                         Text(
                           serviceName,
                           style: AppFonts.c1Regular.copyWith(
                             color: accentColor,
                           ),
-                          maxLines: 2,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.red,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Новая',
-                        style: AppFonts.c2Tabbar.copyWith(
-                          color: AppColors.primaryWhite,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
+                  // Positioned(
+                  //   top: 0,
+                  //   right: 0,
+                  //   child: Container(
+                  //     padding: const EdgeInsets.symmetric(
+                  //       horizontal: 8,
+                  //       vertical: 4,
+                  //     ),
+                  //     decoration: BoxDecoration(
+                  //       color: AppColors.red,
+                  //       borderRadius: BorderRadius.circular(6),
+                  //     ),
+                  //     child: Text(
+                  //       'Новая',
+                  //       style: AppFonts.c2Tabbar.copyWith(
+                  //         color: AppColors.primaryWhite,
+                  //         fontWeight: FontWeight.w600,
+                  //       ),
+                  //     ),
+                  //   ),
+                  // ),
                 ],
               ),
             ),
