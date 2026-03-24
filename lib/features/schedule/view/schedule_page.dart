@@ -642,12 +642,18 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            if (specialists.isNotEmpty)
+                              Padding(
+                                padding: AppDecoration.padding16,
+                                child: SpecialistListView(
+                                  specialists: specialists,
+                                ),
+                              ),
                             Expanded(
                               child: specialists.length >= 3
                                   ? PageView.builder(
                                       controller: _dayTrioPageController,
-                                      itemCount:
-                                          (specialists.length + 2) ~/ 3,
+                                      itemCount: (specialists.length + 2) ~/ 3,
                                       itemBuilder: (context, pageIndex) {
                                         final start = pageIndex * 3;
                                         final end = min(
@@ -658,76 +664,53 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                           start,
                                           end,
                                         );
-                                        return Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Padding(
-                                              padding:
-                                                  AppDecoration.padding16,
-                                              child: SpecialistListView(
-                                                specialists: slice,
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child:
-                                                  ScheduleCalendarDayMultiColumn(
-                                                key: ValueKey(
-                                                  'schedule_day_multi_${scheduleDateKey(selectedDate)}_$pageIndex',
+                                        return ScheduleCalendarDayMultiColumn(
+                                          key: ValueKey(
+                                            'schedule_day_multi_${scheduleDateKey(selectedDate)}_$pageIndex',
+                                          ),
+                                          date: selectedDate,
+                                          branchStartHour:
+                                              dayWorkHours.startHour,
+                                          branchEndHour: dayWorkHours.endHour,
+                                          columns: () {
+                                            final shifts =
+                                                availableWorkersAsync.value ??
+                                                const [];
+                                            return [
+                                              for (var i = 0; i < slice.length; i++)
+                                                ScheduleCalendarDayColumn(
+                                                  workerId: slice[i].id!,
+                                                  name: slice[i].name,
+                                                  items: _mapAppointmentsForRange(
+                                                    dayAppsBySpecialistIndex[
+                                                                start + i]
+                                                            .value ??
+                                                        const [],
+                                                    dayStart,
+                                                    dayEnd,
+                                                  ),
+                                                  breakStart:
+                                                      _breakForSpecialist(
+                                                        shifts,
+                                                        slice[i].id,
+                                                      ).breakStart,
+                                                  breakEnd: _breakForSpecialist(
+                                                    shifts,
+                                                    slice[i].id,
+                                                  ).breakEnd,
+                                                  workerStartHour:
+                                                      _workerShiftHoursForId(
+                                                        shifts,
+                                                        slice[i].id!,
+                                                      ).start,
+                                                  workerEndHour:
+                                                      _workerShiftHoursForId(
+                                                        shifts,
+                                                        slice[i].id!,
+                                                      ).end,
                                                 ),
-                                                date: selectedDate,
-                                                branchStartHour:
-                                                    dayWorkHours.startHour,
-                                                branchEndHour:
-                                                    dayWorkHours.endHour,
-                                                columns: () {
-                                                  final shifts =
-                                                      availableWorkersAsync
-                                                              .value ??
-                                                          const [];
-                                                  return [
-                                                    for (var i = 0;
-                                                        i < slice.length;
-                                                        i++)
-                                                      ScheduleCalendarDayColumn(
-                                                        workerId:
-                                                            slice[i].id!,
-                                                        name: slice[i].name,
-                                                        items:
-                                                            _mapAppointmentsForRange(
-                                                          dayAppsBySpecialistIndex[
-                                                                  start + i]
-                                                              .value ??
-                                                              const [],
-                                                          dayStart,
-                                                          dayEnd,
-                                                        ),
-                                                        breakStart:
-                                                            _breakForSpecialist(
-                                                          shifts,
-                                                          slice[i].id,
-                                                        ).breakStart,
-                                                        breakEnd:
-                                                            _breakForSpecialist(
-                                                          shifts,
-                                                          slice[i].id,
-                                                        ).breakEnd,
-                                                        workerStartHour:
-                                                            _workerShiftHoursForId(
-                                                          shifts,
-                                                          slice[i].id!,
-                                                        ).start,
-                                                        workerEndHour:
-                                                            _workerShiftHoursForId(
-                                                          shifts,
-                                                          slice[i].id!,
-                                                        ).end,
-                                                      ),
-                                                  ];
-                                                }(),
-                                              ),
-                                            ),
-                                          ],
+                                            ];
+                                          }(),
                                         );
                                       },
                                     )
