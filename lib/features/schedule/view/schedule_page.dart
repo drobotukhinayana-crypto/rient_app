@@ -4,7 +4,7 @@ import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
-import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
+import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/view/components/date_strip.dart';
 import 'package:rient_app/features/schedule/view/components/month_calendar.dart';
@@ -32,16 +32,29 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   late DateTime _weekStart;
   late DateTime _monthStart;
 
-  static List<SpecialistItem> _workersToSpecialists(List<WorkerApi> workers) {
-    return workers.map((w) {
-      final name = '${w.firstName ?? ''} ${w.lastName ?? ''}'.trim();
-      return SpecialistItem(
-        name: name.isEmpty ? 'Специалист' : name,
-        role: w.specialization ?? '',
-        id: w.id,
-        pictureUrl: w.pictureThumbnail ?? w.picture,
+  static List<SpecialistItem> _availableToSpecialists(
+    List<AvailableWorkerShift> shifts,
+    List<WorkerApi> allWorkers,
+  ) {
+    final workersById = {for (final w in allWorkers) w.id: w};
+    final seen = <int>{};
+    final specialists = <SpecialistItem>[];
+    for (final shift in shifts) {
+      final worker = shift.worker;
+      if (seen.contains(worker.id)) continue;
+      seen.add(worker.id);
+      final fullWorker = workersById[worker.id];
+      final name = '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim();
+      specialists.add(
+        SpecialistItem(
+          name: name.isEmpty ? 'Специалист' : name,
+          role: worker.specialization ?? '',
+          id: worker.id,
+          pictureUrl: fullWorker?.pictureThumbnail ?? fullWorker?.picture,
+        ),
       );
-    }).toList();
+    }
+    return specialists;
   }
 
   @override
@@ -129,17 +142,17 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   @override
   Widget build(BuildContext context) {
     final workersAsync = ref.watch(scheduleWorkersProvider);
-    final allSpecialists = workersAsync.maybeWhen(
-      data: (response) => _workersToSpecialists(response.results),
-      orElse: () => <SpecialistItem>[],
-    );
     final selectedDate = ref.watch(selectedScheduleDateProvider);
+    final availableWorkersAsync = ref.watch(availableWorkersForDateProvider(selectedDate));
+    final availableWorkersLoading = availableWorkersAsync.isLoading;
     final weekKey = scheduleWeekKey(
       _viewMode == ViewMode.day ? selectedDate : _weekStart,
     );
     final monthKey = scheduleMonthKey(_monthStart);
-    final occupancyByDay =
-        ref.watch(scheduleStatisticsForWeekProvider(weekKey)).value?.occupancyByDay ?? [];
+    final weekStatisticsAsync =
+        ref.watch(scheduleStatisticsForWeekProvider(weekKey));
+    final occupancyByDay = weekStatisticsAsync.value?.occupancyByDay ?? [];
+    final weekStatisticsLoading = weekStatisticsAsync.isLoading;
     final monthStatisticsAsync =
         ref.watch(scheduleStatisticsForMonthProvider(monthKey));
     final monthOccupancyByDay =
@@ -151,29 +164,21 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       monthAppointmentsByDay,
       _monthStart,
     );
-    final schedulesAsync = ref.watch(
-      scheduleForDateProvider(scheduleDateKey(selectedDate)),
+    final showGlobalLoader =
+        availableWorkersLoading ||
+        (_viewMode == ViewMode.week && weekStatisticsLoading) ||
+        (_viewMode == ViewMode.month && monthStatisticsLoading);
+    // Для всех режимов показываем активных сотрудников на выбранную дату.
+    final specialists = availableWorkersAsync.maybeWhen(
+      data: (available) {
+        if (available.isEmpty) return <SpecialistItem>[];
+        return _availableToSpecialists(
+          available,
+          workersAsync.value?.results ?? const [],
+        );
+      },
+      orElse: () => <SpecialistItem>[],
     );
-    final workingIds = schedulesAsync.maybeWhen(
-      data: (res) => res.results
-          .where((s) => s.active && s.workerId != null)
-          .map((s) => s.workerId!)
-          .toSet(),
-      orElse: () => <int>{},
-    );
-    // В режиме «день» показываем только тех, у кого есть расписание на дату.
-    // Если расписаний нет (пустой ответ или нет записей worker/*) — показываем всех.
-    final specialists = _viewMode == ViewMode.day
-        ? schedulesAsync.maybeWhen(
-            data: (_) {
-              if (workingIds.isEmpty) return allSpecialists;
-              return allSpecialists
-                  .where((s) => s.id != null && workingIds.contains(s.id!))
-                  .toList();
-            },
-            orElse: () => allSpecialists,
-          )
-        : allSpecialists;
     final savedSelectedId = ref.watch(selectedSpecialistIdProvider);
     final initialSelected = specialists.isEmpty
         ? null
@@ -201,106 +206,116 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
 
     return Scaffold(
       backgroundColor: AppColors.tabBarScreenBackground,
-      body: Column(
+      body: Stack(
         children: [
-          TopPanel(
-            title: 'Расписание',
-            showViewModeSwitcher: true,
-            onScheduleStateChanged: _onScheduleStateChanged,
-            specialists: specialists,
-            initialSelectedSpecialist: initialSelected,
-            onSpecialistSelected: (s) async {
-              ref.read(selectedSpecialistIdProvider.notifier).state = s.id;
-              final storage = ref.read(localStorageProvider);
-              await storage.saveString(
-                selectedSpecialistIdStorageKey,
-                s.id.toString(),
-              );
-            },
-            scheduleSelectedDate: selectedDate,
-            occupancyByDay: occupancyByDay,
-            onScheduleDateSelected: (date) {
-              ref.read(selectedScheduleDateProvider.notifier).state = DateTime(
-                date.year,
-                date.month,
-                date.day,
-              );
-            },
-          ),
-          Expanded(
-            child: workersAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Center(
-                child: Padding(
-                  padding: AppDecoration.padding16,
-                  child: Text(
-                    'Не удалось загрузить список специалистов',
-                    style: TextStyle(color: AppColors.grey),
-                  ),
-                ),
+          Column(
+            children: [
+              TopPanel(
+                title: 'Расписание',
+                showViewModeSwitcher: true,
+                onScheduleStateChanged: _onScheduleStateChanged,
+                specialists: specialists,
+                initialSelectedSpecialist: initialSelected,
+                onSpecialistSelected: (s) async {
+                  ref.read(selectedSpecialistIdProvider.notifier).state = s.id;
+                  final storage = ref.read(localStorageProvider);
+                  await storage.saveString(
+                    selectedSpecialistIdStorageKey,
+                    s.id.toString(),
+                  );
+                },
+                scheduleSelectedDate: selectedDate,
+                occupancyByDay: occupancyByDay,
+                onScheduleDateSelected: (date) {
+                  ref.read(selectedScheduleDateProvider.notifier).state = DateTime(
+                    date.year,
+                    date.month,
+                    date.day,
+                  );
+                },
               ),
-              data: (_) => _viewMode == ViewMode.day
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (specialists.length >= 3)
-                          Padding(
-                            padding: AppDecoration.padding16,
-                            child: SpecialistListView(specialists: specialists),
-                          ),
-                        Expanded(
-                          child: ScheduleCalendarOneUserWidget(
-                            key: ValueKey(
-                              'schedule_day_${scheduleDateKey(selectedDate)}',
+              Expanded(
+                child: workersAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (err, _) => Center(
+                    child: Padding(
+                      padding: AppDecoration.padding16,
+                      child: Text(
+                        'Не удалось загрузить список специалистов',
+                        style: TextStyle(color: AppColors.grey),
+                      ),
+                    ),
+                  ),
+                  data: (_) => _viewMode == ViewMode.day
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (specialists.length >= 3)
+                              Padding(
+                                padding: AppDecoration.padding16,
+                                child: SpecialistListView(specialists: specialists),
+                              ),
+                            Expanded(
+                              child: ScheduleCalendarOneUserWidget(
+                                key: ValueKey(
+                                  'schedule_day_${scheduleDateKey(selectedDate)}',
+                                ),
+                                date: selectedDate,
+                                items: _scheduleItems(selectedDate),
+                                viewMode: ViewMode.day,
+                              ),
                             ),
-                            date: selectedDate,
-                            items: _scheduleItems(selectedDate),
-                            viewMode: ViewMode.day,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (_viewMode == ViewMode.week) ...[
-                          Padding(
-                            padding: AppDecoration.padding16.copyWith(
-                              top: 20,
-                              left: 40,
-                            ),
-                            child: DateStrip(
-                              key: ValueKey('week_strip_$weekKey'),
-                              initialDate: _weekStart,
-                              selectedDate: selectedDate,
-                              onDateSelected: (date) {
-                                ref
-                                    .read(selectedScheduleDateProvider.notifier)
-                                    .state = DateTime(
-                                  date.year,
-                                  date.month,
-                                  date.day,
-                                );
-                              },
-                              showFullDateLabel: false,
-                              useGreyCircles: true,
-                              occupancyByDay: occupancyByDay,
-                            ),
-                          ),
-                          Expanded(
-                            child: ScheduleCalendarOneUserWidget(
-                              key: ValueKey('schedule_week_$weekKey'),
-                              date: _weekStart,
-                              items: _scheduleItemsForWeek(_weekStart),
-                              viewMode: ViewMode.week,
-                            ),
-                          ),
-                        ],
-                        if (_viewMode == ViewMode.month)
-                          Expanded(
-                            child: Stack(
-                              children: [
-                                Padding(
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_viewMode == ViewMode.week) ...[
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: AppDecoration.padding16.copyWith(
+                                        top: 20,
+                                        left: 40,
+                                      ),
+                                      child: DateStrip(
+                                        key: ValueKey('week_strip_$weekKey'),
+                                        initialDate: _weekStart,
+                                        selectedDate: selectedDate,
+                                        onDateSelected: (date) {
+                                          ref
+                                              .read(
+                                                selectedScheduleDateProvider
+                                                    .notifier,
+                                              )
+                                              .state = DateTime(
+                                            date.year,
+                                            date.month,
+                                            date.day,
+                                          );
+                                        },
+                                        showFullDateLabel: false,
+                                        useGreyCircles: true,
+                                        occupancyByDay: occupancyByDay,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: ScheduleCalendarOneUserWidget(
+                                        key: ValueKey('schedule_week_$weekKey'),
+                                        date: _weekStart,
+                                        items: _scheduleItemsForWeek(_weekStart),
+                                        viewMode: ViewMode.week,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if (_viewMode == ViewMode.month)
+                              Expanded(
+                                child: Padding(
                                   padding: AppDecoration.padding16.copyWith(
                                     top: 20,
                                   ),
@@ -313,23 +328,22 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                     ),
                                   ),
                                 ),
-                                if (monthStatisticsLoading)
-                                  Positioned.fill(
-                                    child: Container(
-                                      color: AppColors.tabBarScreenBackground
-                                          .withValues(alpha: 0.5),
-                                      child: const Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-            ),
+                              ),
+                          ],
+                        ),
+                ),
+              ),
+            ],
           ),
+          if (showGlobalLoader)
+            Positioned.fill(
+              child: Container(
+                color: AppColors.tabBarScreenBackground.withValues(alpha: 0.35),
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            ),
         ],
       ),
     );
