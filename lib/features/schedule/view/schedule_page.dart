@@ -175,7 +175,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         ? appointment.client!.fullName
         : '${appointment.worker?.firstName ?? ''} ${appointment.worker?.lastName ?? ''}'
               .trim();
-    final hasComment = (appointment.commentText ?? '').trim().isNotEmpty;
+    final hasComment = appointment.hasComment;
     final colors = _colorsForAppointmentStatus(appointment.status);
 
     return ScheduleAppointmentItem(

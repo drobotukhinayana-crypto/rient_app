@@ -32,6 +32,7 @@ class AppointmentApi {
     required this.worker,
     required this.client,
     required this.commentText,
+    required this.commentId,
   });
 
   final int id;
@@ -40,13 +41,22 @@ class AppointmentApi {
   final List<AppointmentServiceApi> services;
   final AppointmentWorkerApi? worker;
   final AppointmentClientApi? client;
+  /// Текст из `comment.text`.
   final String? commentText;
+  /// `comment.id`, если блок комментария есть в ответе.
+  final int? commentId;
 
   /// Записи для отображения в расписании (все известные статусы 0–4).
   bool get isActive => status >= 0 && status <= 4;
 
+  /// Показывать иконку комментария только при непустом `comment.text`.
+  bool get hasComment => (commentText?.trim().isNotEmpty ?? false);
+
   factory AppointmentApi.fromJson(Map<String, dynamic> json) {
     final comment = json['comment'] as Map<String, dynamic>?;
+    final rawText = comment?['text'];
+    final commentText = rawText == null ? null : rawText.toString();
+    final commentId = (comment?['id'] as num?)?.toInt();
     return AppointmentApi(
       id: (json['id'] as num?)?.toInt() ?? 0,
       datetime: (json['datetime'] ?? '').toString(),
@@ -60,7 +70,8 @@ class AppointmentApi {
       client: json['client'] == null
           ? null
           : AppointmentClientApi.fromJson(json['client'] as Map<String, dynamic>),
-      commentText: comment == null ? null : comment['text'] as String?,
+      commentText: commentText,
+      commentId: commentId,
     );
   }
 }

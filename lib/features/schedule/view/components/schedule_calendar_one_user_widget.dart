@@ -186,20 +186,21 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        alignment: Alignment.topLeft,
+        alignment: Alignment.center,
         child: SizedBox.expand(
           child: FittedBox(
             fit: BoxFit.contain,
-            alignment: Alignment.topLeft,
+            alignment: Alignment.center,
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   timeStr,
                   maxLines: 2,
                   overflow: TextOverflow.clip,
+                  textAlign: TextAlign.center,
                   style: AppFonts.c2Tabbar.copyWith(
                     color: accentColor,
                     fontWeight: FontWeight.w600,
@@ -252,73 +253,62 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-                    child: SizedBox.expand(
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        alignment: Alignment.topLeft,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  timeStr,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.clip,
-                                  style: AppFonts.c1Medium.copyWith(
-                                    color: accentColor,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.1,
-                                  ),
-                                ),
-                                Container(
-                                  width: 1,
-                                  height: 14,
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: Center(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.center,
+                              child: Text(
+                                timeStr,
+                                maxLines: 2,
+                                overflow: TextOverflow.clip,
+                                textAlign: TextAlign.center,
+                                style: AppFonts.c1Medium.copyWith(
                                   color: accentColor,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.1,
                                 ),
-                                Flexible(
-                                  child: Text(
-                                    customerName,
-                                    style: AppFonts.c1Medium.copyWith(
-                                      color: accentColor,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Container(
-                                  width: 1,
-                                  height: 14,
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
-                                  color: accentColor,
-                                ),
-                                Image.asset(
-                                  AppImages.comment,
-                                  width: 18,
-                                  height: 18,
-                                  color: accentColor,
-                                ),
-                              ],
+                              ),
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              serviceName,
-                              style: AppFonts.c1Regular.copyWith(
+                          ),
+                        ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                customerName,
+                                style: AppFonts.c1Medium.copyWith(
+                                  color: accentColor,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (item?.hasComment == true) ...[
+                              const SizedBox(width: 8),
+                              Image.asset(
+                                AppImages.comment,
+                                width: 18,
+                                height: 18,
                                 color: accentColor,
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            ],
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 6),
+                        Text(
+                          serviceName,
+                          style: AppFonts.c1Regular.copyWith(
+                            color: accentColor,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
                   Positioned(
