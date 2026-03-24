@@ -143,6 +143,8 @@ class _ScheduleCalendarDayMultiColumnState
           if (i > 0)
             Container(width: 1, color: AppColors.grey.withValues(alpha: 0.25)),
           Expanded(
+            // Первая колонка: слева шкала времени, под сетку остаётся уже 2–3-й; чуть больший flex выравнивает ширину ячеек.
+            flex: i == 0 ? 5 : 4,
             child: Theme(
               data: i == lastIndex ? theme : themeWithoutScrollbar,
               child: _calendar(i, dateKey),
