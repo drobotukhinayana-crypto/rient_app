@@ -4,6 +4,9 @@ import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
+import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
+import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/view/components/date_strip.dart';
@@ -12,9 +15,6 @@ import 'package:rient_app/features/schedule/view/components/schedule_calendar_on
 import 'package:rient_app/features/schedule/view/components/specialist_list_view.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
-import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
-import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
-import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
@@ -161,7 +161,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     SchedulePattern? pattern;
     for (final item in patterns) {
       final patternDay = (item.day ?? '').toLowerCase();
-      final isSameDay = patternDay == day || (day == 'wen' && patternDay == 'wed');
+      final isSameDay =
+          patternDay == day || (day == 'wen' && patternDay == 'wed');
       if (isSameDay && (item.active ?? false)) {
         pattern = item;
         break;
@@ -195,7 +196,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       final start = _timeToHour(pattern.timeStart);
       final end = _timeToHour(pattern.timeEnd);
       if (start <= 0 || end <= 0 || end <= start) continue;
-      minStart = minStart == null ? start : (start < minStart ? start : minStart);
+      minStart = minStart == null
+          ? start
+          : (start < minStart ? start : minStart);
       maxEnd = maxEnd == null ? end : (end > maxEnd ? end : maxEnd);
     }
 
@@ -266,18 +269,22 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final workersAsync = ref.watch(scheduleWorkersProvider);
     final currentBranch = ref.watch(currentBranchProvider);
     final selectedDate = ref.watch(selectedScheduleDateProvider);
-    final availableWorkersAsync = ref.watch(availableWorkersForDateProvider(selectedDate));
+    final availableWorkersAsync = ref.watch(
+      availableWorkersForDateProvider(selectedDate),
+    );
     final availableWorkersLoading = availableWorkersAsync.isLoading;
     final weekKey = scheduleWeekKey(
       _viewMode == ViewMode.day ? selectedDate : _weekStart,
     );
     final monthKey = scheduleMonthKey(_monthStart);
-    final weekStatisticsAsync =
-        ref.watch(scheduleStatisticsForWeekProvider(weekKey));
+    final weekStatisticsAsync = ref.watch(
+      scheduleStatisticsForWeekProvider(weekKey),
+    );
     final occupancyByDay = weekStatisticsAsync.value?.occupancyByDay ?? [];
     final weekStatisticsLoading = weekStatisticsAsync.isLoading;
-    final monthStatisticsAsync =
-        ref.watch(scheduleStatisticsForMonthProvider(monthKey));
+    final monthStatisticsAsync = ref.watch(
+      scheduleStatisticsForMonthProvider(monthKey),
+    );
     final monthOccupancyByDay =
         monthStatisticsAsync.value?.occupancyByDay ?? [];
     final monthStatisticsLoading = monthStatisticsAsync.isLoading;
@@ -360,11 +367,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                 scheduleSelectedDate: selectedDate,
                 occupancyByDay: occupancyByDay,
                 onScheduleDateSelected: (date) {
-                  ref.read(selectedScheduleDateProvider.notifier).state = DateTime(
-                    date.year,
-                    date.month,
-                    date.day,
-                  );
+                  ref.read(selectedScheduleDateProvider.notifier).state =
+                      DateTime(date.year, date.month, date.day);
                 },
               ),
               Expanded(
@@ -386,7 +390,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                             if (specialists.length >= 3)
                               Padding(
                                 padding: AppDecoration.padding16,
-                                child: SpecialistListView(specialists: specialists),
+                                child: SpecialistListView(
+                                  specialists: specialists,
+                                ),
                               ),
                             Expanded(
                               child: ScheduleCalendarOneUserWidget(
@@ -440,11 +446,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       child: ScheduleCalendarOneUserWidget(
                                         key: ValueKey('schedule_week_$weekKey'),
                                         date: _weekStart,
-                                        items: _scheduleItemsForWeek(_weekStart),
+                                        items: _scheduleItemsForWeek(
+                                          _weekStart,
+                                        ),
                                         viewMode: ViewMode.week,
                                         startHour: weekWorkHours.startHour,
                                         endHour: weekWorkHours.endHour,
-                                        weekWorkHoursByWeekday: weekWorkHoursByWeekday,
+                                        weekWorkHoursByWeekday:
+                                            weekWorkHoursByWeekday,
                                       ),
                                     ),
                                   ],
@@ -477,9 +486,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
             Positioned.fill(
               child: Container(
                 color: AppColors.tabBarScreenBackground.withValues(alpha: 0.35),
-                child: const Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: const Center(child: CircularProgressIndicator()),
               ),
             ),
         ],

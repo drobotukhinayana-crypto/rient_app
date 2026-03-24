@@ -311,6 +311,7 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
       view: _calendarView,
       initialDisplayDate: date,
       firstDayOfWeek: 1,
+      viewNavigationMode: ViewNavigationMode.none,
       headerHeight: 0,
       viewHeaderHeight: 0,
       showDatePickerButton: false,
