@@ -166,9 +166,11 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
     final bounds = details.bounds;
     final start = a.startTime;
     final end = a.endTime;
-    final timeStr =
-        '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}-'
+    final timeStartLine =
+        '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}-';
+    final timeEndLine =
         '${end.hour.toString().padLeft(2, '0')}:${end.minute.toString().padLeft(2, '0')}';
+    final timeStr = '$timeStartLine\n$timeEndLine';
     final item = _findItem(a);
     final accentColor = item?.accentColor ?? a.color;
     final backgroundColor =
@@ -178,36 +180,44 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
       return Container(
         width: bounds.width,
         height: bounds.height,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: BorderRadius.circular(6),
         ),
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              timeStr,
-              style: AppFonts.c2Tabbar.copyWith(
-                color: accentColor,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (item?.hasComment == true) ...[
-              const SizedBox(height: 4),
-              Center(
-                child: Image.asset(
-                  AppImages.comment,
-                  width: 14,
-                  height: 14,
-                  color: accentColor,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        alignment: Alignment.topLeft,
+        child: SizedBox.expand(
+          child: FittedBox(
+            fit: BoxFit.contain,
+            alignment: Alignment.topLeft,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  timeStr,
+                  maxLines: 2,
+                  overflow: TextOverflow.clip,
+                  style: AppFonts.c2Tabbar.copyWith(
+                    color: accentColor,
+                    fontWeight: FontWeight.w600,
+                    height: 1.1,
+                  ),
                 ),
-              ),
-            ],
-          ],
+                if (item?.hasComment == true) ...[
+                  const SizedBox(height: 2),
+                  Image.asset(
+                    AppImages.comment,
+                    width: 14,
+                    height: 14,
+                    color: accentColor,
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       );
     }
@@ -218,6 +228,7 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
     return Container(
       width: bounds.width,
       height: bounds.height,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
@@ -236,86 +247,102 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
           children: [
             Container(width: 3, color: accentColor),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-                child: Stack(
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+                    child: SizedBox.expand(
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        alignment: Alignment.topLeft,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              timeStr,
-                              style: AppFonts.c1Medium.copyWith(
-                                color: accentColor,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  timeStr,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.clip,
+                                  style: AppFonts.c1Medium.copyWith(
+                                    color: accentColor,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.1,
+                                  ),
+                                ),
+                                Container(
+                                  width: 1,
+                                  height: 14,
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  color: accentColor,
+                                ),
+                                Flexible(
+                                  child: Text(
+                                    customerName,
+                                    style: AppFonts.c1Medium.copyWith(
+                                      color: accentColor,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Container(
+                                  width: 1,
+                                  height: 14,
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  color: accentColor,
+                                ),
+                                Image.asset(
+                                  AppImages.comment,
+                                  width: 18,
+                                  height: 18,
+                                  color: accentColor,
+                                ),
+                              ],
                             ),
-                            Container(
-                              width: 1,
-                              height: 14,
-                              margin: const EdgeInsets.symmetric(horizontal: 8),
-                              color: accentColor,
-                            ),
+                            const SizedBox(height: 6),
                             Text(
-                              customerName,
-                              style: AppFonts.c1Medium.copyWith(
+                              serviceName,
+                              style: AppFonts.c1Regular.copyWith(
                                 color: accentColor,
                               ),
-
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                            ),
-                            Container(
-                              width: 1,
-                              height: 14,
-                              margin: const EdgeInsets.symmetric(horizontal: 8),
-                              color: accentColor,
-                            ),
-
-                            Image.asset(
-                              AppImages.comment,
-                              width: 18,
-                              height: 18,
-                              color: accentColor,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          serviceName,
-                          style: AppFonts.c1Regular.copyWith(
-                            color: accentColor,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                      ),
                     ),
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.red,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'Новая',
-                          style: AppFonts.c2Tabbar.copyWith(
-                            color: AppColors.primaryWhite,
-                            fontWeight: FontWeight.w600,
-                          ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.red,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Новая',
+                        style: AppFonts.c2Tabbar.copyWith(
+                          color: AppColors.primaryWhite,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -334,6 +361,9 @@ class ScheduleCalendarOneUserWidget extends StatelessWidget {
       view: _calendarView,
       initialDisplayDate: date,
       firstDayOfWeek: 1,
+
+      /// Не переключать вид (например неделя → день) по тапу по шапке с датами.
+      allowViewNavigation: false,
       viewNavigationMode: ViewNavigationMode.none,
       headerHeight: 0,
       viewHeaderHeight: 0,

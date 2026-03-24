@@ -7,6 +7,7 @@ import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/view/components/date_strip.dart';
@@ -15,6 +16,7 @@ import 'package:rient_app/features/schedule/view/components/schedule_calendar_on
 import 'package:rient_app/features/schedule/view/components/specialist_list_view.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
+import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
@@ -93,35 +95,116 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     }
   }
 
-  static List<ScheduleAppointmentItem> _scheduleItems(DateTime day) => [
-    ScheduleAppointmentItem(
-      startTime: DateTime(day.year, day.month, day.day, 10, 0),
-      endTime: DateTime(day.year, day.month, day.day, 11, 0),
-      subject: 'Стрижка удлиненная',
-      notes: 'Антон Иванов',
-      backgroundColor: AppColors.lightGreen,
-      accentColor: AppColors.green,
-    ),
-    ScheduleAppointmentItem(
-      startTime: DateTime(day.year, day.month, day.day, 15, 0),
-      endTime: DateTime(day.year, day.month, day.day, 17, 0),
-      subject: 'Стрижка удлиненная',
-      notes: 'Антон Иванов',
-      backgroundColor: AppColors.lightYel,
-      accentColor: AppColors.yel,
-      hasComment: true,
-    ),
-  ];
+  static DateTime _toDateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
 
-  static List<ScheduleAppointmentItem> _scheduleItemsForWeek(
-    DateTime weekStart,
+  static DateTime _safeParseToLocal(String? raw, DateTime fallback) {
+    if (raw == null || raw.isEmpty) return fallback;
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return fallback;
+    return parsed.toLocal();
+  }
+
+  /// Цвета по статусу записи: 0 жёлтый, 1 фиолетовый, 2 зелёный, 3–4 красный.
+  static ({Color backgroundColor, Color accentColor}) _colorsForAppointmentStatus(
+    int status,
   ) {
-    final items = <ScheduleAppointmentItem>[];
-    for (var d = 0; d < 7; d++) {
-      final day = weekStart.add(Duration(days: d));
-      items.addAll(_scheduleItems(day));
+    switch (status) {
+      case 0:
+        return (backgroundColor: AppColors.lightYel, accentColor: AppColors.yel);
+      case 1:
+        return (
+          backgroundColor: AppColors.lightPurple,
+          accentColor: AppColors.purple,
+        );
+      case 2:
+        return (
+          backgroundColor: AppColors.lightGreen,
+          accentColor: AppColors.green,
+        );
+      case 3:
+      case 4:
+        return (backgroundColor: AppColors.lightRed, accentColor: AppColors.red);
+      default:
+        return (
+          backgroundColor: AppColors.lightGreen,
+          accentColor: AppColors.green,
+        );
     }
-    return items;
+  }
+
+  static ScheduleAppointmentItem _mapAppointmentToItem(
+    AppointmentApi appointment,
+  ) {
+    final fallbackStart = _safeParseToLocal(
+      appointment.datetime,
+      DateTime.now(),
+    );
+    var start = fallbackStart;
+    var end = start.add(const Duration(minutes: 30));
+
+    if (appointment.services.isNotEmpty) {
+      final first = appointment.services.first;
+      start = _safeParseToLocal(first.datetime, fallbackStart);
+      var maxEnd = start.add(
+        Duration(minutes: first.totalDurationMinutes <= 0 ? 30 : first.totalDurationMinutes),
+      );
+      for (final service in appointment.services) {
+        final serviceStart = _safeParseToLocal(service.datetime, start);
+        final serviceEnd = serviceStart.add(
+          Duration(
+            minutes: service.totalDurationMinutes <= 0
+                ? 30
+                : service.totalDurationMinutes,
+          ),
+        );
+        if (serviceEnd.isAfter(maxEnd)) {
+          maxEnd = serviceEnd;
+        }
+      }
+      end = maxEnd;
+    }
+
+    final serviceNames = appointment.services
+        .map((s) => (s.name ?? '').trim())
+        .where((name) => name.isNotEmpty)
+        .toList();
+
+    final subject = serviceNames.isEmpty ? 'Услуга' : serviceNames.join(', ');
+    final notes = appointment.client?.fullName.isNotEmpty == true
+        ? appointment.client!.fullName
+        : '${appointment.worker?.firstName ?? ''} ${appointment.worker?.lastName ?? ''}'
+              .trim();
+    final hasComment = (appointment.commentText ?? '').trim().isNotEmpty;
+    final colors = _colorsForAppointmentStatus(appointment.status);
+
+    return ScheduleAppointmentItem(
+      startTime: start,
+      endTime: end,
+      subject: subject,
+      notes: notes,
+      backgroundColor: colors.backgroundColor,
+      accentColor: colors.accentColor,
+      hasComment: hasComment,
+    );
+  }
+
+  static List<ScheduleAppointmentItem> _mapAppointmentsForRange(
+    List<AppointmentApi> appointments,
+    DateTime start,
+    DateTime end,
+  ) {
+    final startDate = _toDateOnly(start);
+    final endDate = _toDateOnly(end);
+    final mapped = <ScheduleAppointmentItem>[];
+    for (final appointment in appointments) {
+      final date = _safeParseToLocal(appointment.datetime, startDate);
+      final dateOnly = _toDateOnly(date);
+      if (dateOnly.isBefore(startDate) || dateOnly.isAfter(endDate)) continue;
+      mapped.add(_mapAppointmentToItem(appointment));
+    }
+    mapped.sort((a, b) => a.startTime.compareTo(b.startTime));
+    return mapped;
   }
 
   static double _timeToHour(String? value) {
@@ -315,10 +398,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       monthAppointmentsByDay,
       _monthStart,
     );
-    final showGlobalLoader =
-        availableWorkersLoading ||
-        (_viewMode == ViewMode.week && weekStatisticsLoading) ||
-        (_viewMode == ViewMode.month && monthStatisticsLoading);
     // Для всех режимов показываем активных сотрудников на выбранную дату.
     final specialists = availableWorkersAsync.maybeWhen(
       data: (available) {
@@ -354,6 +433,56 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final weekWorkHoursByWeekday = _workHoursByWeekday(
       currentBranch?.schedulePatterns ?? const [],
     );
+    final dayStart = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
+    final dayEnd = dayStart
+        .add(const Duration(days: 1))
+        .subtract(const Duration(milliseconds: 1));
+    final weekStartDate = DateTime(
+      _weekStart.year,
+      _weekStart.month,
+      _weekStart.day,
+    );
+    final weekEndDate = weekStartDate
+        .add(const Duration(days: 7))
+        .subtract(const Duration(milliseconds: 1));
+    final dayAppointmentsAsync = ref.watch(
+      scheduleAppointmentsProvider(
+        AppointmentsQuery(
+          workerId: selectedSpecialistId,
+          dateTimeGte: dayStart,
+          dateTimeLte: dayEnd,
+        ),
+      ),
+    );
+    final weekAppointmentsAsync = ref.watch(
+      scheduleAppointmentsProvider(
+        AppointmentsQuery(
+          workerId: selectedSpecialistId,
+          dateTimeGte: weekStartDate,
+          dateTimeLte: weekEndDate,
+        ),
+      ),
+    );
+    final dayItems = _mapAppointmentsForRange(
+      dayAppointmentsAsync.value ?? const [],
+      dayStart,
+      dayEnd,
+    );
+    final weekItems = _mapAppointmentsForRange(
+      weekAppointmentsAsync.value ?? const [],
+      weekStartDate,
+      weekEndDate,
+    );
+    final showGlobalLoader =
+        availableWorkersLoading ||
+        (_viewMode == ViewMode.day && dayAppointmentsAsync.isLoading) ||
+        (_viewMode == ViewMode.week && weekAppointmentsAsync.isLoading) ||
+        (_viewMode == ViewMode.week && weekStatisticsLoading) ||
+        (_viewMode == ViewMode.month && monthStatisticsLoading);
 
     ref.listen(scheduleWorkersProvider, (prev, next) {
       next.whenData((_) async {
@@ -426,7 +555,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                   'schedule_day_${scheduleDateKey(selectedDate)}',
                                 ),
                                 date: selectedDate,
-                                items: _scheduleItems(selectedDate),
+                                items: dayItems,
                                 viewMode: ViewMode.day,
                                 startHour: dayWorkHours.startHour,
                                 endHour: dayWorkHours.endHour,
@@ -453,18 +582,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         key: ValueKey('week_strip_$weekKey'),
                                         initialDate: _weekStart,
                                         selectedDate: selectedDate,
-                                        onDateSelected: (date) {
-                                          ref
-                                              .read(
-                                                selectedScheduleDateProvider
-                                                    .notifier,
-                                              )
-                                              .state = DateTime(
-                                            date.year,
-                                            date.month,
-                                            date.day,
-                                          );
-                                        },
+                                        onDateSelected: null,
                                         showFullDateLabel: false,
                                         useGreyCircles: true,
                                         occupancyByDay: occupancyByDay,
@@ -474,9 +592,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       child: ScheduleCalendarOneUserWidget(
                                         key: ValueKey('schedule_week_$weekKey'),
                                         date: _weekStart,
-                                        items: _scheduleItemsForWeek(
-                                          _weekStart,
-                                        ),
+                                        items: weekItems,
                                         viewMode: ViewMode.week,
                                         startHour: weekWorkHours.startHour,
                                         endHour: weekWorkHours.endHour,

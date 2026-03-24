@@ -1,0 +1,57 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/services/token_storage.dart';
+import 'package:rient_app/core/utils/const/api_consts.dart';
+import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
+import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
+
+final appointmentsServiceProvider = Provider<AppointmentsService>(
+  (ref) => AppointmentsService(ref),
+);
+
+class AppointmentsService {
+  AppointmentsService(this.ref);
+
+  final Ref ref;
+
+  Future<AppointmentsApiResponse> getAppointments({
+    required int branchId,
+    required int workerId,
+    required DateTime dateTimeGte,
+    required DateTime dateTimeLte,
+    int pageSize = 312,
+    bool more = false,
+  }) async {
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      throw CustomException(causedError: Exception('Token is missing'));
+    }
+
+    final url = ApiConsts().createUrl('appointments/');
+    final queryParams = <String, dynamic>{
+      'branch': branchId,
+      'worker': workerId,
+      'datetime__gte': dateTimeGte.toUtc().toIso8601String(),
+      'datetime__lte': dateTimeLte.toUtc().toIso8601String(),
+      'page_size': pageSize,
+      'more': more,
+    };
+
+    try {
+      final response = await Dio().get<Map<String, dynamic>>(
+        url,
+        queryParameters: queryParams,
+        options: Options(headers: {'Authorization': 'JWT $token'}),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        return AppointmentsApiResponse.fromJson(response.data!);
+      }
+      throw CustomException(
+        causedError: Exception('Failed to load appointments: ${response.statusCode}'),
+      );
+    } catch (e) {
+      throw CustomException(causedError: e);
+    }
+  }
+}
