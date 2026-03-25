@@ -15,6 +15,7 @@ class MainButton extends ConsumerWidget {
     this.height = 48,
     this.width = double.infinity,
     this.color = AppColors.mainAccent,
+
     this.textColor = Colors.white,
   });
 

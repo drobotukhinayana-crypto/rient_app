@@ -27,14 +27,17 @@ class AppImages {
   static const String linkTab = 'assets/images/link_tab.png';
   static const String logoBig = 'assets/images/logo_big.png';
   static const String logoMini = 'assets/images/logo_mini.png';
+  static const String minus = 'assets/images/minus.png';
   static const String moonFill = 'assets/images/moon-fill.png';
   static const String more = 'assets/images/more.png';
+  static const String plus = 'assets/images/plus.png';
   static const String radiobutton = 'assets/images/radiobutton.png';
   static const String radiobuttonActive = 'assets/images/radiobuttonActive.png';
   static const String radiobuttonDarkActive =
       'assets/images/radiobutton_dark_active.png';
   static const String radiobuttonDarkUnactive =
       'assets/images/radiobutton_dark_unactive.png';
+  static const String solidFull = 'assets/images/solid_full.png';
   static const String sunFill = 'assets/images/sun_fill.png';
   static const String telegram = 'assets/images/telegram.png';
   static const String whatsapp = 'assets/images/whatsapp.png';
