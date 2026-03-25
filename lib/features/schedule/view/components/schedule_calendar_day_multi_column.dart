@@ -135,11 +135,16 @@ class _ScheduleCalendarDayMultiColumnState
         children: [
           for (var i = 0; i < widget.columns.length; i++) ...[
             if (i > 0)
-              Container(width: 1, color: AppColors.grey.withValues(alpha: 0.25)),
+              Container(
+                width: 1,
+                color: AppColors.grey.withValues(alpha: 0.25),
+              ),
             SizedBox(
               width: i == 0 ? widget.columnWidth + _ruler : widget.columnWidth,
               child: Theme(
-                data: i == widget.columns.length - 1 ? theme : themeWithoutScrollbar,
+                data: i == widget.columns.length - 1
+                    ? theme
+                    : themeWithoutScrollbar,
                 child: _calendar(i, dateKey),
               ),
             ),
