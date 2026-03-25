@@ -33,12 +33,16 @@ class ScheduleCalendarDayMultiColumn extends StatefulWidget {
     required this.branchStartHour,
     required this.branchEndHour,
     required this.columns,
+    this.horizontalScrollController,
+    this.columnWidth = 260,
   });
 
   final DateTime date;
   final double branchStartHour;
   final double branchEndHour;
   final List<ScheduleCalendarDayColumn> columns;
+  final ScrollController? horizontalScrollController;
+  final double columnWidth;
 
   @override
   State<ScheduleCalendarDayMultiColumn> createState() =>
@@ -48,20 +52,11 @@ class ScheduleCalendarDayMultiColumn extends StatefulWidget {
 class _ScheduleCalendarDayMultiColumnState
     extends State<ScheduleCalendarDayMultiColumn> {
   static const _ruler = 50.0;
-  static const _colCount = 3;
-
-  final List<ScrollPosition?> _positions = List<ScrollPosition?>.filled(
-    _colCount,
-    null,
-  );
-  final List<VoidCallback?> _listeners = List<VoidCallback?>.filled(
-    _colCount,
-    null,
-  );
+  final Map<int, ScrollPosition> _positions = <int, ScrollPosition>{};
+  final Map<int, VoidCallback> _listeners = <int, VoidCallback>{};
   bool _syncing = false;
 
   void _onScrollReady(int index, ScrollPosition position) {
-    if (index < 0 || index >= _colCount) return;
     if (_positions[index] != null) return;
 
     _positions[index] = position;
@@ -71,14 +66,13 @@ class _ScheduleCalendarDayMultiColumnState
       if (source == null || !source.hasPixels) return;
       final px = source.pixels;
       _syncing = true;
-      for (var j = 0; j < _colCount; j++) {
+      for (final entry in _positions.entries) {
+        final j = entry.key;
         if (j == index) continue;
-        final other = _positions[j];
-        if (other != null && other.hasPixels) {
+        final other = entry.value;
+        if (other.hasPixels) {
           final target = px.clamp(other.minScrollExtent, other.maxScrollExtent);
-          if ((other.pixels - target).abs() > 0.5) {
-            other.jumpTo(target);
-          }
+          if ((other.pixels - target).abs() > 0.5) other.jumpTo(target);
         }
       }
       _syncing = false;
@@ -90,12 +84,10 @@ class _ScheduleCalendarDayMultiColumnState
 
   @override
   void dispose() {
-    for (var i = 0; i < _colCount; i++) {
-      final p = _positions[i];
-      final l = _listeners[i];
-      if (p != null && l != null) {
-        p.removeListener(l);
-      }
+    for (final entry in _positions.entries) {
+      final p = entry.value;
+      final l = _listeners[entry.key];
+      if (l != null) p.removeListener(l);
     }
     super.dispose();
   }
@@ -135,23 +127,25 @@ class _ScheduleCalendarDayMultiColumnState
     );
 
     final dateKey = scheduleDateKey(widget.date);
-    final lastIndex = widget.columns.length - 1;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < widget.columns.length; i++) ...[
-          if (i > 0)
-            Container(width: 1, color: AppColors.grey.withValues(alpha: 0.25)),
-          Expanded(
-            // Первая колонка: слева шкала времени, под сетку остаётся уже 2–3-й; чуть больший flex выравнивает ширину ячеек.
-            flex: i == 0 ? 5 : 4,
-            child: Theme(
-              data: i == lastIndex ? theme : themeWithoutScrollbar,
-              child: _calendar(i, dateKey),
+    return SingleChildScrollView(
+      controller: widget.horizontalScrollController,
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < widget.columns.length; i++) ...[
+            if (i > 0)
+              Container(width: 1, color: AppColors.grey.withValues(alpha: 0.25)),
+            SizedBox(
+              width: i == 0 ? widget.columnWidth + _ruler : widget.columnWidth,
+              child: Theme(
+                data: i == widget.columns.length - 1 ? theme : themeWithoutScrollbar,
+                child: _calendar(i, dateKey),
+              ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

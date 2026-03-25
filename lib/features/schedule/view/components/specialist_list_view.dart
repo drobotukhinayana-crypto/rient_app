@@ -6,21 +6,29 @@ import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 
 class SpecialistListView extends StatelessWidget {
-  const SpecialistListView({super.key, required this.specialists});
+  const SpecialistListView({
+    super.key,
+    required this.specialists,
+    this.scrollController,
+    this.itemWidth = 114,
+  });
 
   final List<SpecialistItem> specialists;
+  final ScrollController? scrollController;
+  final double itemWidth;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 135,
       child: ListView.separated(
-        padding: const EdgeInsets.only(left: 28, right: 16, top: 6, bottom: 16),
+        controller: scrollController,
+        padding: const EdgeInsets.only(left: 28, top: 6, bottom: 16),
         scrollDirection: Axis.horizontal,
         itemBuilder: (BuildContext context, int index) {
           final item = specialists[index];
           return SizedBox(
-            width: 114,
+            width: itemWidth,
             child: DefaultContainerWidget(
               borderRadius: BorderRadius.circular(20),
               padding: const EdgeInsets.all(12),
