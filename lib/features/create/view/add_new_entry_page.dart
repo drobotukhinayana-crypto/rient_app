@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
@@ -7,8 +8,10 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
+import 'package:rient_app/features/create/data/models/clients_api.dart';
 import 'package:rient_app/features/create/data/models/worker_services_api.dart';
 import 'package:rient_app/features/create/view/components/client_status_selector_widget.dart';
+import 'package:rient_app/features/create/view/providers/clients_provider.dart';
 import 'package:rient_app/features/create/view/providers/worker_services_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/resources/resources.dart';
@@ -121,9 +124,15 @@ class _BodyWidget extends ConsumerStatefulWidget {
 class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   bool _isCommentVisitExpanded = true;
   bool _isCommentClientExpanded = true;
+  bool _showClientSuggestions = false;
+  String _phoneSearchQuery = '';
   final _commentVisitController = TextEditingController();
   final _commentClientController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final List<_ServiceBlockState> _services = [_ServiceBlockState()];
+  final _phoneMaskFormatter = _PhoneMaskFormatter();
   int? _selectedSpecialistId;
   DateTime _selectedDate = DateTime.now();
 
@@ -131,6 +140,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   void dispose() {
     _commentVisitController.dispose();
     _commentClientController.dispose();
+    _phoneController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    for (final service in _services) {
+      service.serviceSearchController.dispose();
+    }
     super.dispose();
   }
 
@@ -225,6 +240,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         : ref.watch(workerServicesForWorkerProvider(selectedSpecialistId));
     final workerServices =
         workerServicesAsync.value ?? const <WorkerServiceItem>[];
+    final clientsAsync = ref.watch(clientsByPhoneSearchProvider(_phoneSearchQuery));
+    final clientsByPhone = clientsAsync.value ?? const <ClientItem>[];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -288,10 +305,79 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
                 // телефон
                 MainTextField(
-                  controller: TextEditingController(),
+                  controller: _phoneController,
                   label: 'Телефон',
                   hintText: 'Телефон',
+                  inputFormatters: [_phoneMaskFormatter],
+                  onChanged: (value) {
+                    setState(() {
+                      _phoneSearchQuery = value;
+                      _showClientSuggestions = value.trim().isNotEmpty;
+                    });
+                  },
                 ),
+                if (_showClientSuggestions) ...[
+                  const Gap(8),
+                  DefaultContainerWidget(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    hasShadow: false,
+                    hasBorder: true,
+                    borderColor: AppColors.tetriaryLight,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: clientsAsync.isLoading
+                        ? const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        : clientsByPhone.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Text(
+                              'Клиент не найден',
+                              style: AppFonts.c1Regular.copyWith(
+                                color: AppColors.grey,
+                              ),
+                            ),
+                          )
+                        : Column(
+                            children: [
+                              for (var i = 0; i < clientsByPhone.length; i++) ...[
+                                ListTile(
+                                  dense: true,
+                                  title: Text(
+                                    '${clientsByPhone[i].firstName} ${clientsByPhone[i].lastName}'
+                                        .trim(),
+                                    style: AppFonts.c1Regular,
+                                  ),
+                                  subtitle: Text(
+                                    clientsByPhone[i].phone,
+                                    style: AppFonts.c2Tabbar.copyWith(
+                                      color: AppColors.grey,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    setState(() {
+                                      _phoneController.text = clientsByPhone[i].phone;
+                                      _firstNameController.text =
+                                          clientsByPhone[i].firstName;
+                                      _lastNameController.text =
+                                          clientsByPhone[i].lastName;
+                                      _phoneSearchQuery = clientsByPhone[i].phone;
+                                      _showClientSuggestions = false;
+                                    });
+                                  },
+                                ),
+                                if (i < clientsByPhone.length - 1)
+                                  const Divider(
+                                    height: 1,
+                                    color: AppColors.tetriaryLight,
+                                  ),
+                              ],
+                            ],
+                          ),
+                  ),
+                ],
 
                 Gap(12),
 
@@ -299,7 +385,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   children: [
                     Expanded(
                       child: MainTextField(
-                        controller: TextEditingController(),
+                        controller: _firstNameController,
                         label: 'Имя',
                         hintText: 'Иван',
                       ),
@@ -307,7 +393,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     Gap(12),
                     Expanded(
                       child: MainTextField(
-                        controller: TextEditingController(),
+                        controller: _lastNameController,
                         label: 'Фамилия',
                         hintText: 'Иванов',
                       ),
@@ -1044,6 +1130,7 @@ class _SpecialistOption {
 class _ServiceBlockState {
   _ServiceBlockState();
 
+  final TextEditingController serviceSearchController = TextEditingController();
   int? selectedServiceId;
   bool isTimeExpanded = true;
   String? selectedTime;
@@ -1113,6 +1200,55 @@ class _SpecialistAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.secondaryDark),
       ),
+    );
+  }
+}
+
+class _PhoneMaskFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+
+    var normalized = digits;
+    if (normalized.startsWith('8')) {
+      normalized = '7${normalized.substring(1)}';
+    } else if (!normalized.startsWith('7')) {
+      normalized = '7$normalized';
+    }
+    if (normalized.length > 11) {
+      normalized = normalized.substring(0, 11);
+    }
+
+    final buffer = StringBuffer('+${normalized[0]}');
+    if (normalized.length > 1) {
+      buffer.write(' (');
+      final part = normalized.substring(1, normalized.length.clamp(1, 4));
+      buffer.write(part);
+      if (normalized.length >= 4) buffer.write(')');
+    }
+    if (normalized.length > 4) {
+      buffer.write(' ');
+      buffer.write(normalized.substring(4, normalized.length.clamp(4, 7)));
+    }
+    if (normalized.length > 7) {
+      buffer.write('-');
+      buffer.write(normalized.substring(7, normalized.length.clamp(7, 9)));
+    }
+    if (normalized.length > 9) {
+      buffer.write('-');
+      buffer.write(normalized.substring(9, normalized.length.clamp(9, 11)));
+    }
+
+    final text = buffer.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
     );
   }
 }
