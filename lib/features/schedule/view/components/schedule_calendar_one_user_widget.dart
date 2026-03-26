@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
 import 'package:rient_app/resources/resources.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
@@ -8,6 +9,8 @@ import 'package:syncfusion_flutter_calendar/calendar.dart';
 /// Элемент записи в расписании с отдельными цветами заливки и акцента.
 class ScheduleAppointmentItem {
   const ScheduleAppointmentItem({
+    this.id,
+    this.source,
     required this.startTime,
     required this.endTime,
     required this.subject,
@@ -17,6 +20,8 @@ class ScheduleAppointmentItem {
     this.hasComment = false,
   });
 
+  final int? id;
+  final AppointmentApi? source;
   final DateTime startTime;
   final DateTime endTime;
   final String subject;
@@ -42,6 +47,7 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
     this.workerEndHour,
     this.timeRulerSize = kDefaultTimeRulerSize,
     this.onScrollPositionReady,
+    this.onAppointmentTap,
   });
 
   static const kDefaultTimeRulerSize = 50.0;
@@ -65,6 +71,7 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
 
   /// Для синхронной прокрутки нескольких календарей дня (один общий [ScrollPosition]).
   final ValueChanged<ScrollPosition>? onScrollPositionReady;
+  final ValueChanged<ScheduleAppointmentItem>? onAppointmentTap;
 
   @override
   State<ScheduleCalendarOneUserWidget> createState() =>
@@ -273,146 +280,136 @@ class _ScheduleCalendarOneUserWidgetState
         item?.backgroundColor ?? a.color.withValues(alpha: 0.2);
 
     if (widget.viewMode == ViewMode.week) {
-      return Container(
-        width: bounds.width,
-        height: bounds.height,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        alignment: Alignment.center,
-        child: SizedBox.expand(
-          child: FittedBox(
-            fit: BoxFit.contain,
-            alignment: Alignment.center,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  timeStr,
-                  maxLines: 2,
-                  overflow: TextOverflow.clip,
-                  textAlign: TextAlign.center,
-                  style: AppFonts.c2Tabbar.copyWith(
-                    color: accentColor,
-                    fontWeight: FontWeight.w600,
-                    height: 1.1,
+      return GestureDetector(
+        onTap: item == null || widget.onAppointmentTap == null
+            ? null
+            : () => widget.onAppointmentTap!(item),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: bounds.width,
+          height: bounds.height,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          alignment: Alignment.center,
+          child: SizedBox.expand(
+            child: FittedBox(
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    timeStr,
+                    maxLines: 2,
+                    overflow: TextOverflow.clip,
+                    textAlign: TextAlign.center,
+                    style: AppFonts.c2Tabbar.copyWith(
+                      color: accentColor,
+                      fontWeight: FontWeight.w600,
+                      height: 1.1,
+                    ),
                   ),
-                ),
-                if (item?.hasComment == true) ...[
-                  const SizedBox(height: 2),
-                  Image.asset(
-                    AppImages.comment,
-                    width: 14,
-                    height: 14,
-                    color: accentColor,
-                  ),
+                  if (item?.hasComment == true) ...[
+                    const SizedBox(height: 2),
+                    Image.asset(
+                      AppImages.comment,
+                      width: 14,
+                      height: 14,
+                      color: accentColor,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
       );
     }
 
-    final customerName = a.notes ?? '';
     final serviceName = a.subject;
 
-    return Container(
-      width: bounds.width,
-      height: bounds.height,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.grey.withValues(alpha: 0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(width: 3, color: accentColor),
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              '$timeStartLine$timeEndLine',
-                              maxLines: 1,
-                              overflow: TextOverflow.clip,
-                              textAlign: TextAlign.center,
-                              style: AppFonts.c1Medium.copyWith(
-                                color: accentColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                height: 1.1,
-                              ),
-                            ),
-                            if (item?.hasComment == true) ...[
-                              Image.asset(
-                                AppImages.comment,
-                                width: 18,
-                                height: 18,
-                                color: accentColor,
-                              ),
-                            ],
-                          ],
-                        ),
-
-                        Text(
-                          serviceName,
-                          style: AppFonts.c1Regular.copyWith(
-                            color: accentColor,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Positioned(
-                  //   top: 0,
-                  //   right: 0,
-                  //   child: Container(
-                  //     padding: const EdgeInsets.symmetric(
-                  //       horizontal: 8,
-                  //       vertical: 4,
-                  //     ),
-                  //     decoration: BoxDecoration(
-                  //       color: AppColors.red,
-                  //       borderRadius: BorderRadius.circular(6),
-                  //     ),
-                  //     child: Text(
-                  //       'Новая',
-                  //       style: AppFonts.c2Tabbar.copyWith(
-                  //         color: AppColors.primaryWhite,
-                  //         fontWeight: FontWeight.w600,
-                  //       ),
-                  //     ),
-                  //   ),
-                  // ),
-                ],
-              ),
+    return GestureDetector(
+      onTap: item == null || widget.onAppointmentTap == null
+          ? null
+          : () => widget.onAppointmentTap!(item),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: bounds.width,
+        height: bounds.height,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.grey.withValues(alpha: 0.2),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
             ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 3, color: accentColor),
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                '$timeStartLine$timeEndLine',
+                                maxLines: 1,
+                                overflow: TextOverflow.clip,
+                                textAlign: TextAlign.center,
+                                style: AppFonts.c1Medium.copyWith(
+                                  color: accentColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.1,
+                                ),
+                              ),
+                              if (item?.hasComment == true) ...[
+                                Image.asset(
+                                  AppImages.comment,
+                                  width: 18,
+                                  height: 18,
+                                  color: accentColor,
+                                ),
+                              ],
+                            ],
+                          ),
+
+                          Text(
+                            serviceName,
+                            style: AppFonts.c1Regular.copyWith(
+                              color: accentColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

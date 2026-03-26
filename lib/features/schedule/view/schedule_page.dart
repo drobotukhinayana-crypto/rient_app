@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
+import 'package:rient_app/features/create/view/add_new_entry_page.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
@@ -248,6 +250,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final colors = _colorsForAppointmentStatus(appointment.status);
 
     return ScheduleAppointmentItem(
+      id: appointment.id,
+      source: appointment,
       startTime: start,
       endTime: end,
       subject: subject,
@@ -716,6 +720,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                             ),
                                         ];
                                       }(),
+                                      onAppointmentTap: (item) {
+                                        final appointment = item.source;
+                                        if (appointment == null) return;
+                                        context.pushNamed(
+                                          AddNewEntryPage.name,
+                                          extra: appointment,
+                                        );
+                                      },
                                     )
                                   : ScheduleCalendarOneUserWidget(
                                       key: ValueKey(
@@ -731,6 +743,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       workerStartHour:
                                           selectedWorkerHours.start,
                                       workerEndHour: selectedWorkerHours.end,
+                                      onAppointmentTap: (item) {
+                                        final appointment = item.source;
+                                        if (appointment == null) return;
+                                        context.pushNamed(
+                                          AddNewEntryPage.name,
+                                          extra: appointment,
+                                        );
+                                      },
                                     ),
                             ),
                           ],
@@ -771,6 +791,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                             weekWorkHoursByWeekday,
                                         breakStart: selectedBreak.breakStart,
                                         breakEnd: selectedBreak.breakEnd,
+                                        onAppointmentTap: (item) {
+                                          final appointment = item.source;
+                                          if (appointment == null) return;
+                                          context.pushNamed(
+                                            AddNewEntryPage.name,
+                                            extra: appointment,
+                                          );
+                                        },
                                       ),
                                     ),
                                   ],

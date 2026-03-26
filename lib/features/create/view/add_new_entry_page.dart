@@ -15,16 +15,24 @@ import 'package:rient_app/features/create/data/models/worker_services_api.dart';
 import 'package:rient_app/features/create/view/components/client_status_selector_widget.dart';
 import 'package:rient_app/features/create/view/providers/clients_provider.dart';
 import 'package:rient_app/features/create/view/providers/worker_services_provider.dart';
+import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
 final createEntryTotalPriceProvider = StateProvider<double>((ref) => 0);
+final createEntryDiscountProvider = StateProvider<double>((ref) => 0);
 
 class AddNewEntryPage extends StatelessWidget {
-  const AddNewEntryPage({super.key});
+  const AddNewEntryPage({
+    super.key,
+    this.initialAppointment,
+    this.isEditMode = false,
+  });
 
   static const name = 'add_new_entry_page';
   static const path = '/add_new_entry_page';
+  final AppointmentApi? initialAppointment;
+  final bool isEditMode;
 
   void _showDeleteDialog(BuildContext context) {
     showDialog<void>(
@@ -79,7 +87,12 @@ class AddNewEntryPage extends StatelessWidget {
               onTap: () => context.pop(),
               child: Image.asset(AppImages.back),
             ),
-            Text('Новая запись', style: AppFonts.h4Medium),
+            Text(
+              isEditMode || initialAppointment != null
+                  ? 'Редактирование записи'
+                  : 'Новая запись',
+              style: AppFonts.h4Medium,
+            ),
             PopupMenuButton<String>(
               color: Colors.white,
               elevation: 4,
@@ -112,14 +125,16 @@ class AddNewEntryPage extends StatelessWidget {
           ],
         ),
       ),
-      body: const _BodyWidget(),
+      body: _BodyWidget(initialAppointment: initialAppointment),
       bottomNavigationBar: const _BottomActionsBar(),
     );
   }
 }
 
 class _BodyWidget extends ConsumerStatefulWidget {
-  const _BodyWidget();
+  const _BodyWidget({this.initialAppointment});
+
+  final AppointmentApi? initialAppointment;
 
   @override
   ConsumerState<_BodyWidget> createState() => _BodyWidgetState();
@@ -140,7 +155,65 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   final List<_ServiceBlockState> _services = [_ServiceBlockState()];
   final _phoneMaskFormatter = _PhoneMaskFormatter();
   int? _selectedSpecialistId;
+  int _selectedStatusIndex = 1;
   DateTime _selectedDate = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _applyInitialAppointment();
+  }
+
+  void _applyInitialAppointment() {
+    final appointment = widget.initialAppointment;
+    if (appointment == null) return;
+
+    _selectedSpecialistId = appointment.worker?.id;
+    _selectedStatusIndex = _statusToIndex(appointment.status);
+    _commentVisitController.text = appointment.commentText ?? '';
+    _firstNameController.text = appointment.client?.firstName ?? '';
+    _lastNameController.text = appointment.client?.lastName ?? '';
+
+    final parsedDate = DateTime.tryParse(appointment.datetime);
+    if (parsedDate != null) {
+      _selectedDate = parsedDate.toLocal();
+    }
+
+    _services
+      ..clear()
+      ..addAll(
+        appointment.services.isEmpty
+            ? [_ServiceBlockState()]
+            : appointment.services.map(_createInitialServiceBlock),
+      );
+  }
+
+  int _statusToIndex(int status) {
+    if (status < 0) return 1;
+    if (status > 4) return 4;
+    return status;
+  }
+
+  _ServiceBlockState _createInitialServiceBlock(AppointmentServiceApi service) {
+    final block = _ServiceBlockState();
+    final serviceName = (service.name ?? '').trim();
+    final serviceDateTime = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+
+    if (serviceName.isNotEmpty) {
+      block.initialServiceName = serviceName;
+    }
+    if (serviceDateTime != null) {
+      final h = serviceDateTime.hour.toString().padLeft(2, '0');
+      final m = serviceDateTime.minute.toString().padLeft(2, '0');
+      block.selectedTime = '$h:$m';
+    }
+    final totalMinutes = service.totalDurationMinutes;
+    if (totalMinutes >= 0) {
+      block.durationMinutes = totalMinutes;
+    }
+
+    return block;
+  }
 
   @override
   void dispose() {
@@ -235,6 +308,59 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return total;
   }
 
+  double _applyDiscount({
+    required double total,
+    required double discountPercent,
+  }) {
+    final normalizedDiscount = discountPercent.clamp(0, 100).toDouble();
+    final discounted = total * (1 - normalizedDiscount / 100);
+    if (discounted < 0) return 0;
+    return discounted;
+  }
+
+  void _syncInitialServicesWithWorkerServices(
+    List<WorkerServiceItem> workerServices,
+  ) {
+    var hasChanges = false;
+    for (final block in _services) {
+      if (block.selectedServiceId != null) continue;
+      final initialServiceName = block.initialServiceName;
+      if (initialServiceName == null || initialServiceName.isEmpty) continue;
+
+      WorkerServiceItem? matched;
+      for (final service in workerServices) {
+        if (service.service.name.toLowerCase() == initialServiceName.toLowerCase()) {
+          matched = service;
+          break;
+        }
+      }
+      if (matched == null) {
+        for (final service in workerServices) {
+          if (service.service.name.toLowerCase().contains(
+            initialServiceName.toLowerCase(),
+          )) {
+            matched = service;
+            break;
+          }
+        }
+      }
+      if (matched != null) {
+        block.selectedServiceId = matched.id;
+        if (block.durationMinutes <= 0) {
+          block.durationMinutes = matched.duration;
+        }
+        block.initialServiceName = null;
+        hasChanges = true;
+      }
+    }
+
+    if (!hasChanges || !mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {});
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final workersAsync = ref.watch(scheduleWorkersProvider);
@@ -260,13 +386,29 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         : ref.watch(workerServicesForWorkerProvider(selectedSpecialistId));
     final workerServices =
         workerServicesAsync.value ?? const <WorkerServiceItem>[];
-    final selectedServicesTotal = _calculateSelectedServicesTotal(workerServices);
+    if (selectedSpecialistId != null && workerServices.isNotEmpty) {
+      _syncInitialServicesWithWorkerServices(workerServices);
+    }
+    final subtotal = _calculateSelectedServicesTotal(workerServices);
+    final selectedClientDiscount = _selectedClient?.discount ?? 0;
+    final selectedServicesTotal = _applyDiscount(
+      total: subtotal,
+      discountPercent: selectedClientDiscount,
+    );
     final totalNotifier = ref.read(createEntryTotalPriceProvider.notifier);
     if (totalNotifier.state != selectedServicesTotal) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         ref.read(createEntryTotalPriceProvider.notifier).state =
             selectedServicesTotal;
+      });
+    }
+    final discountNotifier = ref.read(createEntryDiscountProvider.notifier);
+    if (discountNotifier.state != selectedClientDiscount) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(createEntryDiscountProvider.notifier).state =
+            selectedClientDiscount;
       });
     }
     final clientsAsync = ref.watch(
@@ -330,7 +472,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                 ],
                 Gap(16),
                 // статус клиента
-                const ClientStatusSelectorWidget(),
+                ClientStatusSelectorWidget(
+                  initialIndex: _selectedStatusIndex,
+                  onSelected: (index, _) {
+                    _selectedStatusIndex = index;
+                  },
+                ),
 
                 Gap(12),
 
@@ -1208,10 +1355,12 @@ class _BottomActionsBar extends ConsumerWidget {
   const _BottomActionsBar();
 
   String _formatMoney(double value) => '${value.round()}₽';
+  String _formatDiscount(double value) => '${value.round()}%';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final totalPrice = ref.watch(createEntryTotalPriceProvider);
+    final discount = ref.watch(createEntryDiscountProvider);
     return DefaultContainerWidget(
       padding: const EdgeInsets.only(left: 25, right: 25, bottom: 38, top: 20),
       borderRadius: BorderRadius.circular(24),
@@ -1233,7 +1382,7 @@ class _BottomActionsBar extends ConsumerWidget {
                       Text('Скидка:', style: AppFonts.c1Regular),
                       const Gap(6),
                       Text(
-                        '10%',
+                        _formatDiscount(discount),
                         style: AppFonts.c1Semi.copyWith(
                           color: AppColors.mainAccent,
                         ),
@@ -1297,6 +1446,7 @@ class _ServiceBlockState {
 
   final TextEditingController serviceSearchController = TextEditingController();
   int? selectedServiceId;
+  String? initialServiceName;
   bool isTimeExpanded = true;
   String? selectedTime;
   int durationMinutes = 10;

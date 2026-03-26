@@ -13,6 +13,7 @@ import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/launch/launch_page.dart';
 import 'package:rient_app/features/link/view/link_page.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
+import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/tabbar/view/tab_bar_page.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(
@@ -152,6 +153,13 @@ final GoRoute _addNewEntryRoute = GoRoute(
   name: AddNewEntryPage.name,
   path: AddNewEntryPage.path,
   parentNavigatorKey: rootNavigatorKey,
-  pageBuilder: (_, state) =>
-      MaterialPage(key: state.pageKey, child: const AddNewEntryPage()),
+  pageBuilder: (_, state) => MaterialPage(
+    key: state.pageKey,
+    child: AddNewEntryPage(
+      initialAppointment: state.extra is AppointmentApi
+          ? state.extra! as AppointmentApi
+          : null,
+      isEditMode: state.extra != null,
+    ),
+  ),
 );

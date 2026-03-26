@@ -35,6 +35,7 @@ class ScheduleCalendarDayMultiColumn extends StatefulWidget {
     required this.columns,
     this.horizontalScrollController,
     this.columnWidth = 260,
+    this.onAppointmentTap,
   });
 
   final DateTime date;
@@ -43,6 +44,7 @@ class ScheduleCalendarDayMultiColumn extends StatefulWidget {
   final List<ScheduleCalendarDayColumn> columns;
   final ScrollController? horizontalScrollController;
   final double columnWidth;
+  final ValueChanged<ScheduleAppointmentItem>? onAppointmentTap;
 
   @override
   State<ScheduleCalendarDayMultiColumn> createState() =>
@@ -106,6 +108,7 @@ class _ScheduleCalendarDayMultiColumnState
       workerEndHour: widget.columns[i].workerEndHour,
       timeRulerSize: i == 0 ? _ruler : 0,
       onScrollPositionReady: (pos) => _onScrollReady(i, pos),
+      onAppointmentTap: widget.onAppointmentTap,
     );
   }
 
