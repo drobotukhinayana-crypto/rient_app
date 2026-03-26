@@ -30,6 +30,11 @@ class ClientItem {
     required this.firstName,
     required this.lastName,
     required this.phone,
+    required this.status,
+    required this.balance,
+    required this.numberOfVisits,
+    required this.discount,
+    required this.transactionsSum,
   });
 
   factory ClientItem.fromJson(Map<String, dynamic> json) {
@@ -38,6 +43,11 @@ class ClientItem {
       firstName: json['first_name'] as String? ?? '',
       lastName: json['last_name'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
+      status: json['status'] as int? ?? 0,
+      balance: (json['balance'] as num?)?.toDouble() ?? 0,
+      numberOfVisits: json['number_of_visits'] as int? ?? 0,
+      discount: (json['discount'] as num?)?.toDouble() ?? 0,
+      transactionsSum: (json['transactions_sum'] as num?)?.toDouble() ?? 0,
     );
   }
 
@@ -45,4 +55,9 @@ class ClientItem {
   final String firstName;
   final String lastName;
   final String phone;
+  final int status;
+  final double balance;
+  final int numberOfVisits;
+  final double discount;
+  final double transactionsSum;
 }

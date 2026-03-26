@@ -126,6 +126,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   bool _isCommentVisitExpanded = true;
   bool _isCommentClientExpanded = true;
   bool _showClientSuggestions = false;
+  ClientItem? _selectedClient;
   String _phoneSearchQuery = '';
   final _commentVisitController = TextEditingController();
   final _commentClientController = TextEditingController();
@@ -158,6 +159,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final year = date.year.toString();
     return '$day.$month.$year';
   }
+
+  String _formatMoney(double value) => '${value.round()}₽';
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -318,6 +321,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     setState(() {
                       _phoneSearchQuery = value;
                       _showClientSuggestions = value.trim().isNotEmpty;
+                      _selectedClient = null;
                     });
                   },
                 ),
@@ -367,6 +371,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                   ),
                                   onTap: () {
                                     setState(() {
+                                      _selectedClient = clientsByPhone[i];
                                       _phoneController.text =
                                           clientsByPhone[i].phone;
                                       _firstNameController.text =
@@ -452,140 +457,138 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
           Gap(20),
 
-          DefaultContainerWidget(
-            borderRadius: BorderRadius.circular(24),
-            hasShadow: false,
-
-            color: Colors.white,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('О клиенте', style: AppFonts.b1Medium),
-
-                Gap(12),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: DefaultContainerWidget(
-                        color: AppColors.secondaryLight,
-                        borderRadius: BorderRadius.circular(16),
-                        hasShadow: false,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Баланс', style: AppFonts.c1Medium),
-                            Gap(8),
-                            Text(
-                              '143₽',
-                              style: AppFonts.b1Medium.copyWith(
-                                color: AppColors.mainAccent,
+          if (_selectedClient != null) ...[
+            DefaultContainerWidget(
+              borderRadius: BorderRadius.circular(24),
+              hasShadow: false,
+              color: Colors.white,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('О клиенте', style: AppFonts.b1Medium),
+                  Gap(12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DefaultContainerWidget(
+                          color: AppColors.secondaryLight,
+                          borderRadius: BorderRadius.circular(16),
+                          hasShadow: false,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Баланс', style: AppFonts.c1Medium),
+                              Gap(8),
+                              Text(
+                                _formatMoney(_selectedClient!.balance),
+                                style: AppFonts.b1Medium.copyWith(
+                                  color: AppColors.mainAccent,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-
-                    Gap(12),
-                    Expanded(
-                      child: DefaultContainerWidget(
-                        color: AppColors.secondaryLight,
-                        borderRadius: BorderRadius.circular(16),
-                        hasShadow: false,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('КНК', style: AppFonts.c1Medium),
-                            Gap(8),
-                            Text(
-                              '10%',
-                              style: AppFonts.b1Medium.copyWith(
-                                color: AppColors.mainAccent,
+                      Gap(12),
+                      Expanded(
+                        child: DefaultContainerWidget(
+                          color: AppColors.secondaryLight,
+                          borderRadius: BorderRadius.circular(16),
+                          hasShadow: false,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('КНК', style: AppFonts.c1Medium),
+                              Gap(8),
+                              Text(
+                                _selectedClient!.status.toString(),
+                                style: AppFonts.b1Medium.copyWith(
+                                  color: AppColors.mainAccent,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-
-                    Gap(12),
-
-                    Expanded(
-                      child: DefaultContainerWidget(
-                        color: AppColors.secondaryLight,
-                        borderRadius: BorderRadius.circular(16),
-                        hasShadow: false,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Визитов', style: AppFonts.c1Medium),
-                            Gap(8),
-                            Text(
-                              '12',
-                              style: AppFonts.b1Medium.copyWith(
-                                color: AppColors.mainAccent,
+                      Gap(12),
+                      Expanded(
+                        child: DefaultContainerWidget(
+                          color: AppColors.secondaryLight,
+                          borderRadius: BorderRadius.circular(16),
+                          hasShadow: false,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Визитов', style: AppFonts.c1Medium),
+                              Gap(8),
+                              Text(
+                                _selectedClient!.numberOfVisits.toString(),
+                                style: AppFonts.b1Medium.copyWith(
+                                  color: AppColors.mainAccent,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-
-                Gap(12),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: DefaultContainerWidget(
-                        color: AppColors.secondaryLight,
-                        borderRadius: BorderRadius.circular(16),
-                        hasShadow: false,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Скидка', style: AppFonts.c1Medium),
-                            Gap(8),
-                            Text(
-                              '5%',
-                              style: AppFonts.b1Medium.copyWith(
-                                color: AppColors.mainAccent,
+                    ],
+                  ),
+                  Gap(12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DefaultContainerWidget(
+                          color: AppColors.secondaryLight,
+                          borderRadius: BorderRadius.circular(16),
+                          hasShadow: false,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Скидка', style: AppFonts.c1Medium),
+                              Gap(8),
+                              Text(
+                                '${_selectedClient!.discount.round()}%',
+                                style: AppFonts.b1Medium.copyWith(
+                                  color: AppColors.mainAccent,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-
-                    Gap(12),
-                    Expanded(
-                      child: DefaultContainerWidget(
-                        color: AppColors.secondaryLight,
-                        borderRadius: BorderRadius.circular(16),
-                        hasShadow: false,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Средний чек', style: AppFonts.c1Medium),
-                            Gap(8),
-                            Text(
-                              '2 400₽',
-                              style: AppFonts.b1Medium.copyWith(
-                                color: AppColors.mainAccent,
+                      Gap(12),
+                      Expanded(
+                        child: DefaultContainerWidget(
+                          color: AppColors.secondaryLight,
+                          borderRadius: BorderRadius.circular(16),
+                          hasShadow: false,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Средний чек', style: AppFonts.c1Medium),
+                              Gap(8),
+                              Text(
+                                _formatMoney(
+                                  _selectedClient!.numberOfVisits > 0
+                                      ? _selectedClient!.transactionsSum /
+                                            _selectedClient!.numberOfVisits
+                                      : 0,
+                                ),
+                                style: AppFonts.b1Medium.copyWith(
+                                  color: AppColors.mainAccent,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          Gap(20),
+            Gap(20),
+          ],
 
           DefaultContainerWidget(
             borderRadius: BorderRadius.circular(24),
