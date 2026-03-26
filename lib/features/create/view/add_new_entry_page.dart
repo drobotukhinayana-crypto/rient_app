@@ -2,6 +2,7 @@ import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
@@ -16,6 +17,8 @@ import 'package:rient_app/features/create/view/providers/clients_provider.dart';
 import 'package:rient_app/features/create/view/providers/worker_services_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/resources/resources.dart';
+
+final createEntryTotalPriceProvider = StateProvider<double>((ref) => 0);
 
 class AddNewEntryPage extends StatelessWidget {
   const AddNewEntryPage({super.key});
@@ -221,6 +224,17 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return null;
   }
 
+  double _calculateSelectedServicesTotal(List<WorkerServiceItem> workerServices) {
+    double total = 0;
+    for (final block in _services) {
+      final selected = _selectedWorkerService(workerServices, block.selectedServiceId);
+      if (selected != null) {
+        total += selected.price;
+      }
+    }
+    return total;
+  }
+
   @override
   Widget build(BuildContext context) {
     final workersAsync = ref.watch(scheduleWorkersProvider);
@@ -246,6 +260,15 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         : ref.watch(workerServicesForWorkerProvider(selectedSpecialistId));
     final workerServices =
         workerServicesAsync.value ?? const <WorkerServiceItem>[];
+    final selectedServicesTotal = _calculateSelectedServicesTotal(workerServices);
+    final totalNotifier = ref.read(createEntryTotalPriceProvider.notifier);
+    if (totalNotifier.state != selectedServicesTotal) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(createEntryTotalPriceProvider.notifier).state =
+            selectedServicesTotal;
+      });
+    }
     final clientsAsync = ref.watch(
       clientsByPhoneSearchProvider(_phoneSearchQuery),
     );
@@ -1181,11 +1204,14 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }
 }
 
-class _BottomActionsBar extends StatelessWidget {
+class _BottomActionsBar extends ConsumerWidget {
   const _BottomActionsBar();
 
+  String _formatMoney(double value) => '${value.round()}₽';
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final totalPrice = ref.watch(createEntryTotalPriceProvider);
     return DefaultContainerWidget(
       padding: const EdgeInsets.only(left: 25, right: 25, bottom: 38, top: 20),
       borderRadius: BorderRadius.circular(24),
@@ -1228,7 +1254,7 @@ class _BottomActionsBar extends StatelessWidget {
                       Text('Итого:', style: AppFonts.c1Regular),
                       const Gap(6),
                       Text(
-                        '4 400₽',
+                        _formatMoney(totalPrice),
                         style: AppFonts.c1Semi.copyWith(
                           color: AppColors.mainAccent,
                         ),
