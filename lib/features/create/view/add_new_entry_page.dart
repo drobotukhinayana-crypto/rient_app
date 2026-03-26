@@ -1283,10 +1283,14 @@ class _SpecialistDropdownTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _SpecialistAvatar(avatarUrl: avatarUrl),
+        SizedBox.square(
+          dimension: 24,
+          child: _SpecialistAvatar(avatarUrl: avatarUrl, size: 24),
+        ),
         const Gap(10),
-        Expanded(
+        Flexible(
           child: Text(
             fullName,
             textAlign: TextAlign.left,
@@ -1301,16 +1305,17 @@ class _SpecialistDropdownTile extends StatelessWidget {
 }
 
 class _SpecialistAvatar extends StatelessWidget {
-  const _SpecialistAvatar({this.avatarUrl});
+  const _SpecialistAvatar({this.avatarUrl, this.size = 32});
 
   final String? avatarUrl;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     if (avatarUrl != null && avatarUrl!.isNotEmpty) {
       return Container(
-        width: 32,
-        height: 32,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(color: AppColors.grey),
@@ -1318,8 +1323,8 @@ class _SpecialistAvatar extends StatelessWidget {
         child: ClipOval(
           child: Image.network(
             avatarUrl!,
-            width: 32,
-            height: 32,
+            width: size,
+            height: size,
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => _placeholder(),
           ),
@@ -1331,8 +1336,8 @@ class _SpecialistAvatar extends StatelessWidget {
 
   Widget _placeholder() {
     return Container(
-      width: 32,
-      height: 32,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
