@@ -1,3 +1,4 @@
+import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -131,6 +132,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   final _phoneController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  final _specialistDropdownSearchController = TextEditingController();
   final List<_ServiceBlockState> _services = [_ServiceBlockState()];
   final _phoneMaskFormatter = _PhoneMaskFormatter();
   int? _selectedSpecialistId;
@@ -143,6 +145,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     _phoneController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _specialistDropdownSearchController.dispose();
     for (final service in _services) {
       service.serviceSearchController.dispose();
     }
@@ -240,7 +243,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         : ref.watch(workerServicesForWorkerProvider(selectedSpecialistId));
     final workerServices =
         workerServicesAsync.value ?? const <WorkerServiceItem>[];
-    final clientsAsync = ref.watch(clientsByPhoneSearchProvider(_phoneSearchQuery));
+    final clientsAsync = ref.watch(
+      clientsByPhoneSearchProvider(_phoneSearchQuery),
+    );
     final clientsByPhone = clientsAsync.value ?? const <ClientItem>[];
 
     return SingleChildScrollView(
@@ -342,7 +347,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                           )
                         : Column(
                             children: [
-                              for (var i = 0; i < clientsByPhone.length; i++) ...[
+                              for (
+                                var i = 0;
+                                i < clientsByPhone.length;
+                                i++
+                              ) ...[
                                 ListTile(
                                   dense: true,
                                   title: Text(
@@ -358,12 +367,14 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                   ),
                                   onTap: () {
                                     setState(() {
-                                      _phoneController.text = clientsByPhone[i].phone;
+                                      _phoneController.text =
+                                          clientsByPhone[i].phone;
                                       _firstNameController.text =
                                           clientsByPhone[i].firstName;
                                       _lastNameController.text =
                                           clientsByPhone[i].lastName;
-                                      _phoneSearchQuery = clientsByPhone[i].phone;
+                                      _phoneSearchQuery =
+                                          clientsByPhone[i].phone;
                                       _showClientSuggestions = false;
                                     });
                                   },
@@ -587,9 +598,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                 Gap(16),
                 Text('Специалист', style: AppFonts.c1Medium),
                 Gap(8),
-                DropdownButtonFormField<int>(
-                  initialValue: selectedSpecialistId,
+                DropdownButtonFormField2<int>(
+                  valueListenable: ValueNotifier<int?>(selectedSpecialistId),
                   isExpanded: true,
+                  alignment: AlignmentDirectional.centerStart,
+                  onMenuStateChange: (isOpen) {
+                    if (!isOpen) _specialistDropdownSearchController.clear();
+                  },
                   style: AppFonts.c1Regular.copyWith(color: Colors.black),
                   hint: Text(
                     workersAsync.isLoading
@@ -600,10 +615,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: AppColors.secondaryLight,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(300),
                       borderSide: BorderSide.none,
@@ -617,10 +629,62 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       borderSide: BorderSide.none,
                     ),
                   ),
-                  icon: Image.asset(AppImages.arrowOutlinedDown),
+                  iconStyleData: IconStyleData(
+                    icon: Image.asset(AppImages.arrowOutlinedDown),
+                  ),
+                  buttonStyleData: const FormFieldButtonStyleData(
+                    padding: EdgeInsets.zero,
+                  ),
+                  dropdownStyleData: DropdownStyleData(
+                    offset: const Offset(0, 8),
+                    padding: EdgeInsets.only(left: 16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: Colors.white,
+                    ),
+                  ),
+                  menuItemStyleData: const MenuItemStyleData(
+                    useDecorationHorizontalPadding: true,
+                  ),
+                  dropdownSearchData: DropdownSearchData<int>(
+                    searchController: _specialistDropdownSearchController,
+                    searchBarWidgetHeight: 52,
+                    searchBarWidget: Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                      child: TextField(
+                        controller: _specialistDropdownSearchController,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: 'Поиск специалиста',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: AppColors.tetriaryLight,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: AppColors.tetriaryLight,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    searchMatchFn: (item, searchValue) {
+                      final specialist = specialists.firstWhere(
+                        (s) => s.id == item.value,
+                        orElse: () =>
+                            const _SpecialistOption(id: 0, fullName: ''),
+                      );
+                      return specialist.fullName.toLowerCase().contains(
+                        searchValue.toLowerCase(),
+                      );
+                    },
+                  ),
                   items: specialists
                       .map(
-                        (specialist) => DropdownMenuItem<int>(
+                        (specialist) => DropdownItem<int>(
                           value: specialist.id,
                           child: _SpecialistDropdownTile(
                             fullName: specialist.fullName,
@@ -706,9 +770,16 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   Row(
                     children: [
                       Expanded(
-                        child: DropdownButtonFormField<int>(
-                          initialValue: _services[index].selectedServiceId,
+                        child: DropdownButtonFormField2<int>(
+                          valueListenable: ValueNotifier<int?>(
+                            _services[index].selectedServiceId,
+                          ),
                           isExpanded: true,
+                          onMenuStateChange: (isOpen) {
+                            if (!isOpen) {
+                              _services[index].serviceSearchController.clear();
+                            }
+                          },
                           style: AppFonts.c1Regular.copyWith(
                             color: Colors.black,
                           ),
@@ -742,10 +813,75 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                               borderSide: BorderSide.none,
                             ),
                           ),
-                          icon: Image.asset(AppImages.arrowOutlinedDown),
+                          iconStyleData: IconStyleData(
+                            icon: Image.asset(AppImages.arrowOutlinedDown),
+                          ),
+                          buttonStyleData: const FormFieldButtonStyleData(
+                            padding: EdgeInsets.zero,
+                          ),
+                          dropdownStyleData: DropdownStyleData(
+                            offset: const Offset(0, 8),
+                            padding: EdgeInsets.zero,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              color: Colors.white,
+                            ),
+                          ),
+                          menuItemStyleData: const MenuItemStyleData(
+                            useDecorationHorizontalPadding: true,
+                          ),
+                          dropdownSearchData: DropdownSearchData<int>(
+                            searchController:
+                                _services[index].serviceSearchController,
+                            searchBarWidgetHeight: 52,
+                            searchBarWidget: Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                              child: TextField(
+                                controller:
+                                    _services[index].serviceSearchController,
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  hintText: 'Поиск услуги',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.tetriaryLight,
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.tetriaryLight,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            searchMatchFn: (item, searchValue) {
+                              final service = workerServices.firstWhere(
+                                (s) => s.id == item.value,
+                                orElse: () => WorkerServiceItem(
+                                  id: 0,
+                                  branch: 0,
+                                  worker: 0,
+                                  price: 0,
+                                  duration: 0,
+                                  service: WorkerServiceInfo(
+                                    id: 0,
+                                    name: '',
+                                    price: 0,
+                                    duration: 0,
+                                  ),
+                                ),
+                              );
+                              return service.service.name
+                                  .toLowerCase()
+                                  .contains(searchValue.toLowerCase());
+                            },
+                          ),
                           items: workerServices
                               .map(
-                                (service) => DropdownMenuItem<int>(
+                                (service) => DropdownItem<int>(
                                   value: service.id,
                                   child: Text(
                                     service.service.name,
@@ -1146,12 +1282,14 @@ class _SpecialistDropdownTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
         _SpecialistAvatar(avatarUrl: avatarUrl),
         const Gap(10),
         Expanded(
           child: Text(
             fullName,
+            textAlign: TextAlign.left,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppFonts.c1Regular.copyWith(color: Colors.black),
