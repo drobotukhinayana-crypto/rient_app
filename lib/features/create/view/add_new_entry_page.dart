@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
@@ -7,6 +8,7 @@ import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
 import 'package:rient_app/features/create/view/components/client_status_selector_widget.dart';
+import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class AddNewEntryPage extends StatelessWidget {
@@ -107,24 +109,19 @@ class AddNewEntryPage extends StatelessWidget {
   }
 }
 
-class _BodyWidget extends StatefulWidget {
+class _BodyWidget extends ConsumerStatefulWidget {
   const _BodyWidget();
 
   @override
-  State<_BodyWidget> createState() => _BodyWidgetState();
+  ConsumerState<_BodyWidget> createState() => _BodyWidgetState();
 }
 
-class _BodyWidgetState extends State<_BodyWidget> {
+class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   bool _isCommentVisitExpanded = true;
   bool _isCommentClientExpanded = true;
   final _commentVisitController = TextEditingController();
   final _commentClientController = TextEditingController();
   final List<_ServiceBlockState> _services = [_ServiceBlockState()];
-  final List<_SpecialistOption> _specialists = const [
-    _SpecialistOption(id: 1, fullName: 'Иван Петров', avatarUrl: ''),
-    _SpecialistOption(id: 2, fullName: 'Анна Смирнова'),
-    _SpecialistOption(id: 3, fullName: 'Мария Козлова'),
-  ];
   int? _selectedSpecialistId;
   DateTime _selectedDate = DateTime.now();
 
@@ -196,6 +193,26 @@ class _BodyWidgetState extends State<_BodyWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final workersAsync = ref.watch(scheduleWorkersProvider);
+    final specialists = workersAsync.maybeWhen(
+      data: (response) => response.results
+          .map(
+            (worker) => _SpecialistOption(
+              id: worker.id,
+              fullName:
+                  '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim(),
+              avatarUrl: worker.pictureThumbnail ?? worker.picture,
+            ),
+          )
+          .toList(),
+      orElse: () => const <_SpecialistOption>[],
+    );
+    final selectedSpecialistId = specialists.any(
+      (item) => item.id == _selectedSpecialistId,
+    )
+        ? _selectedSpecialistId
+        : null;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
@@ -472,11 +489,13 @@ class _BodyWidgetState extends State<_BodyWidget> {
                 Text('Специалист', style: AppFonts.c1Medium),
                 Gap(8),
                 DropdownButtonFormField<int>(
-                  initialValue: _selectedSpecialistId,
+                  initialValue: selectedSpecialistId,
                   isExpanded: true,
                   style: AppFonts.c1Regular.copyWith(color: Colors.black),
                   hint: Text(
-                    'Выберите специалиста',
+                    workersAsync.isLoading
+                        ? 'Загрузка специалистов...'
+                        : 'Выберите специалиста',
                     style: AppFonts.c1Regular.copyWith(color: Colors.black),
                   ),
                   decoration: InputDecoration(
@@ -500,7 +519,7 @@ class _BodyWidgetState extends State<_BodyWidget> {
                     ),
                   ),
                   icon: Image.asset(AppImages.arrowOutlinedDown),
-                  items: _specialists
+                  items: specialists
                       .map(
                         (specialist) => DropdownMenuItem<int>(
                           value: specialist.id,
@@ -511,9 +530,11 @@ class _BodyWidgetState extends State<_BodyWidget> {
                         ),
                       )
                       .toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedSpecialistId = value);
-                  },
+                  onChanged: specialists.isEmpty
+                      ? null
+                      : (value) {
+                          setState(() => _selectedSpecialistId = value);
+                        },
                 ),
                 Gap(16),
                 Row(
