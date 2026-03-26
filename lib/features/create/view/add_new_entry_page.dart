@@ -7,7 +7,9 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
+import 'package:rient_app/features/create/data/models/worker_services_api.dart';
 import 'package:rient_app/features/create/view/components/client_status_selector_widget.dart';
+import 'package:rient_app/features/create/view/providers/worker_services_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -129,9 +131,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   void dispose() {
     _commentVisitController.dispose();
     _commentClientController.dispose();
-    for (final service in _services) {
-      service.nameController.dispose();
-    }
     super.dispose();
   }
 
@@ -186,9 +185,19 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   void _removeServiceBlock(int index) {
     if (_services.length <= 1) return;
     setState(() {
-      final removed = _services.removeAt(index);
-      removed.nameController.dispose();
+      _services.removeAt(index);
     });
+  }
+
+  WorkerServiceItem? _selectedWorkerService(
+    List<WorkerServiceItem> workerServices,
+    int? selectedServiceId,
+  ) {
+    if (selectedServiceId == null) return null;
+    for (final service in workerServices) {
+      if (service.id == selectedServiceId) return service;
+    }
+    return null;
   }
 
   @override
@@ -199,19 +208,23 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           .map(
             (worker) => _SpecialistOption(
               id: worker.id,
-              fullName:
-                  '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim(),
+              fullName: '${worker.firstName ?? ''} ${worker.lastName ?? ''}'
+                  .trim(),
               avatarUrl: worker.pictureThumbnail ?? worker.picture,
             ),
           )
           .toList(),
       orElse: () => const <_SpecialistOption>[],
     );
-    final selectedSpecialistId = specialists.any(
-      (item) => item.id == _selectedSpecialistId,
-    )
+    final selectedSpecialistId =
+        specialists.any((item) => item.id == _selectedSpecialistId)
         ? _selectedSpecialistId
         : null;
+    final workerServicesAsync = selectedSpecialistId == null
+        ? const AsyncValue.data(<WorkerServiceItem>[])
+        : ref.watch(workerServicesForWorkerProvider(selectedSpecialistId));
+    final workerServices =
+        workerServicesAsync.value ?? const <WorkerServiceItem>[];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -533,7 +546,14 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   onChanged: specialists.isEmpty
                       ? null
                       : (value) {
-                          setState(() => _selectedSpecialistId = value);
+                          setState(() {
+                            _selectedSpecialistId = value;
+                            for (final service in _services) {
+                              service.selectedServiceId = null;
+                              service.durationMinutes = 10;
+                              service.selectedTime = null;
+                            }
+                          });
                         },
                 ),
                 Gap(16),
@@ -600,16 +620,91 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   Row(
                     children: [
                       Expanded(
-                        child: MainTextField(
-                          controller: _services[index].nameController,
-                          hintText: 'Название услуги',
+                        child: DropdownButtonFormField<int>(
+                          initialValue: _services[index].selectedServiceId,
+                          isExpanded: true,
+                          style: AppFonts.c1Regular.copyWith(
+                            color: Colors.black,
+                          ),
+                          hint: Text(
+                            selectedSpecialistId == null
+                                ? 'Сначала выберите специалиста'
+                                : (workerServicesAsync.isLoading
+                                      ? 'Загрузка услуг...'
+                                      : 'Название услуги'),
+                            style: AppFonts.c1Regular.copyWith(
+                              color: Colors.black,
+                            ),
+                          ),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: AppColors.secondaryLight,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(300),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(300),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(300),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          icon: Image.asset(AppImages.arrowOutlinedDown),
+                          items: workerServices
+                              .map(
+                                (service) => DropdownMenuItem<int>(
+                                  value: service.id,
+                                  child: Text(
+                                    service.service.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppFonts.c1Regular.copyWith(
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: selectedSpecialistId == null
+                              ? null
+                              : (value) {
+                                  final selected = _selectedWorkerService(
+                                    workerServices,
+                                    value,
+                                  );
+                                  setState(() {
+                                    _services[index].selectedServiceId = value;
+                                    if (selected != null) {
+                                      _services[index].durationMinutes =
+                                          selected.duration;
+                                    }
+                                  });
+                                },
                         ),
                       ),
                       const Gap(12),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: Text(
-                          '1 500 ₽',
+                          () {
+                            final selected = _selectedWorkerService(
+                              workerServices,
+                              _services[index].selectedServiceId,
+                            );
+                            if (selected == null) return '0 ₽';
+                            final p = selected.price;
+                            final formatted = p % 1 == 0
+                                ? p.toInt().toString()
+                                : p.toStringAsFixed(2);
+                            return '$formatted ₽';
+                          }(),
                           style: AppFonts.c1Medium.copyWith(
                             color: AppColors.mainAccent,
                           ),
@@ -949,7 +1044,7 @@ class _SpecialistOption {
 class _ServiceBlockState {
   _ServiceBlockState();
 
-  final TextEditingController nameController = TextEditingController();
+  int? selectedServiceId;
   bool isTimeExpanded = true;
   String? selectedTime;
   int durationMinutes = 10;
