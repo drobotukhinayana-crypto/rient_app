@@ -84,4 +84,49 @@ class AppointmentsService {
       throw CustomException(causedError: e);
     }
   }
+
+  Future<List<Map<String, dynamic>>> createAppointment({
+    required Map<String, dynamic> payload,
+  }) async {
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      throw CustomException(causedError: Exception('Token is missing'));
+    }
+
+    final url = ApiConsts().createUrl('appointments/');
+
+    try {
+      final response = await Dio().post<dynamic>(
+        url,
+        data: payload,
+        options: Options(
+          headers: {
+            'Authorization': 'JWT $token',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if ((response.statusCode == 201 || response.statusCode == 200) &&
+          response.data != null) {
+        final raw = response.data;
+        if (raw is List<dynamic>) {
+          return raw
+              .whereType<Map<String, dynamic>>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+        if (raw is Map<String, dynamic>) {
+          return [Map<String, dynamic>.from(raw)];
+        }
+      }
+      throw CustomException(
+        causedError: Exception(
+          'Failed to create appointment: ${response.statusCode}',
+        ),
+      );
+    } catch (e) {
+      throw CustomException(causedError: e);
+    }
+  }
 }

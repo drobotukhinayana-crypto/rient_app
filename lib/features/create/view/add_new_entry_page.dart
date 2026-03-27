@@ -1,4 +1,5 @@
 import 'package:dropdown_button2/dropdown_button2.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +16,7 @@ import 'package:rient_app/features/create/data/models/worker_services_api.dart';
 import 'package:rient_app/features/create/view/components/client_status_selector_widget.dart';
 import 'package:rient_app/features/create/view/providers/clients_provider.dart';
 import 'package:rient_app/features/create/view/providers/worker_services_provider.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
@@ -25,6 +27,120 @@ import 'package:rient_app/resources/resources.dart';
 
 final createEntryTotalPriceProvider = StateProvider<double>((ref) => 0);
 final createEntryDiscountProvider = StateProvider<double>((ref) => 0);
+final createEntryCanSaveProvider = StateProvider<bool>((ref) => false);
+final createEntrySavingProvider = StateProvider<bool>((ref) => false);
+final createEntryDraftProvider = StateProvider<_CreateAppointmentDraft?>(
+  (ref) => null,
+);
+
+class _CreateAppointmentDraft {
+  const _CreateAppointmentDraft({
+    required this.clientId,
+    required this.workerId,
+    required this.branchId,
+    required this.status,
+    required this.commentText,
+    required this.totalSum,
+    required this.discountPercent,
+    required this.services,
+    required this.startDateTime,
+  });
+
+  final int clientId;
+  final int workerId;
+  final int branchId;
+  final int status;
+  final String commentText;
+  final double totalSum;
+  final int discountPercent;
+  final List<_CreateAppointmentServiceDraft> services;
+  final DateTime startDateTime;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other is _CreateAppointmentDraft &&
+            other.clientId == clientId &&
+            other.workerId == workerId &&
+            other.branchId == branchId &&
+            other.status == status &&
+            other.commentText == commentText &&
+            other.totalSum == totalSum &&
+            other.discountPercent == discountPercent &&
+            other.startDateTime == startDateTime &&
+            listEquals(other.services, services));
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    clientId,
+    workerId,
+    branchId,
+    status,
+    commentText,
+    totalSum,
+    discountPercent,
+    startDateTime,
+    Object.hashAll(services),
+  );
+
+  Map<String, dynamic> toRequestBody() {
+    return {
+      'id': null,
+      'client': clientId,
+      'comment': {'id': null, 'user': null, 'text': commentText},
+      'services': services.map((service) => service.toJson()).toList(),
+      'worker': workerId,
+      'status': status,
+      'datetime': startDateTime.toUtc().toIso8601String(),
+      'discount': discountPercent,
+      'sum': totalSum,
+      'paid': false,
+      'pay_due': totalSum,
+      'has_edited_services': false,
+      'branch': branchId,
+      'captcha': 'dummy',
+    };
+  }
+}
+
+class _CreateAppointmentServiceDraft {
+  const _CreateAppointmentServiceDraft({
+    required this.serviceId,
+    required this.dateTime,
+    required this.durationMinutes,
+    required this.price,
+  });
+
+  final int serviceId;
+  final DateTime dateTime;
+  final int durationMinutes;
+  final double price;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other is _CreateAppointmentServiceDraft &&
+            other.serviceId == serviceId &&
+            other.dateTime == dateTime &&
+            other.durationMinutes == durationMinutes &&
+            other.price == price);
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(serviceId, dateTime, durationMinutes, price);
+
+  Map<String, dynamic> toJson() {
+    return {
+      'duration': durationMinutes,
+      'price': price,
+      'add_duration': 0,
+      'datetime': dateTime.toUtc().toIso8601String(),
+      'service': serviceId,
+    };
+  }
+}
 
 class AddNewEntryPage extends StatelessWidget {
   const AddNewEntryPage({
@@ -189,7 +305,9 @@ class AddNewEntryPage extends StatelessWidget {
         ),
       ),
       body: _BodyWidget(initialAppointment: initialAppointment),
-      bottomNavigationBar: const _BottomActionsBar(),
+      bottomNavigationBar: _BottomActionsBar(
+        isEditMode: isEditMode || initialAppointment != null,
+      ),
     );
   }
 }
@@ -375,6 +493,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     required int durationMinutes,
     required AvailableWorkerShift? shift,
     required List<AppointmentApi> appointments,
+    required int currentServiceIndex,
     int slotStepMinutes = 10,
   }) {
     if (shift == null || durationMinutes <= 0) return const <String>[];
@@ -400,6 +519,21 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final breakEnd = _dateTimeFromTimeOfDayString(date: date, value: shift.breakEnd);
     if (breakStart != null && breakEnd != null && breakEnd.isAfter(breakStart)) {
       busyRanges.add(_DateTimeRange(start: breakStart, end: breakEnd));
+    }
+    for (var i = 0; i < _services.length; i++) {
+      if (i == currentServiceIndex) continue;
+      final block = _services[i];
+      final selectedTime = block.selectedTime;
+      if (selectedTime == null || selectedTime.isEmpty) continue;
+      final blockStart = _dateTimeFromTimeOfDayString(
+        date: date,
+        value: selectedTime,
+      );
+      if (blockStart == null) continue;
+      final blockDuration = block.durationMinutes <= 0 ? 10 : block.durationMinutes;
+      final blockEnd = blockStart.add(Duration(minutes: blockDuration));
+      if (!blockEnd.isAfter(blockStart)) continue;
+      busyRanges.add(_DateTimeRange(start: blockStart, end: blockEnd));
     }
 
     final slots = <String>[];
@@ -443,6 +577,58 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       chunks.add(slots.sublist(i, end));
     }
     return chunks;
+  }
+
+  _CreateAppointmentDraft? _buildCreateDraft({
+    required List<WorkerServiceItem> workerServices,
+    required int? selectedSpecialistId,
+    required int branchId,
+    required double totalSum,
+    required double selectedClientDiscount,
+  }) {
+    final client = _selectedClient;
+    if (client == null || selectedSpecialistId == null || branchId == 0) {
+      return null;
+    }
+
+    final completeServices = <_CreateAppointmentServiceDraft>[];
+    for (final block in _services) {
+      final selectedServiceId = block.selectedServiceId;
+      final selectedTime = block.selectedTime;
+      if (selectedServiceId == null || selectedTime == null || selectedTime.isEmpty) {
+        continue;
+      }
+      final workerService = _selectedWorkerService(workerServices, selectedServiceId);
+      if (workerService == null) continue;
+      final startTime = _dateTimeFromTimeOfDayString(
+        date: _dateOnly(_selectedDate),
+        value: selectedTime,
+      );
+      if (startTime == null) continue;
+      completeServices.add(
+        _CreateAppointmentServiceDraft(
+          serviceId: workerService.id,
+          dateTime: startTime,
+          durationMinutes: block.durationMinutes <= 0 ? 10 : block.durationMinutes,
+          price: workerService.price,
+        ),
+      );
+    }
+
+    if (completeServices.isEmpty) return null;
+    completeServices.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+
+    return _CreateAppointmentDraft(
+      clientId: client.id,
+      workerId: selectedSpecialistId,
+      branchId: branchId,
+      status: _selectedStatusIndex,
+      commentText: _commentVisitController.text.trim(),
+      totalSum: totalSum,
+      discountPercent: selectedClientDiscount.round(),
+      services: completeServices,
+      startDateTime: completeServices.first.dateTime,
+    );
   }
 
   Widget _buildTimeRows({
@@ -632,6 +818,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final workerServicesAsync = selectedSpecialistId == null
         ? const AsyncValue.data(<WorkerServiceItem>[])
         : ref.watch(workerServicesForWorkerProvider(selectedSpecialistId));
+    final branchId = ref.watch(currentBranchIdProvider);
     final selectedDateOnly = _dateOnly(_selectedDate);
     final selectedShiftAsync = ref.watch(
       availableWorkersForDateProvider(selectedDateOnly),
@@ -684,6 +871,28 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         if (!mounted) return;
         ref.read(createEntryDiscountProvider.notifier).state =
             selectedClientDiscount;
+      });
+    }
+    final draft = _buildCreateDraft(
+      workerServices: workerServices,
+      selectedSpecialistId: selectedSpecialistId,
+      branchId: branchId,
+      totalSum: selectedServicesTotal,
+      selectedClientDiscount: selectedClientDiscount,
+    );
+    final canSave = draft != null;
+    final canSaveNotifier = ref.read(createEntryCanSaveProvider.notifier);
+    if (canSaveNotifier.state != canSave) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(createEntryCanSaveProvider.notifier).state = canSave;
+      });
+    }
+    final draftNotifier = ref.read(createEntryDraftProvider.notifier);
+    if (draftNotifier.state != draft) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(createEntryDraftProvider.notifier).state = draft;
       });
     }
     final clientsAsync = ref.watch(
@@ -1421,6 +1630,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                             durationMinutes: _services[index].durationMinutes,
                             shift: selectedShift,
                             appointments: specialistAppointments,
+                            currentServiceIndex: index,
                           );
 
                           final selectedTime = _services[index].selectedTime;
@@ -1653,7 +1863,9 @@ class _DateTimeRange {
 }
 
 class _BottomActionsBar extends ConsumerWidget {
-  const _BottomActionsBar();
+  const _BottomActionsBar({required this.isEditMode});
+
+  final bool isEditMode;
 
   String _formatMoney(double value) => '${value.round()}₽';
   String _formatDiscount(double value) => '${value.round()}%';
@@ -1662,6 +1874,44 @@ class _BottomActionsBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final totalPrice = ref.watch(createEntryTotalPriceProvider);
     final discount = ref.watch(createEntryDiscountProvider);
+    final canSave = ref.watch(createEntryCanSaveProvider);
+    final isSaving = ref.watch(createEntrySavingProvider);
+    final draft = ref.watch(createEntryDraftProvider);
+
+    Future<void> createAppointment({required bool closeAfterSave}) async {
+      if (isEditMode) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Создание доступно только для новой записи')),
+        );
+        return;
+      }
+      if (!canSave || draft == null || isSaving) return;
+      ref.read(createEntrySavingProvider.notifier).state = true;
+      try {
+        await ref
+            .read(appointmentsServiceProvider)
+            .createAppointment(payload: draft.toRequestBody());
+        ref.invalidate(scheduleAppointmentsProvider);
+        ref.invalidate(availableWorkersForDateProvider);
+        ref.invalidate(scheduleStatisticsForWeekProvider);
+        ref.invalidate(scheduleStatisticsForMonthProvider);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Запись успешно создана')),
+        );
+        if (closeAfterSave) {
+          context.pop(true);
+        }
+      } catch (_) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось создать запись')),
+        );
+      } finally {
+        ref.read(createEntrySavingProvider.notifier).state = false;
+      }
+    }
+
     return DefaultContainerWidget(
       padding: const EdgeInsets.only(left: 25, right: 25, bottom: 38, top: 20),
       borderRadius: BorderRadius.circular(24),
@@ -1718,12 +1968,19 @@ class _BottomActionsBar extends ConsumerWidget {
           const Gap(12),
           MainButton(
             title: 'Сохранить',
-            onTap: () {},
+            onTap: () => createAppointment(closeAfterSave: false),
+            isActive: canSave && !isSaving,
+            isLoading: isSaving,
             color: AppColors.secondaryLight,
             textColor: AppColors.mainAccent,
           ),
           const Gap(12),
-          MainButton(title: 'Сохранить и закрыть', onTap: () {}),
+          MainButton(
+            title: 'Сохранить и закрыть',
+            onTap: () => createAppointment(closeAfterSave: true),
+            isActive: canSave && !isSaving,
+            isLoading: isSaving,
+          ),
         ],
       ),
     );
