@@ -51,6 +51,8 @@ class _CreateAppointmentDraft {
     required this.clientPhone,
     required this.clientFirstName,
     required this.clientLastName,
+    required this.clientCommentText,
+    required this.shouldCreateClient,
   });
 
   final int? appointmentId;
@@ -67,6 +69,8 @@ class _CreateAppointmentDraft {
   final String clientPhone;
   final String clientFirstName;
   final String clientLastName;
+  final String clientCommentText;
+  final bool shouldCreateClient;
 
   @override
   bool operator ==(Object other) {
@@ -85,6 +89,8 @@ class _CreateAppointmentDraft {
             other.clientPhone == clientPhone &&
             other.clientFirstName == clientFirstName &&
             other.clientLastName == clientLastName &&
+            other.clientCommentText == clientCommentText &&
+            other.shouldCreateClient == shouldCreateClient &&
             listEquals(other.services, services));
   }
 
@@ -103,6 +109,8 @@ class _CreateAppointmentDraft {
     clientPhone,
     clientFirstName,
     clientLastName,
+    clientCommentText,
+    shouldCreateClient,
     Object.hashAll(services),
   );
 
@@ -723,10 +731,19 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (completeServices.isEmpty) return null;
     completeServices.sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
+    final hasRequiredManualClientData =
+        _phoneController.text.trim().isNotEmpty &&
+        _firstNameController.text.trim().isNotEmpty &&
+        _lastNameController.text.trim().isNotEmpty;
+    final shouldCreateClient =
+        _selectedClient == null && hasRequiredManualClientData;
+
     return _CreateAppointmentDraft(
       appointmentId: widget.initialAppointment?.id,
       commentId: widget.initialAppointment?.commentId,
-      clientId: _selectedClient?.id ?? widget.initialAppointment?.client?.id,
+      clientId: shouldCreateClient
+          ? null
+          : (_selectedClient?.id ?? widget.initialAppointment?.client?.id),
       workerId: selectedSpecialistId,
       branchId: branchId,
       status: _selectedStatusIndex,
@@ -738,6 +755,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       clientPhone: _phoneController.text.trim(),
       clientFirstName: _firstNameController.text.trim(),
       clientLastName: _lastNameController.text.trim(),
+      clientCommentText: _commentClientController.text.trim(),
+      shouldCreateClient: shouldCreateClient,
     );
   }
 
@@ -1178,6 +1197,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                         controller: _firstNameController,
                         label: 'Имя',
                         hintText: 'Иван',
+                        onChanged: (_) {
+                          if (_selectedClient != null) {
+                            setState(() {
+                              _selectedClient = null;
+                            });
+                          }
+                        },
                       ),
                     ),
                     Gap(12),
@@ -1186,6 +1212,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                         controller: _lastNameController,
                         label: 'Фамилия',
                         hintText: 'Иванов',
+                        onChanged: (_) {
+                          if (_selectedClient != null) {
+                            setState(() {
+                              _selectedClient = null;
+                            });
+                          }
+                        },
                       ),
                     ),
                   ],
@@ -2010,11 +2043,18 @@ class _BottomActionsBar extends ConsumerWidget {
       ref.read(createEntrySavingProvider.notifier).state = true;
       try {
         var resolvedClientId = draft.clientId;
-        if (resolvedClientId == null && draft.clientPhone.isNotEmpty) {
+        final shouldCreateClient =
+            draft.shouldCreateClient ||
+            (resolvedClientId == null &&
+                draft.clientPhone.isNotEmpty &&
+                draft.clientFirstName.isNotEmpty &&
+                draft.clientLastName.isNotEmpty);
+        if (shouldCreateClient) {
           final createdClient = await ref.read(clientsServiceProvider).createClient(
             phone: draft.clientPhone,
             firstName: draft.clientFirstName,
             lastName: draft.clientLastName,
+            commentText: draft.clientCommentText,
             status: draft.status,
           );
           resolvedClientId = createdClient.id;

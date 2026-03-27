@@ -59,7 +59,8 @@ class ClientsService {
     required String phone,
     required String firstName,
     required String lastName,
-    int? status,
+    String? commentText,
+    int status = 0,
   }) async {
     final organizationId = ref.read(organizationIdProvider);
     final token = ref.read(tokenProvider);
@@ -73,7 +74,20 @@ class ClientsService {
       'phone': phone,
       'first_name': firstName,
       'last_name': lastName,
-      if (status != null) 'status': status,
+      'comment': {
+        'id': null,
+        'user': null,
+        'text': commentText?.trim() ?? '',
+      },
+      'status': status,
+      'transactions_sum': 0,
+      'appointment_sum_avg': 0,
+      'number_of_visits': 0,
+      'reliability_factor': 0,
+      'discount': 0,
+      'balance': 0,
+      'custom_fields': const [],
+      'is_new': true,
     };
 
     try {
