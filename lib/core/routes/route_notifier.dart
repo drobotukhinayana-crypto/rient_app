@@ -8,7 +8,7 @@ import 'package:rient_app/features/auth/view/select_branch_page.dart';
 import 'package:rient_app/features/auth/view/select_company_page.dart';
 import 'package:rient_app/features/chat/chat_page.dart';
 import 'package:rient_app/features/create/view/add_new_entry_page.dart'
-    show AddNewEntryPage;
+    show AddNewEntryInitialData, AddNewEntryPage;
 import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/launch/launch_page.dart';
 import 'package:rient_app/features/link/view/link_page.dart';
@@ -159,7 +159,10 @@ final GoRoute _addNewEntryRoute = GoRoute(
       initialAppointment: state.extra is AppointmentApi
           ? state.extra! as AppointmentApi
           : null,
-      isEditMode: state.extra != null,
+      isEditMode: state.extra is AppointmentApi,
+      initialData: state.extra is AddNewEntryInitialData
+          ? state.extra! as AddNewEntryInitialData
+          : null,
     ),
   ),
 );

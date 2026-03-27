@@ -174,17 +174,26 @@ class _CreateAppointmentServiceDraft {
   }
 }
 
+class AddNewEntryInitialData {
+  const AddNewEntryInitialData({this.startDateTime, this.workerId});
+
+  final DateTime? startDateTime;
+  final int? workerId;
+}
+
 class AddNewEntryPage extends StatelessWidget {
   const AddNewEntryPage({
     super.key,
     this.initialAppointment,
     this.isEditMode = false,
+    this.initialData,
   });
 
   static const name = 'add_new_entry_page';
   static const path = '/add_new_entry_page';
   final AppointmentApi? initialAppointment;
   final bool isEditMode;
+  final AddNewEntryInitialData? initialData;
 
   void _invalidateScheduleCaches(BuildContext context) {
     final container = ProviderScope.containerOf(context, listen: false);
@@ -390,7 +399,10 @@ class AddNewEntryPage extends StatelessWidget {
           ],
         ),
       ),
-      body: _BodyWidget(initialAppointment: initialAppointment),
+      body: _BodyWidget(
+        initialAppointment: initialAppointment,
+        initialData: initialData,
+      ),
       bottomNavigationBar: _BottomActionsBar(
         isEditMode: isEditMode || initialAppointment != null,
         initialAppointmentId: initialAppointment?.id,
@@ -400,9 +412,10 @@ class AddNewEntryPage extends StatelessWidget {
 }
 
 class _BodyWidget extends ConsumerStatefulWidget {
-  const _BodyWidget({this.initialAppointment});
+  const _BodyWidget({this.initialAppointment, this.initialData});
 
   final AppointmentApi? initialAppointment;
+  final AddNewEntryInitialData? initialData;
 
   @override
   ConsumerState<_BodyWidget> createState() => _BodyWidgetState();
@@ -431,6 +444,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   void initState() {
     super.initState();
     _applyInitialAppointment();
+    _applyInitialDataForNewEntry();
     unawaited(_applyRememberedClientForNewEntry());
   }
 
@@ -475,6 +489,23 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             ? [_ServiceBlockState()]
             : appointment.services.map(_createInitialServiceBlock),
       );
+  }
+
+  void _applyInitialDataForNewEntry() {
+    if (widget.initialAppointment != null) return;
+    final initialData = widget.initialData;
+    if (initialData == null) return;
+    final startDateTime = initialData.startDateTime;
+    if (startDateTime != null) {
+      final local = startDateTime.toLocal();
+      _selectedDate = DateTime(local.year, local.month, local.day);
+      final h = local.hour.toString().padLeft(2, '0');
+      final m = local.minute.toString().padLeft(2, '0');
+      _services.first.selectedTime = '$h:$m';
+    }
+    if (initialData.workerId != null) {
+      _selectedSpecialistId = initialData.workerId;
+    }
   }
 
   Future<void> _applyRememberedClientForNewEntry() async {

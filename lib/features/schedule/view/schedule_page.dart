@@ -812,6 +812,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                           _forceRefreshScheduleScreen();
                                         }
                                       },
+                                      onEmptySlotTap: (workerId, dateTime) {
+                                        context.pushNamed(
+                                          AddNewEntryPage.name,
+                                          extra: AddNewEntryInitialData(
+                                            workerId: workerId,
+                                            startDateTime: dateTime,
+                                          ),
+                                        );
+                                      },
                                     )
                                   : ScheduleCalendarOneUserWidget(
                                       key: ValueKey(
@@ -841,6 +850,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                           );
                                           _forceRefreshScheduleScreen();
                                         }
+                                      },
+                                      onEmptySlotTap: (dateTime) {
+                                        context.pushNamed(
+                                          AddNewEntryPage.name,
+                                          extra: AddNewEntryInitialData(
+                                            workerId: selectedSpecialistId,
+                                            startDateTime: dateTime,
+                                          ),
+                                        );
                                       },
                                     ),
                             ),

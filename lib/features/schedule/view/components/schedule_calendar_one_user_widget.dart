@@ -48,6 +48,7 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
     this.timeRulerSize = kDefaultTimeRulerSize,
     this.onScrollPositionReady,
     this.onAppointmentTap,
+    this.onEmptySlotTap,
   });
 
   static const kDefaultTimeRulerSize = 50.0;
@@ -72,6 +73,7 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
   /// Для синхронной прокрутки нескольких календарей дня (один общий [ScrollPosition]).
   final ValueChanged<ScrollPosition>? onScrollPositionReady;
   final ValueChanged<ScheduleAppointmentItem>? onAppointmentTap;
+  final ValueChanged<DateTime>? onEmptySlotTap;
 
   @override
   State<ScheduleCalendarOneUserWidget> createState() =>
@@ -457,10 +459,24 @@ class _ScheduleCalendarOneUserWidgetState
       showDatePickerButton: false,
       showCurrentTimeIndicator: true,
       todayHighlightColor: AppColors.red,
+      selectionDecoration: const BoxDecoration(
+        color: Colors.transparent,
+        border: Border.fromBorderSide(BorderSide(color: Colors.transparent)),
+      ),
       dataSource: _calendarDataSource(),
       appointmentBuilder: _buildScheduleEntry,
       specialRegions: _getSpecialRegions(),
       timeRegionBuilder: _buildTimeRegion,
+      onTap: (details) {
+        if (widget.onEmptySlotTap == null) return;
+        final date = details.date;
+        if (date == null) return;
+        final tappedAppointments = details.appointments;
+        if (tappedAppointments != null && tappedAppointments.isNotEmpty) return;
+        if (details.targetElement == CalendarElement.calendarCell) {
+          widget.onEmptySlotTap!(date);
+        }
+      },
       timeSlotViewSettings: TimeSlotViewSettings(
         startHour: widget.startHour,
         endHour: widget.endHour,
