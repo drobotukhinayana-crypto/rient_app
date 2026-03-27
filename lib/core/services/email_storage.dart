@@ -27,4 +27,9 @@ class EmailStorageNotifier extends StateNotifier<String?> {
     await localStorage.saveString(_emailKey, value);
     state = value;
   }
+
+  Future<void> clearEmail() async {
+    await localStorage.removeValue(_emailKey);
+    state = null;
+  }
 }

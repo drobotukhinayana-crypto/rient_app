@@ -8,24 +8,32 @@ import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/data/models/organization_member/organization_member.dart';
 
-final getAuthOrganiztionsProvider = FutureProvider<OrganizationMembers>(
-  (ref) => _GetAuthOrganiztionsImpl(ref).getOrganizations(),
+final getAuthOrganiztionsProvider = FutureProvider.autoDispose<OrganizationMembers>(
+  (ref) {
+    final token = ref.watch(tokenProvider);
+    final email = ref.watch(emailStorageProvider);
+    return _GetAuthOrganiztionsImpl().getOrganizations(token: token, email: email);
+  },
 );
 
 abstract class GetAuthOrganiztionsFetcher {
-  Future<OrganizationMembers> getOrganizations();
+  Future<OrganizationMembers> getOrganizations({
+    required String? token,
+    required String? email,
+  });
 }
 
 class _GetAuthOrganiztionsImpl implements GetAuthOrganiztionsFetcher {
-  _GetAuthOrganiztionsImpl(this.ref);
-
-  final Ref ref;
+  _GetAuthOrganiztionsImpl();
 
   @override
-  Future<OrganizationMembers> getOrganizations() async {
-    final token = ref.read(tokenProvider);
-    final email = ref.read(emailStorageProvider);
-
+  Future<OrganizationMembers> getOrganizations({
+    required String? token,
+    required String? email,
+  }) async {
+    if (token == null || token.isEmpty || email == null || email.isEmpty) {
+      return [];
+    }
     try {
       final url = ApiConsts().createUrl(
         'accounts/organizations/?token=$token&email=$email&page_size=100',

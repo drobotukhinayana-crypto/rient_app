@@ -27,4 +27,9 @@ class TokenStorageNotifier extends StateNotifier<String?> {
     await localStorage.saveString(_tokenKey, value);
     state = value;
   }
+
+  Future<void> clearToken() async {
+    await localStorage.removeValue(_tokenKey);
+    state = null;
+  }
 }

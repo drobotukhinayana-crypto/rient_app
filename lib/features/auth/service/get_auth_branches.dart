@@ -9,25 +9,36 @@ import 'package:rient_app/features/auth/data/models/branches_member/branches_mem
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 
-final getAuthBranchesProvider = FutureProvider<BranchesMembers>(
-  (ref) => _GetAuthBranchesFetcherImpl(ref).getBranches(),
+final getAuthBranchesProvider = FutureProvider.autoDispose<BranchesMembers>(
+  (ref) {
+    final email = ref.watch(emailStorageProvider);
+    final organizationId = ref.watch(organizationIdProvider);
+    final password = ref.watch(passwordProvider);
+    return _GetAuthBranchesFetcherImpl().getBranches(
+      email: email,
+      organizationId: organizationId,
+      password: password,
+    );
+  },
 );
 
 abstract class GetAuthBranchesFetcher {
-  Future<BranchesMembers> getBranches();
+  Future<BranchesMembers> getBranches({
+    required String? email,
+    required int organizationId,
+    required String password,
+  });
 }
 
 class _GetAuthBranchesFetcherImpl implements GetAuthBranchesFetcher {
-  _GetAuthBranchesFetcherImpl(this.ref);
-
-  final Ref ref;
+  _GetAuthBranchesFetcherImpl();
 
   @override
-  Future<BranchesMembers> getBranches() async {
-    final email = ref.read(emailStorageProvider);
-    final organizationId = ref.read(organizationIdProvider);
-    final password = ref.read(passwordProvider);
-
+  Future<BranchesMembers> getBranches({
+    required String? email,
+    required int organizationId,
+    required String password,
+  }) async {
     if (email == null || email.isEmpty || password.isEmpty) {
       throw CustomException(
         causedError: Exception('Email or password is missing'),

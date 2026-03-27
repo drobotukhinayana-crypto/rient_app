@@ -24,4 +24,9 @@ class OrganizationIdNotifier extends StateNotifier<int> {
     state = id;
     await localStorage.saveString(_organizationIdKey, id.toString());
   }
+
+  Future<void> clearOrganizationId() async {
+    state = 0;
+    await localStorage.removeValue(_organizationIdKey);
+  }
 }
