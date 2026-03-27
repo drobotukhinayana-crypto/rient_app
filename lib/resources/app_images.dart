@@ -11,6 +11,7 @@ class AppImages {
   static const String arrowTop = 'assets/images/arrow_top.png';
   static const String back = 'assets/images/back.png';
   static const String backButtonDark = 'assets/images/back_button_dark.png';
+  static const String branch = 'assets/images/branch.png';
   static const String burger = 'assets/images/burger.png';
   static const String calendarTab = 'assets/images/calendar_tab.png';
   static const String chatTab = 'assets/images/chat_tab.png';

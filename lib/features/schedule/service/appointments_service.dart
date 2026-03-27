@@ -48,7 +48,9 @@ class AppointmentsService {
         return AppointmentsApiResponse.fromJson(response.data!);
       }
       throw CustomException(
-        causedError: Exception('Failed to load appointments: ${response.statusCode}'),
+        causedError: Exception(
+          'Failed to load appointments: ${response.statusCode}',
+        ),
       );
     } catch (e) {
       throw CustomException(causedError: e);

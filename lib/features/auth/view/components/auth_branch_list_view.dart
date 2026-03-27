@@ -7,6 +7,7 @@ import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/auth/data/models/branches/branches.dart';
 import 'package:rient_app/features/auth/data/models/branches_member/branches_member.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/resources/resources.dart';
 
 class AuthBranchListView extends StatefulWidget {
   const AuthBranchListView({
@@ -90,13 +91,11 @@ class _AuthBranchItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(300),
         child: Row(
           children: [
-            Container(
+            Image.asset(
+              AppImages.branch,
               width: 40,
               height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.secondaryAccent,
-              ),
+              fit: BoxFit.contain,
             ),
             Gap(6),
             Expanded(

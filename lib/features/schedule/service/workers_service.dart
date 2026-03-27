@@ -7,7 +7,9 @@ import 'package:rient_app/features/auth/view/providers/organization_id_provider.
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 
-final workersServiceProvider = Provider<WorkersService>((ref) => WorkersService(ref));
+final workersServiceProvider = Provider<WorkersService>(
+  (ref) => WorkersService(ref),
+);
 
 class WorkersService {
   WorkersService(this.ref);
@@ -49,7 +51,9 @@ class WorkersService {
         return WorkersApiResponse.fromJson(response.data!);
       }
       throw CustomException(
-        causedError: Exception('Failed to load workers: ${response.statusCode}'),
+        causedError: Exception(
+          'Failed to load workers: ${response.statusCode}',
+        ),
       );
     } catch (e) {
       throw CustomException(causedError: e);
@@ -83,12 +87,15 @@ class WorkersService {
 
       if (response.statusCode == 200 && response.data != null) {
         return response.data!
-            .map((e) => AvailableWorkerShift.fromJson(e as Map<String, dynamic>))
+            .map(
+              (e) => AvailableWorkerShift.fromJson(e as Map<String, dynamic>),
+            )
             .toList();
       }
       throw CustomException(
-        causedError:
-            Exception('Failed to load available workers: ${response.statusCode}'),
+        causedError: Exception(
+          'Failed to load available workers: ${response.statusCode}',
+        ),
       );
     } catch (e) {
       throw CustomException(causedError: e);
