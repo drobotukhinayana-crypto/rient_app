@@ -27,7 +27,7 @@ class AuthPage extends StatelessWidget {
   static const name = 'auth_page';
   static const path = '/auth_page';
 
-  static void navigate(BuildContext context) => context.pushNamed(name);
+  static void navigate(BuildContext context) => context.goNamed(name);
 
   @override
   Widget build(BuildContext context) {
