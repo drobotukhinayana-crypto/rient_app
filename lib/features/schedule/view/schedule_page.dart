@@ -38,6 +38,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   ViewMode _viewMode = ViewMode.day;
   late DateTime _weekStart;
   late DateTime _monthStart;
+  int _refreshVersion = 0;
   final ScrollController _daySpecialistsScrollController = ScrollController();
   final ScrollController _dayCalendarScrollController = ScrollController();
   bool _syncingDayHorizontalScroll = false;
@@ -159,6 +160,25 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
 
   static DateTime _toDateOnly(DateTime value) =>
       DateTime(value.year, value.month, value.day);
+
+  void _forceRefreshScheduleScreen() {
+    final selectedDate = ref.read(selectedScheduleDateProvider);
+    final weekKey = scheduleWeekKey(
+      _viewMode == ViewMode.day ? selectedDate : _weekStart,
+    );
+    final monthKey = scheduleMonthKey(_monthStart);
+
+    ref.invalidate(scheduleAppointmentsProvider);
+    ref.invalidate(availableWorkersForDateProvider(selectedDate));
+    ref.invalidate(scheduleStatisticsForWeekProvider(weekKey));
+    ref.invalidate(scheduleStatisticsForMonthProvider(monthKey));
+    ref.invalidate(scheduleWorkersProvider);
+
+    if (!mounted) return;
+    setState(() {
+      _refreshVersion++;
+    });
+  }
 
   static DateTime _safeParseToLocal(String? raw, DateTime fallback) {
     if (raw == null || raw.isEmpty) return fallback;
@@ -601,6 +621,63 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         (_viewMode == ViewMode.week && weekStatisticsLoading) ||
         (_viewMode == ViewMode.month && monthStatisticsLoading);
 
+    void refreshScheduleAfterMutation(AppointmentApi mutatedAppointment) {
+      final mutatedWorkerId = mutatedAppointment.worker?.id;
+      if (_viewMode == ViewMode.day) {
+        if (specialists.isNotEmpty) {
+          for (final specialist in specialists) {
+            final id = specialist.id;
+            if (id == null) continue;
+            ref.invalidate(
+              scheduleAppointmentsProvider(
+                AppointmentsQuery(
+                  workerId: id,
+                  dateTimeGte: dayStart,
+                  dateTimeLte: dayEnd,
+                ),
+              ),
+            );
+          }
+        } else {
+          ref.invalidate(
+            scheduleAppointmentsProvider(
+              AppointmentsQuery(
+                workerId: selectedSpecialistId,
+                dateTimeGte: dayStart,
+                dateTimeLte: dayEnd,
+              ),
+            ),
+          );
+        }
+      }
+
+      ref.invalidate(
+        scheduleAppointmentsProvider(
+          AppointmentsQuery(
+            workerId: selectedSpecialistId,
+            dateTimeGte: weekStartDate,
+            dateTimeLte: weekEndDate,
+          ),
+        ),
+      );
+      if (mutatedWorkerId != null && mutatedWorkerId != selectedSpecialistId) {
+        ref.invalidate(
+          scheduleAppointmentsProvider(
+            AppointmentsQuery(
+              workerId: mutatedWorkerId,
+              dateTimeGte: weekStartDate,
+              dateTimeLte: weekEndDate,
+            ),
+          ),
+        );
+      }
+      // Fallback: сбрасываем кеш всех family-инстансов записей.
+      ref.invalidate(scheduleAppointmentsProvider);
+      ref.invalidate(availableWorkersForDateProvider(selectedDate));
+      ref.invalidate(scheduleStatisticsForWeekProvider(weekKey));
+      ref.invalidate(scheduleStatisticsForMonthProvider(monthKey));
+    }
+
     ref.listen(scheduleWorkersProvider, (prev, next) {
       next.whenData((_) async {
         if (ref.read(restoredSpecialistSelectionProvider)) return;
@@ -671,7 +748,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                               child: specialists.isNotEmpty
                                   ? ScheduleCalendarDayMultiColumn(
                                       key: ValueKey(
-                                        'schedule_day_multi_${scheduleDateKey(selectedDate)}',
+                                        'schedule_day_multi_${scheduleDateKey(selectedDate)}_$_refreshVersion',
                                       ),
                                       date: selectedDate,
                                       branchStartHour: dayWorkHours.startHour,
@@ -720,18 +797,25 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                             ),
                                         ];
                                       }(),
-                                      onAppointmentTap: (item) {
+                                      onAppointmentTap: (item) async {
                                         final appointment = item.source;
                                         if (appointment == null) return;
-                                        context.pushNamed(
+                                        final wasDeleted =
+                                            await context.pushNamed<bool>(
                                           AddNewEntryPage.name,
                                           extra: appointment,
                                         );
+                                        if (wasDeleted == true) {
+                                          refreshScheduleAfterMutation(
+                                            appointment,
+                                          );
+                                          _forceRefreshScheduleScreen();
+                                        }
                                       },
                                     )
                                   : ScheduleCalendarOneUserWidget(
                                       key: ValueKey(
-                                        'schedule_day_${scheduleDateKey(selectedDate)}',
+                                        'schedule_day_${scheduleDateKey(selectedDate)}_$_refreshVersion',
                                       ),
                                       date: selectedDate,
                                       items: dayItems,
@@ -743,13 +827,20 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       workerStartHour:
                                           selectedWorkerHours.start,
                                       workerEndHour: selectedWorkerHours.end,
-                                      onAppointmentTap: (item) {
+                                      onAppointmentTap: (item) async {
                                         final appointment = item.source;
                                         if (appointment == null) return;
-                                        context.pushNamed(
+                                        final wasDeleted =
+                                            await context.pushNamed<bool>(
                                           AddNewEntryPage.name,
                                           extra: appointment,
                                         );
+                                        if (wasDeleted == true) {
+                                          refreshScheduleAfterMutation(
+                                            appointment,
+                                          );
+                                          _forceRefreshScheduleScreen();
+                                        }
                                       },
                                     ),
                             ),
@@ -769,7 +860,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         left: 40,
                                       ),
                                       child: DateStrip(
-                                        key: ValueKey('week_strip_$weekKey'),
+                                        key: ValueKey('week_strip_${weekKey}_$_refreshVersion'),
                                         initialDate: _weekStart,
                                         selectedDate: selectedDate,
                                         visibleWeekStart: _weekStart,
@@ -781,7 +872,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                     ),
                                     Expanded(
                                       child: ScheduleCalendarOneUserWidget(
-                                        key: ValueKey('schedule_week_$weekKey'),
+                                        key: ValueKey('schedule_week_${weekKey}_$_refreshVersion'),
                                         date: _weekStart,
                                         items: weekItems,
                                         viewMode: ViewMode.week,
@@ -791,13 +882,20 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                             weekWorkHoursByWeekday,
                                         breakStart: selectedBreak.breakStart,
                                         breakEnd: selectedBreak.breakEnd,
-                                        onAppointmentTap: (item) {
+                                        onAppointmentTap: (item) async {
                                           final appointment = item.source;
                                           if (appointment == null) return;
-                                          context.pushNamed(
+                                          final wasDeleted =
+                                              await context.pushNamed<bool>(
                                             AddNewEntryPage.name,
                                             extra: appointment,
                                           );
+                                          if (wasDeleted == true) {
+                                            refreshScheduleAfterMutation(
+                                              appointment,
+                                            );
+                                            _forceRefreshScheduleScreen();
+                                          }
                                         },
                                       ),
                                     ),
@@ -813,7 +911,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                   ),
                                   child: SingleChildScrollView(
                                     child: MonthCalendar(
-                                      key: ValueKey('month_$monthKey'),
+                                      key: ValueKey('month_${monthKey}_$_refreshVersion'),
                                       month: _monthStart,
                                       slotsByDay: slotsByDay,
                                       occupancyByDay: monthOccupancyByDay,

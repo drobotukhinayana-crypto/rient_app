@@ -16,6 +16,9 @@ import 'package:rient_app/features/create/view/components/client_status_selector
 import 'package:rient_app/features/create/view/providers/clients_provider.dart';
 import 'package:rient_app/features/create/view/providers/worker_services_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
+import 'package:rient_app/features/schedule/service/appointments_service.dart';
+import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -38,31 +41,86 @@ class AddNewEntryPage extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: Text('Удалить запись?', style: AppFonts.h4Medium),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Вы уверены, что хотите удалить данную запись?',
-                style: AppFonts.b2Medium,
-              ),
-              const Gap(16),
-              MainButton(
-                title: 'Удалить',
-                onTap: () => Navigator.of(dialogContext).pop(),
-                color: Color(0xff787880).withValues(alpha: 0.16),
-                textColor: AppColors.red,
-              ),
-              const Gap(8),
-              MainButton(
-                title: 'Закрыть',
-                onTap: () => Navigator.of(dialogContext).pop(),
-                color: Color(0xff787880).withValues(alpha: 0.16),
-                textColor: Colors.black,
-              ),
-            ],
+        var isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text('Удалить запись?', style: AppFonts.h4Medium),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Вы уверены, что хотите удалить данную запись?',
+                  style: AppFonts.b2Medium,
+                ),
+                const Gap(16),
+                MainButton(
+                  title: 'Удалить',
+                  isLoading: isDeleting,
+                  isActive: !isDeleting,
+                  onTap: () async {
+                    if (isDeleting) return;
+                    final appointmentId = initialAppointment?.id;
+                    if (appointmentId == null) {
+                      Navigator.of(dialogContext).pop();
+                      return;
+                    }
+
+                    setDialogState(() => isDeleting = true);
+                    try {
+                      await ProviderScope.containerOf(
+                        dialogContext,
+                        listen: false,
+                      ).read(appointmentsServiceProvider).deleteAppointment(
+                        appointmentId: appointmentId,
+                      );
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                      }
+                      if (context.mounted) {
+                        final container = ProviderScope.containerOf(
+                          context,
+                          listen: false,
+                        );
+                        container.invalidate(scheduleAppointmentsProvider);
+                        container.invalidate(availableWorkersForDateProvider);
+                        container.invalidate(scheduleStatisticsForWeekProvider);
+                        container.invalidate(scheduleStatisticsForMonthProvider);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Запись удалена')),
+                        );
+                        context.pop(true);
+                      }
+                    } catch (_) {
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                      }
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Не удалось удалить запись'),
+                          ),
+                        );
+                      }
+                    } finally {
+                      if (dialogContext.mounted) {
+                        setDialogState(() => isDeleting = false);
+                      }
+                    }
+                  },
+                  color: const Color(0xff787880).withValues(alpha: 0.16),
+                  textColor: AppColors.red,
+                ),
+                const Gap(8),
+                MainButton(
+                  title: 'Закрыть',
+                  onTap: () => Navigator.of(dialogContext).pop(),
+                  isActive: !isDeleting,
+                  color: const Color(0xff787880).withValues(alpha: 0.16),
+                  textColor: Colors.black,
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -101,7 +159,7 @@ class AddNewEntryPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               onSelected: (value) {
-                if (value == 'delete') {
+                if (value == 'delete' && (isEditMode || initialAppointment != null)) {
                   _showDeleteDialog(context);
                 }
               },
@@ -111,14 +169,15 @@ class AddNewEntryPage extends StatelessWidget {
                   padding: EdgeInsets.only(left: 10),
                   child: Text('Запомнить клиента', style: AppFonts.b2Medium),
                 ),
-                PopupMenuItem<String>(
-                  value: 'delete',
-                  padding: EdgeInsets.only(left: 10),
-                  child: Text(
-                    'Удалить',
-                    style: AppFonts.b2Medium.copyWith(color: AppColors.red),
+                if (isEditMode || initialAppointment != null)
+                  PopupMenuItem<String>(
+                    value: 'delete',
+                    padding: EdgeInsets.only(left: 10),
+                    child: Text(
+                      'Удалить',
+                      style: AppFonts.b2Medium.copyWith(color: AppColors.red),
+                    ),
                   ),
-                ),
               ],
               child: Image.asset(AppImages.more),
             ),

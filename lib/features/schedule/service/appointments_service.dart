@@ -54,4 +54,34 @@ class AppointmentsService {
       throw CustomException(causedError: e);
     }
   }
+
+  Future<void> deleteAppointment({
+    required int appointmentId,
+    String captcha = 'dummy',
+  }) async {
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      throw CustomException(causedError: Exception('Token is missing'));
+    }
+
+    final url = ApiConsts().createUrl('appointments/$appointmentId/');
+
+    try {
+      final response = await Dio().delete<void>(
+        url,
+        queryParameters: {'captcha': captcha},
+        options: Options(headers: {'Authorization': 'JWT $token'}),
+      );
+      if (response.statusCode == 204 || response.statusCode == 200) {
+        return;
+      }
+      throw CustomException(
+        causedError: Exception(
+          'Failed to delete appointment: ${response.statusCode}',
+        ),
+      );
+    } catch (e) {
+      throw CustomException(causedError: e);
+    }
+  }
 }
