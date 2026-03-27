@@ -1,10 +1,14 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/email_storage.dart';
+import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
+import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/features/auth/view/providers/branches_id_provider.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService(ref));
 
@@ -58,11 +62,20 @@ class AuthService {
     required String password,
     required int userAgent,
     required int deviceId,
+    int? branchId,
   }) async {
     final url = ApiConsts().createUrl('accounts/token/');
     final email = ref.read(emailStorageProvider);
     final role = ref.read(roleProvider);
     final organizationId = ref.read(organizationIdProvider);
+    var resolvedBranchId = branchId;
+    if (role != UserRole.owner.value && resolvedBranchId == null) {
+      resolvedBranchId = await _resolveBranchIdForAuth(
+        email: email,
+        password: password,
+        organizationId: organizationId,
+      );
+    }
     final response = await Dio().post<Map<String, dynamic>>(
       url,
       data: FormData.fromMap({
@@ -73,7 +86,7 @@ class AuthService {
         'device_id': deviceId,
         'organization': organizationId,
         'remember_me': true,
-        'branch': 3,
+        if (resolvedBranchId != null) 'branch': resolvedBranchId,
         'captcha': '0cAFcWeA5CVv...Hd4jjnjP6igECB-RndwLqpKbelHe8G',
       }),
     );
@@ -89,5 +102,52 @@ class AuthService {
       }
     }
     throw Exception('${response.data}');
+  }
+
+  Future<int?> _resolveBranchIdForAuth({
+    required String? email,
+    required String password,
+    required int organizationId,
+  }) async {
+    final branchFromState = ref.read(branchesIdProvider);
+    if (branchFromState > 0) {
+      return branchFromState;
+    }
+
+    final savedBranchStr = await ref
+        .read(localStorageProvider)
+        .getString(
+          buildSelectedBranchStorageKey(
+            email: email,
+            organizationId: organizationId,
+            roleId: ref.read(roleProvider),
+          ),
+        );
+    final savedBranchId = int.tryParse(savedBranchStr ?? '');
+    if (savedBranchId != null && savedBranchId > 0) {
+      return savedBranchId;
+    }
+
+    if (email == null || email.isEmpty || password.isEmpty) {
+      return null;
+    }
+
+    final url = ApiConsts().createUrl('accounts/branches/');
+    final response = await Dio().post<Map<String, dynamic>>(
+      url,
+      data: FormData.fromMap({
+        'email': email,
+        'captcha': '0cAFcWeA5CVv...Hd4jjnjP6igECB-RndwLqpKbelHe8G',
+        'password': password,
+        'organization': organizationId,
+        'remember_me': true,
+      }),
+    );
+    final branches = response.data?['branches'] as List<dynamic>? ?? [];
+    if (branches.isEmpty) {
+      return null;
+    }
+    final firstBranchId = (branches.first as Map<String, dynamic>)['id'] as int?;
+    return firstBranchId;
   }
 }

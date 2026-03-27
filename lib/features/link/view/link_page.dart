@@ -13,6 +13,8 @@ import 'package:rient_app/features/auth/view/providers/branches_id_provider.dart
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/auth/view/providers/selected_organization_member_provider.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 
 class LinkPage extends StatelessWidget {
   const LinkPage({super.key});
@@ -53,6 +55,8 @@ class _BodyWidget extends ConsumerWidget {
                 ref.read(roleProvider.notifier).state = 0;
                 ref.read(branchesIdProvider.notifier).state = 0;
                 ref.read(passwordProvider.notifier).state = '';
+                ref.read(selectedOrganizationMemberProvider.notifier).state = null;
+                ref.read(selectedBranchProvider.notifier).state = null;
                 ref.invalidate(getAuthOrganiztionsProvider);
                 ref.invalidate(getAuthBranchesProvider);
                 AuthPage.navigate(context);

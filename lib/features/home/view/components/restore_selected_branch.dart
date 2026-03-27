@@ -25,7 +25,6 @@ class _RestoreSelectedBranchState extends ConsumerState<RestoreSelectedBranch> {
     ref.listen(branchesProvider, (prev, next) {
       next.whenData((branches) {
         if (_restored) return;
-        if (ref.read(selectedBranchProvider) != null) return;
         _restored = true;
         _doRestore(branches);
       });
@@ -35,7 +34,8 @@ class _RestoreSelectedBranchState extends ConsumerState<RestoreSelectedBranch> {
 
   Future<void> _doRestore(BranchesApiResponse branches) async {
     final storage = ref.read(localStorageProvider);
-    final idStr = await storage.getString(selectedBranchIdStorageKey);
+    final storageKey = ref.read(selectedBranchStorageKeyProvider);
+    final idStr = await storage.getString(storageKey);
     final id = int.tryParse(idStr ?? '');
     if (id == null) return;
     BranchApi? branch;

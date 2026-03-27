@@ -57,8 +57,9 @@ class _ProfileSelectorPillState extends State<ProfileSelectorPill> {
       if (value != null) {
         ref.read(selectedBranchProvider.notifier).state = value;
         final storage = ref.read(localStorageProvider);
+        final storageKey = ref.read(selectedBranchStorageKeyProvider);
         await storage.saveString(
-          selectedBranchIdStorageKey,
+          storageKey,
           value.id.toString(),
         );
       }

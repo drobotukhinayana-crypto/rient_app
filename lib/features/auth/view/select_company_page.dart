@@ -11,7 +11,9 @@ import 'package:rient_app/features/auth/view/auth_password_page.dart';
 import 'package:rient_app/features/auth/view/components/auth_company_list_view.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
+import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/auth/view/providers/selected_organization_member_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class SelectCompanyPage extends StatelessWidget {
@@ -67,6 +69,8 @@ class _BodyWidget extends StatelessWidget {
                           data: (data) => AuthCompanyListView(
                             organizationMembers: data,
                             onSelectedMemberChanged: (member) {
+                              ref.read(selectedOrganizationMemberProvider.notifier).state =
+                                  member;
                               ref.read(organizationIdProvider.notifier).setOrganizationId(
                                   member.organization.id);
                               ref.read(roleProvider.notifier).state =
@@ -85,9 +89,29 @@ class _BodyWidget extends StatelessWidget {
           // кнопка продолжения
           Padding(
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
-            child: MainButton(
-              title: 'Продолжить',
-              onTap: () => AuthPasswordPage.navigate(context),
+            child: Consumer(
+              builder: (_, ref, __) => MainButton(
+                title: 'Продолжить',
+                onTap: () {
+                  final selectedMember =
+                      ref.read(selectedOrganizationMemberProvider);
+                  if (selectedMember == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Сначала выберите компанию'),
+                      ),
+                    );
+                    return;
+                  }
+                  ref
+                      .read(organizationIdProvider.notifier)
+                      .setOrganizationId(selectedMember.organization.id);
+                  ref.read(roleProvider.notifier).state = selectedMember.role.value;
+                  // На смене пользователя очищаем пароль от предыдущего входа.
+                  ref.read(passwordProvider.notifier).state = '';
+                  AuthPasswordPage.navigate(context);
+                },
+              ),
             ),
           ),
 

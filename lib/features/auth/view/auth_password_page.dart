@@ -17,9 +17,11 @@ import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/controllers/get_token_controller.dart';
+import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/auth/view/providers/selected_organization_member_provider.dart';
 import 'package:rient_app/features/auth/view/select_branch_page.dart';
 import 'package:rient_app/features/tabbar/view/tab_bar_page.dart';
 import 'package:rient_app/resources/resources.dart';
@@ -113,12 +115,25 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
                 title: 'Продолжить',
                 onTap: () {
                   final password = passwordController.text;
+                  final selectedMember = ref.read(selectedOrganizationMemberProvider);
+                  if (selectedMember != null) {
+                    ref
+                        .read(organizationIdProvider.notifier)
+                        .setOrganizationId(selectedMember.organization.id);
+                    ref.read(roleProvider.notifier).state =
+                        selectedMember.role.value;
+                  }
                   ref.read(passwordProvider.notifier).state = password;
-                  ref.read(getTokenControllerProvider.notifier).getToken(
-                        password: password,
-                        deviceId: Platform.operatingSystemVersion.hashCode,
-                        userAgent: Platform.operatingSystem.hashCode,
-                      );
+                  final roleId = ref.read(roleProvider);
+                  if (roleId == UserRole.owner.value) {
+                    ref.read(getTokenControllerProvider.notifier).getToken(
+                          password: password,
+                          deviceId: Platform.operatingSystemVersion.hashCode,
+                          userAgent: Platform.operatingSystem.hashCode,
+                        );
+                    return;
+                  }
+                  SelectBranchPage.navigate(context);
                 },
               ),
             ),

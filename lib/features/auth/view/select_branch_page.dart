@@ -1,16 +1,26 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/session_data/models/session_data.dart';
+import 'package:rient_app/core/session_data/view/controller/session_data_controller.dart';
+import 'package:rient_app/core/services/email_storage.dart';
+import 'package:rient_app/core/services/local_storage.dart';
+import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/features/auth/service/get_auth_branches.dart';
+import 'package:rient_app/features/auth/service/auth_service.dart';
 import 'package:rient_app/features/auth/view/components/auth_branch_list_view.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/providers/branches_id_provider.dart';
+import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/tabbar/view/tab_bar_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -69,10 +79,18 @@ class _BodyWidget extends StatelessWidget {
                           data: (data) => AuthBranchListView(
                             branchesMembers: data,
                             onSelectedMemberChanged: (member) {
-                              ref.read(branchesIdProvider.notifier).state =
+                              final selectedBranchId =
                                   member.branches.first.id;
+                              ref.read(branchesIdProvider.notifier).state =
+                                  selectedBranchId;
                               ref.read(roleProvider.notifier).state =
                                   member.role.value;
+                              ref
+                                  .read(localStorageProvider)
+                                  .saveString(
+                                    ref.read(selectedBranchStorageKeyProvider),
+                                    selectedBranchId.toString(),
+                                  );
                             },
                           ),
                           error: (_, __) => Container(),
@@ -87,9 +105,57 @@ class _BodyWidget extends StatelessWidget {
           // кнопка продолжения
           Padding(
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
-            child: MainButton(
-              title: 'Продолжить',
-              onTap: () => TabBarPage.navigate(context),
+            child: Consumer(
+              builder: (_, ref, __) => MainButton(
+                title: 'Продолжить',
+                onTap: () async {
+                  final selectedBranchId = ref.read(branchesIdProvider);
+                  if (selectedBranchId <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Сначала выберите филиал')),
+                    );
+                    return;
+                  }
+                  await ref
+                      .read(localStorageProvider)
+                      .saveString(
+                        ref.read(selectedBranchStorageKeyProvider),
+                        selectedBranchId.toString(),
+                      );
+
+                  // Обновляем токен под текущий выбранный филиал,
+                  // чтобы серверные данные соответствовали выбору пользователя.
+                  final password = ref.read(passwordProvider);
+                  try {
+                    await ref.read(authServiceProvider).getToken(
+                      password: password,
+                      deviceId: Platform.operatingSystemVersion.hashCode,
+                      userAgent: Platform.operatingSystem.hashCode,
+                      branchId: selectedBranchId,
+                    );
+                    final token = ref.read(tokenProvider);
+                    final email = ref.read(emailStorageProvider);
+                    if (token != null && email != null && email.isNotEmpty) {
+                      await ref
+                          .read(sessionDataControllerProvider.notifier)
+                          .saveSessionData(
+                            SessionData(email: email, password: '', token: token),
+                          );
+                    }
+                  } catch (_) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Не удалось применить выбранный филиал, попробуйте снова',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  TabBarPage.navigate(context);
+                },
+              ),
             ),
           ),
 

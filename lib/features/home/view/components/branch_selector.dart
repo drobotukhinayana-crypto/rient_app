@@ -40,8 +40,9 @@ class BranchSelector extends ConsumerWidget {
               onSelected: (BranchApi branch) async {
                 ref.read(selectedBranchProvider.notifier).state = branch;
                 final storage = ref.read(localStorageProvider);
+                final storageKey = ref.read(selectedBranchStorageKeyProvider);
                 await storage.saveString(
-                  selectedBranchIdStorageKey,
+                  storageKey,
                   branch.id.toString(),
                 );
               },
