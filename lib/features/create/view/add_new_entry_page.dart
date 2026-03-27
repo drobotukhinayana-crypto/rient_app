@@ -16,6 +16,7 @@ import 'package:rient_app/features/create/view/components/client_status_selector
 import 'package:rient_app/features/create/view/providers/clients_provider.dart';
 import 'package:rient_app/features/create/view/providers/worker_services_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
+import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
@@ -69,11 +70,11 @@ class AddNewEntryPage extends StatelessWidget {
                     setDialogState(() => isDeleting = true);
                     try {
                       await ProviderScope.containerOf(
-                        dialogContext,
-                        listen: false,
-                      ).read(appointmentsServiceProvider).deleteAppointment(
-                        appointmentId: appointmentId,
-                      );
+                            dialogContext,
+                            listen: false,
+                          )
+                          .read(appointmentsServiceProvider)
+                          .deleteAppointment(appointmentId: appointmentId);
                       if (dialogContext.mounted) {
                         Navigator.of(dialogContext).pop();
                       }
@@ -85,7 +86,9 @@ class AddNewEntryPage extends StatelessWidget {
                         container.invalidate(scheduleAppointmentsProvider);
                         container.invalidate(availableWorkersForDateProvider);
                         container.invalidate(scheduleStatisticsForWeekProvider);
-                        container.invalidate(scheduleStatisticsForMonthProvider);
+                        container.invalidate(
+                          scheduleStatisticsForMonthProvider,
+                        );
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Запись удалена')),
                         );
@@ -159,7 +162,8 @@ class AddNewEntryPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               onSelected: (value) {
-                if (value == 'delete' && (isEditMode || initialAppointment != null)) {
+                if (value == 'delete' &&
+                    (isEditMode || initialAppointment != null)) {
                   _showDeleteDialog(context);
                 }
               },
@@ -256,7 +260,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   _ServiceBlockState _createInitialServiceBlock(AppointmentServiceApi service) {
     final block = _ServiceBlockState();
     final serviceName = (service.name ?? '').trim();
-    final serviceDateTime = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+    final serviceDateTime = DateTime.tryParse(
+      service.datetime ?? '',
+    )?.toLocal();
 
     if (serviceName.isNotEmpty) {
       block.initialServiceName = serviceName;
@@ -296,6 +302,183 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }
 
   String _formatMoney(double value) => '${value.round()}₽';
+
+  DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+
+  DateTime? _dateTimeFromTimeOfDayString({
+    required DateTime date,
+    required String? value,
+  }) {
+    if (value == null || value.isEmpty) return null;
+    final parts = value.split(':');
+    if (parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+
+  String _formatSlot(DateTime dateTime) {
+    final h = dateTime.hour.toString().padLeft(2, '0');
+    final m = dateTime.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  List<_DateTimeRange> _busyRangesFromAppointments(
+    List<AppointmentApi> appointments, {
+    int? ignoreAppointmentId,
+  }) {
+    final result = <_DateTimeRange>[];
+    for (final appointment in appointments) {
+      if (ignoreAppointmentId != null && appointment.id == ignoreAppointmentId) {
+        continue;
+      }
+      if (appointment.services.isEmpty) continue;
+      DateTime? start;
+      DateTime? end;
+      for (final service in appointment.services) {
+        final serviceStartRaw = DateTime.tryParse(service.datetime ?? '');
+        if (serviceStartRaw == null) continue;
+        final serviceStart = serviceStartRaw.toLocal();
+        final duration = service.totalDurationMinutes <= 0
+            ? 30
+            : service.totalDurationMinutes;
+        final serviceEnd = serviceStart.add(Duration(minutes: duration));
+        if (start == null || serviceStart.isBefore(start)) {
+          start = serviceStart;
+        }
+        if (end == null || serviceEnd.isAfter(end)) {
+          end = serviceEnd;
+        }
+      }
+      if (start != null && end != null && end.isAfter(start)) {
+        result.add(_DateTimeRange(start: start, end: end));
+      }
+    }
+    return result;
+  }
+
+  bool _isRangeFree({
+    required DateTime start,
+    required DateTime end,
+    required List<_DateTimeRange> busyRanges,
+  }) {
+    for (final busy in busyRanges) {
+      final overlaps = start.isBefore(busy.end) && end.isAfter(busy.start);
+      if (overlaps) return false;
+    }
+    return true;
+  }
+
+  List<String> _availableSlotsForService({
+    required DateTime date,
+    required int durationMinutes,
+    required AvailableWorkerShift? shift,
+    required List<AppointmentApi> appointments,
+    int slotStepMinutes = 10,
+  }) {
+    if (shift == null || durationMinutes <= 0) return const <String>[];
+    final shiftStart = _dateTimeFromTimeOfDayString(
+      date: date,
+      value: shift.timeStart,
+    );
+    final shiftEnd = _dateTimeFromTimeOfDayString(date: date, value: shift.timeEnd);
+    if (shiftStart == null || shiftEnd == null || !shiftEnd.isAfter(shiftStart)) {
+      return const <String>[];
+    }
+
+    final busyRanges = <_DateTimeRange>[
+      ..._busyRangesFromAppointments(
+        appointments,
+        ignoreAppointmentId: widget.initialAppointment?.id,
+      ),
+    ];
+    final breakStart = _dateTimeFromTimeOfDayString(
+      date: date,
+      value: shift.breakStart,
+    );
+    final breakEnd = _dateTimeFromTimeOfDayString(date: date, value: shift.breakEnd);
+    if (breakStart != null && breakEnd != null && breakEnd.isAfter(breakStart)) {
+      busyRanges.add(_DateTimeRange(start: breakStart, end: breakEnd));
+    }
+
+    final slots = <String>[];
+    var cursor = shiftStart;
+    while (!cursor.add(Duration(minutes: durationMinutes)).isAfter(shiftEnd)) {
+      final slotEnd = cursor.add(Duration(minutes: durationMinutes));
+      if (_isRangeFree(start: cursor, end: slotEnd, busyRanges: busyRanges)) {
+        slots.add(_formatSlot(cursor));
+      }
+      cursor = cursor.add(Duration(minutes: slotStepMinutes));
+    }
+    return slots;
+  }
+
+  List<String> _slotsByHourRange(
+    List<String> slots, {
+    required int fromHourInclusive,
+    required int toHourExclusive,
+  }) {
+    return slots.where((slot) {
+      final hour = int.tryParse(slot.split(':').first) ?? -1;
+      return hour >= fromHourInclusive && hour < toHourExclusive;
+    }).toList();
+  }
+
+  AvailableWorkerShift? _shiftForSpecialist(
+    List<AvailableWorkerShift> shifts,
+    int specialistId,
+  ) {
+    for (final shift in shifts) {
+      if (shift.worker.id == specialistId) return shift;
+    }
+    return null;
+  }
+
+  List<List<String>> _chunkSlots(List<String> slots, int chunkSize) {
+    if (slots.isEmpty || chunkSize <= 0) return const [];
+    final chunks = <List<String>>[];
+    for (var i = 0; i < slots.length; i += chunkSize) {
+      final end = (i + chunkSize) > slots.length ? slots.length : i + chunkSize;
+      chunks.add(slots.sublist(i, end));
+    }
+    return chunks;
+  }
+
+  Widget _buildTimeRows({
+    required List<String> slots,
+    required String? selectedTime,
+    required ValueChanged<String> onSelect,
+  }) {
+    final rows = _chunkSlots(slots, 4);
+    return Column(
+      children: [
+        for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
+          Row(
+            children: [
+              for (var i = 0; i < rows[rowIndex].length; i++) ...[
+                Expanded(
+                  child: _buildTimeChip(
+                    rows[rowIndex][i],
+                    isSelected: selectedTime == rows[rowIndex][i],
+                    onTap: () => onSelect(rows[rowIndex][i]),
+                  ),
+                ),
+                if (i != rows[rowIndex].length - 1) const Gap(8),
+              ],
+              if (rows[rowIndex].length < 4) ...[
+                for (var i = rows[rowIndex].length; i < 4; i++) ...[
+                  if (i != 0) const Gap(8),
+                  const Expanded(child: SizedBox.shrink()),
+                ],
+              ],
+            ],
+          ),
+          if (rowIndex != rows.length - 1) const Gap(8),
+        ],
+      ],
+    );
+  }
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -356,10 +539,15 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return null;
   }
 
-  double _calculateSelectedServicesTotal(List<WorkerServiceItem> workerServices) {
+  double _calculateSelectedServicesTotal(
+    List<WorkerServiceItem> workerServices,
+  ) {
     double total = 0;
     for (final block in _services) {
-      final selected = _selectedWorkerService(workerServices, block.selectedServiceId);
+      final selected = _selectedWorkerService(
+        workerServices,
+        block.selectedServiceId,
+      );
       if (selected != null) {
         total += selected.price;
       }
@@ -388,7 +576,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
       WorkerServiceItem? matched;
       for (final service in workerServices) {
-        if (service.service.name.toLowerCase() == initialServiceName.toLowerCase()) {
+        if (service.service.name.toLowerCase() ==
+            initialServiceName.toLowerCase()) {
           matched = service;
           break;
         }
@@ -443,6 +632,33 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final workerServicesAsync = selectedSpecialistId == null
         ? const AsyncValue.data(<WorkerServiceItem>[])
         : ref.watch(workerServicesForWorkerProvider(selectedSpecialistId));
+    final selectedDateOnly = _dateOnly(_selectedDate);
+    final selectedShiftAsync = ref.watch(
+      availableWorkersForDateProvider(selectedDateOnly),
+    );
+    final selectedShift = selectedSpecialistId == null
+        ? null
+        : _shiftForSpecialist(
+            selectedShiftAsync.value ?? const [],
+            selectedSpecialistId,
+          );
+    final dayStart = selectedDateOnly;
+    final dayEnd = dayStart
+        .add(const Duration(days: 1))
+        .subtract(const Duration(milliseconds: 1));
+    final specialistAppointmentsAsync = selectedSpecialistId == null
+        ? const AsyncValue.data(<AppointmentApi>[])
+        : ref.watch(
+            scheduleAppointmentsProvider(
+              AppointmentsQuery(
+                workerId: selectedSpecialistId,
+                dateTimeGte: dayStart,
+                dateTimeLte: dayEnd,
+              ),
+            ),
+          );
+    final specialistAppointments =
+        specialistAppointmentsAsync.value ?? const <AppointmentApi>[];
     final workerServices =
         workerServicesAsync.value ?? const <WorkerServiceItem>[];
     if (selectedSpecialistId != null && workerServices.isNotEmpty) {
@@ -1189,83 +1405,102 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   ),
                   if (_services[index].isTimeExpanded) ...[
                     const Gap(12),
-                    Center(child: Text('Утро', style: AppFonts.c1Regular)),
-                    const Gap(8),
-                    Row(
-                      children: [
-                        for (final time in const [
-                          '9:00',
-                          '10:00',
-                          '11:00',
-                          '12:00',
-                        ]) ...[
-                          Expanded(
-                            child: _buildTimeChip(
-                              time,
-                              isSelected: _services[index].selectedTime == time,
-                              onTap: () {
-                                setState(
-                                  () => _services[index].selectedTime = time,
-                                );
-                              },
-                            ),
-                          ),
-                          if (time != '12:00') const Gap(8),
-                        ],
-                      ],
-                    ),
-                    const Gap(12),
-                    Center(child: Text('День', style: AppFonts.c1Regular)),
-                    const Gap(8),
-                    Row(
-                      children: [
-                        for (final time in const [
-                          '13:00',
-                          '14:00',
-                          '15:00',
-                          '16:00',
-                        ]) ...[
-                          Expanded(
-                            child: _buildTimeChip(
-                              time,
-                              isSelected: _services[index].selectedTime == time,
-                              onTap: () {
-                                setState(
-                                  () => _services[index].selectedTime = time,
-                                );
-                              },
-                            ),
-                          ),
-                          if (time != '16:00') const Gap(8),
-                        ],
-                      ],
-                    ),
-                    const Gap(12),
-                    Center(child: Text('Вечер', style: AppFonts.c1Regular)),
-                    const Gap(8),
-                    Row(
-                      children: [
-                        for (final time in const [
-                          '17:00',
-                          '18:00',
-                          '19:00',
-                          '20:00',
-                        ]) ...[
-                          Expanded(
-                            child: _buildTimeChip(
-                              time,
-                              isSelected: _services[index].selectedTime == time,
-                              onTap: () {
-                                setState(
-                                  () => _services[index].selectedTime = time,
-                                );
-                              },
-                            ),
-                          ),
-                          if (time != '20:00') const Gap(8),
-                        ],
-                      ],
-                    ),
+                    if (selectedSpecialistId == null)
+                      Text(
+                        'Сначала выберите специалиста',
+                        style: AppFonts.c1Regular.copyWith(color: AppColors.grey),
+                      )
+                    else if (selectedShiftAsync.isLoading ||
+                        specialistAppointmentsAsync.isLoading)
+                      const Center(child: CircularProgressIndicator())
+                    else ...[
+                      Builder(
+                        builder: (context) {
+                          final availableSlots = _availableSlotsForService(
+                            date: selectedDateOnly,
+                            durationMinutes: _services[index].durationMinutes,
+                            shift: selectedShift,
+                            appointments: specialistAppointments,
+                          );
+
+                          final selectedTime = _services[index].selectedTime;
+                          if (selectedTime != null &&
+                              !availableSlots.contains(selectedTime)) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (!mounted) return;
+                              if (index >= _services.length) return;
+                              if (_services[index].selectedTime != null &&
+                                  !availableSlots.contains(
+                                    _services[index].selectedTime,
+                                  )) {
+                                setState(() {
+                                  _services[index].selectedTime = null;
+                                });
+                              }
+                            });
+                          }
+
+                          if (availableSlots.isEmpty) {
+                            return Text(
+                              'Нет свободного времени на выбранную длительность',
+                              style: AppFonts.c1Regular.copyWith(
+                                color: AppColors.grey,
+                              ),
+                            );
+                          }
+
+                          final morning = _slotsByHourRange(
+                            availableSlots,
+                            fromHourInclusive: 0,
+                            toHourExclusive: 12,
+                          );
+                          final day = _slotsByHourRange(
+                            availableSlots,
+                            fromHourInclusive: 12,
+                            toHourExclusive: 17,
+                          );
+                          final evening = _slotsByHourRange(
+                            availableSlots,
+                            fromHourInclusive: 17,
+                            toHourExclusive: 24,
+                          );
+
+                          Widget section(String title, List<String> slots) {
+                            if (slots.isEmpty) return const SizedBox.shrink();
+                            return Column(
+                              children: [
+                                Center(
+                                  child: Text(title, style: AppFonts.c1Regular),
+                                ),
+                                const Gap(8),
+                                _buildTimeRows(
+                                  slots: slots,
+                                  selectedTime: _services[index].selectedTime,
+                                  onSelect: (time) {
+                                    setState(
+                                      () => _services[index].selectedTime = time,
+                                    );
+                                  },
+                                ),
+                              ],
+                            );
+                          }
+
+                          return Column(
+                            children: [
+                              section('Утро', morning),
+                              if (morning.isNotEmpty &&
+                                  (day.isNotEmpty || evening.isNotEmpty))
+                                const Gap(12),
+                              section('День', day),
+                              if (day.isNotEmpty && evening.isNotEmpty)
+                                const Gap(12),
+                              section('Вечер', evening),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                     const Gap(12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -1408,6 +1643,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       ),
     );
   }
+}
+
+class _DateTimeRange {
+  const _DateTimeRange({required this.start, required this.end});
+
+  final DateTime start;
+  final DateTime end;
 }
 
 class _BottomActionsBar extends ConsumerWidget {
