@@ -36,6 +36,8 @@ final createEntryDraftProvider = StateProvider<_CreateAppointmentDraft?>(
 
 class _CreateAppointmentDraft {
   const _CreateAppointmentDraft({
+    required this.appointmentId,
+    required this.commentId,
     required this.clientId,
     required this.workerId,
     required this.branchId,
@@ -50,6 +52,8 @@ class _CreateAppointmentDraft {
     required this.clientLastName,
   });
 
+  final int? appointmentId;
+  final int? commentId;
   final int? clientId;
   final int workerId;
   final int branchId;
@@ -67,6 +71,8 @@ class _CreateAppointmentDraft {
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other is _CreateAppointmentDraft &&
+            other.appointmentId == appointmentId &&
+            other.commentId == commentId &&
             other.clientId == clientId &&
             other.workerId == workerId &&
             other.branchId == branchId &&
@@ -83,6 +89,8 @@ class _CreateAppointmentDraft {
 
   @override
   int get hashCode => Object.hash(
+    appointmentId,
+    commentId,
     clientId,
     workerId,
     branchId,
@@ -99,9 +107,9 @@ class _CreateAppointmentDraft {
 
   Map<String, dynamic> toRequestBody({int? overrideClientId}) {
     return {
-      'id': null,
+      'id': appointmentId,
       'client': overrideClientId ?? clientId,
-      'comment': {'id': null, 'user': null, 'text': commentText},
+      'comment': {'id': commentId, 'user': null, 'text': commentText},
       'services': services.map((service) => service.toJson()).toList(),
       'worker': workerId,
       'status': status,
@@ -341,6 +349,7 @@ class AddNewEntryPage extends StatelessWidget {
       body: _BodyWidget(initialAppointment: initialAppointment),
       bottomNavigationBar: _BottomActionsBar(
         isEditMode: isEditMode || initialAppointment != null,
+        initialAppointmentId: initialAppointment?.id,
       ),
     );
   }
@@ -675,7 +684,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     completeServices.sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
     return _CreateAppointmentDraft(
-      clientId: _selectedClient?.id,
+      appointmentId: widget.initialAppointment?.id,
+      commentId: widget.initialAppointment?.commentId,
+      clientId: _selectedClient?.id ?? widget.initialAppointment?.client?.id,
       workerId: selectedSpecialistId,
       branchId: branchId,
       status: _selectedStatusIndex,
@@ -1933,9 +1944,13 @@ class _DateTimeRange {
 }
 
 class _BottomActionsBar extends ConsumerWidget {
-  const _BottomActionsBar({required this.isEditMode});
+  const _BottomActionsBar({
+    required this.isEditMode,
+    required this.initialAppointmentId,
+  });
 
   final bool isEditMode;
+  final int? initialAppointmentId;
 
   String _formatMoney(double value) => '${value.round()}₽';
   String _formatDiscount(double value) => '${value.round()}%';
@@ -1949,14 +1964,6 @@ class _BottomActionsBar extends ConsumerWidget {
     final draft = ref.watch(createEntryDraftProvider);
 
     Future<void> createAppointment({required bool closeAfterSave}) async {
-      if (isEditMode) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Создание доступно только для новой записи'),
-          ),
-        );
-        return;
-      }
       if (!canSave || draft == null || isSaving) return;
       ref.read(createEntrySavingProvider.notifier).state = true;
       try {
@@ -1970,22 +1977,41 @@ class _BottomActionsBar extends ConsumerWidget {
           );
           resolvedClientId = createdClient.id;
         }
-        final created = await ref
-            .read(appointmentsServiceProvider)
-            .createAppointment(
-              payload: draft.toRequestBody(overrideClientId: resolvedClientId),
-            );
-        final createdId = created.isNotEmpty
-            ? (created.first['id'] as num?)?.toInt()
-            : null;
+        int? createdId;
+        if (isEditMode) {
+          final appointmentId = initialAppointmentId ?? draft.appointmentId;
+          if (appointmentId == null) {
+            throw Exception('Appointment id is missing');
+          }
+          await ref.read(appointmentsServiceProvider).updateAppointment(
+            appointmentId: appointmentId,
+            payload: draft.toRequestBody(overrideClientId: resolvedClientId),
+          );
+          createdId = appointmentId;
+        } else {
+          final created = await ref
+              .read(appointmentsServiceProvider)
+              .createAppointment(
+                payload: draft.toRequestBody(overrideClientId: resolvedClientId),
+              );
+          createdId = created.isNotEmpty
+              ? (created.first['id'] as num?)?.toInt()
+              : null;
+        }
         ref.invalidate(scheduleAppointmentsProvider);
         ref.invalidate(availableWorkersForDateProvider);
         ref.invalidate(scheduleStatisticsForWeekProvider);
         ref.invalidate(scheduleStatisticsForMonthProvider);
         if (!context.mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Запись успешно создана')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isEditMode
+                  ? 'Запись успешно обновлена'
+                  : 'Запись успешно создана',
+            ),
+          ),
+        );
         if (closeAfterSave) {
           context.pop(true);
         } else if (createdId != null) {
@@ -2022,7 +2048,13 @@ class _BottomActionsBar extends ConsumerWidget {
       } catch (_) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось создать запись')),
+          SnackBar(
+            content: Text(
+              isEditMode
+                  ? 'Не удалось обновить запись'
+                  : 'Не удалось создать запись',
+            ),
+          ),
         );
       } finally {
         ref.read(createEntrySavingProvider.notifier).state = false;

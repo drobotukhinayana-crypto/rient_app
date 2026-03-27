@@ -129,4 +129,41 @@ class AppointmentsService {
       throw CustomException(causedError: e);
     }
   }
+
+  Future<Map<String, dynamic>> updateAppointment({
+    required int appointmentId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      throw CustomException(causedError: Exception('Token is missing'));
+    }
+
+    final url = ApiConsts().createUrl('appointments/$appointmentId/');
+
+    try {
+      final response = await Dio().patch<Map<String, dynamic>>(
+        url,
+        data: payload,
+        options: Options(
+          headers: {
+            'Authorization': 'JWT $token',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          response.data != null) {
+        return Map<String, dynamic>.from(response.data!);
+      }
+      throw CustomException(
+        causedError: Exception(
+          'Failed to update appointment: ${response.statusCode}',
+        ),
+      );
+    } catch (e) {
+      throw CustomException(causedError: e);
+    }
+  }
 }
