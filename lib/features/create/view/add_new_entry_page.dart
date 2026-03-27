@@ -151,12 +151,14 @@ class _CreateAppointmentDraft {
 
 class _CreateAppointmentServiceDraft {
   const _CreateAppointmentServiceDraft({
+    this.appointmentServiceId,
     required this.serviceId,
     required this.dateTime,
     required this.durationMinutes,
     required this.price,
   });
 
+  final int? appointmentServiceId;
   final int serviceId;
   final DateTime dateTime;
   final int durationMinutes;
@@ -166,6 +168,7 @@ class _CreateAppointmentServiceDraft {
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other is _CreateAppointmentServiceDraft &&
+            other.appointmentServiceId == appointmentServiceId &&
             other.serviceId == serviceId &&
             other.dateTime == dateTime &&
             other.durationMinutes == durationMinutes &&
@@ -173,10 +176,17 @@ class _CreateAppointmentServiceDraft {
   }
 
   @override
-  int get hashCode => Object.hash(serviceId, dateTime, durationMinutes, price);
+  int get hashCode => Object.hash(
+    appointmentServiceId,
+    serviceId,
+    dateTime,
+    durationMinutes,
+    price,
+  );
 
   Map<String, dynamic> toJson() {
     return {
+      if (appointmentServiceId != null) 'id': appointmentServiceId,
       'duration': durationMinutes,
       'price': price,
       'add_duration': 0,
@@ -609,6 +619,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (serviceName.isNotEmpty) {
       block.initialServiceName = serviceName;
     }
+    block.appointmentServiceId = service.id;
+    if (service.serviceId != null) {
+      block.selectedServiceId = service.serviceId;
+    }
     if (serviceDateTime != null) {
       final h = serviceDateTime.hour.toString().padLeft(2, '0');
       final m = serviceDateTime.minute.toString().padLeft(2, '0');
@@ -775,9 +789,15 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     }
 
     final slots = <String>[];
+    final now = DateTime.now();
+    final isToday = _dateOnly(date) == _dateOnly(now);
     var cursor = shiftStart;
     while (!cursor.add(Duration(minutes: durationMinutes)).isAfter(shiftEnd)) {
       final slotEnd = cursor.add(Duration(minutes: durationMinutes));
+      if (isToday && cursor.isBefore(now)) {
+        cursor = cursor.add(Duration(minutes: slotStepMinutes));
+        continue;
+      }
       if (_isRangeFree(start: cursor, end: slotEnd, busyRanges: busyRanges)) {
         slots.add(_formatSlot(cursor));
       }
@@ -849,6 +869,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       if (startTime == null) continue;
       completeServices.add(
         _CreateAppointmentServiceDraft(
+          appointmentServiceId: block.appointmentServiceId,
           serviceId: workerService.id,
           dateTime: startTime,
           durationMinutes: block.durationMinutes <= 0
@@ -1865,10 +1886,17 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                     value,
                                   );
                                   setState(() {
+                                    final previousServiceId =
+                                        _services[index].selectedServiceId;
                                     _services[index].selectedServiceId = value;
                                     if (selected != null) {
                                       _services[index].durationMinutes =
                                           selected.duration;
+                                    }
+                                    if (previousServiceId != value) {
+                                      _services[index].selectedTime = null;
+                                      _services[index].appointmentServiceId =
+                                          null;
                                     }
                                   });
                                 },
@@ -2406,6 +2434,7 @@ class _ServiceBlockState {
   _ServiceBlockState();
 
   final TextEditingController serviceSearchController = TextEditingController();
+  int? appointmentServiceId;
   int? selectedServiceId;
   String? initialServiceName;
   bool isTimeExpanded = true;

@@ -78,12 +78,16 @@ class AppointmentApi {
 
 class AppointmentServiceApi {
   const AppointmentServiceApi({
+    required this.id,
+    required this.serviceId,
     required this.name,
     required this.datetime,
     required this.duration,
     required this.addDuration,
   });
 
+  final int? id;
+  final int? serviceId;
   final String? name;
   final String? datetime;
   final int duration;
@@ -92,7 +96,16 @@ class AppointmentServiceApi {
   int get totalDurationMinutes => duration + addDuration;
 
   factory AppointmentServiceApi.fromJson(Map<String, dynamic> json) {
+    final rawService = json['service'];
+    int? parsedServiceId;
+    if (rawService is num) {
+      parsedServiceId = rawService.toInt();
+    } else if (rawService is Map<String, dynamic>) {
+      parsedServiceId = (rawService['id'] as num?)?.toInt();
+    }
     return AppointmentServiceApi(
+      id: (json['id'] as num?)?.toInt(),
+      serviceId: parsedServiceId,
       name: json['name'] as String?,
       datetime: json['datetime'] as String?,
       duration: (json['duration'] as num?)?.toInt() ?? 0,
