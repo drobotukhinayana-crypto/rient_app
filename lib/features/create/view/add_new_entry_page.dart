@@ -1,6 +1,7 @@
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/services/local_storage.dart';
+import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
@@ -133,6 +135,16 @@ class _CreateAppointmentDraft {
       'has_edited_services': false,
       'branch': branchId,
       'captcha': 'dummy',
+    };
+  }
+
+  Map<String, dynamic> toUpdateRequestBody({int? overrideClientId}) {
+    return {
+      'services': services.map((service) => service.toJson()).toList(),
+      'status': status,
+      'worker': workerId,
+      'branch': branchId,
+      'client': overrideClientId ?? clientId,
     };
   }
 }
@@ -2170,6 +2182,21 @@ class _BottomActionsBar extends ConsumerWidget {
 
   String _formatMoney(double value) => '${value.round()}₽';
   String _formatDiscount(double value) => '${value.round()}%';
+  String _extractErrorMessage(Object error) {
+    if (error is CustomException) {
+      final caused = error.causedError;
+      if (caused is DioException) {
+        final data = caused.response?.data;
+        if (data is Map<String, dynamic>) return data.toString();
+        if (data is List<dynamic>) return data.toString();
+        if (data is String && data.trim().isNotEmpty) return data;
+      }
+      if (error.message != null && error.message!.trim().isNotEmpty) {
+        return error.message!;
+      }
+    }
+    return error.toString();
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2210,7 +2237,9 @@ class _BottomActionsBar extends ConsumerWidget {
           }
           await ref.read(appointmentsServiceProvider).updateAppointment(
             appointmentId: appointmentId,
-            payload: draft.toRequestBody(overrideClientId: resolvedClientId),
+            payload: draft.toUpdateRequestBody(
+              overrideClientId: resolvedClientId,
+            ),
           );
           createdId = appointmentId;
         } else {
@@ -2270,14 +2299,14 @@ class _BottomActionsBar extends ConsumerWidget {
             );
           }
         }
-      } catch (_) {
+      } catch (e) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               isEditMode
-                  ? 'Не удалось обновить запись'
-                  : 'Не удалось создать запись',
+                  ? 'Не удалось обновить запись: ${_extractErrorMessage(e)}'
+                  : 'Не удалось создать запись: ${_extractErrorMessage(e)}',
             ),
           ),
         );
