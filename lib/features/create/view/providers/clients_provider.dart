@@ -13,8 +13,8 @@ String _normalizePhoneSearch(String raw) {
   return digitsOnly;
 }
 
-final clientsByPhoneSearchProvider =
-    FutureProvider.family<List<ClientItem>, String>((ref, phoneQuery) async {
+final clientsByPhoneSearchProvider = FutureProvider.autoDispose
+    .family<List<ClientItem>, String>((ref, phoneQuery) async {
       final query = _normalizePhoneSearch(phoneQuery);
       if (query.isEmpty) return const [];
       final service = ref.watch(clientsServiceProvider);

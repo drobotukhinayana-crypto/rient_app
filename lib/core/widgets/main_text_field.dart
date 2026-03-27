@@ -19,6 +19,7 @@ class MainTextField extends ConsumerStatefulWidget {
     this.canEdit = true,
     this.label,
     this.onChanged,
+    this.onCleared,
     this.inputFormatters,
     this.borderRadius,
   });
@@ -32,6 +33,7 @@ class MainTextField extends ConsumerStatefulWidget {
   final bool canEdit;
   final String? label;
   final void Function(String value)? onChanged;
+  final VoidCallback? onCleared;
   final List<TextInputFormatter>? inputFormatters;
   final BorderRadius? borderRadius;
 
@@ -76,7 +78,10 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
           ),
           if (showClose)
             GestureDetector(
-              onTap: () => widget.controller.clear(),
+              onTap: () {
+                widget.controller.clear();
+                widget.onCleared?.call();
+              },
               child: Padding(
                 padding: const EdgeInsets.only(right: 16),
                 child: Image.asset(AppImages.close),
@@ -87,7 +92,10 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
     }
     if (showClose) {
       return GestureDetector(
-        onTap: () => widget.controller.clear(),
+        onTap: () {
+          widget.controller.clear();
+          widget.onCleared?.call();
+        },
         child: Image.asset(AppImages.close),
       );
     }

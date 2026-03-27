@@ -1036,6 +1036,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       clientsByPhoneSearchProvider(_phoneSearchQuery),
     );
     final clientsByPhone = clientsAsync.value ?? const <ClientItem>[];
+    final shouldShowClientCommentField =
+        _selectedClient == null ||
+        ((_selectedClient?.commentText ?? '').trim().isNotEmpty);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -1108,11 +1111,26 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   label: 'Телефон',
                   hintText: 'Телефон',
                   inputFormatters: [_phoneMaskFormatter],
+                  onCleared: () {
+                    setState(() {
+                      _phoneSearchQuery = '';
+                      _showClientSuggestions = false;
+                      _selectedClient = null;
+                      _firstNameController.clear();
+                      _lastNameController.clear();
+                      _commentClientController.clear();
+                    });
+                  },
                   onChanged: (value) {
                     setState(() {
                       _phoneSearchQuery = value;
                       _showClientSuggestions = value.trim().isNotEmpty;
                       _selectedClient = null;
+                      if (value.trim().isEmpty) {
+                        _firstNameController.clear();
+                        _lastNameController.clear();
+                        _commentClientController.clear();
+                      }
                     });
                   },
                 ),
@@ -1226,38 +1244,40 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
                 Gap(24),
 
-                // Комментарий к клиенту
-                GestureDetector(
-                  onTap: () {
-                    setState(
-                      () =>
-                          _isCommentClientExpanded = !_isCommentClientExpanded,
-                    );
-                  },
-                  behavior: HitTestBehavior.opaque,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Комментарий к клиенту', style: AppFonts.c1Medium),
-                      Image.asset(
-                        _isCommentClientExpanded
-                            ? AppImages.arrowOutlinedDown
-                            : AppImages.arrowOutlinedTop,
-                      ),
-                    ],
+                if (shouldShowClientCommentField) ...[
+                  // Комментарий к клиенту
+                  GestureDetector(
+                    onTap: () {
+                      setState(
+                        () =>
+                            _isCommentClientExpanded = !_isCommentClientExpanded,
+                      );
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Комментарий к клиенту', style: AppFonts.c1Medium),
+                        Image.asset(
+                          _isCommentClientExpanded
+                              ? AppImages.arrowOutlinedDown
+                              : AppImages.arrowOutlinedTop,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                if (_isCommentClientExpanded) ...[
+                  if (_isCommentClientExpanded) ...[
+                    Gap(16),
+                    MainTextField(
+                      controller: _commentClientController,
+                      hintText: 'Введите комментарий',
+                      maxLines: 3,
+                      isMultiline: true,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ],
                   Gap(16),
-                  MainTextField(
-                    controller: _commentClientController,
-                    hintText: 'Введите комментарий',
-                    maxLines: 3,
-                    isMultiline: true,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
                 ],
-                Gap(16),
               ],
             ),
           ),
@@ -2058,6 +2078,8 @@ class _BottomActionsBar extends ConsumerWidget {
             status: draft.status,
           );
           resolvedClientId = createdClient.id;
+          ref.invalidate(clientsByPhoneSearchProvider);
+          ref.invalidate(clientsByPhoneSearchProvider(draft.clientPhone));
         }
         int? createdId;
         if (isEditMode) {
