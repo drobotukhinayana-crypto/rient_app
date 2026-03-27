@@ -31,10 +31,12 @@ class ClientItem {
     required this.lastName,
     required this.phone,
     required this.status,
+    required this.reliabilityFactor,
     required this.balance,
     required this.numberOfVisits,
     required this.discount,
     required this.transactionsSum,
+    required this.commentText,
   });
 
   factory ClientItem.fromJson(Map<String, dynamic> json) {
@@ -44,10 +46,12 @@ class ClientItem {
       lastName: json['last_name'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
       status: json['status'] as int? ?? 0,
+      reliabilityFactor: (json['reliability_factor'] as num?)?.toDouble() ?? 0,
       balance: (json['balance'] as num?)?.toDouble() ?? 0,
       numberOfVisits: json['number_of_visits'] as int? ?? 0,
       discount: (json['discount'] as num?)?.toDouble() ?? 0,
       transactionsSum: (json['transactions_sum'] as num?)?.toDouble() ?? 0,
+      commentText: (json['comment'] as Map<String, dynamic>?)?['text'] as String?,
     );
   }
 
@@ -56,8 +60,10 @@ class ClientItem {
   final String lastName;
   final String phone;
   final int status;
+  final double reliabilityFactor;
   final double balance;
   final int numberOfVisits;
   final double discount;
   final double transactionsSum;
+  final String? commentText;
 }

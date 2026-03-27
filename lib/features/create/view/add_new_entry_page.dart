@@ -1,4 +1,5 @@
 import 'package:dropdown_button2/dropdown_button2.dart';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -399,6 +400,23 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     _phoneSearchQuery = _phoneController.text;
     _firstNameController.text = appointment.client?.firstName ?? '';
     _lastNameController.text = appointment.client?.lastName ?? '';
+    final initialClient = appointment.client;
+    if (initialClient != null) {
+      _selectedClient = ClientItem(
+        id: initialClient.id,
+        firstName: initialClient.firstName ?? '',
+        lastName: initialClient.lastName ?? '',
+        phone: initialClient.phone ?? '',
+        status: 0,
+        reliabilityFactor: 0,
+        balance: 0,
+        numberOfVisits: 0,
+        discount: 0,
+        transactionsSum: 0,
+        commentText: null,
+      );
+      unawaited(_loadSelectedClientDetails(initialClient.id));
+    }
 
     final parsedDate = DateTime.tryParse(appointment.datetime);
     if (parsedDate != null) {
@@ -412,6 +430,28 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             ? [_ServiceBlockState()]
             : appointment.services.map(_createInitialServiceBlock),
       );
+  }
+
+  Future<void> _loadSelectedClientDetails(int clientId) async {
+    try {
+      final response = await ref.read(clientsServiceProvider).getClients(
+        search: _phoneSearchQuery,
+      );
+      ClientItem? fullClient;
+      for (final item in response.results) {
+        if (item.id == clientId) {
+          fullClient = item;
+          break;
+        }
+      }
+      if (fullClient == null || !mounted) return;
+      setState(() {
+        _selectedClient = fullClient;
+        _commentClientController.text = fullClient!.commentText ?? '';
+      });
+    } catch (_) {
+      // Игнорируем ошибку подгрузки деталей: форма редактирования должна оставаться рабочей.
+    }
   }
 
   int _statusToIndex(int status) {
@@ -1110,6 +1150,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                           clientsByPhone[i].firstName;
                                       _lastNameController.text =
                                           clientsByPhone[i].lastName;
+                                      _commentClientController.text =
+                                          clientsByPhone[i].commentText ?? '';
                                       _phoneSearchQuery =
                                           clientsByPhone[i].phone;
                                       _showClientSuggestions = false;
@@ -1233,7 +1275,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                               Text('КНК', style: AppFonts.c1Medium),
                               Gap(8),
                               Text(
-                                _selectedClient!.status.toString(),
+                                _selectedClient!.reliabilityFactor.toString(),
                                 style: AppFonts.b1Medium.copyWith(
                                   color: AppColors.mainAccent,
                                 ),
