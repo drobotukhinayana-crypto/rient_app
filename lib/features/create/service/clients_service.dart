@@ -49,4 +49,48 @@ class ClientsService {
       throw CustomException(causedError: e);
     }
   }
+
+  Future<ClientItem> createClient({
+    required String phone,
+    required String firstName,
+    required String lastName,
+    int? status,
+  }) async {
+    final organizationId = ref.read(organizationIdProvider);
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      throw CustomException(causedError: Exception('Token is missing'));
+    }
+
+    final url = ApiConsts().createUrl('clients/');
+    final payload = <String, dynamic>{
+      'organization': organizationId,
+      'phone': phone,
+      'first_name': firstName,
+      'last_name': lastName,
+      if (status != null) 'status': status,
+    };
+
+    try {
+      final response = await Dio().post<Map<String, dynamic>>(
+        url,
+        data: payload,
+        options: Options(
+          headers: {
+            'Authorization': 'JWT $token',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+      if ((response.statusCode == 201 || response.statusCode == 200) &&
+          response.data != null) {
+        return ClientItem.fromJson(response.data!);
+      }
+      throw CustomException(
+        causedError: Exception('Failed to create client: ${response.statusCode}'),
+      );
+    } catch (e) {
+      throw CustomException(causedError: e);
+    }
+  }
 }

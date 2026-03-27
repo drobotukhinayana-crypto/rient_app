@@ -126,11 +126,13 @@ class AppointmentClientApi {
     required this.id,
     required this.firstName,
     required this.lastName,
+    required this.phone,
   });
 
   final int id;
   final String? firstName;
   final String? lastName;
+  final String? phone;
 
   String get fullName => '${firstName ?? ''} ${lastName ?? ''}'.trim();
 
@@ -139,6 +141,7 @@ class AppointmentClientApi {
       id: (json['id'] as num?)?.toInt() ?? 0,
       firstName: json['first_name'] as String?,
       lastName: json['last_name'] as String?,
+      phone: json['phone'] as String?,
     );
   }
 }

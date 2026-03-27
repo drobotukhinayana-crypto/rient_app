@@ -14,6 +14,7 @@ import 'package:rient_app/core/widgets/main_text_field.dart';
 import 'package:rient_app/features/create/data/models/clients_api.dart';
 import 'package:rient_app/features/create/data/models/worker_services_api.dart';
 import 'package:rient_app/features/create/view/components/client_status_selector_widget.dart';
+import 'package:rient_app/features/create/service/clients_service.dart';
 import 'package:rient_app/features/create/view/providers/clients_provider.dart';
 import 'package:rient_app/features/create/view/providers/worker_services_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
@@ -44,9 +45,12 @@ class _CreateAppointmentDraft {
     required this.discountPercent,
     required this.services,
     required this.startDateTime,
+    required this.clientPhone,
+    required this.clientFirstName,
+    required this.clientLastName,
   });
 
-  final int clientId;
+  final int? clientId;
   final int workerId;
   final int branchId;
   final int status;
@@ -55,6 +59,9 @@ class _CreateAppointmentDraft {
   final int discountPercent;
   final List<_CreateAppointmentServiceDraft> services;
   final DateTime startDateTime;
+  final String clientPhone;
+  final String clientFirstName;
+  final String clientLastName;
 
   @override
   bool operator ==(Object other) {
@@ -68,6 +75,9 @@ class _CreateAppointmentDraft {
             other.totalSum == totalSum &&
             other.discountPercent == discountPercent &&
             other.startDateTime == startDateTime &&
+            other.clientPhone == clientPhone &&
+            other.clientFirstName == clientFirstName &&
+            other.clientLastName == clientLastName &&
             listEquals(other.services, services));
   }
 
@@ -81,13 +91,16 @@ class _CreateAppointmentDraft {
     totalSum,
     discountPercent,
     startDateTime,
+    clientPhone,
+    clientFirstName,
+    clientLastName,
     Object.hashAll(services),
   );
 
-  Map<String, dynamic> toRequestBody() {
+  Map<String, dynamic> toRequestBody({int? overrideClientId}) {
     return {
       'id': null,
-      'client': clientId,
+      'client': overrideClientId ?? clientId,
       'comment': {'id': null, 'user': null, 'text': commentText},
       'services': services.map((service) => service.toJson()).toList(),
       'worker': workerId,
@@ -128,8 +141,7 @@ class _CreateAppointmentServiceDraft {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(serviceId, dateTime, durationMinutes, price);
+  int get hashCode => Object.hash(serviceId, dateTime, durationMinutes, price);
 
   Map<String, dynamic> toJson() {
     return {
@@ -153,6 +165,25 @@ class AddNewEntryPage extends StatelessWidget {
   static const path = '/add_new_entry_page';
   final AppointmentApi? initialAppointment;
   final bool isEditMode;
+
+  void _invalidateScheduleCaches(BuildContext context) {
+    final container = ProviderScope.containerOf(context, listen: false);
+    final selectedDate = container.read(selectedScheduleDateProvider);
+    final normalizedDate = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
+    final weekKey = scheduleWeekKey(normalizedDate);
+    final monthKey = scheduleMonthKey(
+      DateTime(normalizedDate.year, normalizedDate.month, 1),
+    );
+
+    container.invalidate(scheduleAppointmentsProvider);
+    container.invalidate(availableWorkersForDateProvider(normalizedDate));
+    container.invalidate(scheduleStatisticsForWeekProvider(weekKey));
+    container.invalidate(scheduleStatisticsForMonthProvider(monthKey));
+  }
 
   void _showDeleteDialog(BuildContext context) {
     showDialog<void>(
@@ -261,7 +292,10 @@ class AddNewEntryPage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             GestureDetector(
-              onTap: () => context.pop(),
+              onTap: () {
+                _invalidateScheduleCaches(context);
+                context.pop(true);
+              },
               child: Image.asset(AppImages.back),
             ),
             Text(
@@ -352,6 +386,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     _selectedSpecialistId = appointment.worker?.id;
     _selectedStatusIndex = _statusToIndex(appointment.status);
     _commentVisitController.text = appointment.commentText ?? '';
+    _phoneController.text = appointment.client?.phone ?? '';
+    _phoneSearchQuery = _phoneController.text;
     _firstNameController.text = appointment.client?.firstName ?? '';
     _lastNameController.text = appointment.client?.lastName ?? '';
 
@@ -421,7 +457,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
   String _formatMoney(double value) => '${value.round()}₽';
 
-  DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+  DateTime _dateOnly(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
 
   DateTime? _dateTimeFromTimeOfDayString({
     required DateTime date,
@@ -448,7 +485,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }) {
     final result = <_DateTimeRange>[];
     for (final appointment in appointments) {
-      if (ignoreAppointmentId != null && appointment.id == ignoreAppointmentId) {
+      if (ignoreAppointmentId != null &&
+          appointment.id == ignoreAppointmentId) {
         continue;
       }
       if (appointment.services.isEmpty) continue;
@@ -501,8 +539,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       date: date,
       value: shift.timeStart,
     );
-    final shiftEnd = _dateTimeFromTimeOfDayString(date: date, value: shift.timeEnd);
-    if (shiftStart == null || shiftEnd == null || !shiftEnd.isAfter(shiftStart)) {
+    final shiftEnd = _dateTimeFromTimeOfDayString(
+      date: date,
+      value: shift.timeEnd,
+    );
+    if (shiftStart == null ||
+        shiftEnd == null ||
+        !shiftEnd.isAfter(shiftStart)) {
       return const <String>[];
     }
 
@@ -516,8 +559,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       date: date,
       value: shift.breakStart,
     );
-    final breakEnd = _dateTimeFromTimeOfDayString(date: date, value: shift.breakEnd);
-    if (breakStart != null && breakEnd != null && breakEnd.isAfter(breakStart)) {
+    final breakEnd = _dateTimeFromTimeOfDayString(
+      date: date,
+      value: shift.breakEnd,
+    );
+    if (breakStart != null &&
+        breakEnd != null &&
+        breakEnd.isAfter(breakStart)) {
       busyRanges.add(_DateTimeRange(start: breakStart, end: breakEnd));
     }
     for (var i = 0; i < _services.length; i++) {
@@ -530,7 +578,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         value: selectedTime,
       );
       if (blockStart == null) continue;
-      final blockDuration = block.durationMinutes <= 0 ? 10 : block.durationMinutes;
+      final blockDuration = block.durationMinutes <= 0
+          ? 10
+          : block.durationMinutes;
       final blockEnd = blockStart.add(Duration(minutes: blockDuration));
       if (!blockEnd.isAfter(blockStart)) continue;
       busyRanges.add(_DateTimeRange(start: blockStart, end: blockEnd));
@@ -586,8 +636,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     required double totalSum,
     required double selectedClientDiscount,
   }) {
-    final client = _selectedClient;
-    if (client == null || selectedSpecialistId == null || branchId == 0) {
+    if (selectedSpecialistId == null || branchId == 0) {
       return null;
     }
 
@@ -595,10 +644,15 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     for (final block in _services) {
       final selectedServiceId = block.selectedServiceId;
       final selectedTime = block.selectedTime;
-      if (selectedServiceId == null || selectedTime == null || selectedTime.isEmpty) {
+      if (selectedServiceId == null ||
+          selectedTime == null ||
+          selectedTime.isEmpty) {
         continue;
       }
-      final workerService = _selectedWorkerService(workerServices, selectedServiceId);
+      final workerService = _selectedWorkerService(
+        workerServices,
+        selectedServiceId,
+      );
       if (workerService == null) continue;
       final startTime = _dateTimeFromTimeOfDayString(
         date: _dateOnly(_selectedDate),
@@ -609,7 +663,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         _CreateAppointmentServiceDraft(
           serviceId: workerService.id,
           dateTime: startTime,
-          durationMinutes: block.durationMinutes <= 0 ? 10 : block.durationMinutes,
+          durationMinutes: block.durationMinutes <= 0
+              ? 10
+              : block.durationMinutes,
           price: workerService.price,
         ),
       );
@@ -619,7 +675,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     completeServices.sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
     return _CreateAppointmentDraft(
-      clientId: client.id,
+      clientId: _selectedClient?.id,
       workerId: selectedSpecialistId,
       branchId: branchId,
       status: _selectedStatusIndex,
@@ -628,6 +684,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       discountPercent: selectedClientDiscount.round(),
       services: completeServices,
       startDateTime: completeServices.first.dateTime,
+      clientPhone: _phoneController.text.trim(),
+      clientFirstName: _firstNameController.text.trim(),
+      clientLastName: _lastNameController.text.trim(),
     );
   }
 
@@ -880,7 +939,15 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       totalSum: selectedServicesTotal,
       selectedClientDiscount: selectedClientDiscount,
     );
-    final canSave = draft != null;
+    final hasCompleteService = _services.any(
+      (service) =>
+          service.selectedServiceId != null &&
+          (service.selectedTime?.isNotEmpty ?? false),
+    );
+    final canSave =
+        selectedSpecialistId != null &&
+        branchId != 0 &&
+        hasCompleteService;
     final canSaveNotifier = ref.read(createEntryCanSaveProvider.notifier);
     if (canSaveNotifier.state != canSave) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1617,7 +1684,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     if (selectedSpecialistId == null)
                       Text(
                         'Сначала выберите специалиста',
-                        style: AppFonts.c1Regular.copyWith(color: AppColors.grey),
+                        style: AppFonts.c1Regular.copyWith(
+                          color: AppColors.grey,
+                        ),
                       )
                     else if (selectedShiftAsync.isLoading ||
                         specialistAppointmentsAsync.isLoading)
@@ -1688,7 +1757,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                   selectedTime: _services[index].selectedTime,
                                   onSelect: (time) {
                                     setState(
-                                      () => _services[index].selectedTime = time,
+                                      () =>
+                                          _services[index].selectedTime = time,
                                     );
                                   },
                                 ),
@@ -1881,26 +1951,73 @@ class _BottomActionsBar extends ConsumerWidget {
     Future<void> createAppointment({required bool closeAfterSave}) async {
       if (isEditMode) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Создание доступно только для новой записи')),
+          const SnackBar(
+            content: Text('Создание доступно только для новой записи'),
+          ),
         );
         return;
       }
       if (!canSave || draft == null || isSaving) return;
       ref.read(createEntrySavingProvider.notifier).state = true;
       try {
-        await ref
+        var resolvedClientId = draft.clientId;
+        if (resolvedClientId == null && draft.clientPhone.isNotEmpty) {
+          final createdClient = await ref.read(clientsServiceProvider).createClient(
+            phone: draft.clientPhone,
+            firstName: draft.clientFirstName,
+            lastName: draft.clientLastName,
+            status: draft.status,
+          );
+          resolvedClientId = createdClient.id;
+        }
+        final created = await ref
             .read(appointmentsServiceProvider)
-            .createAppointment(payload: draft.toRequestBody());
+            .createAppointment(
+              payload: draft.toRequestBody(overrideClientId: resolvedClientId),
+            );
+        final createdId = created.isNotEmpty
+            ? (created.first['id'] as num?)?.toInt()
+            : null;
         ref.invalidate(scheduleAppointmentsProvider);
         ref.invalidate(availableWorkersForDateProvider);
         ref.invalidate(scheduleStatisticsForWeekProvider);
         ref.invalidate(scheduleStatisticsForMonthProvider);
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Запись успешно создана')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Запись успешно создана')));
         if (closeAfterSave) {
           context.pop(true);
+        } else if (createdId != null) {
+          final dayStart = DateTime(
+            draft.startDateTime.year,
+            draft.startDateTime.month,
+            draft.startDateTime.day,
+          );
+          final dayEnd = dayStart
+              .add(const Duration(days: 1))
+              .subtract(const Duration(milliseconds: 1));
+          final dayAppointments = await ref
+              .read(appointmentsServiceProvider)
+              .getAppointments(
+                branchId: draft.branchId,
+                workerId: draft.workerId,
+                dateTimeGte: dayStart,
+                dateTimeLte: dayEnd,
+              );
+          AppointmentApi? createdAppointment;
+          for (final item in dayAppointments.results) {
+            if (item.id == createdId) {
+              createdAppointment = item;
+              break;
+            }
+          }
+          if (createdAppointment != null && context.mounted) {
+            context.pushReplacementNamed(
+              AddNewEntryPage.name,
+              extra: createdAppointment,
+            );
+          }
         }
       } catch (_) {
         if (!context.mounted) return;
