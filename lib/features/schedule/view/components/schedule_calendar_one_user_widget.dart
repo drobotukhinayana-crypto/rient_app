@@ -333,6 +333,11 @@ class _ScheduleCalendarOneUserWidgetState
     }
 
     final serviceName = a.subject;
+    final isVeryCompact = bounds.height < 44 || bounds.width < 120;
+    final isCompact = bounds.height < 58 || bounds.width < 150;
+    final timeFontSize = isVeryCompact ? 9.0 : (isCompact ? 10.0 : 11.0);
+    final serviceFontSize = isVeryCompact ? 10.0 : (isCompact ? 11.0 : 12.0);
+    final commentIconSize = isVeryCompact ? 14.0 : (isCompact ? 16.0 : 18.0);
 
     return GestureDetector(
       onTap: item == null || widget.onAppointmentTap == null
@@ -366,43 +371,61 @@ class _ScheduleCalendarOneUserWidgetState
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                '$timeStartLine$timeEndLine',
-                                maxLines: 1,
-                                overflow: TextOverflow.clip,
-                                textAlign: TextAlign.center,
-                                style: AppFonts.c1Medium.copyWith(
-                                  color: accentColor,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.1,
-                                ),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.topLeft,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: constraints.maxWidth,
                               ),
-                              if (item?.hasComment == true) ...[
-                                Image.asset(
-                                  AppImages.comment,
-                                  width: 18,
-                                  height: 18,
-                                  color: accentColor,
-                                ),
-                              ],
-                            ],
-                          ),
-
-                          Text(
-                            serviceName,
-                            style: AppFonts.c1Regular.copyWith(
-                              color: accentColor,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          '$timeStartLine$timeEndLine',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.start,
+                                          style: AppFonts.c1Medium.copyWith(
+                                            color: accentColor,
+                                            fontSize: timeFontSize,
+                                            fontWeight: FontWeight.w600,
+                                            height: 1.1,
+                                          ),
+                                        ),
+                                      ),
+                                      if (item?.hasComment == true) ...[
+                                        const SizedBox(width: 4),
+                                        Image.asset(
+                                          AppImages.comment,
+                                          width: commentIconSize,
+                                          height: commentIconSize,
+                                          color: accentColor,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  Text(
+                                    serviceName,
+                                    style: AppFonts.c1Regular.copyWith(
+                                      color: accentColor,
+                                      fontSize: serviceFontSize,
+                                      height: 1.1,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                          );
+                        },
                       ),
                     ),
                   ],
