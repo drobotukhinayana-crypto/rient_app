@@ -1,5 +1,6 @@
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
@@ -34,6 +36,7 @@ final createEntrySavingProvider = StateProvider<bool>((ref) => false);
 final createEntryDraftProvider = StateProvider<_CreateAppointmentDraft?>(
   (ref) => null,
 );
+const _rememberedClientStorageKey = 'create_entry_remembered_client';
 
 class _CreateAppointmentDraft {
   const _CreateAppointmentDraft({
@@ -294,6 +297,35 @@ class AddNewEntryPage extends StatelessWidget {
     );
   }
 
+  Future<void> _rememberClientFromDraft(BuildContext context) async {
+    final container = ProviderScope.containerOf(context, listen: false);
+    final draft = container.read(createEntryDraftProvider);
+    final phone = draft?.clientPhone.trim() ?? '';
+    final firstName = draft?.clientFirstName.trim() ?? '';
+    final lastName = draft?.clientLastName.trim() ?? '';
+    if (phone.isEmpty || firstName.isEmpty || lastName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Заполните телефон, имя и фамилию клиента')),
+      );
+      return;
+    }
+    final payload = <String, dynamic>{
+      'id': draft?.clientId,
+      'phone': phone,
+      'first_name': firstName,
+      'last_name': lastName,
+      'comment_text': draft?.clientCommentText ?? '',
+      'status': draft?.status ?? 0,
+    };
+    await container
+        .read(localStorageProvider)
+        .saveString(_rememberedClientStorageKey, jsonEncode(payload));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Клиент запомнен')));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -329,6 +361,9 @@ class AddNewEntryPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               onSelected: (value) {
+                if (value == 'remember') {
+                  unawaited(_rememberClientFromDraft(context));
+                }
                 if (value == 'delete' &&
                     (isEditMode || initialAppointment != null)) {
                   _showDeleteDialog(context);
@@ -390,11 +425,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   int? _selectedSpecialistId;
   int _selectedStatusIndex = 1;
   DateTime _selectedDate = DateTime.now();
+  String? _rememberedClientPhone;
 
   @override
   void initState() {
     super.initState();
     _applyInitialAppointment();
+    unawaited(_applyRememberedClientForNewEntry());
   }
 
   void _applyInitialAppointment() {
@@ -438,6 +475,57 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             ? [_ServiceBlockState()]
             : appointment.services.map(_createInitialServiceBlock),
       );
+  }
+
+  Future<void> _applyRememberedClientForNewEntry() async {
+    if (widget.initialAppointment != null) return;
+    final raw = await ref
+        .read(localStorageProvider)
+        .getString(_rememberedClientStorageKey);
+    if (raw == null || raw.isEmpty || !mounted) return;
+    try {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      final phone = (json['phone'] as String? ?? '').trim();
+      final firstName = (json['first_name'] as String? ?? '').trim();
+      final lastName = (json['last_name'] as String? ?? '').trim();
+      final commentText = (json['comment_text'] as String? ?? '').trim();
+      final status = (json['status'] as num?)?.toInt() ?? 0;
+      final id = (json['id'] as num?)?.toInt();
+      if (phone.isEmpty || firstName.isEmpty || lastName.isEmpty) return;
+      setState(() {
+        _rememberedClientPhone = phone;
+        _phoneController.text = phone;
+        _phoneSearchQuery = phone;
+        _showClientSuggestions = false;
+        _firstNameController.text = firstName;
+        _lastNameController.text = lastName;
+        _commentClientController.text = commentText;
+        _selectedStatusIndex = status;
+        _selectedClient = ClientItem(
+          id: id ?? 0,
+          firstName: firstName,
+          lastName: lastName,
+          phone: phone,
+          status: status,
+          reliabilityFactor: 0,
+          balance: 0,
+          numberOfVisits: 0,
+          discount: 0,
+          transactionsSum: 0,
+          commentText: commentText.isEmpty ? null : commentText,
+        );
+      });
+    } catch (_) {
+      // Ignore broken storage payload.
+    }
+  }
+
+  Future<void> _clearRememberedClientIfChanged(String nextPhone) async {
+    final rememberedPhone = _rememberedClientPhone;
+    if (rememberedPhone == null) return;
+    if (nextPhone.trim() == rememberedPhone.trim()) return;
+    _rememberedClientPhone = null;
+    await ref.read(localStorageProvider).removeValue(_rememberedClientStorageKey);
   }
 
   Future<void> _loadSelectedClientDetails(int clientId) async {
@@ -1112,6 +1200,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   hintText: 'Телефон',
                   inputFormatters: [_phoneMaskFormatter],
                   onCleared: () {
+                    unawaited(_clearRememberedClientIfChanged(''));
                     setState(() {
                       _phoneSearchQuery = '';
                       _showClientSuggestions = false;
@@ -1122,6 +1211,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     });
                   },
                   onChanged: (value) {
+                    unawaited(_clearRememberedClientIfChanged(value));
                     setState(() {
                       _phoneSearchQuery = value;
                       _showClientSuggestions = value.trim().isNotEmpty;
