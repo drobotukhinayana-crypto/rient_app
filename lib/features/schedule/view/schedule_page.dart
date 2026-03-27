@@ -915,6 +915,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                             _forceRefreshScheduleScreen();
                                           }
                                         },
+                                        onEmptySlotTap: (dateTime) {
+                                          context.pushNamed(
+                                            AddNewEntryPage.name,
+                                            extra: AddNewEntryInitialData(
+                                              workerId: selectedSpecialistId,
+                                              startDateTime: dateTime,
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ),
                                   ],
