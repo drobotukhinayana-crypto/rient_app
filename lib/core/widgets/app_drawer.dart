@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/language_dropdown_pill.dart';
+import 'package:rient_app/core/widgets/logout_confirm_dialog.dart';
 import 'package:rient_app/core/widgets/theme_switch_pill.dart';
 import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
@@ -187,7 +188,7 @@ class AppDrawer extends ConsumerWidget {
               iconAsset: AppImages.logoutBurger,
               label: 'Выйти из аккаунта',
               labelStyle: AppFonts.c1Regular.copyWith(color: Colors.red),
-              onTap: () {},
+              onTap: () => showLogoutConfirmDialog(context, ref),
             ),
             Gap(12),
             Center(
