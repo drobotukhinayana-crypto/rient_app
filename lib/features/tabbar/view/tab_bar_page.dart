@@ -73,9 +73,12 @@ class _TabBarPageState extends ConsumerState<TabBarPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return RestoreSelectedBranch(
       child: Scaffold(
-        backgroundColor: AppColors.tabBarScreenBackground,
+        backgroundColor: isDark
+            ? AppColors.secondaryDarkLight
+            : AppColors.tabBarScreenBackground,
         body: widget.navigationShell,
         bottomNavigationBar: _NavbarWidget(
           currentIndex: _navbarIndexFromShell,
@@ -93,63 +96,70 @@ class _NavbarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final safeArea = MediaQuery.of(context).viewPadding.bottom;
+    final screenBackground = isDark
+        ? AppColors.secondaryDarkLight
+        : AppColors.tabBarScreenBackground;
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: Colors.white,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Gap(10),
-          Row(
-            children: [
-              Expanded(
-                child: _NavbarIcon(
-                  isActive: currentIndex == 0,
-                  imageAsset: AppImages.homeTab,
-                  title: 'Главная',
-                  onTap: () => onTabTapped(0),
+      color: screenBackground,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          color: isDark ? AppColors.primaryWhiteDark : AppColors.secondaryLight,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Gap(10),
+            Row(
+              children: [
+                Expanded(
+                  child: _NavbarIcon(
+                    isActive: currentIndex == 0,
+                    imageAsset: AppImages.homeTab,
+                    title: 'Главная',
+                    onTap: () => onTabTapped(0),
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _NavbarIcon(
-                  isActive: currentIndex == 1,
-                  imageAsset: AppImages.calendarTab,
-                  title: 'Расписание',
-                  onTap: () => onTabTapped(1),
-                  hasCartCountLabel: true,
+                Expanded(
+                  child: _NavbarIcon(
+                    isActive: currentIndex == 1,
+                    imageAsset: AppImages.calendarTab,
+                    title: 'Расписание',
+                    onTap: () => onTabTapped(1),
+                    hasCartCountLabel: true,
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _NavbarIcon(
-                  isActive: currentIndex == 2,
-                  imageAsset: AppImages.addTab,
-                  title: 'Создать',
-                  onTap: () => onTabTapped(2),
+                Expanded(
+                  child: _NavbarIcon(
+                    isActive: currentIndex == 2,
+                    imageAsset: AppImages.addTab,
+                    title: 'Создать',
+                    onTap: () => onTabTapped(2),
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _NavbarIcon(
-                  isActive: currentIndex == 3,
-                  imageAsset: AppImages.chatTab,
-                  title: 'Сообщения',
-                  onTap: () => onTabTapped(3),
+                Expanded(
+                  child: _NavbarIcon(
+                    isActive: currentIndex == 3,
+                    imageAsset: AppImages.chatTab,
+                    title: 'Сообщения',
+                    onTap: () => onTabTapped(3),
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _NavbarIcon(
-                  isActive: currentIndex == 4,
-                  imageAsset: AppImages.linkTab,
-                  title: 'Ссылка',
-                  onTap: () => onTabTapped(4),
+                Expanded(
+                  child: _NavbarIcon(
+                    isActive: currentIndex == 4,
+                    imageAsset: AppImages.linkTab,
+                    title: 'Ссылка',
+                    onTap: () => onTabTapped(4),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          Gap(safeArea),
-        ],
+              ],
+            ),
+            Gap(safeArea),
+          ],
+        ),
       ),
     );
   }
@@ -171,7 +181,13 @@ class _NavbarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = isActive ? AppColors.mainAccent : AppColors.tabbarGrey;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = AppColors.themeAccent(context);
+    final iconColor = isActive
+        ? accent
+        : isDark
+        ? AppColors.tabbarGreyDark
+        : AppColors.tabbarGrey;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,

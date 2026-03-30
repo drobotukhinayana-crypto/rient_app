@@ -19,8 +19,11 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.tabBarScreenBackground,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      backgroundColor: isDark
+          ? AppColors.secondaryDarkLight
+          : AppColors.tabBarScreenBackground,
       body: _BodyWidget(),
     );
   }
@@ -78,6 +81,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final statisticsAsync = ref.watch(statisticsProvider);
 
     return Column(
@@ -93,6 +97,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                 _expanded
                     ? AppImages.arrowOutlinedTop
                     : AppImages.arrowOutlinedDown,
+                color: AppColors.themeAccent(context),
               ),
             ],
           ),
@@ -131,7 +136,9 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                       // записей
                       Expanded(
                         child: DefaultContainerWidget(
-                          color: Colors.white,
+                          color: isDark
+                              ? AppColors.primaryWhiteDark
+                              : Colors.white,
                           hasShadow: false,
                           borderRadius: BorderRadius.circular(16),
                           child: Column(
@@ -142,7 +149,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                               Text(
                                 totalAppointments.toString(),
                                 style: AppFonts.h4Medium.copyWith(
-                                  color: AppColors.mainAccent,
+                                  color: AppColors.themeAccent(context),
                                 ),
                               ),
                             ],
@@ -154,7 +161,9 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                       // новых
                       Expanded(
                         child: DefaultContainerWidget(
-                          color: Colors.white,
+                          color: isDark
+                              ? AppColors.primaryWhiteDark
+                              : Colors.white,
                           hasShadow: false,
                           borderRadius: BorderRadius.circular(16),
                           child: Column(
@@ -165,7 +174,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                               Text(
                                 newCount.toString(),
                                 style: AppFonts.h4Medium.copyWith(
-                                  color: AppColors.mainAccent,
+                                  color: AppColors.themeAccent(context),
                                 ),
                               ),
                             ],
@@ -177,7 +186,9 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                       // отмененных
                       Expanded(
                         child: DefaultContainerWidget(
-                          color: Colors.white,
+                          color: isDark
+                              ? AppColors.primaryWhiteDark
+                              : Colors.white,
                           hasShadow: false,
                           borderRadius: BorderRadius.circular(16),
                           child: Column(
@@ -193,7 +204,9 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                               Text(
                                 cancelled.toString(),
                                 style: AppFonts.h4Medium.copyWith(
-                                  color: AppColors.red,
+                                  color: isDark
+                                      ? AppColors.redDark
+                                      : AppColors.red,
                                 ),
                               ),
                             ],
@@ -210,7 +223,9 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                         // доход
                         Expanded(
                           child: DefaultContainerWidget(
-                            color: Colors.white,
+                            color: isDark
+                                ? AppColors.primaryWhiteDark
+                                : Colors.white,
                             hasShadow: false,
                             borderRadius: BorderRadius.circular(16),
                             child: Column(
@@ -221,7 +236,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                                 Text(
                                   '${dayIncomeValue.toStringAsFixed(0)} ₽',
                                   style: AppFonts.h4Medium.copyWith(
-                                    color: AppColors.mainAccent,
+                                    color: AppColors.themeAccent(context),
                                   ),
                                 ),
                               ],
@@ -232,7 +247,9 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                         // к выплате
                         Expanded(
                           child: DefaultContainerWidget(
-                            color: Colors.white,
+                            color: isDark
+                                ? AppColors.primaryWhiteDark
+                                : Colors.white,
                             hasShadow: false,
                             borderRadius: BorderRadius.circular(16),
                             child: Column(
@@ -243,7 +260,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                                 Text(
                                   '${dayPayDueValue.toStringAsFixed(0)} ₽',
                                   style: AppFonts.h4Medium.copyWith(
-                                    color: AppColors.mainAccent,
+                                    color: AppColors.themeAccent(context),
                                   ),
                                 ),
                               ],

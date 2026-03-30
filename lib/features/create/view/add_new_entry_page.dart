@@ -1,7 +1,8 @@
-import 'package:dropdown_button2/dropdown_button2.dart';
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:dio/dio.dart';
+import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,17 +10,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
-import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
 import 'package:rient_app/features/create/data/models/clients_api.dart';
 import 'package:rient_app/features/create/data/models/worker_services_api.dart';
-import 'package:rient_app/features/create/view/components/client_status_selector_widget.dart';
 import 'package:rient_app/features/create/service/clients_service.dart';
+import 'package:rient_app/features/create/view/components/client_status_selector_widget.dart';
 import 'package:rient_app/features/create/view/providers/clients_provider.dart';
 import 'package:rient_app/features/create/view/providers/worker_services_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
@@ -30,6 +31,35 @@ import 'package:rient_app/features/schedule/view/providers/appointments_provider
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/resources/resources.dart';
+
+// Тема как на главной: фон экрана и поверхности.
+bool _entryIsDark(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark;
+
+Color _entryScaffoldBg(BuildContext context) => _entryIsDark(context)
+    ? AppColors.secondaryDarkLight
+    : AppColors.tabBarScreenBackground;
+
+/// «Белые» карточки: в тёмной теме — primaryWhiteDark, в светлой — primaryWhite.
+Color _entryCardSurface(BuildContext context) =>
+    _entryIsDark(context) ? AppColors.primaryWhiteDark : AppColors.primaryWhite;
+
+Color _entryAppBarSurface(BuildContext context) =>
+    _entryIsDark(context) ? AppColors.primaryWhiteDark : Colors.white;
+
+/// Вложенные контейнеры на карточках: в тёмной теме — secondaryDarkLight.
+Color _entryMutedFill(BuildContext context) => _entryIsDark(context)
+    ? AppColors.secondaryDarkLight
+    : AppColors.secondaryLight;
+
+Color _entryDivider(BuildContext context) => _entryIsDark(context)
+    ? AppColors.tetriaryLightDark
+    : AppColors.tetriaryLight;
+
+Color _entryAccent(BuildContext context) => AppColors.themeAccent(context);
+
+Color _entryPrimaryText(BuildContext context) =>
+    _entryIsDark(context) ? AppColors.primaryDarkDark : AppColors.primaryDark;
 
 final createEntryTotalPriceProvider = StateProvider<double>((ref) => 0);
 final createEntryDiscountProvider = StateProvider<double>((ref) => 0);
@@ -318,7 +348,7 @@ class AddNewEntryPage extends StatelessWidget {
                   onTap: () => Navigator.of(dialogContext).pop(),
                   isActive: !isDeleting,
                   color: const Color(0xff787880).withValues(alpha: 0.16),
-                  textColor: Colors.black,
+                  textColor: _entryPrimaryText(context),
                 ),
               ],
             ),
@@ -336,7 +366,9 @@ class AddNewEntryPage extends StatelessWidget {
     final lastName = draft?.clientLastName.trim() ?? '';
     if (phone.isEmpty || firstName.isEmpty || lastName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заполните телефон, имя и фамилию клиента')),
+        const SnackBar(
+          content: Text('Заполните телефон, имя и фамилию клиента'),
+        ),
       );
       return;
     }
@@ -359,13 +391,16 @@ class AddNewEntryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appBarSurface = _entryAppBarSurface(context);
+    final cardSurface = _entryCardSurface(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: AppColors.tabBarScreenBackground,
+      backgroundColor: _entryScaffoldBg(context),
       appBar: AppBar(
         automaticallyImplyLeading: false,
         elevation: 0,
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: appBarSurface,
+        surfaceTintColor: appBarSurface,
         toolbarHeight: 64,
         titleSpacing: 16,
         title: Row(
@@ -376,16 +411,22 @@ class AddNewEntryPage extends StatelessWidget {
                 _invalidateScheduleCaches(context);
                 context.pop(true);
               },
-              child: Image.asset(AppImages.back),
+              child: Image.asset(
+                _entryIsDark(context)
+                    ? AppImages.backButtonDark
+                    : AppImages.back,
+              ),
             ),
             Text(
               isEditMode || initialAppointment != null
                   ? 'Редактирование записи'
                   : 'Новая запись',
-              style: AppFonts.h4Medium,
+              style: AppFonts.h4Medium.copyWith(
+                color: _entryPrimaryText(context),
+              ),
             ),
             PopupMenuButton<String>(
-              color: Colors.white,
+              color: cardSurface,
               elevation: 4,
               offset: const Offset(0, 40),
               shape: RoundedRectangleBorder(
@@ -416,7 +457,7 @@ class AddNewEntryPage extends StatelessWidget {
                     ),
                   ),
               ],
-              child: Image.asset(AppImages.more),
+              child: Image.asset(isDark ? AppImages.moreDark : AppImages.more),
             ),
           ],
         ),
@@ -578,14 +619,16 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (rememberedPhone == null) return;
     if (nextPhone.trim() == rememberedPhone.trim()) return;
     _rememberedClientPhone = null;
-    await ref.read(localStorageProvider).removeValue(_rememberedClientStorageKey);
+    await ref
+        .read(localStorageProvider)
+        .removeValue(_rememberedClientStorageKey);
   }
 
   Future<void> _loadSelectedClientDetails(int clientId) async {
     try {
-      final response = await ref.read(clientsServiceProvider).getClients(
-        search: _phoneSearchQuery,
-      );
+      final response = await ref
+          .read(clientsServiceProvider)
+          .getClients(search: _phoneSearchQuery);
       ClientItem? fullClient;
       for (final item in response.results) {
         if (item.id == clientId) {
@@ -913,6 +956,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }
 
   Widget _buildTimeRows({
+    required BuildContext context,
     required List<String> slots,
     required String? selectedTime,
     required ValueChanged<String> onSelect,
@@ -926,6 +970,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
               for (var i = 0; i < rows[rowIndex].length; i++) ...[
                 Expanded(
                   child: _buildTimeChip(
+                    context,
                     rows[rowIndex][i],
                     isSelected: selectedTime == rows[rowIndex][i],
                     onTap: () => onSelect(rows[rowIndex][i]),
@@ -960,6 +1005,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }
 
   Widget _buildTimeChip(
+    BuildContext context,
     String time, {
     required bool isSelected,
     required VoidCallback onTap,
@@ -971,13 +1017,15 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.mainAccent : AppColors.secondaryLight,
+          color: isSelected ? _entryAccent(context) : _entryMutedFill(context),
           borderRadius: BorderRadius.circular(300),
         ),
         child: Text(
           time,
           style: AppFonts.c1Regular.copyWith(
-            color: isSelected ? Colors.white : AppColors.primaryDark,
+            color: isSelected
+                ? AppColors.primaryWhite
+                : _entryPrimaryText(context),
           ),
         ),
       ),
@@ -1167,9 +1215,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           (service.selectedTime?.isNotEmpty ?? false),
     );
     final canSave =
-        selectedSpecialistId != null &&
-        branchId != 0 &&
-        hasCompleteService;
+        selectedSpecialistId != null && branchId != 0 && hasCompleteService;
     final canSaveNotifier = ref.read(createEntryCanSaveProvider.notifier);
     if (canSaveNotifier.state != canSave) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1192,6 +1238,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         _selectedClient == null ||
         ((_selectedClient?.commentText ?? '').trim().isNotEmpty);
 
+    final cardSurface = _entryCardSurface(context);
+    final mutedFill = _entryMutedFill(context);
+    final divider = _entryDivider(context);
+    final accent = _entryAccent(context);
+    final primaryText = _entryPrimaryText(context);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
@@ -1209,7 +1261,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
               left: 16,
               right: 16,
             ),
-            color: Colors.white,
+            color: cardSurface,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -1291,11 +1343,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                 if (_showClientSuggestions) ...[
                   const Gap(8),
                   DefaultContainerWidget(
-                    color: Colors.white,
+                    color: mutedFill,
                     borderRadius: BorderRadius.circular(16),
                     hasShadow: false,
                     hasBorder: true,
-                    borderColor: AppColors.tetriaryLight,
+                    borderColor: divider,
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: clientsAsync.isLoading
                         ? const Padding(
@@ -1350,10 +1402,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                   },
                                 ),
                                 if (i < clientsByPhone.length - 1)
-                                  const Divider(
-                                    height: 1,
-                                    color: AppColors.tetriaryLight,
-                                  ),
+                                  Divider(height: 1, color: divider),
                               ],
                             ],
                           ),
@@ -1403,8 +1452,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   GestureDetector(
                     onTap: () {
                       setState(
-                        () =>
-                            _isCommentClientExpanded = !_isCommentClientExpanded,
+                        () => _isCommentClientExpanded =
+                            !_isCommentClientExpanded,
                       );
                     },
                     behavior: HitTestBehavior.opaque,
@@ -1442,17 +1491,20 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             DefaultContainerWidget(
               borderRadius: BorderRadius.circular(24),
               hasShadow: false,
-              color: Colors.white,
+              color: cardSurface,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('О клиенте', style: AppFonts.b1Medium),
+                  Text(
+                    'О клиенте',
+                    style: AppFonts.b1Medium.copyWith(color: primaryText),
+                  ),
                   Gap(12),
                   Row(
                     children: [
                       Expanded(
                         child: DefaultContainerWidget(
-                          color: AppColors.secondaryLight,
+                          color: mutedFill,
                           borderRadius: BorderRadius.circular(16),
                           hasShadow: false,
                           child: Column(
@@ -1463,7 +1515,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                               Text(
                                 _formatMoney(_selectedClient!.balance),
                                 style: AppFonts.b1Medium.copyWith(
-                                  color: AppColors.mainAccent,
+                                  color: accent,
                                 ),
                               ),
                             ],
@@ -1473,7 +1525,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       Gap(12),
                       Expanded(
                         child: DefaultContainerWidget(
-                          color: AppColors.secondaryLight,
+                          color: mutedFill,
                           borderRadius: BorderRadius.circular(16),
                           hasShadow: false,
                           child: Column(
@@ -1484,7 +1536,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                               Text(
                                 _selectedClient!.reliabilityFactor.toString(),
                                 style: AppFonts.b1Medium.copyWith(
-                                  color: AppColors.mainAccent,
+                                  color: accent,
                                 ),
                               ),
                             ],
@@ -1494,7 +1546,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       Gap(12),
                       Expanded(
                         child: DefaultContainerWidget(
-                          color: AppColors.secondaryLight,
+                          color: mutedFill,
                           borderRadius: BorderRadius.circular(16),
                           hasShadow: false,
                           child: Column(
@@ -1505,7 +1557,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                               Text(
                                 _selectedClient!.numberOfVisits.toString(),
                                 style: AppFonts.b1Medium.copyWith(
-                                  color: AppColors.mainAccent,
+                                  color: accent,
                                 ),
                               ),
                             ],
@@ -1519,7 +1571,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     children: [
                       Expanded(
                         child: DefaultContainerWidget(
-                          color: AppColors.secondaryLight,
+                          color: mutedFill,
                           borderRadius: BorderRadius.circular(16),
                           hasShadow: false,
                           child: Column(
@@ -1530,7 +1582,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                               Text(
                                 '${_selectedClient!.discount.round()}%',
                                 style: AppFonts.b1Medium.copyWith(
-                                  color: AppColors.mainAccent,
+                                  color: accent,
                                 ),
                               ),
                             ],
@@ -1540,7 +1592,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       Gap(12),
                       Expanded(
                         child: DefaultContainerWidget(
-                          color: AppColors.secondaryLight,
+                          color: mutedFill,
                           borderRadius: BorderRadius.circular(16),
                           hasShadow: false,
                           child: Column(
@@ -1556,7 +1608,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                       : 0,
                                 ),
                                 style: AppFonts.b1Medium.copyWith(
-                                  color: AppColors.mainAccent,
+                                  color: accent,
                                 ),
                               ),
                             ],
@@ -1574,7 +1626,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           DefaultContainerWidget(
             borderRadius: BorderRadius.circular(24),
             hasShadow: false,
-            color: Colors.white,
+            color: cardSurface,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1589,16 +1641,16 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   onMenuStateChange: (isOpen) {
                     if (!isOpen) _specialistDropdownSearchController.clear();
                   },
-                  style: AppFonts.c1Regular.copyWith(color: Colors.black),
+                  style: AppFonts.c1Regular.copyWith(color: primaryText),
                   hint: Text(
                     workersAsync.isLoading
                         ? 'Загрузка специалистов...'
                         : 'Выберите специалиста',
-                    style: AppFonts.c1Regular.copyWith(color: Colors.black),
+                    style: AppFonts.c1Regular.copyWith(color: primaryText),
                   ),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: AppColors.secondaryLight,
+                    fillColor: mutedFill,
                     contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(300),
@@ -1624,7 +1676,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     padding: EdgeInsets.only(left: 16),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
-                      color: Colors.white,
+                      color: mutedFill,
                     ),
                   ),
                   menuItemStyleData: const MenuItemStyleData(
@@ -1642,15 +1694,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                           hintText: 'Поиск специалиста',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppColors.tetriaryLight,
-                            ),
+                            borderSide: BorderSide(color: divider),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppColors.tetriaryLight,
-                            ),
+                            borderSide: BorderSide(color: divider),
                           ),
                         ),
                       ),
@@ -1701,7 +1749,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       child: SizedBox(
                         width: 120,
                         child: DefaultContainerWidget(
-                          color: AppColors.secondaryLight,
+                          color: mutedFill,
                           borderRadius: BorderRadius.circular(300),
                           hasShadow: false,
                           padding: const EdgeInsets.symmetric(
@@ -1714,7 +1762,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                 child: Text(
                                   _formatDate(_selectedDate),
                                   style: AppFonts.c1Regular.copyWith(
-                                    color: Colors.black,
+                                    color: primaryText,
                                   ),
                                 ),
                               ),
@@ -1723,7 +1771,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                 AppImages.calendarTab,
                                 width: 18,
                                 height: 18,
-                                color: AppColors.mainAccent,
+                                color: accent,
                               ),
                             ],
                           ),
@@ -1734,7 +1782,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                 ),
 
                 for (var index = 0; index < _services.length; index++) ...[
-                  const Divider(height: 32, color: AppColors.tetriaryLight),
+                  Divider(height: 32, color: divider),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -1765,7 +1813,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                             }
                           },
                           style: AppFonts.c1Regular.copyWith(
-                            color: Colors.black,
+                            color: primaryText,
                           ),
                           hint: Text(
                             selectedSpecialistId == null
@@ -1774,12 +1822,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                       ? 'Загрузка услуг...'
                                       : 'Название услуги'),
                             style: AppFonts.c1Regular.copyWith(
-                              color: Colors.black,
+                              color: primaryText,
                             ),
                           ),
                           decoration: InputDecoration(
                             filled: true,
-                            fillColor: AppColors.secondaryLight,
+                            fillColor: mutedFill,
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 12,
@@ -1808,7 +1856,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                             padding: EdgeInsets.zero,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
-                              color: Colors.white,
+                              color: mutedFill,
                             ),
                           ),
                           menuItemStyleData: const MenuItemStyleData(
@@ -1828,15 +1876,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                   hintText: 'Поиск услуги',
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: AppColors.tetriaryLight,
-                                    ),
+                                    borderSide: BorderSide(color: divider),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: AppColors.tetriaryLight,
-                                    ),
+                                    borderSide: BorderSide(color: divider),
                                   ),
                                 ),
                               ),
@@ -1872,7 +1916,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: AppFonts.c1Regular.copyWith(
-                                      color: Colors.black,
+                                      color: primaryText,
                                     ),
                                   ),
                                 ),
@@ -1905,23 +1949,18 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       const Gap(12),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          () {
-                            final selected = _selectedWorkerService(
-                              workerServices,
-                              _services[index].selectedServiceId,
-                            );
-                            if (selected == null) return '0 ₽';
-                            final p = selected.price;
-                            final formatted = p % 1 == 0
-                                ? p.toInt().toString()
-                                : p.toStringAsFixed(2);
-                            return '$formatted ₽';
-                          }(),
-                          style: AppFonts.c1Medium.copyWith(
-                            color: AppColors.mainAccent,
-                          ),
-                        ),
+                        child: Text(() {
+                          final selected = _selectedWorkerService(
+                            workerServices,
+                            _services[index].selectedServiceId,
+                          );
+                          if (selected == null) return '0 ₽';
+                          final p = selected.price;
+                          final formatted = p % 1 == 0
+                              ? p.toInt().toString()
+                              : p.toStringAsFixed(2);
+                          return '$formatted ₽';
+                        }(), style: AppFonts.c1Medium.copyWith(color: accent)),
                       ),
                     ],
                   ),
@@ -2020,6 +2059,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                 ),
                                 const Gap(8),
                                 _buildTimeRows(
+                                  context: context,
                                   slots: slots,
                                   selectedTime: _services[index].selectedTime,
                                   onSelect: (time) {
@@ -2059,7 +2099,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                         const Gap(12),
                         Container(
                           decoration: BoxDecoration(
-                            color: AppColors.secondaryLight,
+                            color: mutedFill,
                             borderRadius: BorderRadius.circular(300),
                           ),
                           child: Row(
@@ -2082,11 +2122,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                   child: Image.asset(AppImages.minus),
                                 ),
                               ),
-                              Container(
-                                width: 1,
-                                height: 20,
-                                color: AppColors.tetriaryLight,
-                              ),
+                              Container(width: 1, height: 20, color: divider),
                               GestureDetector(
                                 onTap: () {
                                   setState(() {
@@ -2122,7 +2158,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                           vertical: 13,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.secondaryLight,
+                          color: mutedFill,
                           borderRadius: BorderRadius.circular(300),
                         ),
                         child: Row(
@@ -2130,16 +2166,14 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                           children: [
                             Text(
                               'Добавить услугу',
-                              style: AppFonts.c1Semi.copyWith(
-                                color: AppColors.mainAccent,
-                              ),
+                              style: AppFonts.c1Semi.copyWith(color: accent),
                             ),
                             const Gap(8),
-                            const Text(
+                            Text(
                               '+',
                               style: TextStyle(
                                 fontSize: 20,
-                                color: AppColors.mainAccent,
+                                color: accent,
                                 fontWeight: FontWeight.w500,
                                 height: 1,
                               ),
@@ -2157,7 +2191,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           DefaultContainerWidget(
             borderRadius: BorderRadius.circular(24),
             hasShadow: false,
-            color: Colors.white,
+            color: cardSurface,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -2168,7 +2202,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.secondaryLight,
+                    color: mutedFill,
                     borderRadius: BorderRadius.circular(300),
                   ),
                   child: Row(
@@ -2178,7 +2212,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       const Gap(6),
                       Text(
                         'Админ',
-                        style: AppFonts.c1Regular.copyWith(color: Colors.black),
+                        style: AppFonts.c1Regular.copyWith(color: primaryText),
                       ),
                     ],
                   ),
@@ -2233,6 +2267,9 @@ class _BottomActionsBar extends ConsumerWidget {
     final canSave = ref.watch(createEntryCanSaveProvider);
     final isSaving = ref.watch(createEntrySavingProvider);
     final draft = ref.watch(createEntryDraftProvider);
+    final cardSurface = _entryCardSurface(context);
+    final mutedFill = _entryMutedFill(context);
+    final accent = _entryAccent(context);
 
     Future<void> createAppointment({required bool closeAfterSave}) async {
       if (!canSave || draft == null || isSaving) return;
@@ -2246,13 +2283,15 @@ class _BottomActionsBar extends ConsumerWidget {
                 draft.clientFirstName.isNotEmpty &&
                 draft.clientLastName.isNotEmpty);
         if (shouldCreateClient) {
-          final createdClient = await ref.read(clientsServiceProvider).createClient(
-            phone: draft.clientPhone,
-            firstName: draft.clientFirstName,
-            lastName: draft.clientLastName,
-            commentText: draft.clientCommentText,
-            status: draft.status,
-          );
+          final createdClient = await ref
+              .read(clientsServiceProvider)
+              .createClient(
+                phone: draft.clientPhone,
+                firstName: draft.clientFirstName,
+                lastName: draft.clientLastName,
+                commentText: draft.clientCommentText,
+                status: draft.status,
+              );
           resolvedClientId = createdClient.id;
           ref.invalidate(clientsByPhoneSearchProvider);
           ref.invalidate(clientsByPhoneSearchProvider(draft.clientPhone));
@@ -2263,18 +2302,22 @@ class _BottomActionsBar extends ConsumerWidget {
           if (appointmentId == null) {
             throw Exception('Appointment id is missing');
           }
-          await ref.read(appointmentsServiceProvider).updateAppointment(
-            appointmentId: appointmentId,
-            payload: draft.toUpdateRequestBody(
-              overrideClientId: resolvedClientId,
-            ),
-          );
+          await ref
+              .read(appointmentsServiceProvider)
+              .updateAppointment(
+                appointmentId: appointmentId,
+                payload: draft.toUpdateRequestBody(
+                  overrideClientId: resolvedClientId,
+                ),
+              );
           createdId = appointmentId;
         } else {
           final created = await ref
               .read(appointmentsServiceProvider)
               .createAppointment(
-                payload: draft.toRequestBody(overrideClientId: resolvedClientId),
+                payload: draft.toRequestBody(
+                  overrideClientId: resolvedClientId,
+                ),
               );
           createdId = created.isNotEmpty
               ? (created.first['id'] as num?)?.toInt()
@@ -2347,7 +2390,7 @@ class _BottomActionsBar extends ConsumerWidget {
       padding: const EdgeInsets.only(left: 25, right: 25, bottom: 38, top: 20),
       borderRadius: BorderRadius.circular(24),
       hasShadow: false,
-      color: Colors.white,
+      color: cardSurface,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -2355,7 +2398,7 @@ class _BottomActionsBar extends ConsumerWidget {
             children: [
               Expanded(
                 child: DefaultContainerWidget(
-                  color: AppColors.secondaryLight,
+                  color: mutedFill,
                   borderRadius: BorderRadius.circular(16),
                   hasShadow: false,
                   child: Row(
@@ -2365,9 +2408,7 @@ class _BottomActionsBar extends ConsumerWidget {
                       const Gap(6),
                       Text(
                         _formatDiscount(discount),
-                        style: AppFonts.c1Semi.copyWith(
-                          color: AppColors.mainAccent,
-                        ),
+                        style: AppFonts.c1Semi.copyWith(color: accent),
                       ),
                     ],
                   ),
@@ -2376,7 +2417,7 @@ class _BottomActionsBar extends ConsumerWidget {
               const Gap(12),
               Expanded(
                 child: DefaultContainerWidget(
-                  color: AppColors.secondaryLight,
+                  color: mutedFill,
                   borderRadius: BorderRadius.circular(16),
                   hasShadow: false,
                   child: Row(
@@ -2386,9 +2427,7 @@ class _BottomActionsBar extends ConsumerWidget {
                       const Gap(6),
                       Text(
                         _formatMoney(totalPrice),
-                        style: AppFonts.c1Semi.copyWith(
-                          color: AppColors.mainAccent,
-                        ),
+                        style: AppFonts.c1Semi.copyWith(color: accent),
                       ),
                     ],
                   ),
@@ -2402,8 +2441,8 @@ class _BottomActionsBar extends ConsumerWidget {
             onTap: () => createAppointment(closeAfterSave: false),
             isActive: canSave && !isSaving,
             isLoading: isSaving,
-            color: AppColors.secondaryLight,
-            textColor: AppColors.mainAccent,
+            color: mutedFill,
+            textColor: accent,
           ),
           const Gap(12),
           MainButton(
@@ -2465,7 +2504,9 @@ class _SpecialistDropdownTile extends StatelessWidget {
             textAlign: TextAlign.left,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppFonts.c1Regular.copyWith(color: Colors.black),
+            style: AppFonts.c1Regular.copyWith(
+              color: _entryPrimaryText(context),
+            ),
           ),
         ),
       ],
@@ -2495,20 +2536,20 @@ class _SpecialistAvatar extends StatelessWidget {
             width: size,
             height: size,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _placeholder(),
+            errorBuilder: (ctx, __, ___) => _placeholder(ctx),
           ),
         ),
       );
     }
-    return _placeholder();
+    return _placeholder(context);
   }
 
-  Widget _placeholder() {
+  Widget _placeholder(BuildContext context) {
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _entryMutedFill(context),
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.secondaryDark),
       ),

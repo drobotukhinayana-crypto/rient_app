@@ -45,6 +45,7 @@ class MonthCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final firstDay = DateTime(month.year, month.month, 1);
     final lastDay = DateTime(month.year, month.month + 1, 0);
     final daysInMonth = lastDay.day;
@@ -67,7 +68,9 @@ class MonthCalendar extends StatelessWidget {
                 child: Text(
                   _weekdayLabels[i],
                   style: AppFonts.c2Tabbar.copyWith(
-                    color: AppColors.primaryDark,
+                    color: isDark
+                        ? AppColors.primaryDarkDark
+                        : AppColors.primaryDark,
                   ),
                 ),
               ),
@@ -77,7 +80,10 @@ class MonthCalendar extends StatelessWidget {
         const SizedBox(height: 8),
         Container(
           height: 1,
-          color: _headerDividerColor.withOpacity(_headerDividerOpacity),
+          color: isDark
+              ? AppColors.tabbarGreyDark.withValues(alpha: 0.35)
+              : _headerDividerColor
+                    .withValues(alpha: _headerDividerOpacity),
         ),
         const SizedBox(height: 12),
         // Сетка дней
@@ -98,6 +104,7 @@ class MonthCalendar extends StatelessWidget {
                     return _DayCell(
                       date: date,
                       isCurrentMonth: false,
+                      isDark: isDark,
                       slots: null,
                       occupancyPercent: occupancy,
                       onTap: onDayTap != null ? () => onDayTap!(date) : null,
@@ -117,6 +124,7 @@ class MonthCalendar extends StatelessWidget {
                     return _DayCell(
                       date: date,
                       isCurrentMonth: false,
+                      isDark: isDark,
                       slots: null,
                       occupancyPercent: occupancy,
                       onTap: onDayTap != null ? () => onDayTap!(date) : null,
@@ -135,6 +143,7 @@ class MonthCalendar extends StatelessWidget {
                   return _DayCell(
                     date: date,
                     isCurrentMonth: true,
+                    isDark: isDark,
                     slots: slots,
                     showArc: showArc && slots > 0,
                     occupancyPercent: occupancy,
@@ -153,6 +162,7 @@ class _DayCell extends StatelessWidget {
   const _DayCell({
     required this.date,
     required this.isCurrentMonth,
+    required this.isDark,
     this.slots,
     this.showArc = false,
     this.occupancyPercent = 0,
@@ -161,6 +171,7 @@ class _DayCell extends StatelessWidget {
 
   final DateTime date;
   final bool isCurrentMonth;
+  final bool isDark;
   final int? slots;
   final bool showArc;
   final double occupancyPercent;
@@ -184,6 +195,7 @@ class _DayCell extends StatelessWidget {
               child: CustomPaint(
                 painter: _MonthDayCirclePainter(
                   isCurrentMonth: isCurrentMonth,
+                  isDark: isDark,
                   showArc: showArc,
                   occupancyPercent: occupancyPercent,
                 ),
@@ -192,8 +204,12 @@ class _DayCell extends StatelessWidget {
                     '${date.day}',
                     style: AppFonts.b1Medium.copyWith(
                       color: isCurrentMonth
-                          ? AppColors.primaryDark
-                          : AppColors.tabbarGrey,
+                          ? (isDark
+                              ? AppColors.primaryDarkDark
+                              : AppColors.primaryDark)
+                          : (isDark
+                              ? AppColors.tabbarGreyDark
+                              : AppColors.tabbarGrey),
                     ),
                   ),
                 ),
@@ -203,7 +219,10 @@ class _DayCell extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 '+$slots',
-                style: AppFonts.c2Tabbar.copyWith(color: AppColors.tabbarGrey),
+                style: AppFonts.c2Tabbar.copyWith(
+                  color:
+                      isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey,
+                ),
               ),
             ],
           ],
@@ -216,11 +235,13 @@ class _DayCell extends StatelessWidget {
 class _MonthDayCirclePainter extends CustomPainter {
   _MonthDayCirclePainter({
     required this.isCurrentMonth,
+    required this.isDark,
     required this.showArc,
     this.occupancyPercent = 0,
   });
 
   final bool isCurrentMonth;
+  final bool isDark;
   final bool showArc;
   final double occupancyPercent;
 
@@ -232,7 +253,7 @@ class _MonthDayCirclePainter extends CustomPainter {
     final radius = size.width / 2 - 1;
 
     final bgPaint = Paint()
-      ..color = AppColors.primaryWhite
+      ..color = isDark ? AppColors.primaryWhiteDark : AppColors.primaryWhite
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius, bgPaint);
 
@@ -243,7 +264,10 @@ class _MonthDayCirclePainter extends CustomPainter {
       const startAngle = -3.1415926535 / 2;
 
       final arcPaint = Paint()
-        ..color = AppColors.mainAccent
+        ..color =
+            AppColors.themeAccentBrightness(
+              isDark ? Brightness.dark : Brightness.light,
+            )
         ..style = PaintingStyle.stroke
         ..strokeWidth = _arcStrokeWidth
         ..strokeCap = StrokeCap.round;
@@ -260,6 +284,7 @@ class _MonthDayCirclePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _MonthDayCirclePainter old) =>
       old.isCurrentMonth != isCurrentMonth ||
+      old.isDark != isDark ||
       old.showArc != showArc ||
       old.occupancyPercent != occupancyPercent;
 }

@@ -61,7 +61,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   }
 
   void _onSpecialistsScrolled() {
-    if (_syncingDayHorizontalScroll || !_dayCalendarScrollController.hasClients) {
+    if (_syncingDayHorizontalScroll ||
+        !_dayCalendarScrollController.hasClients) {
       return;
     }
     final source = _daySpecialistsScrollController.position;
@@ -77,7 +78,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   }
 
   void _onCalendarScrolled() {
-    if (_syncingDayHorizontalScroll || !_daySpecialistsScrollController.hasClients) {
+    if (_syncingDayHorizontalScroll ||
+        !_daySpecialistsScrollController.hasClients) {
       return;
     }
     final source = _dayCalendarScrollController.position;
@@ -480,6 +482,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenBackground = isDark
+        ? AppColors.secondaryDarkLight
+        : AppColors.tabBarScreenBackground;
     final workersAsync = ref.watch(scheduleWorkersProvider);
     final currentBranch = ref.watch(currentBranchProvider);
     final selectedDate = ref.watch(selectedScheduleDateProvider);
@@ -565,8 +571,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final weekEndDate = weekStartDate
         .add(const Duration(days: 7))
         .subtract(const Duration(milliseconds: 1));
-    final multiDayColumns =
-        _viewMode == ViewMode.day && specialists.isNotEmpty;
+    final multiDayColumns = _viewMode == ViewMode.day && specialists.isNotEmpty;
     final dayAppsBySpecialistIndex = multiDayColumns
         ? <AsyncValue<List<AppointmentApi>>>[
             for (var i = 0; i < specialists.length; i++)
@@ -694,7 +699,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     });
 
     return Scaffold(
-      backgroundColor: AppColors.tabBarScreenBackground,
+      backgroundColor: screenBackground,
       body: Stack(
         children: [
           Column(
@@ -741,7 +746,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                 padding: AppDecoration.padding16,
                                 child: SpecialistListView(
                                   specialists: specialists,
-                                  scrollController: _daySpecialistsScrollController,
+                                  scrollController:
+                                      _daySpecialistsScrollController,
                                 ),
                               ),
                             Expanded(
@@ -800,11 +806,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       onAppointmentTap: (item) async {
                                         final appointment = item.source;
                                         if (appointment == null) return;
-                                        final wasDeleted =
-                                            await context.pushNamed<bool>(
-                                          AddNewEntryPage.name,
-                                          extra: appointment,
-                                        );
+                                        final wasDeleted = await context
+                                            .pushNamed<bool>(
+                                              AddNewEntryPage.name,
+                                              extra: appointment,
+                                            );
                                         if (wasDeleted == true) {
                                           refreshScheduleAfterMutation(
                                             appointment,
@@ -839,11 +845,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       onAppointmentTap: (item) async {
                                         final appointment = item.source;
                                         if (appointment == null) return;
-                                        final wasDeleted =
-                                            await context.pushNamed<bool>(
-                                          AddNewEntryPage.name,
-                                          extra: appointment,
-                                        );
+                                        final wasDeleted = await context
+                                            .pushNamed<bool>(
+                                              AddNewEntryPage.name,
+                                              extra: appointment,
+                                            );
                                         if (wasDeleted == true) {
                                           refreshScheduleAfterMutation(
                                             appointment,
@@ -878,19 +884,24 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         left: 40,
                                       ),
                                       child: DateStrip(
-                                        key: ValueKey('week_strip_${weekKey}_$_refreshVersion'),
+                                        key: ValueKey(
+                                          'week_strip_${weekKey}_$_refreshVersion',
+                                        ),
                                         initialDate: _weekStart,
                                         selectedDate: selectedDate,
                                         visibleWeekStart: _weekStart,
                                         onDateSelected: null,
                                         showFullDateLabel: false,
                                         useGreyCircles: true,
+                                        useMonthCalendarCircleFill: true,
                                         occupancyByDay: occupancyByDay,
                                       ),
                                     ),
                                     Expanded(
                                       child: ScheduleCalendarOneUserWidget(
-                                        key: ValueKey('schedule_week_${weekKey}_$_refreshVersion'),
+                                        key: ValueKey(
+                                          'schedule_week_${weekKey}_$_refreshVersion',
+                                        ),
                                         date: _weekStart,
                                         items: weekItems,
                                         viewMode: ViewMode.week,
@@ -903,11 +914,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         onAppointmentTap: (item) async {
                                           final appointment = item.source;
                                           if (appointment == null) return;
-                                          final wasDeleted =
-                                              await context.pushNamed<bool>(
-                                            AddNewEntryPage.name,
-                                            extra: appointment,
-                                          );
+                                          final wasDeleted = await context
+                                              .pushNamed<bool>(
+                                                AddNewEntryPage.name,
+                                                extra: appointment,
+                                              );
                                           if (wasDeleted == true) {
                                             refreshScheduleAfterMutation(
                                               appointment,
@@ -938,7 +949,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                   ),
                                   child: SingleChildScrollView(
                                     child: MonthCalendar(
-                                      key: ValueKey('month_${monthKey}_$_refreshVersion'),
+                                      key: ValueKey(
+                                        'month_${monthKey}_$_refreshVersion',
+                                      ),
                                       month: _monthStart,
                                       slotsByDay: slotsByDay,
                                       occupancyByDay: monthOccupancyByDay,
@@ -955,7 +968,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           if (showGlobalLoader)
             Positioned.fill(
               child: Container(
-                color: AppColors.tabBarScreenBackground.withValues(alpha: 0.35),
+                color: screenBackground.withValues(alpha: 0.35),
                 child: const Center(child: CircularProgressIndicator()),
               ),
             ),

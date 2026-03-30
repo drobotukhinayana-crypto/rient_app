@@ -13,6 +13,7 @@ class AppImages {
   static const String backButtonDark = 'assets/images/back_button_dark.png';
   static const String branch = 'assets/images/branch.png';
   static const String burger = 'assets/images/burger.png';
+  static const String burgerDark = 'assets/images/burger_dark.png';
   static const String calendarTab = 'assets/images/calendar_tab.png';
   static const String chatTab = 'assets/images/chat_tab.png';
   static const String check = 'assets/images/check.png';
@@ -31,6 +32,7 @@ class AppImages {
   static const String minus = 'assets/images/minus.png';
   static const String moonFill = 'assets/images/moon-fill.png';
   static const String more = 'assets/images/more.png';
+  static const String moreDark = 'assets/images/more_dark.png';
   static const String plus = 'assets/images/plus.png';
   static const String radiobutton = 'assets/images/radiobutton.png';
   static const String radiobuttonActive = 'assets/images/radiobuttonActive.png';

@@ -92,7 +92,11 @@ class LanguageDropdownPill extends ConsumerWidget {
           child: Row(
             children: [
               if (isSelected)
-                Icon(Icons.check, size: 18, color: AppColors.mainAccent),
+                Icon(
+                  Icons.check,
+                  size: 18,
+                  color: AppColors.themeAccent(context),
+                ),
               if (isSelected) const SizedBox(width: 8),
               Text(_languageNames[code] ?? code),
             ],

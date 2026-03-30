@@ -60,7 +60,7 @@ class ThemeSwitchPill extends ConsumerWidget {
                     child: Image.asset(
                       isDark ? AppImages.moonFill : AppImages.sunFill,
 
-                      color: AppColors.mainAccent,
+                      color: AppColors.themeAccent(context),
                     ),
                   ),
                 ),

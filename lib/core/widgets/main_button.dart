@@ -14,6 +14,7 @@ class MainButton extends ConsumerWidget {
     super.key,
     this.height = 48,
     this.width = double.infinity,
+
     this.color = AppColors.mainAccent,
 
     this.textColor = Colors.white,
@@ -31,6 +32,7 @@ class MainButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
       height: height,
       width: width,
@@ -42,7 +44,9 @@ class MainButton extends ConsumerWidget {
               }
             : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: isActive ? color : AppColors.grey,
+          backgroundColor: isActive
+              ? (isDark ? AppColors.themeAccent(context) : color)
+              : AppColors.grey,
           disabledBackgroundColor: AppColors.grey,
           elevation: 0,
           shape: RoundedRectangleBorder(

@@ -48,6 +48,7 @@ class DateStrip extends StatefulWidget {
     this.onDateSelected,
     this.showFullDateLabel = true,
     this.useGreyCircles = false,
+    this.useMonthCalendarCircleFill = false,
   });
 
   /// Начальная выбранная дата (по умолчанию сегодня).
@@ -72,6 +73,9 @@ class DateStrip extends StatefulWidget {
 
   /// При true фон невыбранных кружков — SecondaryDark (режим «День»). При false — белый (Неделя/Месяц).
   final bool useGreyCircles;
+
+  /// Заливка невыбранных кружков как в месячном календаре: светлая — [AppColors.primaryWhite], тёмная — [AppColors.primaryWhiteDark].
+  final bool useMonthCalendarCircleFill;
   final List<OccupancyByDay>? occupancyByDay;
 
   @override
@@ -173,6 +177,9 @@ class _DateStripState extends State<DateStrip> {
                           _hasData(_dates[i]),
                       size: _circleSize,
                       useGreyCircles: widget.useGreyCircles,
+                      useMonthCalendarCircleFill:
+                          widget.useMonthCalendarCircleFill,
+                      isDark: Theme.of(context).brightness == Brightness.dark,
                       occupancyPercent:
                           widget.occupancyByDay
                               ?.firstWhereOrNull(
@@ -209,6 +216,8 @@ class _DateCircleItem extends StatelessWidget {
     required this.showArc,
     required this.size,
     required this.useGreyCircles,
+    required this.useMonthCalendarCircleFill,
+    required this.isDark,
   });
 
   final double occupancyPercent;
@@ -217,10 +226,30 @@ class _DateCircleItem extends StatelessWidget {
   final bool showArc;
   final double size;
   final bool useGreyCircles;
+  final bool useMonthCalendarCircleFill;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     final weekdayShort = _weekdayShort[date.weekday - 1];
+    final unselectedFillColor = useMonthCalendarCircleFill
+        ? (isDark ? AppColors.primaryWhiteDark : AppColors.primaryWhite)
+        : (isDark
+            ? AppColors.secondaryDarkDark
+            : (useGreyCircles ? AppColors.secondaryDark : AppColors.primaryWhite));
+
+    final dayNumberColor = isSelected
+        ? AppColors.primaryWhite
+        : isDark
+        ? (showArc ? AppColors.primaryDarkDark : AppColors.tabbarGreyDark)
+        : (showArc ? AppColors.primaryDark : AppColors.grey);
+
+    final accent = AppColors.themeAccentBrightness(
+      isDark ? Brightness.dark : Brightness.light,
+    );
+    final weekdayLabelColor = isSelected
+        ? accent
+        : (isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -232,17 +261,14 @@ class _DateCircleItem extends StatelessWidget {
             painter: _DateCirclePainter(
               isSelected: isSelected,
               showArc: showArc,
-              useGreyCircles: useGreyCircles,
+              unselectedFillColor: unselectedFillColor,
+              isDark: isDark,
               occupancyPercent: occupancyPercent,
             ),
             child: Center(
               child: Text(
                 '${date.day}',
-                style: AppFonts.b1Medium.copyWith(
-                  color: isSelected
-                      ? AppColors.primaryWhite
-                      : (showArc ? AppColors.primaryDark : AppColors.grey),
-                ),
+                style: AppFonts.b1Medium.copyWith(color: dayNumberColor),
               ),
             ),
           ),
@@ -250,9 +276,7 @@ class _DateCircleItem extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           weekdayShort,
-          style: AppFonts.c2Tabbar.copyWith(
-            color: isSelected ? AppColors.mainAccent : AppColors.tabbarGrey,
-          ),
+          style: AppFonts.c2Tabbar.copyWith(color: weekdayLabelColor),
         ),
       ],
     );
@@ -263,13 +287,15 @@ class _DateCirclePainter extends CustomPainter {
   _DateCirclePainter({
     required this.isSelected,
     required this.showArc,
-    required this.useGreyCircles,
+    required this.unselectedFillColor,
+    required this.isDark,
     required this.occupancyPercent,
   });
 
   final bool isSelected;
   final bool showArc;
-  final bool useGreyCircles;
+  final Color unselectedFillColor;
+  final bool isDark;
   final double occupancyPercent;
   static const _arcStrokeWidth = 4.0;
 
@@ -278,11 +304,11 @@ class _DateCirclePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 1;
 
-    final unselectedColor = useGreyCircles
-        ? AppColors.secondaryDark
-        : AppColors.primaryWhite;
+    final selectedFill = AppColors.themeAccentBrightness(
+      isDark ? Brightness.dark : Brightness.light,
+    );
     final bgPaint = Paint()
-      ..color = isSelected ? AppColors.mainAccent : unselectedColor
+      ..color = isSelected ? selectedFill : unselectedFillColor
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius, bgPaint);
 
@@ -292,7 +318,7 @@ class _DateCirclePainter extends CustomPainter {
         // Базовая обводка выбранного дня — MainAccent (синий)
         // Теперь MainAccent — это основной цвет заполнения
         final baseOutlinePaint = Paint()
-          ..color = AppColors.mainAccent
+          ..color = selectedFill
           ..style = PaintingStyle.stroke
           ..strokeWidth = _arcStrokeWidth;
         canvas.drawCircle(center, radius - 1, baseOutlinePaint);
@@ -301,7 +327,9 @@ class _DateCirclePainter extends CustomPainter {
         // Если вы хотите, чтобы 10% были светлыми на синем фоне:
         if (occupancyPercent > 0) {
           final arcPaint = Paint()
-            ..color = AppColors.secondaryAccent
+            ..color = isDark
+                ? AppColors.secondaryAccentDark
+                : AppColors.secondaryAccent
             ..style = PaintingStyle.stroke
             ..strokeWidth = _arcStrokeWidth
             ..strokeCap = StrokeCap.round;
@@ -324,7 +352,9 @@ class _DateCirclePainter extends CustomPainter {
     // Дуга occupancy для невыбранного дня — показываем у всех дней недели, у которых есть данные
     if (!isSelected && (showArc || occupancyPercent > 0)) {
       final arcPaint = Paint()
-        ..color = AppColors.mainAccent
+        ..color = AppColors.themeAccentBrightness(
+          isDark ? Brightness.dark : Brightness.light,
+        )
         ..style = PaintingStyle.stroke
         ..strokeWidth = _arcStrokeWidth
         ..strokeCap = StrokeCap.round;
@@ -347,7 +377,8 @@ class _DateCirclePainter extends CustomPainter {
   bool shouldRepaint(covariant _DateCirclePainter oldDelegate) {
     return oldDelegate.isSelected != isSelected ||
         oldDelegate.showArc != showArc ||
-        oldDelegate.useGreyCircles != useGreyCircles ||
+        oldDelegate.unselectedFillColor != unselectedFillColor ||
+        oldDelegate.isDark != isDark ||
         oldDelegate.occupancyPercent != occupancyPercent;
   }
 }

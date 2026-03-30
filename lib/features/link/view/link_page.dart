@@ -24,9 +24,12 @@ class LinkPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.tabBarScreenBackground,
-      body: _BodyWidget(),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      backgroundColor: isDark
+          ? AppColors.secondaryDarkLight
+          : AppColors.tabBarScreenBackground,
+      body: const _BodyWidget(),
     );
   }
 }
@@ -59,6 +62,7 @@ class _BodyWidget extends ConsumerWidget {
                 ref.read(selectedBranchProvider.notifier).state = null;
                 ref.invalidate(getAuthOrganiztionsProvider);
                 ref.invalidate(getAuthBranchesProvider);
+                if (!context.mounted) return;
                 AuthPage.navigate(context);
               },
             ),

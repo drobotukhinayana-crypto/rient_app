@@ -91,12 +91,26 @@ class _AuthBranchItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(300),
         child: Row(
           children: [
-            Image.asset(
-              AppImages.branch,
-              width: 40,
-              height: 40,
-              fit: BoxFit.contain,
-            ),
+            if (isDark)
+              ColorFiltered(
+                colorFilter: const ColorFilter.mode(
+                  AppColors.primaryWhite,
+                  BlendMode.srcIn,
+                ),
+                child: Image.asset(
+                  AppImages.branch,
+                  width: 40,
+                  height: 40,
+                  fit: BoxFit.contain,
+                ),
+              )
+            else
+              Image.asset(
+                AppImages.branch,
+                width: 40,
+                height: 40,
+                fit: BoxFit.contain,
+              ),
             Gap(6),
             Expanded(
               child: Column(

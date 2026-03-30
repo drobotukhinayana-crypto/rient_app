@@ -255,7 +255,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                             (_secondsLeft > 0 ||
                                 ref.watch(getOtpControllerProvider).isLoading)
                             ? AppColors.grey
-                            : AppColors.mainAccent,
+                            : AppColors.themeAccent(context),
                       ),
                     ),
                   ),
@@ -266,7 +266,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     Text(
                       _formatTime(_secondsLeft),
                       style: AppFonts.c1Medium.copyWith(
-                        color: AppColors.mainAccent,
+                        color: AppColors.themeAccent(context),
                       ),
                     ),
                   ],

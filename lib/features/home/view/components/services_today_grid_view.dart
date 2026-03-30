@@ -12,6 +12,7 @@ class ServicesTodayGridView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final statisticsAsync = ref.watch(statisticsProvider);
     final selectedDate = ref.watch(selectedDateProvider);
     final selectedDateStr =
@@ -49,7 +50,7 @@ class ServicesTodayGridView extends ConsumerWidget {
             final name = entry.key;
             final count = entry.value;
             return DefaultContainerWidget(
-              color: Colors.white,
+              color: isDark ? AppColors.primaryWhiteDark : Colors.white,
               hasShadow: false,
               borderRadius: BorderRadius.circular(16),
               child: Row(
@@ -65,7 +66,7 @@ class ServicesTodayGridView extends ConsumerWidget {
                   Text(
                     '$count',
                     style: AppFonts.b2Semi.copyWith(
-                      color: AppColors.mainAccent,
+                      color: AppColors.themeAccent(context),
                     ),
                   ),
                 ],

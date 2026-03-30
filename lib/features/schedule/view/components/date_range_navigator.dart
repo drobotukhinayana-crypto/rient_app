@@ -52,6 +52,7 @@ class DateRangeNavigator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = AppColors.themeAccent(context);
     final text = mode == DateNavigatorMode.week
         ? _weekRangeText(weekStart)
         : _monthYearText(month);
@@ -59,18 +60,18 @@ class DateRangeNavigator extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         // кнопка назад
-        _NavButton(icon: Icons.chevron_left, onTap: onPrevious),
+        _NavButton(icon: Icons.chevron_left, onTap: onPrevious, color: accent),
         const SizedBox(width: 6),
 
         // текст
         Text(
           text,
-          style: AppFonts.b2Medium.copyWith(color: AppColors.mainAccent),
+          style: AppFonts.b2Medium.copyWith(color: accent),
         ),
         const SizedBox(width: 6),
 
         // кнопка вперед
-        _NavButton(icon: Icons.chevron_right, onTap: onNext),
+        _NavButton(icon: Icons.chevron_right, onTap: onNext, color: accent),
       ],
     );
   }
@@ -92,10 +93,15 @@ class DateRangeNavigator extends StatelessWidget {
 enum DateNavigatorMode { week, month }
 
 class _NavButton extends StatelessWidget {
-  const _NavButton({required this.icon, required this.onTap});
+  const _NavButton({
+    required this.icon,
+    required this.onTap,
+    required this.color,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +112,7 @@ class _NavButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.all(4),
-          child: Icon(icon, size: 24, color: AppColors.mainAccent),
+          child: Icon(icon, size: 24, color: color),
         ),
       ),
     );

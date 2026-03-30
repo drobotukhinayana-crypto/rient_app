@@ -17,7 +17,7 @@ class LoadingWidget extends StatelessWidget {
       child: SizedBox.square(
         dimension: side,
         child: CircularProgressIndicator(
-          color: color ?? AppColors.mainAccent,
+          color: color ?? AppColors.themeAccent(context),
           strokeWidth: strokeWidth,
         ),
       ),

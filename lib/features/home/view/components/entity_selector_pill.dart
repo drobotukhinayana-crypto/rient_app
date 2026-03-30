@@ -46,7 +46,11 @@ class _ProfileSelectorPillState extends State<ProfileSelectorPill> {
           child: Row(
             children: [
               if (isSelected)
-                Icon(Icons.check, size: 18, color: AppColors.mainAccent),
+                Icon(
+                  Icons.check,
+                  size: 18,
+                  color: AppColors.themeAccent(context),
+                ),
               if (isSelected) const SizedBox(width: 8),
               Text(branch.name ?? 'Без названия'),
             ],
@@ -58,16 +62,14 @@ class _ProfileSelectorPillState extends State<ProfileSelectorPill> {
         ref.read(selectedBranchProvider.notifier).state = value;
         final storage = ref.read(localStorageProvider);
         final storageKey = ref.read(selectedBranchStorageKeyProvider);
-        await storage.saveString(
-          storageKey,
-          value.id.toString(),
-        );
+        await storage.saveString(storageKey, value.id.toString());
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Consumer(
       builder: (context, ref, child) {
         final branchesAsync = ref.watch(branchesProvider);
@@ -92,7 +94,9 @@ class _ProfileSelectorPillState extends State<ProfileSelectorPill> {
             return Builder(
               builder: (ctx) {
                 return Material(
-                  color: AppColors.secondaryLight,
+                  color: isDark
+                      ? AppColors.secondaryDarkLight
+                      : AppColors.secondaryLight,
                   borderRadius: BorderRadius.circular(300),
                   child: InkWell(
                     onTap: () => _showMenu(
@@ -121,7 +125,9 @@ class _ProfileSelectorPillState extends State<ProfileSelectorPill> {
                                 child: Text(
                                   branchName,
                                   style: AppFonts.b2Medium.copyWith(
-                                    color: AppColors.primaryDark,
+                                    color: isDark
+                                        ? Colors.white
+                                        : AppColors.primaryDark,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -133,7 +139,7 @@ class _ProfileSelectorPillState extends State<ProfileSelectorPill> {
                           // стрелка
                           Image.asset(
                             AppImages.arrowOutlinedDown,
-                            color: AppColors.mainAccent,
+                            color: AppColors.themeAccent(ctx),
                           ),
                         ],
                       ),

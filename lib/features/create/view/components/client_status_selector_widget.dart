@@ -57,6 +57,58 @@ const List<ClientStatusOption> defaultClientStatusOptions = [
   ),
 ];
 
+/// Статусы в тёмной теме (токены из [AppColors]).
+const List<ClientStatusOption> defaultClientStatusOptionsDark = [
+  ClientStatusOption(
+    label: 'Не подтвержден',
+    dotColor: AppColors.lightYel,
+    backgroundColor: Color(0x33F8ECD9),
+    borderColor: AppColors.lightYel,
+  ),
+  ClientStatusOption(
+    label: 'Подтвержден',
+    dotColor: AppColors.purpleDark,
+    backgroundColor: Color(0x44E7B4FF),
+    borderColor: AppColors.purpleDark,
+  ),
+  ClientStatusOption(
+    label: 'Клиент пришел',
+    dotColor: AppColors.lightGreen,
+    backgroundColor: Color(0x44D9F8D9),
+    borderColor: AppColors.lightGreen,
+  ),
+  ClientStatusOption(
+    label: 'Клиент не пришел',
+    dotColor: AppColors.redLight,
+    backgroundColor: Color(0x33D42320),
+    borderColor: AppColors.redLight,
+  ),
+  ClientStatusOption(
+    label: 'Отменен',
+    dotColor: AppColors.redLight,
+    backgroundColor: Color(0x33D42320),
+    borderColor: AppColors.redLight,
+  ),
+];
+
+bool _isDefaultStatusOptionList(List<ClientStatusOption> options) {
+  if (options.length != defaultClientStatusOptions.length) return false;
+  for (var i = 0; i < options.length; i++) {
+    if (options[i].label != defaultClientStatusOptions[i].label) return false;
+  }
+  return true;
+}
+
+List<ClientStatusOption> _resolvedStatusOptions(
+  List<ClientStatusOption> options,
+  Brightness brightness,
+) {
+  if (brightness == Brightness.dark && _isDefaultStatusOptionList(options)) {
+    return defaultClientStatusOptionsDark;
+  }
+  return options;
+}
+
 /// Виджет выбора статуса клиента: заголовок "Клиент", кнопка с выбранным
 /// статусом (стрелка вверх/вниз), при раскрытии — список опций с цветной точкой.
 class ClientStatusSelectorWidget extends StatefulWidget {
@@ -104,21 +156,38 @@ class _ClientStatusSelectorWidgetState
       _selectedIndex = index;
       _isExpanded = false;
     });
-    widget.onSelected?.call(index, widget.options[index]);
+    widget.onSelected?.call(
+      index,
+      _resolvedStatusOptions(
+        widget.options,
+        Theme.of(context).brightness,
+      )[index],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final option = widget.options[_selectedIndex];
+    final options = _resolvedStatusOptions(
+      widget.options,
+      Theme.of(context).brightness,
+    );
+    final option = options[_selectedIndex];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryText = isDark
+        ? AppColors.primaryDarkDark
+        : AppColors.primaryDark;
+    final listSurface = isDark
+        ? AppColors.secondaryDarkLight
+        : AppColors.secondaryLight;
+    final chipForeground = isDark
+        ? AppColors.primaryDarkDark
+        : AppColors.primaryDark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          'Клиент',
-          style: AppFonts.b1Medium.copyWith(color: AppColors.primaryDark),
-        ),
+        Text('Клиент', style: AppFonts.b1Medium.copyWith(color: primaryText)),
 
         Gap(12),
         GestureDetector(
@@ -134,11 +203,14 @@ class _ClientStatusSelectorWidgetState
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(option.label, style: AppFonts.c1Regular),
+                Text(
+                  option.label,
+                  style: AppFonts.c1Regular.copyWith(color: chipForeground),
+                ),
                 Gap(8),
                 Image.asset(
                   _isExpanded ? AppImages.arrowTop : AppImages.arrowDown,
-                  color: Colors.black,
+                  color: chipForeground,
                 ),
               ],
             ),
@@ -148,7 +220,7 @@ class _ClientStatusSelectorWidgetState
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
-              color: AppColors.secondaryLight,
+              color: listSurface,
               borderRadius: BorderRadius.circular(10),
             ),
             child: ClipRRect(
@@ -156,10 +228,12 @@ class _ClientStatusSelectorWidgetState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  for (int i = 0; i < widget.options.length; i++) ...[
+                  for (int i = 0; i < options.length; i++) ...[
                     _OptionTile(
-                      option: widget.options[i],
+                      option: options[i],
                       isSelected: i == _selectedIndex,
+                      primaryText: primaryText,
+                      listSurface: listSurface,
                       onTap: () => _select(i),
                     ),
                   ],
@@ -177,17 +251,21 @@ class _OptionTile extends StatelessWidget {
   const _OptionTile({
     required this.option,
     required this.isSelected,
+    required this.primaryText,
+    required this.listSurface,
     required this.onTap,
   });
 
   final ClientStatusOption option;
   final bool isSelected;
+  final Color primaryText;
+  final Color listSurface;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.secondaryLight,
+      color: listSurface,
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -209,9 +287,7 @@ class _OptionTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   option.label,
-                  style: AppFonts.b2Regular.copyWith(
-                    color: AppColors.primaryDark,
-                  ),
+                  style: AppFonts.b2Regular.copyWith(color: primaryText),
                 ),
               ),
             ],

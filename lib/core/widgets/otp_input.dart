@@ -105,7 +105,7 @@ class _OtpInputState extends State<OtpInput> {
     final borderColor = widget.hasError ? AppColors.red : Colors.transparent;
     final focusedBorderColor = widget.hasError
         ? AppColors.red
-        : AppColors.mainAccent;
+        : AppColors.themeAccent(context);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -202,7 +202,9 @@ class _OtpDigitFieldState extends State<_OtpDigitField> {
               ? AppColors.primaryWhite
               : AppColors.primaryDark,
         ),
-        cursorColor: widget.hasError ? AppColors.red : AppColors.mainAccent,
+        cursorColor: widget.hasError
+            ? AppColors.red
+            : AppColors.themeAccent(context),
         decoration: const InputDecoration(
           counterText: '',
           border: InputBorder.none,

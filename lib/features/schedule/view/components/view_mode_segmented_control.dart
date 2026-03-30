@@ -20,11 +20,16 @@ class ViewModeSegmentedControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final trackColor = isDark
+        ? const Color(0xff383A43)
+        : const Color(0xffEEEEEF);
+
     return Container(
       clipBehavior: Clip.none,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Color(0xffEEEEEF),
+        color: trackColor,
         borderRadius: BorderRadius.circular(300),
       ),
       child: SizedBox(
@@ -82,20 +87,26 @@ class _Segment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selectedFill = isDark ? Color(0xff6C6C71) : AppColors.primaryWhite;
+    final textColor = isDark
+        ? AppColors.primaryDarkDark
+        : AppColors.primaryDark;
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryWhite : Colors.transparent,
+          color: isSelected ? selectedFill : Colors.transparent,
           borderRadius: BorderRadius.circular(300),
         ),
         alignment: Alignment.center,
         child: Text(
           label,
           style: isSelected
-              ? AppFonts.c1Semi.copyWith(color: AppColors.primaryDark)
-              : AppFonts.c1Medium.copyWith(color: AppColors.primaryDark),
+              ? AppFonts.c1Semi.copyWith(color: textColor)
+              : AppFonts.c1Medium.copyWith(color: textColor),
         ),
       ),
     );

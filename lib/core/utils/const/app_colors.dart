@@ -3,6 +3,14 @@ import 'package:flutter/material.dart';
 abstract class AppColors {
   const AppColors();
 
+  /// Акцент: в светлой теме — [mainAccent], в тёмной — [mainAccentDark].
+  static Color themeAccent(BuildContext context) => themeAccentBrightness(
+        Theme.of(context).brightness,
+      );
+
+  static Color themeAccentBrightness(Brightness brightness) =>
+      brightness == Brightness.dark ? mainAccentDark : mainAccent;
+
   // light mode
   static const primaryDark = Color(0xff25272F);
   static const primaryWhite = Color(0xffFFFFFF);
@@ -46,4 +54,5 @@ abstract class AppColors {
   static const lightYel = Color(0xffF8ECD9);
   static const lightGreen = Color(0xffD9F8D9);
   static const lightRed = Color(0xffF8D9D9);
+  static const redLight = Color(0xffD42320);
 }

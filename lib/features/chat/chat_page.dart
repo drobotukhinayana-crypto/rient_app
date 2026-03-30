@@ -9,9 +9,12 @@ class ChatPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.tabBarScreenBackground,
-      body: _BodyWidget(),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      backgroundColor: isDark
+          ? AppColors.secondaryDarkLight
+          : AppColors.tabBarScreenBackground,
+      body: const _BodyWidget(),
     );
   }
 }

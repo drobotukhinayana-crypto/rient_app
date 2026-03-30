@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 
@@ -15,9 +15,9 @@ class AuthTextButton extends StatelessWidget {
       child: Text(
         title,
         style: AppFonts.b2Medium.copyWith(
-          color: AppColors.mainAccent,
+          color: AppColors.themeAccent(context),
           decoration: TextDecoration.underline,
-          decorationColor: AppColors.mainAccent,
+          decorationColor: AppColors.themeAccent(context),
         ),
       ),
     );

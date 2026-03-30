@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
@@ -125,11 +126,12 @@ class _TopPanelState extends State<TopPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return DefaultContainerWidget(
       borderRadius: BorderRadius.circular(24),
       hasShadow: false,
       padding: const EdgeInsets.only(top: 52, bottom: 8, left: 16, right: 16),
-      color: Colors.white,
+      color: isDark ? AppColors.primaryWhiteDark : Colors.white,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -137,7 +139,9 @@ class _TopPanelState extends State<TopPanel> {
             children: [
               GestureDetector(
                 onTap: () {},
-                child: Image.asset(AppImages.burger),
+                child: Image.asset(
+                  isDark ? AppImages.burgerDark : AppImages.burger,
+                ),
               ),
               Gap(12),
               Text(widget.title, style: AppFonts.h3Medium),
@@ -157,7 +161,8 @@ class _TopPanelState extends State<TopPanel> {
               Gap(12),
               SpecialistSelectorPill(
                 specialists: widget.specialists!,
-                initialSelected: widget.initialSelectedSpecialist ??
+                initialSelected:
+                    widget.initialSelectedSpecialist ??
                     widget.specialists!.first,
                 onSelected: widget.onSpecialistSelected,
               ),
@@ -189,7 +194,8 @@ class _TopPanelState extends State<TopPanel> {
                 Gap(12),
                 SpecialistSelectorPill(
                   specialists: widget.specialists!,
-                  initialSelected: widget.initialSelectedSpecialist ??
+                  initialSelected:
+                      widget.initialSelectedSpecialist ??
                       widget.specialists!.first,
                   onSelected: widget.onSpecialistSelected,
                 ),
