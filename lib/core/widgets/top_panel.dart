@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
@@ -138,7 +139,9 @@ class _TopPanelState extends State<TopPanel> {
           Row(
             children: [
               GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  appShellScaffoldKey.currentState?.openDrawer();
+                },
                 child: Image.asset(
                   isDark ? AppImages.burgerDark : AppImages.burger,
                 ),

@@ -34,7 +34,9 @@ const _languageNames = {
 };
 
 class LanguageDropdownPill extends ConsumerWidget {
-  const LanguageDropdownPill({super.key});
+  const LanguageDropdownPill({super.key, this.showLeadingIcon = true});
+
+  final bool showLeadingIcon;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -47,18 +49,17 @@ class LanguageDropdownPill extends ConsumerWidget {
       color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight,
       borderRadius: BorderRadius.circular(300),
       child: InkWell(
-        onTap: () {},
-        // onTap: () => _showMenu(context, ref, code),
+        onTap: () => _showMenu(context, ref, code),
         borderRadius: BorderRadius.circular(300),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset(AppImages.language),
-              Gap(6),
+              if (showLeadingIcon) Image.asset(AppImages.language),
+              if (showLeadingIcon) const Gap(6),
               Text(name, style: AppFonts.c1Regular),
-              Gap(12),
+              const Gap(12),
               Image.asset(AppImages.arrowDown),
             ],
           ),

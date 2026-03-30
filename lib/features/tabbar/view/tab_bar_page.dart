@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
+import 'package:rient_app/core/widgets/app_drawer.dart';
 import 'package:rient_app/features/chat/chat_page.dart';
 import 'package:rient_app/features/create/view/add_new_entry_page.dart'
     show AddNewEntryPage;
@@ -76,9 +78,11 @@ class _TabBarPageState extends ConsumerState<TabBarPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return RestoreSelectedBranch(
       child: Scaffold(
+        key: appShellScaffoldKey,
         backgroundColor: isDark
             ? AppColors.secondaryDarkLight
             : AppColors.tabBarScreenBackground,
+        drawer: const AppDrawer(),
         body: widget.navigationShell,
         bottomNavigationBar: _NavbarWidget(
           currentIndex: _navbarIndexFromShell,
