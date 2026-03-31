@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart';
 import 'package:dio/dio.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/foundation.dart';
@@ -1024,6 +1025,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     required List<String> slots,
     required String? selectedTime,
     required ValueChanged<String> onSelect,
+    required ValueChanged<String> onLongPressSlot,
   }) {
     final rows = _chunkSlots(slots, 4);
     return Column(
@@ -1038,6 +1040,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     rows[rowIndex][i],
                     isSelected: selectedTime == rows[rowIndex][i],
                     onTap: () => onSelect(rows[rowIndex][i]),
+                    onLongPress: () => onLongPressSlot(rows[rowIndex][i]),
                   ),
                 ),
                 if (i != rows[rowIndex].length - 1) const Gap(8),
@@ -1111,9 +1114,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     String time, {
     required bool isSelected,
     required VoidCallback onTap,
+    VoidCallback? onLongPress,
   }) {
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         height: 39,
         alignment: Alignment.center,
@@ -1132,6 +1137,151 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         ),
       ),
     );
+  }
+
+  ({int hour, int minute}) _parseTime(String value) {
+    final parts = value.split(':');
+    final hour = parts.isNotEmpty ? int.tryParse(parts[0]) ?? 0 : 0;
+    final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+    return (
+      hour: hour.clamp(0, 23),
+      minute: minute.clamp(0, 59),
+    );
+  }
+
+  Future<void> _showManualTimePickerDialog({
+    required List<String> availableSlots,
+    required String initialTime,
+    required ValueChanged<String> onSelect,
+  }) async {
+    final parsed = _parseTime(initialTime);
+    var selectedHour = parsed.hour;
+    var selectedMinute = (parsed.minute ~/ 5) * 5;
+    final minuteValues = List<int>.generate(12, (i) => i * 5);
+    final hourController = FixedExtentScrollController(
+      initialItem: selectedHour,
+    );
+    final minuteController = FixedExtentScrollController(
+      initialItem: minuteValues.indexOf(selectedMinute),
+    );
+
+    final picked = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (popupContext) {
+        final isDark = Theme.of(popupContext).brightness == Brightness.dark;
+        final bg = isDark ? AppColors.primaryWhiteDark : AppColors.primaryWhite;
+        final textColor = isDark ? AppColors.primaryDarkDark : AppColors.primaryDark;
+        final wheelTextColor = isDark ? AppColors.primaryDarkDark : AppColors.primaryDark;
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            final selectedTime =
+                '${selectedHour.toString().padLeft(2, '0')}:${selectedMinute.toString().padLeft(2, '0')}';
+            final isAvailable = availableSlots.contains(selectedTime);
+            return Dialog(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(32),
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(32),
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Изменить время',
+                            style: AppFonts.h3Medium.copyWith(color: textColor),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.of(dialogContext).pop(),
+                          child: const Icon(Icons.close, color: AppColors.grey),
+                        ),
+                      ],
+                    ),
+                    const Gap(12),
+                    SizedBox(
+                      height: 220,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: CupertinoPicker(
+                              scrollController: hourController,
+                              itemExtent: 42,
+                              useMagnifier: true,
+                              magnification: 1.08,
+                              onSelectedItemChanged: (index) {
+                                setDialogState(() => selectedHour = index);
+                              },
+                              children: List<Widget>.generate(
+                                24,
+                                (index) => Center(
+                                  child: Text(
+                                    index.toString().padLeft(2, '0'),
+                                    style: AppFonts.h2Semi.copyWith(
+                                      color: wheelTextColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: CupertinoPicker(
+                              scrollController: minuteController,
+                              itemExtent: 42,
+                              useMagnifier: true,
+                              magnification: 1.08,
+                              onSelectedItemChanged: (index) {
+                                setDialogState(
+                                  () => selectedMinute = minuteValues[index],
+                                );
+                              },
+                              children: List<Widget>.generate(
+                                minuteValues.length,
+                                (index) => Center(
+                                  child: Text(
+                                    minuteValues[index]
+                                        .toString()
+                                        .padLeft(2, '0'),
+                                    style: AppFonts.h2Semi.copyWith(
+                                      color: wheelTextColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Gap(16),
+                    MainButton(
+                      title: isAvailable
+                          ? 'Сохранить'
+                          : 'Время занято или недоступно',
+                      isActive: isAvailable,
+                      onTap: () => Navigator.of(dialogContext).pop(selectedTime),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (picked == null || !mounted) return;
+    onSelect(picked);
   }
 
   void _addServiceBlock() {
@@ -2200,6 +2350,17 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                     setState(
                                       () =>
                                           _services[index].selectedTime = time,
+                                    );
+                                  },
+                                  onLongPressSlot: (initialTime) {
+                                    _showManualTimePickerDialog(
+                                      availableSlots: availableSlots,
+                                      initialTime: initialTime,
+                                      onSelect: (time) {
+                                        setState(
+                                          () => _services[index].selectedTime = time,
+                                        );
+                                      },
                                     );
                                   },
                                 ),
