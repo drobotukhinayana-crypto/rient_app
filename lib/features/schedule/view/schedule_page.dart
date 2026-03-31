@@ -20,6 +20,7 @@ import 'package:rient_app/features/schedule/view/components/specialist_list_view
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_cell_interval_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
@@ -498,6 +499,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         : AppColors.tabBarScreenBackground;
     final workersAsync = ref.watch(scheduleWorkersProvider);
     final currentBranch = ref.watch(currentBranchProvider);
+    final scheduleCellIntervalMinutes = ref.watch(
+      scheduleCellIntervalMinutesProvider,
+    );
     final selectedDate = ref.watch(selectedScheduleDateProvider);
     final availableWorkersAsync = ref.watch(
       availableWorkersForDateProvider(selectedDate),
@@ -735,6 +739,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                   ref.read(selectedScheduleDateProvider.notifier).state =
                       DateTime(date.year, date.month, date.day);
                 },
+                scheduleCellIntervalMinutes: scheduleCellIntervalMinutes,
+                onScheduleCellIntervalChanged: (value) {
+                  ref.read(scheduleCellIntervalMinutesProvider.notifier).state =
+                      value;
+                },
               ),
               Expanded(
                 child: workersAsync.when(
@@ -773,6 +782,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       horizontalScrollController:
                                           _dayCalendarScrollController,
                                       columnWidth: 114,
+                                      timeIntervalMinutes:
+                                          scheduleCellIntervalMinutes,
                                       columns: () {
                                         final shifts =
                                             availableWorkersAsync.value ??
@@ -846,6 +857,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       date: selectedDate,
                                       items: dayItems,
                                       viewMode: ViewMode.day,
+                                      timeIntervalMinutes:
+                                          scheduleCellIntervalMinutes,
                                       startHour: dayWorkHours.startHour,
                                       endHour: dayWorkHours.endHour,
                                       breakStart: selectedBreak.breakStart,
@@ -916,6 +929,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         date: _weekStart,
                                         items: weekItems,
                                         viewMode: ViewMode.week,
+                                        timeIntervalMinutes:
+                                            scheduleCellIntervalMinutes,
                                         startHour: weekWorkHours.startHour,
                                         endHour: weekWorkHours.endHour,
                                         weekWorkHoursByWeekday:

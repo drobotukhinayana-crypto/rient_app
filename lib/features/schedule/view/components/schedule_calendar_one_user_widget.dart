@@ -46,6 +46,7 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
     this.workerStartHour,
     this.workerEndHour,
     this.timeRulerSize = kDefaultTimeRulerSize,
+    this.timeIntervalMinutes = 10,
     this.onScrollPositionReady,
     this.onAppointmentTap,
     this.onEmptySlotTap,
@@ -69,6 +70,7 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
 
   /// Ширина шкалы времени (0 — только у первой колонки в мультидне).
   final double timeRulerSize;
+  final int timeIntervalMinutes;
 
   /// Для синхронной прокрутки нескольких календарей дня (один общий [ScrollPosition]).
   final ValueChanged<ScrollPosition>? onScrollPositionReady;
@@ -490,6 +492,7 @@ class _ScheduleCalendarOneUserWidgetState
       timeSlotViewSettings: TimeSlotViewSettings(
         startHour: widget.startHour,
         endHour: widget.endHour,
+        timeInterval: Duration(minutes: widget.timeIntervalMinutes),
         timeIntervalHeight: 60,
         timeFormat: 'HH:mm',
         timeRulerSize: widget.timeRulerSize,

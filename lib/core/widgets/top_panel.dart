@@ -11,6 +11,7 @@ import 'package:rient_app/features/schedule/view/components/date_strip.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_selector_pill.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_cell_interval_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
 /// Callback: (viewMode, weekStart, monthStart) — для отображения полоски недели
@@ -31,6 +32,8 @@ class TopPanel extends StatefulWidget {
     this.onSpecialistSelected,
     this.scheduleSelectedDate,
     this.onScheduleDateSelected,
+    this.scheduleCellIntervalMinutes,
+    this.onScheduleCellIntervalChanged,
     this.selectedDate,
     this.onDateSelected,
     this.showFullDateLabel = true,
@@ -57,6 +60,12 @@ class TopPanel extends StatefulWidget {
 
   /// Callback при выборе даты в полоске в режиме «День».
   final ValueChanged<DateTime>? onScheduleDateSelected;
+
+  /// Интервал одной ячейки расписания (в минутах).
+  final int? scheduleCellIntervalMinutes;
+
+  /// Callback при смене интервала ячейки расписания.
+  final ValueChanged<int>? onScheduleCellIntervalChanged;
 
   /// Когда задан и [showViewModeSwitcher] true — полоска недели и календарь месяца
   /// не рисуются в панели; вызывается этот callback, контент рисуют на странице.
@@ -173,6 +182,62 @@ class _TopPanelState extends State<TopPanel> {
               value: _viewMode,
               onChanged: _onViewModeChanged,
             ),
+            if (_viewMode != ViewMode.month &&
+                widget.scheduleCellIntervalMinutes != null &&
+                widget.onScheduleCellIntervalChanged != null) ...[
+              Gap(10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: PopupMenuButton<int>(
+                  onSelected: widget.onScheduleCellIntervalChanged,
+                  itemBuilder: (context) => [
+                    for (final value in scheduleCellIntervalOptions)
+                      PopupMenuItem<int>(
+                        value: value,
+                        child: Text('$value мин', style: AppFonts.b2Regular),
+                      ),
+                  ],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: isDark
+                          ? AppColors.secondaryDarkDark
+                          : AppColors.primaryWhite,
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.secondaryDark
+                            : AppColors.grey.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Интервал: ${widget.scheduleCellIntervalMinutes} мин',
+                          style: AppFonts.b2Medium.copyWith(
+                            color: isDark
+                                ? AppColors.primaryWhite
+                                : AppColors.primaryDark,
+                          ),
+                        ),
+                        const Gap(8),
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 18,
+                          color: isDark
+                              ? AppColors.primaryWhite
+                              : AppColors.primaryDark,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
             if (_viewMode != ViewMode.day &&
                 widget.specialists != null &&
                 widget.specialists!.isNotEmpty) ...[
