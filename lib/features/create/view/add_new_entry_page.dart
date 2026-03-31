@@ -174,6 +174,7 @@ class _CreateAppointmentDraft {
     return {
       'services': services.map((service) => service.toJson()).toList(),
       'status': status,
+      'comment': {'id': commentId, 'user': null, 'text': commentText},
       'worker': workerId,
       'branch': branchId,
       'client': overrideClientId ?? clientId,
@@ -1398,6 +1399,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     maxLines: 3,
                     isMultiline: true,
                     borderRadius: BorderRadius.circular(16),
+                    onChanged: (_) => setState(() {}),
                   ),
                 ],
                 Gap(16),
@@ -1405,7 +1407,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                 ClientStatusSelectorWidget(
                   initialIndex: _selectedStatusIndex,
                   onSelected: (index, _) {
-                    _selectedStatusIndex = index;
+                    setState(() {
+                      _selectedStatusIndex = index;
+                    });
                   },
                 ),
 
@@ -2048,8 +2052,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                       _services[index].addDurationMinutes =
                                           selected.addDuration;
                                     }
-                                    if (previousServiceId != value) {
-                                      _services[index].selectedTime = null;
+                                    // Время не сбрасываем заранее: после смены услуги
+                                    // оставляем слот, если он валиден для новой длительности.
+                                    // Если невалиден — ниже сработает авто-очистка и сообщение.
+                                    if (previousServiceId != value &&
+                                        previousServiceId != null) {
                                       _services[index].appointmentServiceId =
                                           null;
                                     }
@@ -2105,19 +2112,14 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                           color: AppColors.grey,
                         ),
                       )
-                    else if (_services[index].selectedServiceId == null)
-                      Text(
-                        'Сначала выберите услугу',
-                        style: AppFonts.c1Regular.copyWith(
-                          color: AppColors.grey,
-                        ),
-                      )
                     else if (selectedShiftAsync.isLoading ||
                         specialistAppointmentsAsync.isLoading)
                       const Center(child: CircularProgressIndicator())
                     else ...[
                       Builder(
                         builder: (context) {
+                          final hasSelectedService =
+                              _services[index].selectedServiceId != null;
                           final availableSlots = _availableSlotsForService(
                             date: selectedDateOnly,
                             durationMinutes: _services[index]
@@ -2128,7 +2130,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                           );
 
                           final selectedTime = _services[index].selectedTime;
-                          if (selectedTime != null &&
+                          if (hasSelectedService &&
+                              selectedTime != null &&
                               !availableSlots.contains(selectedTime)) {
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (!mounted) return;
@@ -2140,6 +2143,18 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                 setState(() {
                                   _services[index].selectedTime = null;
                                 });
+                                if (!mounted) return;
+                                final messenger = ScaffoldMessenger.maybeOf(
+                                  this.context,
+                                );
+                                messenger?.hideCurrentSnackBar();
+                                messenger?.showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Временной слот не подходит. Выберите другой',
+                                    ),
+                                  ),
+                                );
                               }
                             });
                           }
@@ -2193,7 +2208,17 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                           }
 
                           return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              if (!hasSelectedService) ...[
+                                Text(
+                                  'Сначала выберите услугу',
+                                  style: AppFonts.c1Regular.copyWith(
+                                    color: AppColors.grey,
+                                  ),
+                                ),
+                                const Gap(8),
+                              ],
                               section('Утро', morning),
                               if (morning.isNotEmpty &&
                                   (day.isNotEmpty || evening.isNotEmpty))

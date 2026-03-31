@@ -77,6 +77,11 @@ abstract class AppFonts {
     fontWeight: FontWeight.w400,
   );
 
+  static final c0Regular = GoogleFonts.montserrat(
+    fontSize: 10,
+    fontWeight: FontWeight.w400,
+  );
+
   static final c2Tabbar = GoogleFonts.montserrat(
     fontSize: 11,
     fontWeight: FontWeight.w500,

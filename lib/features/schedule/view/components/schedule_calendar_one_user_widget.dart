@@ -280,6 +280,7 @@ class _ScheduleCalendarOneUserWidgetState
     final accentColor = item?.accentColor ?? a.color;
     final backgroundColor =
         item?.backgroundColor ?? a.color.withValues(alpha: 0.2);
+    final clientName = (item?.notes ?? a.notes ?? '').trim();
 
     if (widget.viewMode == ViewMode.week) {
       return GestureDetector(
@@ -423,6 +424,15 @@ class _ScheduleCalendarOneUserWidgetState
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
+                                  if (clientName.isNotEmpty)
+                                    Text(
+                                      clientName,
+                                      style: AppFonts.c0Regular.copyWith(
+                                        color: accentColor,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                 ],
                               ),
                             ),
