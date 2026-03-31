@@ -235,8 +235,10 @@ class _DateCircleItem extends StatelessWidget {
     final unselectedFillColor = useMonthCalendarCircleFill
         ? (isDark ? AppColors.primaryWhiteDark : AppColors.primaryWhite)
         : (isDark
-            ? AppColors.secondaryDarkDark
-            : (useGreyCircles ? AppColors.secondaryDark : AppColors.primaryWhite));
+              ? AppColors.secondaryDarkDark
+              : (useGreyCircles
+                    ? AppColors.secondaryDark
+                    : AppColors.primaryWhite));
 
     final dayNumberColor = isSelected
         ? AppColors.primaryWhite
