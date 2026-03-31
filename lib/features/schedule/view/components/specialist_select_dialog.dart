@@ -85,8 +85,14 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? AppColors.primaryWhiteDark : Colors.white;
+    final listSurface = isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight;
+    final primaryText = isDark ? AppColors.primaryDarkDark : AppColors.primaryDark;
+    final secondaryText = isDark ? AppColors.tabbarGreyDark : AppColors.grey;
+
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: surface,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
@@ -98,10 +104,16 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Выбрать специалиста', style: AppFonts.h4Medium),
+                Text(
+                  'Выбрать специалиста',
+                  style: AppFonts.h4Medium.copyWith(color: primaryText),
+                ),
                 GestureDetector(
                   onTap: () => Navigator.of(context).pop(),
-                  child: Image.asset(AppImages.closeRounded),
+                  child: Image.asset(
+                    AppImages.closeRounded,
+                    color: secondaryText,
+                  ),
                 ),
               ],
             ),
@@ -109,12 +121,12 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
             TextField(
               controller: _searchController,
               onTapOutside: (_) => FocusScope.of(context).unfocus(),
-              style: AppFonts.c1Regular,
+              style: AppFonts.c1Regular.copyWith(color: primaryText),
               decoration: InputDecoration(
                 hintText: 'Поиск',
-                hintStyle: AppFonts.c1Regular.copyWith(color: AppColors.grey),
+                hintStyle: AppFonts.c1Regular.copyWith(color: secondaryText),
                 filled: true,
-                fillColor: AppColors.secondaryLight,
+                fillColor: listSurface,
                 border: OutlineInputBorder(
                   borderRadius: AppDecoration.borderRadius300,
                   borderSide: BorderSide.none,
@@ -130,7 +142,7 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.secondaryLight,
+                  color: listSurface,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: ListView.separated(
@@ -148,7 +160,10 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
                         children: [
                           _SpecialistAvatarSmall(pictureUrl: s.pictureUrl),
                           Gap(6),
-                          Text(s.name, style: AppFonts.c1Regular),
+                          Text(
+                            s.name,
+                            style: AppFonts.c1Regular.copyWith(color: primaryText),
+                          ),
                           const Spacer(),
                           AppRadio(
                             value: originalIndex,
@@ -195,19 +210,20 @@ class _SpecialistAvatarSmall extends StatelessWidget {
           width: 30,
           height: 30,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _placeholder(),
+          errorBuilder: (_, __, ___) => _placeholder(context),
         ),
       );
     }
-    return _placeholder();
+    return _placeholder(context);
   }
 
-  Widget _placeholder() {
+  Widget _placeholder(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: 30,
       height: 30,
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.secondaryDarkDark : Colors.white,
         shape: BoxShape.circle,
       ),
     );

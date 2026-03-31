@@ -80,19 +80,20 @@ class _SpecialistAvatar extends StatelessWidget {
           width: 40,
           height: 40,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _placeholder(),
+          errorBuilder: (_, __, ___) => _placeholder(context),
         ),
       );
     }
-    return _placeholder();
+    return _placeholder(context);
   }
 
-  Widget _placeholder() {
+  Widget _placeholder(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: AppColors.secondaryLight,
+        color: isDark ? AppColors.forthLightDark : AppColors.secondaryLight,
         shape: BoxShape.circle,
       ),
     );

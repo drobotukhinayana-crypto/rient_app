@@ -71,8 +71,12 @@ class _SpecialistSelectorPillState extends State<SpecialistSelectorPill> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight;
+    final primaryText = isDark ? AppColors.primaryDarkDark : AppColors.primaryDark;
+    final secondaryText = isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey;
     return Material(
-      color: AppColors.secondaryLight,
+      color: surface,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: _openDialog,
@@ -91,14 +95,17 @@ class _SpecialistSelectorPillState extends State<SpecialistSelectorPill> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // имя
-                    Text(_selected.name, style: AppFonts.b2Medium),
+                    Text(
+                      _selected.name,
+                      style: AppFonts.b2Medium.copyWith(color: primaryText),
+                    ),
                     Gap(2),
 
                     // роль
                     Text(
                       _selected.role,
                       style: AppFonts.c2Tabbar.copyWith(
-                        color: AppColors.tabbarGrey,
+                        color: secondaryText,
                       ),
                     ),
                   ],
@@ -106,7 +113,10 @@ class _SpecialistSelectorPillState extends State<SpecialistSelectorPill> {
               ),
 
               // стрелка
-              Image.asset(AppImages.arrowDown),
+              Image.asset(
+                AppImages.arrowDown,
+                color: AppColors.themeAccent(context),
+              ),
             ],
           ),
         ),
@@ -129,19 +139,20 @@ class _PillAvatar extends StatelessWidget {
           width: 40,
           height: 40,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _placeholder(),
+          errorBuilder: (_, __, ___) => _placeholder(context),
         ),
       );
     }
-    return _placeholder();
+    return _placeholder(context);
   }
 
-  Widget _placeholder() {
+  Widget _placeholder(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: 40,
       height: 40,
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.secondaryDarkDark : Colors.white,
         shape: BoxShape.circle,
       ),
     );
