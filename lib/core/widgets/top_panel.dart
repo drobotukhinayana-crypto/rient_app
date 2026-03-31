@@ -34,6 +34,7 @@ class TopPanel extends StatefulWidget {
     this.selectedDate,
     this.onDateSelected,
     this.showFullDateLabel = true,
+    this.viewMode,
   });
 
   final String title;
@@ -73,6 +74,9 @@ class TopPanel extends StatefulWidget {
   /// От 0 до 100
   final List<OccupancyByDay>? occupancyByDay;
 
+  /// Управляемый извне режим расписания (для синхронизации с родителем).
+  final ViewMode? viewMode;
+
   @override
   State<TopPanel> createState() => _TopPanelState();
 }
@@ -85,10 +89,21 @@ class _TopPanelState extends State<TopPanel> {
   @override
   void initState() {
     super.initState();
+    if (widget.viewMode != null) {
+      _viewMode = widget.viewMode!;
+    }
     _syncToToday();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.onScheduleStateChanged?.call(_viewMode, _weekStart, _monthStart);
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant TopPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.viewMode != null && widget.viewMode != _viewMode) {
+      _viewMode = widget.viewMode!;
+    }
   }
 
   void _syncToToday() {

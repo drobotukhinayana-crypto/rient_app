@@ -160,6 +160,16 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     }
   }
 
+  void _switchToDayMode(DateTime date) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    setState(() {
+      _viewMode = ViewMode.day;
+      _weekStart = normalized.subtract(Duration(days: normalized.weekday - 1));
+      _monthStart = DateTime(normalized.year, normalized.month, 1);
+    });
+    ref.read(selectedScheduleDateProvider.notifier).state = normalized;
+  }
+
   static DateTime _toDateOnly(DateTime value) =>
       DateTime(value.year, value.month, value.day);
 
@@ -707,6 +717,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
               TopPanel(
                 title: 'Расписание',
                 showViewModeSwitcher: true,
+                viewMode: _viewMode,
                 onScheduleStateChanged: _onScheduleStateChanged,
                 specialists: specialists,
                 initialSelectedSpecialist: initialSelected,
@@ -890,7 +901,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         initialDate: _weekStart,
                                         selectedDate: selectedDate,
                                         visibleWeekStart: _weekStart,
-                                        onDateSelected: null,
+                                        onDateSelected: _switchToDayMode,
                                         showFullDateLabel: false,
                                         useGreyCircles: true,
                                         useMonthCalendarCircleFill: true,
@@ -955,6 +966,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       month: _monthStart,
                                       slotsByDay: slotsByDay,
                                       occupancyByDay: monthOccupancyByDay,
+                                      onDayTap: _switchToDayMode,
                                     ),
                                   ),
                                 ),
