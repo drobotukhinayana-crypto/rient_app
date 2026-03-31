@@ -31,6 +31,7 @@ class WorkerServiceItem {
     required this.worker,
     required this.price,
     required this.duration,
+    required this.addDuration,
     required this.service,
   });
 
@@ -41,6 +42,11 @@ class WorkerServiceItem {
       worker: json['worker'] as int? ?? 0,
       price: (json['price'] as num?)?.toDouble() ?? 0,
       duration: json['duration'] as int? ?? 0,
+      addDuration:
+          (json['add_duration'] as num?)?.toInt() ??
+          ((json['service'] as Map<String, dynamic>?)?['add_duration'] as num?)
+                  ?.toInt() ??
+          0,
       service: WorkerServiceInfo.fromJson(
         json['service'] as Map<String, dynamic>? ?? const {},
       ),
@@ -52,7 +58,10 @@ class WorkerServiceItem {
   final int worker;
   final double price;
   final int duration;
+  final int addDuration;
   final WorkerServiceInfo service;
+
+  int get totalDurationMinutes => duration + addDuration;
 }
 
 class WorkerServiceInfo {

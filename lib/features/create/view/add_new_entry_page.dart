@@ -187,6 +187,7 @@ class _CreateAppointmentServiceDraft {
     required this.serviceId,
     required this.dateTime,
     required this.durationMinutes,
+    required this.addDurationMinutes,
     required this.price,
   });
 
@@ -194,6 +195,7 @@ class _CreateAppointmentServiceDraft {
   final int serviceId;
   final DateTime dateTime;
   final int durationMinutes;
+  final int addDurationMinutes;
   final double price;
 
   @override
@@ -204,6 +206,7 @@ class _CreateAppointmentServiceDraft {
             other.serviceId == serviceId &&
             other.dateTime == dateTime &&
             other.durationMinutes == durationMinutes &&
+            other.addDurationMinutes == addDurationMinutes &&
             other.price == price);
   }
 
@@ -213,6 +216,7 @@ class _CreateAppointmentServiceDraft {
     serviceId,
     dateTime,
     durationMinutes,
+    addDurationMinutes,
     price,
   );
 
@@ -221,7 +225,7 @@ class _CreateAppointmentServiceDraft {
       if (appointmentServiceId != null) 'id': appointmentServiceId,
       'duration': durationMinutes,
       'price': price,
-      'add_duration': 0,
+      'add_duration': addDurationMinutes,
       'datetime': dateTime.toUtc().toIso8601String(),
       'service': serviceId,
     };
@@ -681,8 +685,15 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       block.selectedTime = '$h:$m';
     }
     final totalMinutes = service.totalDurationMinutes;
-    if (totalMinutes >= 0) {
+    if (service.duration >= 0) {
+      block.durationMinutes = service.duration;
+    }
+    if (service.addDuration >= 0) {
+      block.addDurationMinutes = service.addDuration;
+    } else if (totalMinutes >= 0) {
+      // Fallback для старых ответов, где доступна только сумма.
       block.durationMinutes = totalMinutes;
+      block.addDurationMinutes = 0;
     }
 
     return block;
@@ -831,9 +842,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         value: selectedTime,
       );
       if (blockStart == null) continue;
-      final blockDuration = block.durationMinutes <= 0
+      final blockDuration = block.totalDurationMinutes <= 0
           ? 10
-          : block.durationMinutes;
+          : block.totalDurationMinutes;
       final blockEnd = blockStart.add(Duration(minutes: blockDuration));
       if (!blockEnd.isAfter(blockStart)) continue;
       busyRanges.add(_DateTimeRange(start: blockStart, end: blockEnd));
@@ -967,6 +978,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           durationMinutes: block.durationMinutes <= 0
               ? 10
               : block.durationMinutes,
+          addDurationMinutes: block.addDurationMinutes <= 0
+              ? 0
+              : block.addDurationMinutes,
           price: workerService.price,
         ),
       );
@@ -1199,6 +1213,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         if (block.durationMinutes <= 0) {
           block.durationMinutes = matched.duration;
         }
+        block.addDurationMinutes = matched.addDuration;
         block.initialServiceName = null;
         hasChanges = true;
       }
@@ -1821,6 +1836,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                             for (final service in _services) {
                               service.selectedServiceId = null;
                               service.durationMinutes = 10;
+                                      service.addDurationMinutes = 0;
                               service.selectedTime = null;
                             }
                           });
@@ -1986,6 +2002,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                   worker: 0,
                                   price: 0,
                                   duration: 0,
+                                  addDuration: 0,
                                   service: WorkerServiceInfo(
                                     id: 0,
                                     name: '',
@@ -2028,6 +2045,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                     if (selected != null) {
                                       _services[index].durationMinutes =
                                           selected.duration;
+                                      _services[index].addDurationMinutes =
+                                          selected.addDuration;
                                     }
                                     if (previousServiceId != value) {
                                       _services[index].selectedTime = null;
@@ -2101,7 +2120,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                         builder: (context) {
                           final availableSlots = _availableSlotsForService(
                             date: selectedDateOnly,
-                            durationMinutes: _services[index].durationMinutes,
+                            durationMinutes: _services[index]
+                                .totalDurationMinutes,
                             shift: selectedShift,
                             appointments: specialistAppointments,
                             currentServiceIndex: index,
@@ -2192,7 +2212,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Text(
-                          '${_services[index].durationMinutes} минут',
+                          '${_services[index].totalDurationMinutes} минут',
                           style: AppFonts.c1Regular,
                         ),
                         const Gap(12),
@@ -2576,6 +2596,9 @@ class _ServiceBlockState {
   bool isTimeExpanded = true;
   String? selectedTime;
   int durationMinutes = 10;
+  int addDurationMinutes = 0;
+
+  int get totalDurationMinutes => durationMinutes + addDurationMinutes;
 }
 
 class _SpecialistDropdownTile extends StatelessWidget {
