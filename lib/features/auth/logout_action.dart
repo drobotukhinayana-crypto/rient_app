@@ -13,8 +13,24 @@ import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/auth/view/providers/selected_organization_member_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 
-/// Очистка сессии и переход на экран входа (как кнопка «Выход» на вкладке Ссылка).
+/// Очистка сессии из UI-слоя (WidgetRef) и переход на экран входа.
 Future<void> performLogout(WidgetRef ref) async {
+  await ref.read(sessionDataControllerProvider.notifier).deleteSessionData();
+  await ref.read(tokenProvider.notifier).clearToken();
+  await ref.read(emailStorageProvider.notifier).clearEmail();
+  await ref.read(organizationIdProvider.notifier).clearOrganizationId();
+  ref.read(roleProvider.notifier).state = 0;
+  ref.read(branchesIdProvider.notifier).state = 0;
+  ref.read(passwordProvider.notifier).state = '';
+  ref.read(selectedOrganizationMemberProvider.notifier).state = null;
+  ref.read(selectedBranchProvider.notifier).state = null;
+  ref.invalidate(getAuthOrganiztionsProvider);
+  ref.invalidate(getAuthBranchesProvider);
+  ref.read(routerProvider).goNamed(AuthPage.name);
+}
+
+/// Очистка сессии из сервисов/провайдеров (Ref) и переход на экран входа.
+Future<void> performLogoutWithRef(Ref ref) async {
   await ref.read(sessionDataControllerProvider.notifier).deleteSessionData();
   await ref.read(tokenProvider.notifier).clearToken();
   await ref.read(emailStorageProvider.notifier).clearEmail();

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/token_storage.dart';
+import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
@@ -48,6 +49,7 @@ class BranchesService {
         );
       }
     } catch (e) {
+      await handleUnauthorizedIfNeeded(ref, e);
       throw CustomException(causedError: e);
     }
   }
