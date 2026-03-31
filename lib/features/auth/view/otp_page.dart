@@ -47,6 +47,7 @@ class _BodyWidget extends ConsumerStatefulWidget {
 class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   bool _otpHasError = false;
   bool _isResending = false;
+  bool _isVerifying = false;
   static const _resendSeconds = 45;
   int _secondsLeft = _resendSeconds;
   Timer? _timer;
@@ -93,7 +94,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }
 
   void _onOtpCompleted(String code) async {
+    if (_isVerifying) return;
     if (_otpHasError) setState(() => _otpHasError = false);
+    setState(() => _isVerifying = true);
 
     await ref
         .read(getOtpControllerProvider.notifier)
@@ -113,6 +116,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     ref.listen(getOtpControllerProvider, (previous, next) {
       next.whenOrNull(
         success: (value) {
+          if (_isVerifying) {
+            setState(() => _isVerifying = false);
+          }
           if (_isResending) {
             _startTimer();
             _isResending = false;
@@ -121,6 +127,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           }
         },
         error: (error) {
+          if (_isVerifying) {
+            setState(() => _isVerifying = false);
+          }
           _isResending = false;
           if (previous != null && previous.isLoading) {
             setState(() => _otpHasError = true);
@@ -136,13 +145,15 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       child: GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         behavior: HitTestBehavior.opaque,
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(
-              child: SingleChildScrollView(
-              padding: AppDecoration.padding16.copyWith(top: 16),
-              child: Column(
-                children: [
+            Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: AppDecoration.padding16.copyWith(top: 16),
+                    child: Column(
+                      children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -270,16 +281,28 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       ),
                     ),
                   ],
-                ],
-              ),
-            ),
-          ),
+                      ],
+                    ),
+                  ),
+                ),
 
-          // нижняя панель
-          const BottomPanel(),
-        ],
+                // нижняя панель
+                const BottomPanel(),
+              ],
+            ),
+            if (_isVerifying) ...[
+              Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }

@@ -51,6 +51,7 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isTokenLoading = ref.watch(getTokenControllerProvider).isLoading;
     ref.listen(getTokenControllerProvider, (_, state) {
       state.whenOrNull(
         success: (_) {
@@ -78,13 +79,15 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: AppDecoration.padding16.copyWith(top: 54),
-                child: Column(
-                  children: [
+            Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: AppDecoration.padding16.copyWith(top: 54),
+                    child: Column(
+                      children: [
                     // логотип
                     Image.asset(AppImages.logoBig),
                     Gap(28),
@@ -103,43 +106,57 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
                     ),
                     if (ref.watch(_errorPasswordProvider).isNotEmpty)
                       ErrorLabel(ref.watch(_errorPasswordProvider)),
-                  ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // кнопка
+                Padding(
+                  padding: AppDecoration.padding16.copyWith(bottom: 24),
+                  child: MainButton(
+                    title: 'Продолжить',
+                    isLoading: isTokenLoading,
+                    onTap: () {
+                      final password = passwordController.text;
+                      final selectedMember = ref.read(
+                        selectedOrganizationMemberProvider,
+                      );
+                      if (selectedMember != null) {
+                        ref
+                            .read(organizationIdProvider.notifier)
+                            .setOrganizationId(selectedMember.organization.id);
+                        ref.read(roleProvider.notifier).state =
+                            selectedMember.role.value;
+                      }
+                      ref.read(passwordProvider.notifier).state = password;
+                      final roleId = ref.read(roleProvider);
+                      if (roleId == UserRole.owner.value) {
+                        ref.read(getTokenControllerProvider.notifier).getToken(
+                              password: password,
+                              deviceId: Platform.operatingSystemVersion.hashCode,
+                              userAgent: Platform.operatingSystem.hashCode,
+                            );
+                        return;
+                      }
+                      SelectBranchPage.navigate(context);
+                    },
+                  ),
+                ),
+
+                // нижняя панель
+                const BottomPanel(),
+              ],
+            ),
+            if (isTokenLoading)
+              Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
                 ),
               ),
-            ),
-
-            // кнопка
-            Padding(
-              padding: AppDecoration.padding16.copyWith(bottom: 24),
-              child: MainButton(
-                title: 'Продолжить',
-                onTap: () {
-                  final password = passwordController.text;
-                  final selectedMember = ref.read(selectedOrganizationMemberProvider);
-                  if (selectedMember != null) {
-                    ref
-                        .read(organizationIdProvider.notifier)
-                        .setOrganizationId(selectedMember.organization.id);
-                    ref.read(roleProvider.notifier).state =
-                        selectedMember.role.value;
-                  }
-                  ref.read(passwordProvider.notifier).state = password;
-                  final roleId = ref.read(roleProvider);
-                  if (roleId == UserRole.owner.value) {
-                    ref.read(getTokenControllerProvider.notifier).getToken(
-                          password: password,
-                          deviceId: Platform.operatingSystemVersion.hashCode,
-                          userAgent: Platform.operatingSystem.hashCode,
-                        );
-                    return;
-                  }
-                  SelectBranchPage.navigate(context);
-                },
-              ),
-            ),
-
-            // нижняя панель
-            const BottomPanel(),
           ],
         ),
       ),

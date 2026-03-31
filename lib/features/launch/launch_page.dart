@@ -12,7 +12,9 @@ class LaunchPage extends ConsumerWidget {
   static const String path = '/launchPage';
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen<LaunchState>(launchControllerProvider, (_, state) {
+    final state = ref.watch(launchControllerProvider);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
       state.when(
         initial: () {},
         loading: () {},

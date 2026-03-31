@@ -26,7 +26,9 @@ import 'package:rient_app/features/create/view/providers/worker_services_provide
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
+import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
+import 'package:rient_app/features/schedule/service/schedules_service.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
@@ -499,7 +501,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   final List<_ServiceBlockState> _services = [_ServiceBlockState()];
   final _phoneMaskFormatter = _PhoneMaskFormatter();
   int? _selectedSpecialistId;
-  int _selectedStatusIndex = 1;
+  int _selectedStatusIndex = 0;
   DateTime _selectedDate = DateTime.now();
   String? _rememberedClientPhone;
 
@@ -880,6 +882,46 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return chunks;
   }
 
+  DateTime _resolveInitialDateForWeekdays({
+    required DateTime from,
+    required Set<int> allowedWeekdays,
+  }) {
+    var date = _dateOnly(from);
+    for (var i = 0; i < 370; i++) {
+      if (allowedWeekdays.contains(date.weekday)) {
+        return date;
+      }
+      date = date.add(const Duration(days: 1));
+    }
+    return _dateOnly(from);
+  }
+
+  Future<Set<int>> _loadSpecialistWorkingWeekdays({
+    required int specialistId,
+    required int branchId,
+  }) async {
+    final focusDate = _dateOnly(_selectedDate);
+    final rangeStart = DateTime(focusDate.year, focusDate.month - 1, 1);
+    final rangeEnd = DateTime(focusDate.year, focusDate.month + 2, 0);
+    final response = await ref
+        .read(schedulesServiceProvider)
+        .getSchedules(
+          branchId: branchId,
+          dateGte: rangeStart,
+          dateLte: rangeEnd,
+          pageSize: 5000,
+        );
+
+    final weekdays = <int>{};
+    for (final item in response.results) {
+      if (!item.active || item.workerId != specialistId) continue;
+      final parsedDate = DateTime.tryParse(item.date);
+      if (parsedDate == null) continue;
+      weekdays.add(parsedDate.toLocal().weekday);
+    }
+    return weekdays;
+  }
+
   _CreateAppointmentDraft? _buildCreateDraft({
     required List<WorkerServiceItem> workerServices,
     required int? selectedSpecialistId,
@@ -993,12 +1035,50 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }
 
   Future<void> _pickDate() async {
+    final specialistId = _selectedSpecialistId;
+    final branchId = ref.read(currentBranchIdProvider);
+    Set<int>? allowedWeekdays;
+    if (specialistId != null && branchId != 0) {
+      try {
+        allowedWeekdays = await _loadSpecialistWorkingWeekdays(
+          specialistId: specialistId,
+          branchId: branchId,
+        );
+      } catch (_) {
+        allowedWeekdays = null;
+      }
+    }
+    if (!mounted) return;
+
+    if (allowedWeekdays != null && allowedWeekdays.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('У выбранного мастера нет рабочих дней'),
+        ),
+      );
+      return;
+    }
+
+    final initialDate =
+        allowedWeekdays == null || allowedWeekdays.isEmpty
+        ? _selectedDate
+        : _resolveInitialDateForWeekdays(
+            from: _selectedDate,
+            allowedWeekdays: allowedWeekdays,
+          );
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: initialDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
       locale: const Locale('ru'),
+      selectableDayPredicate: (day) {
+        if (allowedWeekdays == null || allowedWeekdays.isEmpty) {
+          return true;
+        }
+        return allowedWeekdays.contains(day.weekday);
+      },
     );
     if (picked == null) return;
     setState(() => _selectedDate = picked);
@@ -1314,6 +1394,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   controller: _phoneController,
                   label: 'Телефон',
                   hintText: 'Телефон',
+                  keyboardType: TextInputType.number,
                   inputFormatters: [_phoneMaskFormatter],
                   onCleared: () {
                     unawaited(_clearRememberedClientIfChanged(''));

@@ -22,6 +22,7 @@ class MainTextField extends ConsumerStatefulWidget {
     this.onCleared,
     this.inputFormatters,
     this.borderRadius,
+    this.keyboardType,
   });
 
   final TextEditingController controller;
@@ -36,6 +37,7 @@ class MainTextField extends ConsumerStatefulWidget {
   final VoidCallback? onCleared;
   final List<TextInputFormatter>? inputFormatters;
   final BorderRadius? borderRadius;
+  final TextInputType? keyboardType;
 
   @override
   ConsumerState<MainTextField> createState() => _MainTextFieldState();
@@ -140,6 +142,7 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
         ],
         TextField(
           enabled: widget.canEdit,
+          keyboardType: widget.keyboardType,
           maxLines: widget.isMultiline ? (widget.maxLines) : 1,
           minLines: widget.isMultiline ? (widget.maxLines ?? 5) : 1,
           cursorColor: AppColors.primaryDark,
