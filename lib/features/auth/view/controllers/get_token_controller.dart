@@ -21,6 +21,7 @@ class GetTokenController extends StateNotifier<BaseState<void, Exception>> {
     required String password,
     required int deviceId,
     required int userAgent,
+    int? branchId,
   }) async {
     state = const BaseState.loading();
     try {
@@ -28,6 +29,7 @@ class GetTokenController extends StateNotifier<BaseState<void, Exception>> {
         password: password,
         deviceId: deviceId,
         userAgent: userAgent,
+        branchId: branchId,
       );
 
       state = const BaseState.success();

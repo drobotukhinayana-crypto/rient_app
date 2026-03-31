@@ -33,6 +33,10 @@ class MainButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final usesDefaultColor = color == AppColors.mainAccent;
+    final resolvedBackgroundColor = isDark && usesDefaultColor
+        ? AppColors.themeAccent(context)
+        : color;
     return SizedBox(
       height: height,
       width: width,
@@ -45,7 +49,7 @@ class MainButton extends ConsumerWidget {
             : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: isActive
-              ? (isDark ? AppColors.themeAccent(context) : color)
+              ? resolvedBackgroundColor
               : AppColors.grey,
           disabledBackgroundColor: AppColors.grey,
           elevation: 0,

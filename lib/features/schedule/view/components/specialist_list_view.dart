@@ -19,6 +19,7 @@ class SpecialistListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
       height: 135,
       child: ListView.separated(
@@ -32,7 +33,7 @@ class SpecialistListView extends StatelessWidget {
             child: DefaultContainerWidget(
               borderRadius: BorderRadius.circular(20),
               padding: const EdgeInsets.all(12),
-              color: Colors.white,
+              color: isDark ? AppColors.primaryWhiteDark : Colors.white,
               hasShadow: false,
               child: Column(
                 mainAxisSize: MainAxisSize.min,

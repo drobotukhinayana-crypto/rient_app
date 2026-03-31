@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/session_data/models/session_data.dart';
 import 'package:rient_app/core/session_data/view/controller/session_data_controller.dart';
 import 'package:rient_app/core/services/email_storage.dart';
+import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/base_state/base_state.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
@@ -15,13 +16,16 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/error_label.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
+import 'package:rient_app/features/auth/service/get_auth_branches.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/controllers/get_token_controller.dart';
+import 'package:rient_app/features/auth/view/providers/branches_id_provider.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/auth/view/providers/selected_organization_member_provider.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/auth/view/select_branch_page.dart';
 import 'package:rient_app/features/tabbar/view/tab_bar_page.dart';
 import 'package:rient_app/resources/resources.dart';
@@ -42,6 +46,7 @@ class AuthPasswordPage extends ConsumerStatefulWidget {
 
 class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
   final passwordController = TextEditingController();
+  bool _isAutoSingleBranchLogin = false;
 
   @override
   void dispose() {
@@ -64,13 +69,15 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
           }
           final roleId = ref.read(roleProvider);
           // Владелец (role = 0) — сразу на TabBar, без выбора филиала
-          if (roleId == UserRole.owner.value) {
+          if (roleId == UserRole.owner.value || _isAutoSingleBranchLogin) {
+            _isAutoSingleBranchLogin = false;
             TabBarPage.navigate(context);
           } else {
             SelectBranchPage.navigate(context);
           }
         },
         error: (error) {
+          _isAutoSingleBranchLogin = false;
           ref.read(_errorPasswordProvider.notifier).state =
               'Произошла неизвестная ошибка. Проверьте ваш пароль и попробуйте снова';
         },
@@ -117,7 +124,7 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
                   child: MainButton(
                     title: 'Продолжить',
                     isLoading: isTokenLoading,
-                    onTap: () {
+                    onTap: () async {
                       final password = passwordController.text;
                       final selectedMember = ref.read(
                         selectedOrganizationMemberProvider,
@@ -132,6 +139,7 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
                       ref.read(passwordProvider.notifier).state = password;
                       final roleId = ref.read(roleProvider);
                       if (roleId == UserRole.owner.value) {
+                        _isAutoSingleBranchLogin = false;
                         ref.read(getTokenControllerProvider.notifier).getToken(
                               password: password,
                               deviceId: Platform.operatingSystemVersion.hashCode,
@@ -139,7 +147,38 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
                             );
                         return;
                       }
-                      SelectBranchPage.navigate(context);
+                      try {
+                        final branchMembers = await ref.read(
+                          getAuthBranchesProvider.future,
+                        );
+                        if (!mounted) return;
+                        if (branchMembers.length == 1 &&
+                            branchMembers.first.branches.isNotEmpty) {
+                          final branchId = branchMembers.first.branches.first.id;
+                          ref.read(branchesIdProvider.notifier).state = branchId;
+                          await ref
+                              .read(localStorageProvider)
+                              .saveString(
+                                ref.read(selectedBranchStorageKeyProvider),
+                                branchId.toString(),
+                              );
+                          _isAutoSingleBranchLogin = true;
+                          ref
+                              .read(getTokenControllerProvider.notifier)
+                              .getToken(
+                                password: password,
+                                deviceId: Platform.operatingSystemVersion.hashCode,
+                                userAgent: Platform.operatingSystem.hashCode,
+                                branchId: branchId,
+                              );
+                          return;
+                        }
+                      } catch (_) {
+                        // Если не удалось подгрузить филиалы, остаемся в стандартном сценарии.
+                      }
+                      _isAutoSingleBranchLogin = false;
+                      if (!mounted) return;
+                      SelectBranchPage.navigate(this.context);
                     },
                   ),
                 ),

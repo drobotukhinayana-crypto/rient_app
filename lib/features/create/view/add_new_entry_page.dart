@@ -360,39 +360,15 @@ class AddNewEntryPage extends StatelessWidget {
     );
   }
 
-  Future<void> _rememberClientFromDraft(BuildContext context) async {
-    final container = ProviderScope.containerOf(context, listen: false);
-    final draft = container.read(createEntryDraftProvider);
-    final phone = draft?.clientPhone.trim() ?? '';
-    final firstName = draft?.clientFirstName.trim() ?? '';
-    final lastName = draft?.clientLastName.trim() ?? '';
-    if (phone.isEmpty || firstName.isEmpty || lastName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Заполните телефон, имя и фамилию клиента'),
-        ),
-      );
-      return;
-    }
-    final payload = <String, dynamic>{
-      'id': draft?.clientId,
-      'phone': phone,
-      'first_name': firstName,
-      'last_name': lastName,
-      'comment_text': draft?.clientCommentText ?? '',
-      'status': draft?.status ?? 0,
-    };
-    await container
-        .read(localStorageProvider)
-        .saveString(_rememberedClientStorageKey, jsonEncode(payload));
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Клиент запомнен')));
+  Future<void> _rememberClientFromBody(
+    GlobalKey<_BodyWidgetState> bodyKey,
+  ) async {
+    await bodyKey.currentState?.rememberClient();
   }
 
   @override
   Widget build(BuildContext context) {
+    final bodyKey = GlobalKey<_BodyWidgetState>();
     final appBarSurface = _entryAppBarSurface(context);
     final cardSurface = _entryCardSurface(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -436,7 +412,7 @@ class AddNewEntryPage extends StatelessWidget {
               ),
               onSelected: (value) {
                 if (value == 'remember') {
-                  unawaited(_rememberClientFromDraft(context));
+                  unawaited(_rememberClientFromBody(bodyKey));
                 }
                 if (value == 'delete' &&
                     (isEditMode || initialAppointment != null)) {
@@ -465,6 +441,7 @@ class AddNewEntryPage extends StatelessWidget {
         ),
       ),
       body: _BodyWidget(
+        key: bodyKey,
         initialAppointment: initialAppointment,
         initialData: initialData,
       ),
@@ -477,7 +454,7 @@ class AddNewEntryPage extends StatelessWidget {
 }
 
 class _BodyWidget extends ConsumerStatefulWidget {
-  const _BodyWidget({this.initialAppointment, this.initialData});
+  const _BodyWidget({super.key, this.initialAppointment, this.initialData});
 
   final AppointmentApi? initialAppointment;
   final AddNewEntryInitialData? initialData;
@@ -511,6 +488,36 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     _applyInitialAppointment();
     _applyInitialDataForNewEntry();
     unawaited(_applyRememberedClientForNewEntry());
+  }
+
+  Future<void> rememberClient() async {
+    final phone = _phoneController.text.trim();
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    if (phone.isEmpty || firstName.isEmpty || lastName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Заполните телефон, имя и фамилию клиента'),
+        ),
+      );
+      return;
+    }
+
+    final payload = <String, dynamic>{
+      'id': _selectedClient?.id,
+      'phone': phone,
+      'first_name': firstName,
+      'last_name': lastName,
+      'comment_text': _commentClientController.text.trim(),
+      'status': _selectedStatusIndex,
+    };
+    await ref
+        .read(localStorageProvider)
+        .saveString(_rememberedClientStorageKey, jsonEncode(payload));
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Клиент запомнен')));
   }
 
   void _applyInitialAppointment() {
@@ -779,7 +786,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     required AvailableWorkerShift? shift,
     required List<AppointmentApi> appointments,
     required int currentServiceIndex,
-    int slotStepMinutes = 10,
   }) {
     if (shift == null || durationMinutes <= 0) return const <String>[];
     final shiftStart = _dateTimeFromTimeOfDayString(
@@ -837,6 +843,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final now = DateTime.now();
     final isToday = _dateOnly(date) == _dateOnly(now);
     var cursor = shiftStart;
+    final slotStepMinutes = durationMinutes;
     while (!cursor.add(Duration(minutes: durationMinutes)).isAfter(shiftEnd)) {
       final slotEnd = cursor.add(Duration(minutes: durationMinutes));
       if (isToday && cursor.isBefore(now)) {
@@ -1825,7 +1832,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   children: [
                     Text('Дата', style: AppFonts.c1Medium),
                     GestureDetector(
-                      onTap: _pickDate,
+                      onTap: selectedSpecialistId == null ? null : _pickDate,
                       behavior: HitTestBehavior.opaque,
                       child: SizedBox(
                         width: 120,
@@ -1843,7 +1850,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                 child: Text(
                                   _formatDate(_selectedDate),
                                   style: AppFonts.c1Regular.copyWith(
-                                    color: primaryText,
+                                    color: selectedSpecialistId == null
+                                        ? AppColors.grey
+                                        : primaryText,
                                   ),
                                 ),
                               ),
@@ -1852,7 +1861,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                 AppImages.calendarTab,
                                 width: 18,
                                 height: 18,
-                                color: accent,
+                                color: selectedSpecialistId == null
+                                    ? AppColors.grey
+                                    : accent,
                               ),
                             ],
                           ),
@@ -2071,6 +2082,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     if (selectedSpecialistId == null)
                       Text(
                         'Сначала выберите специалиста',
+                        style: AppFonts.c1Regular.copyWith(
+                          color: AppColors.grey,
+                        ),
+                      )
+                    else if (_services[index].selectedServiceId == null)
+                      Text(
+                        'Сначала выберите услугу',
                         style: AppFonts.c1Regular.copyWith(
                           color: AppColors.grey,
                         ),
@@ -2522,8 +2540,6 @@ class _BottomActionsBar extends ConsumerWidget {
             onTap: () => createAppointment(closeAfterSave: false),
             isActive: canSave && !isSaving,
             isLoading: isSaving,
-            color: mutedFill,
-            textColor: accent,
           ),
           const Gap(12),
           MainButton(
