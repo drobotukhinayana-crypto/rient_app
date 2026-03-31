@@ -585,7 +585,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final weekEndDate = weekStartDate
         .add(const Duration(days: 7))
         .subtract(const Duration(milliseconds: 1));
-    final multiDayColumns = _viewMode == ViewMode.day && specialists.isNotEmpty;
+    final multiDayColumns = _viewMode == ViewMode.day && specialists.length > 1;
     final dayAppsBySpecialistIndex = multiDayColumns
         ? <AsyncValue<List<AppointmentApi>>>[
             for (var i = 0; i < specialists.length; i++)
@@ -761,7 +761,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (specialists.isNotEmpty)
+                            if (multiDayColumns)
                               Padding(
                                 padding: AppDecoration.padding16,
                                 child: SpecialistListView(
@@ -771,7 +771,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                 ),
                               ),
                             Expanded(
-                              child: specialists.isNotEmpty
+                              child: multiDayColumns
                                   ? ScheduleCalendarDayMultiColumn(
                                       key: ValueKey(
                                         'schedule_day_multi_${scheduleDateKey(selectedDate)}_$_refreshVersion',
