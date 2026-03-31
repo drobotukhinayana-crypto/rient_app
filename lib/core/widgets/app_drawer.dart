@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/services/email_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/language_dropdown_pill.dart';
 import 'package:rient_app/core/widgets/logout_confirm_dialog.dart';
 import 'package:rient_app/core/widgets/theme_switch_pill.dart';
+import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/home_page.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
 import 'package:rient_app/resources/resources.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -24,6 +28,20 @@ class AppDrawer extends ConsumerWidget {
     final onSurface = isDark
         ? AppColors.primaryDarkDark
         : AppColors.primaryDark;
+    final userEmail = (ref.watch(emailStorageProvider) ?? '').trim();
+    final userName = userEmail.isNotEmpty ? userEmail : 'Пользователь';
+    final branchName = (ref.watch(currentBranchProvider)?.name ?? '').trim();
+    final roleId = ref.watch(roleProvider);
+    String roleTitle;
+    try {
+      roleTitle = UserRole.fromInt(roleId).title;
+    } catch (_) {
+      roleTitle = 'Сотрудник';
+    }
+    final roleAndBranch = branchName.isEmpty
+        ? roleTitle
+        : '$roleTitle | $branchName';
+    final avatarInitial = userName.isNotEmpty ? userName[0].toUpperCase() : 'U';
 
     void closeThen(VoidCallback action) {
       Navigator.of(context).pop();
@@ -78,9 +96,15 @@ class AppDrawer extends ConsumerWidget {
                 children: [
                   CircleAvatar(
                     radius: 25,
-                    backgroundColor: isDark
-                        ? AppColors.secondaryDarkDark
-                        : AppColors.secondaryDark,
+                    backgroundColor: AppColors.themeAccent(context).withValues(
+                      alpha: 0.2,
+                    ),
+                    child: Text(
+                      avatarInitial,
+                      style: AppFonts.b1Medium.copyWith(
+                        color: AppColors.themeAccent(context),
+                      ),
+                    ),
                   ),
                   const Gap(12),
                   Expanded(
@@ -88,12 +112,12 @@ class AppDrawer extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Иван Иванов',
+                          userName,
                           style: AppFonts.b1Medium.copyWith(color: onSurface),
                         ),
                         const Gap(4),
                         Text(
-                          'Барбер | Вита',
+                          roleAndBranch,
                           style: AppFonts.c1Regular.copyWith(
                             color: isDark
                                 ? AppColors.grey
