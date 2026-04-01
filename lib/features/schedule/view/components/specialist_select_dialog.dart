@@ -145,40 +145,54 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
                   color: listSurface,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: _filteredSpecialists.length,
-                  separatorBuilder: (_, __) => const Gap(12),
-                  itemBuilder: (context, index) {
-                    final s = _filteredSpecialists[index];
-                    final originalIndex = widget.specialists.indexWhere(
-                      (e) => e.name == s.name && e.role == s.role,
-                    );
-                    return InkWell(
-                      onTap: () => setState(() => _selected = s),
-                      child: Row(
-                        children: [
-                          _SpecialistAvatarSmall(pictureUrl: s.pictureUrl),
-                          Gap(6),
-                          Text(
-                            s.name,
-                            style: AppFonts.c1Regular.copyWith(color: primaryText),
+                child: _filteredSpecialists.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Специалист не найден',
+                          style: AppFonts.c1Regular.copyWith(
+                            color: secondaryText,
                           ),
-                          const Spacer(),
-                          AppRadio(
-                            value: originalIndex,
-                            groupValue: widget.specialists.indexWhere(
-                              (e) =>
-                                  e.name == _selected.name &&
-                                  e.role == _selected.role,
+                        ),
+                      )
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: _filteredSpecialists.length,
+                        separatorBuilder: (_, __) => const Gap(12),
+                        itemBuilder: (context, index) {
+                          final s = _filteredSpecialists[index];
+                          final originalIndex = widget.specialists.indexWhere(
+                            (e) => e.name == s.name && e.role == s.role,
+                          );
+                          return InkWell(
+                            onTap: () => setState(() => _selected = s),
+                            child: Row(
+                              children: [
+                                _SpecialistAvatarSmall(
+                                  pictureUrl: s.pictureUrl,
+                                  name: s.name,
+                                ),
+                                Gap(6),
+                                Text(
+                                  s.name,
+                                  style: AppFonts.c1Regular.copyWith(
+                                    color: primaryText,
+                                  ),
+                                ),
+                                const Spacer(),
+                                AppRadio(
+                                  value: originalIndex,
+                                  groupValue: widget.specialists.indexWhere(
+                                    (e) =>
+                                        e.name == _selected.name &&
+                                        e.role == _selected.role,
+                                  ),
+                                  onChanged: (_) => setState(() => _selected = s),
+                                ),
+                              ],
                             ),
-                            onChanged: (_) => setState(() => _selected = s),
-                          ),
-                        ],
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
               ),
             ),
             const Gap(20),
@@ -197,9 +211,10 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
 }
 
 class _SpecialistAvatarSmall extends StatelessWidget {
-  const _SpecialistAvatarSmall({this.pictureUrl});
+  const _SpecialistAvatarSmall({this.pictureUrl, required this.name});
 
   final String? pictureUrl;
+  final String name;
 
   @override
   Widget build(BuildContext context) {
@@ -219,6 +234,7 @@ class _SpecialistAvatarSmall extends StatelessWidget {
 
   Widget _placeholder(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final initials = _extractInitials(name);
     return Container(
       width: 30,
       height: 30,
@@ -226,6 +242,26 @@ class _SpecialistAvatarSmall extends StatelessWidget {
         color: isDark ? AppColors.secondaryDarkDark : Colors.white,
         shape: BoxShape.circle,
       ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: AppFonts.c0Regular.copyWith(
+          color: AppColors.themeAccent(context),
+        ),
+      ),
     );
+  }
+
+  String _extractInitials(String fullName) {
+    final parts = fullName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '—';
+    final first = parts[0].substring(0, 1).toUpperCase();
+    if (parts.length == 1) return first;
+    final second = parts[1].substring(0, 1).toUpperCase();
+    return '$first$second';
   }
 }

@@ -130,36 +130,45 @@ class _ScheduleCalendarOneUserWidgetState
       );
     }
 
-    if (widget.viewMode == ViewMode.day &&
-        widget.workerStartHour != null &&
-        widget.workerEndHour != null &&
-        widget.workerEndHour! > widget.workerStartHour!) {
+    if (widget.viewMode == ViewMode.day) {
       final branchStart = widget.startHour;
       final branchEnd = widget.endHour;
-      final wStart = widget.workerStartHour!;
-      final wEnd = widget.workerEndHour!;
-      if (wStart > branchStart) {
-        final leftEnd = wStart < branchEnd ? wStart : branchEnd;
-        if (leftEnd > branchStart) {
-          regions.add(
-            TimeRegion(
-              startTime: at(widget.date, branchStart),
-              endTime: at(widget.date, leftEnd),
-              enablePointerInteraction: false,
-            ),
-          );
+      final wStart = widget.workerStartHour;
+      final wEnd = widget.workerEndHour;
+
+      // Если у мастера нет смены в этот день — штрихуем весь рабочий диапазон.
+      if (wStart == null || wEnd == null || wEnd <= wStart) {
+        regions.add(
+          TimeRegion(
+            startTime: at(widget.date, branchStart),
+            endTime: at(widget.date, branchEnd),
+            enablePointerInteraction: false,
+          ),
+        );
+      } else {
+        if (wStart > branchStart) {
+          final leftEnd = wStart < branchEnd ? wStart : branchEnd;
+          if (leftEnd > branchStart) {
+            regions.add(
+              TimeRegion(
+                startTime: at(widget.date, branchStart),
+                endTime: at(widget.date, leftEnd),
+                enablePointerInteraction: false,
+              ),
+            );
+          }
         }
-      }
-      if (wEnd < branchEnd) {
-        final rightStart = wEnd > branchStart ? wEnd : branchStart;
-        if (branchEnd > rightStart) {
-          regions.add(
-            TimeRegion(
-              startTime: at(widget.date, rightStart),
-              endTime: at(widget.date, branchEnd),
-              enablePointerInteraction: false,
-            ),
-          );
+        if (wEnd < branchEnd) {
+          final rightStart = wEnd > branchStart ? wEnd : branchStart;
+          if (branchEnd > rightStart) {
+            regions.add(
+              TimeRegion(
+                startTime: at(widget.date, rightStart),
+                endTime: at(widget.date, branchEnd),
+                enablePointerInteraction: false,
+              ),
+            );
+          }
         }
       }
     }

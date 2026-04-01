@@ -85,7 +85,7 @@ class _SpecialistSelectorPillState extends State<SpecialistSelectorPill> {
           padding: EdgeInsets.all(12),
           child: Row(
             children: [
-              _PillAvatar(pictureUrl: _selected.pictureUrl),
+              _PillAvatar(pictureUrl: _selected.pictureUrl, name: _selected.name),
               Gap(12),
 
               Expanded(
@@ -126,9 +126,10 @@ class _SpecialistSelectorPillState extends State<SpecialistSelectorPill> {
 }
 
 class _PillAvatar extends StatelessWidget {
-  const _PillAvatar({this.pictureUrl});
+  const _PillAvatar({this.pictureUrl, required this.name});
 
   final String? pictureUrl;
+  final String name;
 
   @override
   Widget build(BuildContext context) {
@@ -148,6 +149,7 @@ class _PillAvatar extends StatelessWidget {
 
   Widget _placeholder(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final initials = _extractInitials(name);
     return Container(
       width: 40,
       height: 40,
@@ -155,6 +157,26 @@ class _PillAvatar extends StatelessWidget {
         color: isDark ? AppColors.secondaryDarkDark : Colors.white,
         shape: BoxShape.circle,
       ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: AppFonts.c1Medium.copyWith(
+          color: AppColors.themeAccent(context),
+        ),
+      ),
     );
+  }
+
+  String _extractInitials(String fullName) {
+    final parts = fullName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '—';
+    final first = parts[0].substring(0, 1).toUpperCase();
+    if (parts.length == 1) return first;
+    final second = parts[1].substring(0, 1).toUpperCase();
+    return '$first$second';
   }
 }

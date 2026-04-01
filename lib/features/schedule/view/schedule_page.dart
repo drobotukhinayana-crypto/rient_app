@@ -1,10 +1,16 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/services/local_storage.dart';
+import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
+import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/create/view/add_new_entry_page.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
@@ -43,6 +49,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   final ScrollController _daySpecialistsScrollController = ScrollController();
   final ScrollController _dayCalendarScrollController = ScrollController();
   bool _syncingDayHorizontalScroll = false;
+  WebSocket? _notificationsSocket;
+  Timer? _wsReconnectTimer;
+  Timer? _wsDebounceRefreshTimer;
+  bool _wsEnabled = true;
 
   @override
   void initState() {
@@ -50,15 +60,104 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     _syncToNow();
     _daySpecialistsScrollController.addListener(_onSpecialistsScrolled);
     _dayCalendarScrollController.addListener(_onCalendarScrolled);
+    unawaited(_connectNotificationsSocket());
   }
 
   @override
   void dispose() {
+    _wsEnabled = false;
+    _wsDebounceRefreshTimer?.cancel();
+    _wsReconnectTimer?.cancel();
+    unawaited(_notificationsSocket?.close());
+    _notificationsSocket = null;
     _daySpecialistsScrollController.removeListener(_onSpecialistsScrolled);
     _dayCalendarScrollController.removeListener(_onCalendarScrolled);
     _daySpecialistsScrollController.dispose();
     _dayCalendarScrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _connectNotificationsSocket() async {
+    if (!_wsEnabled) return;
+    _wsReconnectTimer?.cancel();
+    final organizationId = ref.read(organizationIdProvider);
+    final token = ref.read(tokenProvider);
+    if (organizationId <= 0 || token == null || token.isEmpty) return;
+
+    try {
+      await _notificationsSocket?.close();
+      final socket = await WebSocket.connect(
+        'wss://apitest.triobot.ru/ws/notifications/$organizationId/?token=$token',
+      ).timeout(const Duration(seconds: 8));
+      if (!mounted) {
+        await socket.close();
+        return;
+      }
+      _notificationsSocket = socket;
+      socket.listen(
+        _onSocketMessage,
+        onError: (_) => _scheduleWsReconnect(),
+        onDone: _scheduleWsReconnect,
+        cancelOnError: true,
+      );
+    } catch (_) {
+      _scheduleWsReconnect();
+    }
+  }
+
+  void _scheduleWsReconnect() {
+    if (!mounted || !_wsEnabled) return;
+    _wsReconnectTimer?.cancel();
+    _wsReconnectTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      unawaited(_connectNotificationsSocket());
+    });
+  }
+
+  void _onSocketMessage(dynamic raw) {
+    if (!_wsEnabled) return;
+    if (!_isAppointmentNotification(raw)) return;
+    _wsDebounceRefreshTimer?.cancel();
+    _wsDebounceRefreshTimer = Timer(const Duration(milliseconds: 700), () {
+      if (!mounted) return;
+      _forceRefreshScheduleScreen();
+    });
+  }
+
+  bool _isAppointmentNotification(dynamic raw) {
+    dynamic payload = raw;
+    if (raw is String) {
+      try {
+        payload = jsonDecode(raw);
+      } catch (_) {
+        final normalized = raw.toLowerCase();
+        return normalized.contains('appointment');
+      }
+    }
+
+    bool hasAppointmentTopic(Map<dynamic, dynamic> map) {
+      const topicKeys = {'topic', 'theme', 'type', 'channel', 'event'};
+      for (final entry in map.entries) {
+        final key = entry.key.toString().toLowerCase();
+        final value = entry.value?.toString().toLowerCase() ?? '';
+        if (topicKeys.contains(key) && value == 'appointment') {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    if (payload is Map) {
+      if (hasAppointmentTopic(payload)) return true;
+      final normalized = payload.toString().toLowerCase();
+      return normalized.contains('appointment');
+    }
+    if (payload is List) {
+      for (final item in payload) {
+        if (_isAppointmentNotification(item)) return true;
+      }
+    }
+    return false;
   }
 
   void _onSpecialistsScrolled() {

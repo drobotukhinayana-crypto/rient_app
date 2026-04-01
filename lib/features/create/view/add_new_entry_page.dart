@@ -1942,6 +1942,15 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   dropdownSearchData: DropdownSearchData<int>(
                     searchController: _specialistDropdownSearchController,
                     searchBarWidgetHeight: 52,
+                    noResultsWidget: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        'Специалист не найден',
+                        style: AppFonts.c1Regular.copyWith(
+                          color: AppColors.grey,
+                        ),
+                      ),
+                    ),
                     searchBarWidget: Padding(
                       padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
                       child: TextField(
@@ -2802,7 +2811,11 @@ class _SpecialistDropdownTile extends StatelessWidget {
       children: [
         SizedBox.square(
           dimension: 24,
-          child: _SpecialistAvatar(avatarUrl: avatarUrl, size: 24),
+          child: _SpecialistAvatar(
+            avatarUrl: avatarUrl,
+            size: 24,
+            fullName: fullName,
+          ),
         ),
         const Gap(10),
         Flexible(
@@ -2822,10 +2835,11 @@ class _SpecialistDropdownTile extends StatelessWidget {
 }
 
 class _SpecialistAvatar extends StatelessWidget {
-  const _SpecialistAvatar({this.avatarUrl, this.size = 32});
+  const _SpecialistAvatar({this.avatarUrl, this.size = 32, this.fullName});
 
   final String? avatarUrl;
   final double size;
+  final String? fullName;
 
   @override
   Widget build(BuildContext context) {
@@ -2852,6 +2866,7 @@ class _SpecialistAvatar extends StatelessWidget {
   }
 
   Widget _placeholder(BuildContext context) {
+    final initials = _extractInitials(fullName);
     return Container(
       width: size,
       height: size,
@@ -2860,7 +2875,27 @@ class _SpecialistAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.secondaryDark),
       ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: AppFonts.c1Medium.copyWith(
+          color: AppColors.themeAccent(context),
+        ),
+      ),
     );
+  }
+
+  String _extractInitials(String? fullName) {
+    final parts = (fullName ?? '')
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '—';
+    final first = parts[0].substring(0, 1).toUpperCase();
+    if (parts.length == 1) return first;
+    final second = parts[1].substring(0, 1).toUpperCase();
+    return '$first$second';
   }
 }
 
