@@ -269,8 +269,12 @@ class _ScheduleCalendarOneUserWidgetState
     if (details.bounds.height < 2) {
       return const SizedBox.shrink();
     }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return CustomPaint(
-      painter: _HatchPainter(timeRulerWidth: widget.timeRulerSize),
+      painter: _HatchPainter(
+        timeRulerWidth: widget.timeRulerSize,
+        isDark: isDark,
+      ),
     );
   }
 
@@ -476,32 +480,33 @@ class _ScheduleCalendarOneUserWidgetState
         initialDisplayDate: widget.date,
         firstDayOfWeek: 1,
 
-      /// Не переключать вид (например неделя → день) по тапу по шапке с датами.
-      allowViewNavigation: false,
-      viewNavigationMode: ViewNavigationMode.none,
-      headerHeight: 0,
-      viewHeaderHeight: 0,
-      showDatePickerButton: false,
-      showCurrentTimeIndicator: true,
-      todayHighlightColor: AppColors.red,
-      selectionDecoration: const BoxDecoration(
-        color: Colors.transparent,
-        border: Border.fromBorderSide(BorderSide(color: Colors.transparent)),
-      ),
-      dataSource: _calendarDataSource(),
-      appointmentBuilder: _buildScheduleEntry,
-      specialRegions: _getSpecialRegions(),
-      timeRegionBuilder: _buildTimeRegion,
-      onTap: (details) {
-        if (widget.onEmptySlotTap == null) return;
-        final date = details.date;
-        if (date == null) return;
-        final tappedAppointments = details.appointments;
-        if (tappedAppointments != null && tappedAppointments.isNotEmpty) return;
-        if (details.targetElement == CalendarElement.calendarCell) {
-          widget.onEmptySlotTap!(date);
-        }
-      },
+        /// Не переключать вид (например неделя → день) по тапу по шапке с датами.
+        allowViewNavigation: false,
+        viewNavigationMode: ViewNavigationMode.none,
+        headerHeight: 0,
+        viewHeaderHeight: 0,
+        showDatePickerButton: false,
+        showCurrentTimeIndicator: true,
+        todayHighlightColor: AppColors.red,
+        selectionDecoration: const BoxDecoration(
+          color: Colors.transparent,
+          border: Border.fromBorderSide(BorderSide(color: Colors.transparent)),
+        ),
+        dataSource: _calendarDataSource(),
+        appointmentBuilder: _buildScheduleEntry,
+        specialRegions: _getSpecialRegions(),
+        timeRegionBuilder: _buildTimeRegion,
+        onTap: (details) {
+          if (widget.onEmptySlotTap == null) return;
+          final date = details.date;
+          if (date == null) return;
+          final tappedAppointments = details.appointments;
+          if (tappedAppointments != null && tappedAppointments.isNotEmpty)
+            return;
+          if (details.targetElement == CalendarElement.calendarCell) {
+            widget.onEmptySlotTap!(date);
+          }
+        },
         timeSlotViewSettings: TimeSlotViewSettings(
           startHour: widget.startHour,
           endHour: widget.endHour,
@@ -523,17 +528,23 @@ class _ScheduleCalendarDataSource extends CalendarDataSource {
 
 /// Штриховка: линии не заходят на колонку времени.
 class _HatchPainter extends CustomPainter {
-  _HatchPainter({this.timeRulerWidth = 50.0});
+  _HatchPainter({this.timeRulerWidth = 50.0, required this.isDark});
 
   final double timeRulerWidth;
+  final bool isDark;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final bg = Paint()..color = AppColors.primaryDark.withValues(alpha: 0.04);
+    final bg = Paint()
+      ..color = isDark
+          ? AppColors.primaryDarkDark.withValues(alpha: 0.10)
+          : AppColors.primaryDark.withValues(alpha: 0.04);
     canvas.drawRect(Offset.zero & size, bg);
 
     final line = Paint()
-      ..color = AppColors.primaryDark.withValues(alpha: 0.18)
+      ..color = isDark
+          ? AppColors.primaryDark.withValues(alpha: 0.22)
+          : AppColors.primaryDark.withValues(alpha: 0.18)
       ..strokeWidth = 1;
 
     const step = 25.0;
@@ -549,5 +560,6 @@ class _HatchPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _HatchPainter oldDelegate) =>
-      oldDelegate.timeRulerWidth != timeRulerWidth;
+      oldDelegate.timeRulerWidth != timeRulerWidth ||
+      oldDelegate.isDark != isDark;
 }

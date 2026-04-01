@@ -58,42 +58,92 @@ class ScheduleCalendarDayMultiColumn extends StatefulWidget {
 class _ScheduleCalendarDayMultiColumnState
     extends State<ScheduleCalendarDayMultiColumn> {
   static const _ruler = 50.0;
+  static const _masterScrollIndex = -1; // Левый столбик времени — мастер.
   final Map<int, ScrollPosition> _positions = <int, ScrollPosition>{};
   final Map<int, VoidCallback> _listeners = <int, VoidCallback>{};
   bool _syncing = false;
 
+  void _syncAllTo(double px) {
+    if (_positions.isEmpty) return;
+    _syncing = true;
+    for (final entry in _positions.entries) {
+      final pos = entry.value;
+      if (!pos.hasPixels) continue;
+      final target = px.clamp(pos.minScrollExtent, pos.maxScrollExtent);
+      if ((pos.pixels - target).abs() > 0.5) {
+        pos.jumpTo(target);
+      }
+    }
+    _syncing = false;
+  }
+
+  void _syncAllToAnchor() {
+    final anchor = _positions[_masterScrollIndex] ??
+        (_positions.isNotEmpty ? _positions.values.first : null);
+    if (anchor == null || !anchor.hasPixels) return;
+    _syncAllTo(anchor.pixels);
+  }
+
+  void _detachIndex(int index) {
+    final existingPosition = _positions.remove(index);
+    final existingListener = _listeners.remove(index);
+    if (existingPosition != null && existingListener != null) {
+      existingPosition.removeListener(existingListener);
+    }
+  }
+
   void _onScrollReady(int index, ScrollPosition position) {
-    if (_positions[index] != null) return;
+    final existing = _positions[index];
+    if (identical(existing, position)) return;
+    if (existing != null) {
+      _detachIndex(index);
+    }
 
     _positions[index] = position;
     void listener() {
       if (_syncing) return;
       final source = _positions[index];
       if (source == null || !source.hasPixels) return;
-      final px = source.pixels;
-      _syncing = true;
-      for (final entry in _positions.entries) {
-        final j = entry.key;
-        if (j == index) continue;
-        final other = entry.value;
-        if (other.hasPixels) {
-          final target = px.clamp(other.minScrollExtent, other.maxScrollExtent);
-          if ((other.pixels - target).abs() > 0.5) other.jumpTo(target);
-        }
+      final master = _positions[_masterScrollIndex];
+
+      // Любой скролл в колонке сотрудника превращаем в скролл мастер-колонки.
+      if (index != _masterScrollIndex && master != null && master.hasPixels) {
+        final delta = source.pixels - master.pixels;
+        final masterTarget = (master.pixels + delta).clamp(
+          master.minScrollExtent,
+          master.maxScrollExtent,
+        );
+        _syncAllTo(masterTarget);
+        return;
       }
-      _syncing = false;
+
+      _syncAllTo(source.pixels);
     }
 
     _listeners[index] = listener;
     position.addListener(listener);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncAllToAnchor();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant ScheduleCalendarDayMultiColumn oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Полный сброс только когда реально меняется набор/дата колонок.
+    if (oldWidget.date != widget.date ||
+        oldWidget.columns.length != widget.columns.length) {
+      for (final index in _positions.keys.toList()) {
+        _detachIndex(index);
+      }
+    }
   }
 
   @override
   void dispose() {
-    for (final entry in _positions.entries) {
-      final p = entry.value;
-      final l = _listeners[entry.key];
-      if (l != null) p.removeListener(l);
+    for (final index in _positions.keys.toList()) {
+      _detachIndex(index);
     }
     super.dispose();
   }

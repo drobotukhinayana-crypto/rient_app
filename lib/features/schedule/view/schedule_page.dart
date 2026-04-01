@@ -46,6 +46,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   late DateTime _weekStart;
   late DateTime _monthStart;
   int _refreshVersion = 0;
+  Brightness? _lastBrightness;
   final ScrollController _daySpecialistsScrollController = ScrollController();
   final ScrollController _dayCalendarScrollController = ScrollController();
   bool _syncingDayHorizontalScroll = false;
@@ -75,6 +76,23 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     _daySpecialistsScrollController.dispose();
     _dayCalendarScrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final currentBrightness = Theme.of(context).brightness;
+    if (_lastBrightness == null) {
+      _lastBrightness = currentBrightness;
+      return;
+    }
+    if (_lastBrightness != currentBrightness) {
+      _lastBrightness = currentBrightness;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _forceRefreshScheduleScreen();
+      });
+    }
   }
 
   Future<void> _connectNotificationsSocket() async {
