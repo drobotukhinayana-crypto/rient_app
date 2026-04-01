@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/cupertino.dart';
 import 'package:dio/dio.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1077,15 +1077,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
     if (allowedWeekdays != null && allowedWeekdays.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('У выбранного мастера нет рабочих дней'),
-        ),
+        const SnackBar(content: Text('У выбранного мастера нет рабочих дней')),
       );
       return;
     }
 
-    final initialDate =
-        allowedWeekdays == null || allowedWeekdays.isEmpty
+    final initialDate = allowedWeekdays == null || allowedWeekdays.isEmpty
         ? _selectedDate
         : _resolveInitialDateForWeekdays(
             from: _selectedDate,
@@ -1143,10 +1140,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final parts = value.split(':');
     final hour = parts.isNotEmpty ? int.tryParse(parts[0]) ?? 0 : 0;
     final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
-    return (
-      hour: hour.clamp(0, 23),
-      minute: minute.clamp(0, 59),
-    );
+    return (hour: hour.clamp(0, 23), minute: minute.clamp(0, 59));
   }
 
   Future<void> _showManualTimePickerDialog({
@@ -1172,8 +1166,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       builder: (popupContext) {
         final isDark = Theme.of(popupContext).brightness == Brightness.dark;
         final bg = isDark ? AppColors.primaryWhiteDark : AppColors.primaryWhite;
-        final textColor = isDark ? AppColors.primaryDarkDark : AppColors.primaryDark;
-        final wheelTextColor = isDark ? AppColors.primaryDarkDark : AppColors.primaryDark;
+        final textColor = isDark
+            ? AppColors.primaryDarkDark
+            : AppColors.primaryDark;
+        final wheelTextColor = isDark
+            ? AppColors.primaryDarkDark
+            : AppColors.primaryDark;
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
             final selectedTime =
@@ -1249,9 +1247,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                 minuteValues.length,
                                 (index) => Center(
                                   child: Text(
-                                    minuteValues[index]
-                                        .toString()
-                                        .padLeft(2, '0'),
+                                    minuteValues[index].toString().padLeft(
+                                      2,
+                                      '0',
+                                    ),
                                     style: AppFonts.h2Semi.copyWith(
                                       color: wheelTextColor,
                                     ),
@@ -1269,7 +1268,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                           ? 'Сохранить'
                           : 'Время занято или недоступно',
                       isActive: isAvailable,
-                      onTap: () => Navigator.of(dialogContext).pop(selectedTime),
+                      onTap: () =>
+                          Navigator.of(dialogContext).pop(selectedTime),
                     ),
                   ],
                 ),
@@ -1990,7 +1990,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                             for (final service in _services) {
                               service.selectedServiceId = null;
                               service.durationMinutes = 10;
-                                      service.addDurationMinutes = 0;
+                              service.addDurationMinutes = 0;
                               service.selectedTime = null;
                             }
                           });
@@ -2272,8 +2272,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                               _services[index].selectedServiceId != null;
                           final availableSlots = _availableSlotsForService(
                             date: selectedDateOnly,
-                            durationMinutes: _services[index]
-                                .totalDurationMinutes,
+                            durationMinutes:
+                                _services[index].totalDurationMinutes,
                             shift: selectedShift,
                             appointments: specialistAppointments,
                             currentServiceIndex: index,
@@ -2358,7 +2358,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                       initialTime: initialTime,
                                       onSelect: (time) {
                                         setState(
-                                          () => _services[index].selectedTime = time,
+                                          () => _services[index].selectedTime =
+                                              time,
                                         );
                                       },
                                     );

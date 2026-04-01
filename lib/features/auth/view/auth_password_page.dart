@@ -62,9 +62,10 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
         success: (_) {
           final token = ref.read(tokenProvider);
           final email = ref.read(emailStorageProvider);
+          final password = ref.read(passwordProvider);
           if (token != null && email != null && email.isNotEmpty) {
             ref.read(sessionDataControllerProvider.notifier).saveSessionData(
-                  SessionData(email: email, password: '', token: token),
+                  SessionData(email: email, password: password, token: token),
                 );
           }
           final roleId = ref.read(roleProvider);

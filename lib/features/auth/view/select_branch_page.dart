@@ -139,7 +139,11 @@ class _BodyWidget extends StatelessWidget {
                       await ref
                           .read(sessionDataControllerProvider.notifier)
                           .saveSessionData(
-                            SessionData(email: email, password: '', token: token),
+                            SessionData(
+                              email: email,
+                              password: password,
+                              token: token,
+                            ),
                           );
                     }
                   } catch (_) {
@@ -153,6 +157,7 @@ class _BodyWidget extends StatelessWidget {
                     );
                     return;
                   }
+                  if (!context.mounted) return;
                   TabBarPage.navigate(context);
                 },
               ),
