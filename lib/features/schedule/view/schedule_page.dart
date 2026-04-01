@@ -237,6 +237,23 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     return specialists;
   }
 
+  static List<SpecialistItem> _allWorkersToSpecialists(
+    List<WorkerApi> allWorkers,
+  ) {
+    return [
+      for (final worker in allWorkers)
+        SpecialistItem(
+          name:
+              '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim().isEmpty
+              ? 'Специалист'
+              : '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim(),
+          role: worker.specialization ?? '',
+          id: worker.id,
+          pictureUrl: worker.pictureThumbnail ?? worker.picture,
+        ),
+    ];
+  }
+
   void _syncToNow() {
     final now = DateTime.now();
     final weekday = now.weekday;
@@ -621,6 +638,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       scheduleCellIntervalMinutesProvider,
     );
     final selectedDate = ref.watch(selectedScheduleDateProvider);
+    final workerWeekdaysById = ref.watch(workerWeekdaysByIdProvider).value ?? const <int, Set<int>>{};
     final availableWorkersAsync = ref.watch(
       availableWorkersForDateProvider(selectedDate),
     );
@@ -649,7 +667,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     // Для всех режимов показываем активных сотрудников на выбранную дату.
     final specialists = availableWorkersAsync.maybeWhen(
       data: (available) {
-        if (available.isEmpty) return <SpecialistItem>[];
+        if (available.isEmpty) {
+          final allWorkers = workersAsync.value?.results ?? const <WorkerApi>[];
+          return _allWorkersToSpecialists(allWorkers);
+        }
         return _availableToSpecialists(
           available,
           workersAsync.value?.results ?? const [],
@@ -658,14 +679,18 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       orElse: () => <SpecialistItem>[],
     );
     final savedSelectedId = ref.watch(selectedSpecialistIdProvider);
-    final initialSelected = specialists.isEmpty
-        ? null
-        : (savedSelectedId != null
-              ? specialists.firstWhere(
-                  (s) => s.id == savedSelectedId,
-                  orElse: () => specialists.first,
-                )
-              : specialists.first);
+    SpecialistItem? initialSelected;
+    if (specialists.isNotEmpty) {
+      if (savedSelectedId != null) {
+        for (final specialist in specialists) {
+          if (specialist.id == savedSelectedId) {
+            initialSelected = specialist;
+            break;
+          }
+        }
+      }
+      initialSelected ??= specialists[0];
+    }
     final dayWorkHours = _workHoursForDate(
       selectedDate,
       currentBranch?.schedulePatterns ?? const [],
@@ -676,10 +701,28 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       selectedSpecialistId,
     );
     final selectedWorkerHours = selectedSpecialistId != null
-        ? _workerShiftHoursForId(
-            availableWorkersAsync.value ?? const [],
-            selectedSpecialistId,
-          )
+        ? (() {
+            final hasWorkerInBranch = workerWeekdaysById.containsKey(
+              selectedSpecialistId,
+            );
+            if (!hasWorkerInBranch) {
+              return (start: null, end: null);
+            }
+            final byShift = _workerShiftHoursForId(
+              availableWorkersAsync.value ?? const [],
+              selectedSpecialistId,
+            );
+            if (byShift.start != null && byShift.end != null) return byShift;
+            final weekdays = workerWeekdaysById[selectedSpecialistId] ?? const <int>{};
+            final isWorkingWeekday = weekdays.contains(selectedDate.weekday);
+            if (isWorkingWeekday) {
+              return (
+                start: dayWorkHours.startHour,
+                end: dayWorkHours.endHour,
+              );
+            }
+            return (start: null, end: null);
+          })()
         : (start: null, end: null);
     final weekWorkHours = _workHoursForWeek(
       currentBranch?.schedulePatterns ?? const [],
@@ -914,35 +957,78 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                             i < specialists.length;
                                             i++
                                           )
-                                            ScheduleCalendarDayColumn(
-                                              workerId: specialists[i].id!,
-                                              name: specialists[i].name,
-                                              items: _mapAppointmentsForRange(
-                                                dayAppsBySpecialistIndex[i]
-                                                        .value ??
-                                                    const [],
-                                                dayStart,
-                                                dayEnd,
-                                              ),
-                                              breakStart: _breakForSpecialist(
-                                                shifts,
-                                                specialists[i].id,
-                                              ).breakStart,
-                                              breakEnd: _breakForSpecialist(
-                                                shifts,
-                                                specialists[i].id,
-                                              ).breakEnd,
-                                              workerStartHour:
+                                            () {
+                                              final workerId =
+                                                  specialists[i].id!;
+                                              final hasWorkerInBranch =
+                                                  workerWeekdaysById.containsKey(
+                                                    workerId,
+                                                  );
+                                              if (!hasWorkerInBranch) {
+                                                return ScheduleCalendarDayColumn(
+                                                  workerId: workerId,
+                                                  name: specialists[i].name,
+                                                  items: _mapAppointmentsForRange(
+                                                    dayAppsBySpecialistIndex[i]
+                                                            .value ??
+                                                        const [],
+                                                    dayStart,
+                                                    dayEnd,
+                                                  ),
+                                                  breakStart: null,
+                                                  breakEnd: null,
+                                                  workerStartHour: null,
+                                                  workerEndHour: null,
+                                                );
+                                              }
+                                              final byShift =
                                                   _workerShiftHoursForId(
                                                     shifts,
-                                                    specialists[i].id!,
-                                                  ).start,
-                                              workerEndHour:
-                                                  _workerShiftHoursForId(
-                                                    shifts,
-                                                    specialists[i].id!,
-                                                  ).end,
-                                            ),
+                                                    workerId,
+                                                  );
+                                              final weekdays =
+                                                  workerWeekdaysById[workerId] ??
+                                                  const <int>{};
+                                              final byWeekday =
+                                                  weekdays.contains(
+                                                    selectedDate.weekday,
+                                                  )
+                                                  ? (
+                                                      start:
+                                                          dayWorkHours.startHour,
+                                                      end:
+                                                          dayWorkHours.endHour,
+                                                    )
+                                                  : (start: null, end: null);
+                                              final effectiveHours =
+                                                  (byShift.start != null &&
+                                                      byShift.end != null)
+                                                  ? byShift
+                                                  : byWeekday;
+
+                                              return ScheduleCalendarDayColumn(
+                                                workerId: workerId,
+                                                name: specialists[i].name,
+                                                items: _mapAppointmentsForRange(
+                                                  dayAppsBySpecialistIndex[i]
+                                                          .value ??
+                                                      const [],
+                                                  dayStart,
+                                                  dayEnd,
+                                                ),
+                                                breakStart: _breakForSpecialist(
+                                                  shifts,
+                                                  specialists[i].id,
+                                                ).breakStart,
+                                                breakEnd: _breakForSpecialist(
+                                                  shifts,
+                                                  specialists[i].id,
+                                                ).breakEnd,
+                                                workerStartHour:
+                                                    effectiveHours.start,
+                                                workerEndHour: effectiveHours.end,
+                                              );
+                                            }(),
                                         ];
                                       }(),
                                       onAppointmentTap: (item) async {

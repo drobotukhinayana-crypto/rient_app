@@ -30,6 +30,17 @@ final availableWorkersForDateProvider =
       );
     });
 
+/// Рабочие дни сотрудников по данным /workers/?with_schedules=1
+/// workerId -> Set<weekday>, где weekday: 1..7 (Mon..Sun).
+final workerWeekdaysByIdProvider = FutureProvider<Map<int, Set<int>>>((
+  ref,
+) async {
+  final branchId = ref.watch(currentBranchIdProvider);
+  if (branchId == 0) return const <int, Set<int>>{};
+  final service = ref.watch(workersServiceProvider);
+  return service.getWorkersWorkingWeekdays(branchId: branchId);
+});
+
 /// Ключ для сохранения id выбранного специалиста в локальное хранилище.
 const selectedSpecialistIdStorageKey = 'selected_specialist_id';
 

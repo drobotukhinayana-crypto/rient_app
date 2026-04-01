@@ -27,9 +27,8 @@ import 'package:rient_app/features/create/view/providers/worker_services_provide
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
-import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
-import 'package:rient_app/features/schedule/service/schedules_service.dart';
+import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
@@ -920,26 +919,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     required int specialistId,
     required int branchId,
   }) async {
-    final focusDate = _dateOnly(_selectedDate);
-    final rangeStart = DateTime(focusDate.year, focusDate.month - 1, 1);
-    final rangeEnd = DateTime(focusDate.year, focusDate.month + 2, 0);
-    final response = await ref
-        .read(schedulesServiceProvider)
-        .getSchedules(
-          branchId: branchId,
-          dateGte: rangeStart,
-          dateLte: rangeEnd,
-          pageSize: 5000,
-        );
-
-    final weekdays = <int>{};
-    for (final item in response.results) {
-      if (!item.active || item.workerId != specialistId) continue;
-      final parsedDate = DateTime.tryParse(item.date);
-      if (parsedDate == null) continue;
-      weekdays.add(parsedDate.toLocal().weekday);
-    }
-    return weekdays;
+    final map = await ref
+        .read(workersServiceProvider)
+        .getWorkersWorkingWeekdays(branchId: branchId);
+    return map[specialistId] ?? const <int>{};
   }
 
   _CreateAppointmentDraft? _buildCreateDraft({
