@@ -110,13 +110,27 @@ class _ScheduleCalendarDayMultiColumnState
       breakEnd: widget.columns[i].breakEnd,
       workerStartHour: widget.columns[i].workerStartHour,
       workerEndHour: widget.columns[i].workerEndHour,
-      timeRulerSize: i == 0 ? _ruler : 0,
+      timeRulerSize: 0,
       timeIntervalMinutes: widget.timeIntervalMinutes,
       onScrollPositionReady: (pos) => _onScrollReady(i, pos),
       onAppointmentTap: widget.onAppointmentTap,
       onEmptySlotTap: (dateTime) {
         widget.onEmptySlotTap?.call(widget.columns[i].workerId, dateTime);
       },
+    );
+  }
+
+  Widget _timeRulerCalendar(String dateKey) {
+    return ScheduleCalendarOneUserWidget(
+      key: ValueKey('day_time_ruler_$dateKey'),
+      date: widget.date,
+      items: const [],
+      viewMode: ViewMode.day,
+      startHour: widget.branchStartHour,
+      endHour: widget.branchEndHour,
+      timeRulerSize: _ruler,
+      timeIntervalMinutes: widget.timeIntervalMinutes,
+      onScrollPositionReady: (pos) => _onScrollReady(-1, pos),
     );
   }
 
@@ -138,30 +152,60 @@ class _ScheduleCalendarDayMultiColumnState
     );
 
     final dateKey = scheduleDateKey(widget.date);
-    return SingleChildScrollView(
-      controller: widget.horizontalScrollController,
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < widget.columns.length; i++) ...[
-            if (i > 0)
-              Container(
-                width: 1,
-                color: AppColors.grey.withValues(alpha: 0.25),
-              ),
-            SizedBox(
-              width: i == 0 ? widget.columnWidth + _ruler : widget.columnWidth,
-              child: Theme(
-                data: i == widget.columns.length - 1
-                    ? theme
-                    : themeWithoutScrollbar,
-                child: _calendar(i, dateKey),
-              ),
-            ),
-          ],
-        ],
-      ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          width: _ruler,
+          child: Theme(
+            data: themeWithoutScrollbar,
+            child: _timeRulerCalendar(dateKey),
+          ),
+        ),
+        Container(width: 1, color: AppColors.grey.withValues(alpha: 0.25)),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final columnsCount = widget.columns.length;
+              final separatorsTotalWidth = columnsCount > 1
+                  ? (columnsCount - 1).toDouble()
+                  : 0.0;
+              final availableWidth = constraints.maxWidth;
+              final requestedContentWidth =
+                  (columnsCount * widget.columnWidth) + separatorsTotalWidth;
+              final effectiveColumnWidth = requestedContentWidth < availableWidth
+                  ? ((availableWidth - separatorsTotalWidth) / columnsCount)
+                  : widget.columnWidth;
+
+              return SingleChildScrollView(
+                controller: widget.horizontalScrollController,
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < widget.columns.length; i++) ...[
+                      if (i > 0)
+                        Container(
+                          width: 1,
+                          color: AppColors.grey.withValues(alpha: 0.25),
+                        ),
+                      SizedBox(
+                        width: effectiveColumnWidth,
+                        child: Theme(
+                          data: i == widget.columns.length - 1
+                              ? theme
+                              : themeWithoutScrollbar,
+                          child: _calendar(i, dateKey),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

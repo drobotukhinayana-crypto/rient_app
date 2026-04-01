@@ -457,11 +457,15 @@ class _ScheduleCalendarOneUserWidgetState
 
   @override
   Widget build(BuildContext context) {
-    return SfCalendar(
-      key: ValueKey(widget.viewMode),
-      view: _calendarView,
-      initialDisplayDate: widget.date,
-      firstDayOfWeek: 1,
+    // Workaround: Syncfusion calendar can emit invalid invisible semantics nodes
+    // in complex split layouts (fixed ruler + scrollable columns) on iOS/iPad.
+    // We disable internal semantics to avoid scheduler crashes in debug/profile.
+    return ExcludeSemantics(
+      child: SfCalendar(
+        key: ValueKey(widget.viewMode),
+        view: _calendarView,
+        initialDisplayDate: widget.date,
+        firstDayOfWeek: 1,
 
       /// Не переключать вид (например неделя → день) по тапу по шапке с датами.
       allowViewNavigation: false,
@@ -489,13 +493,14 @@ class _ScheduleCalendarOneUserWidgetState
           widget.onEmptySlotTap!(date);
         }
       },
-      timeSlotViewSettings: TimeSlotViewSettings(
-        startHour: widget.startHour,
-        endHour: widget.endHour,
-        timeInterval: Duration(minutes: widget.timeIntervalMinutes),
-        timeIntervalHeight: 60,
-        timeFormat: 'HH:mm',
-        timeRulerSize: widget.timeRulerSize,
+        timeSlotViewSettings: TimeSlotViewSettings(
+          startHour: widget.startHour,
+          endHour: widget.endHour,
+          timeInterval: Duration(minutes: widget.timeIntervalMinutes),
+          timeIntervalHeight: 60,
+          timeFormat: 'HH:mm',
+          timeRulerSize: widget.timeRulerSize,
+        ),
       ),
     );
   }

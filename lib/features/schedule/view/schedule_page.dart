@@ -494,6 +494,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isWideScreen = MediaQuery.sizeOf(context).width >= 900;
     final screenBackground = isDark
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
@@ -768,6 +769,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                   specialists: specialists,
                                   scrollController:
                                       _daySpecialistsScrollController,
+                                  itemWidth: 114,
+                                  leadingInset: isWideScreen ? 51 : 28,
                                 ),
                               ),
                             Expanded(

@@ -11,57 +11,76 @@ class SpecialistListView extends StatelessWidget {
     required this.specialists,
     this.scrollController,
     this.itemWidth = 114,
+    this.leadingInset = 28,
   });
 
   final List<SpecialistItem> specialists;
   final ScrollController? scrollController;
   final double itemWidth;
+  final double leadingInset;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return SizedBox(
-      height: 135,
-      child: ListView.separated(
-        controller: scrollController,
-        padding: const EdgeInsets.only(left: 28, top: 6, bottom: 16),
-        scrollDirection: Axis.horizontal,
-        itemBuilder: (BuildContext context, int index) {
-          final item = specialists[index];
-          return SizedBox(
-            width: itemWidth,
-            child: DefaultContainerWidget(
-              borderRadius: BorderRadius.circular(20),
-              padding: const EdgeInsets.all(12),
-              color: isDark ? AppColors.primaryWhiteDark : Colors.white,
-              hasShadow: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SpecialistAvatar(pictureUrl: item.pictureUrl),
-                  Gap(12),
-                  Text(
-                    item.name,
-                    style: AppFonts.c1Medium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final count = specialists.length;
+        const separatorWidth = 4.0;
+        final separatorsTotalWidth = count > 1 ? (count - 1) * separatorWidth : 0;
+        final availableCardsWidth = (constraints.maxWidth - leadingInset).clamp(
+          0.0,
+          double.infinity,
+        );
+        final requestedCardsWidth = (count * itemWidth) + separatorsTotalWidth;
+        final effectiveItemWidth =
+            (count > 0 && requestedCardsWidth < availableCardsWidth)
+            ? ((availableCardsWidth - separatorsTotalWidth) / count)
+            : itemWidth;
+
+        return SizedBox(
+          height: 135,
+          child: ListView.separated(
+            controller: scrollController,
+            padding: EdgeInsets.only(left: leadingInset, top: 6, bottom: 16),
+            scrollDirection: Axis.horizontal,
+            itemBuilder: (BuildContext context, int index) {
+              final item = specialists[index];
+              return SizedBox(
+                width: effectiveItemWidth,
+                child: DefaultContainerWidget(
+                  borderRadius: BorderRadius.circular(20),
+                  padding: const EdgeInsets.all(12),
+                  color: isDark ? AppColors.primaryWhiteDark : Colors.white,
+                  hasShadow: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SpecialistAvatar(pictureUrl: item.pictureUrl),
+                      Gap(12),
+                      Text(
+                        item.name,
+                        style: AppFonts.c1Medium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Gap(2),
+                      Text(
+                        item.role,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppFonts.c2Tabbar.copyWith(color: AppColors.grey),
+                      ),
+                    ],
                   ),
-                  Gap(2),
-                  Text(
-                    item.role,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppFonts.c2Tabbar.copyWith(color: AppColors.grey),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-        separatorBuilder: (BuildContext context, int index) => Gap(4),
-        itemCount: specialists.length,
-      ),
+                ),
+              );
+            },
+            separatorBuilder: (BuildContext context, int index) => Gap(4),
+            itemCount: specialists.length,
+          ),
+        );
+      },
     );
   }
 }
