@@ -6,6 +6,8 @@ import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
+import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/components/services_today_grid_view.dart';
 import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
@@ -83,6 +85,8 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final statisticsAsync = ref.watch(statisticsProvider);
+    final roleId = ref.watch(roleProvider);
+    final isWorkerRole = roleId == UserRole.worker.value;
 
     return Column(
       children: [
@@ -216,7 +220,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                     ],
                   ),
 
-                  if (statistics.incomeByDay != null) ...[
+                  if (isWorkerRole && statistics.incomeByDay != null) ...[
                     Gap(10),
                     Row(
                       children: [
