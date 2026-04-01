@@ -39,48 +39,57 @@ class SpecialistListView extends StatelessWidget {
 
         return SizedBox(
           height: 135,
-          child: ListView.separated(
-            controller: scrollController,
-            padding: EdgeInsets.only(left: leadingInset, top: 6, bottom: 16),
-            scrollDirection: Axis.horizontal,
-            itemBuilder: (BuildContext context, int index) {
-              final item = specialists[index];
-              return SizedBox(
-                width: effectiveItemWidth,
-                child: DefaultContainerWidget(
-                  borderRadius: BorderRadius.circular(20),
-                  padding: const EdgeInsets.all(12),
-                  color: isDark ? AppColors.primaryWhiteDark : Colors.white,
-                  hasShadow: false,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  _SpecialistAvatar(
-                    pictureUrl: item.pictureUrl,
-                    name: item.name,
-                  ),
-                      Gap(12),
-                      Text(
-                        item.name,
-                        style: AppFonts.c1Medium,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+          child: Row(
+            children: [
+              SizedBox(width: leadingInset),
+              Expanded(
+                child: ListView.separated(
+                  controller: scrollController,
+                  padding: const EdgeInsets.only(top: 6, bottom: 16),
+                  scrollDirection: Axis.horizontal,
+                  itemBuilder: (BuildContext context, int index) {
+                    final item = specialists[index];
+                    return SizedBox(
+                      width: effectiveItemWidth,
+                      child: DefaultContainerWidget(
+                        borderRadius: BorderRadius.circular(20),
+                        padding: const EdgeInsets.all(12),
+                        color: isDark ? AppColors.primaryWhiteDark : Colors.white,
+                        hasShadow: false,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _SpecialistAvatar(
+                              pictureUrl: item.pictureUrl,
+                              name: item.name,
+                            ),
+                            Gap(12),
+                            Text(
+                              item.name,
+                              style: AppFonts.c1Medium,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Gap(2),
+                            Text(
+                              item.role,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppFonts.c2Tabbar.copyWith(
+                                color: AppColors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      Gap(2),
-                      Text(
-                        item.role,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppFonts.c2Tabbar.copyWith(color: AppColors.grey),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
+                  separatorBuilder: (BuildContext context, int index) => Gap(4),
+                  itemCount: specialists.length,
                 ),
-              );
-            },
-            separatorBuilder: (BuildContext context, int index) => Gap(4),
-            itemCount: specialists.length,
+              ),
+            ],
           ),
         );
       },
