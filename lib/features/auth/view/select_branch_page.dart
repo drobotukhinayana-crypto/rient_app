@@ -20,6 +20,7 @@ import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/providers/branches_id_provider.dart';
 import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/auth/view/providers/role_storage_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/tabbar/view/tab_bar_page.dart';
 import 'package:rient_app/resources/resources.dart';
@@ -85,6 +86,9 @@ class _BodyWidget extends StatelessWidget {
                                   selectedBranchId;
                               ref.read(roleProvider.notifier).state =
                                   member.role.value;
+                              ref
+                                  .read(roleStorageProvider.notifier)
+                                  .setRole(member.role.value);
                               ref
                                   .read(localStorageProvider)
                                   .saveString(

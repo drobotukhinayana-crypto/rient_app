@@ -24,6 +24,7 @@ import 'package:rient_app/features/auth/view/providers/organization_id_provider.
 import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/auth/view/providers/role_storage_provider.dart';
 import 'package:rient_app/features/auth/view/providers/selected_organization_member_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/auth/view/select_branch_page.dart';
@@ -136,6 +137,9 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
                             .setOrganizationId(selectedMember.organization.id);
                         ref.read(roleProvider.notifier).state =
                             selectedMember.role.value;
+                        await ref
+                            .read(roleStorageProvider.notifier)
+                            .setRole(selectedMember.role.value);
                       }
                       ref.read(passwordProvider.notifier).state = password;
                       final roleId = ref.read(roleProvider);

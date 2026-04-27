@@ -13,6 +13,7 @@ import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/auth/view/providers/role_storage_provider.dart';
 import 'package:rient_app/features/auth/view/providers/selected_organization_member_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -75,6 +76,9 @@ class _BodyWidget extends StatelessWidget {
                                   member.organization.id);
                               ref.read(roleProvider.notifier).state =
                                   member.role.value;
+                              ref
+                                  .read(roleStorageProvider.notifier)
+                                  .setRole(member.role.value);
                             },
                           ),
                           error: (_, __) => Container(),
@@ -107,6 +111,9 @@ class _BodyWidget extends StatelessWidget {
                       .read(organizationIdProvider.notifier)
                       .setOrganizationId(selectedMember.organization.id);
                   ref.read(roleProvider.notifier).state = selectedMember.role.value;
+                  ref
+                      .read(roleStorageProvider.notifier)
+                      .setRole(selectedMember.role.value);
                   // На смене пользователя очищаем пароль от предыдущего входа.
                   ref.read(passwordProvider.notifier).state = '';
                   AuthPasswordPage.navigate(context);

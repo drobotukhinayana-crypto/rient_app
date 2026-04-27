@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/widgets/app_drawer.dart';
@@ -45,7 +48,39 @@ class TabBarPage extends ConsumerStatefulWidget {
   ConsumerState<TabBarPage> createState() => _TabBarPageState();
 }
 
-class _TabBarPageState extends ConsumerState<TabBarPage> {
+class _TabBarPageState extends ConsumerState<TabBarPage>
+    with WidgetsBindingObserver {
+  DateTime? _lastResumeRefreshAt;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    unawaited(_handleAppResumed());
+  }
+
+  Future<void> _handleAppResumed() async {
+    if (!mounted) return;
+    final now = DateTime.now();
+    final lastAt = _lastResumeRefreshAt;
+    if (lastAt != null && now.difference(lastAt) < const Duration(seconds: 30)) {
+      return;
+    }
+    _lastResumeRefreshAt = now;
+    await refreshTokenSilentlyIfPossible(ref as Ref);
+  }
+
   int get _navbarIndexFromShell => widget.navigationShell.currentIndex < 2
       ? widget.navigationShell.currentIndex
       : widget.navigationShell.currentIndex + 1;

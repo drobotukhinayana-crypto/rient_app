@@ -6,6 +6,8 @@ import 'package:rient_app/core/services/email_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/session_data/view/controller/session_data_controller.dart';
 import 'package:rient_app/features/launch/controller/launch_state.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/auth/view/providers/role_storage_provider.dart';
 
 final launchControllerProvider =
     StateNotifierProvider.autoDispose<LaunchController, LaunchState>(
@@ -24,6 +26,8 @@ class LaunchController extends StateNotifier<LaunchState> {
       state = const LaunchState.loading();
       await ref.read(emailStorageProvider.notifier).init();
       await ref.read(tokenProvider.notifier).init();
+      await ref.read(roleStorageProvider.notifier).init();
+      ref.read(roleProvider.notifier).state = ref.read(roleStorageProvider);
       final isLoggedIn = await ref
           .read(sessionDataControllerProvider.notifier)
           .init();
