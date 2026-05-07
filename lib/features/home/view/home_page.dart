@@ -11,6 +11,7 @@ import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/components/services_today_grid_view.dart';
 import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
+import 'package:rient_app/features/home/view/providers/today_revenue_metrics_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class HomePage extends StatelessWidget {
@@ -87,6 +88,9 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
     final statisticsAsync = ref.watch(statisticsProvider);
     final roleId = ref.watch(roleProvider);
     final isWorkerRole = roleId == UserRole.worker.value;
+    final isOwnerOrManager =
+        roleId == UserRole.owner.value || roleId == UserRole.manager.value;
+    final todayRevenueAsync = ref.watch(todayRevenueMetricsProvider);
 
     return Column(
       children: [
@@ -272,6 +276,90 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                           ),
                         ),
                       ],
+                    ),
+                  ],
+                  if (isOwnerOrManager) ...[
+                    Gap(10),
+                    todayRevenueAsync.when(
+                      data: (metrics) {
+                        Widget metricCard({
+                          required String topTitle,
+                          required double value,
+                          String? bottomTitle,
+                        }) {
+                          return DefaultContainerWidget(
+                            color: isDark
+                                ? AppColors.primaryWhiteDark
+                                : Colors.white,
+                            hasShadow: false,
+                            borderRadius: BorderRadius.circular(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  topTitle,
+                                  style: AppFonts.b2Medium,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (bottomTitle != null) ...[
+                                  const Gap(2),
+                                  Text(
+                                    bottomTitle,
+                                    style: AppFonts.b2Medium,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                                Gap(8),
+                                Text(
+                                  '${value.toStringAsFixed(0)} ₽',
+                                  style: AppFonts.h4Medium.copyWith(
+                                    color: AppColors.themeAccent(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: metricCard(
+                                    topTitle: 'Прогнозируемый',
+                                    bottomTitle: 'доход',
+                                    value: metrics.projectedIncomeToday,
+                                  ),
+                                ),
+                                Gap(8),
+                                Expanded(
+                                  child: metricCard(
+                                    topTitle: 'Фактический',
+                                    bottomTitle: 'доход',
+                                    value: metrics.factualIncomeNow,
+                                  ),
+                                ),
+                                Gap(8),
+                                Expanded(
+                                  child: metricCard(
+                                    topTitle: 'Средний',
+                                    bottomTitle: 'чек',
+                                    value: metrics.averageCheckToday,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
+                      loading: () => const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                      error: (_, __) => const SizedBox.shrink(),
                     ),
                   ],
                 ],
