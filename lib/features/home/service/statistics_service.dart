@@ -107,6 +107,7 @@ class StatisticsService {
     required DateTime startDate,
     required DateTime endDate,
     int? branchId,
+    int? workerId,
   }) async {
     final token = ref.read(tokenProvider);
     final organizationId = ref.read(organizationIdProvider);
@@ -131,6 +132,7 @@ class StatisticsService {
         queryParameters: {
           'datetime__gte': startDateStr,
           'datetime__lte': endDateStr,
+          if (workerId != null && workerId > 0) 'worker': workerId,
         },
         options: Options(headers: {'Authorization': 'JWT $token'}),
       );
