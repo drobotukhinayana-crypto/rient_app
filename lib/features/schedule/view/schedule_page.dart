@@ -672,11 +672,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           orElse: () => null,
         );
     final canCreateSchedule = workerPermissions?.createSchedule ?? true;
-    final canEditSchedule =
-        (workerPermissions?.transferSchedule ?? true) ||
-        (workerPermissions?.changeWorker ?? true) ||
-        (workerPermissions?.changeStatus ?? true) ||
-        (workerPermissions?.deleteSchedule ?? true);
     final currentWorkerIdAsync = ref.watch(currentWorkerIdProvider);
     final currentWorkerId = currentWorkerIdAsync.value;
     final currentBranch = ref.watch(currentBranchProvider);
@@ -1117,7 +1112,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                             ];
                                           }(),
                                           onAppointmentTap: (item) async {
-                                            if (!canEditSchedule) return;
                                             final appointment = item.source;
                                             if (appointment == null) return;
                                             final wasDeleted = await context
@@ -1164,7 +1158,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                               selectedWorkerHours.start,
                                           workerEndHour: selectedWorkerHours.end,
                                           onAppointmentTap: (item) async {
-                                            if (!canEditSchedule) return;
                                             final appointment = item.source;
                                             if (appointment == null) return;
                                             final wasDeleted = await context
@@ -1253,7 +1246,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         breakStart: selectedBreak.breakStart,
                                         breakEnd: selectedBreak.breakEnd,
                                         onAppointmentTap: (item) async {
-                                          if (!canEditSchedule) return;
                                           final appointment = item.source;
                                           if (appointment == null) return;
                                           final wasDeleted = await context

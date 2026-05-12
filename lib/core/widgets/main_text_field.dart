@@ -159,7 +159,7 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
                 ? isDark
                       ? AppColors.secondaryDarkLight
                       : AppColors.secondaryLight
-                : AppColors.grey,
+                : const Color.fromARGB(255, 219, 219, 219),
             suffixIcon: _buildSuffixIcon(),
             prefixIconConstraints: const BoxConstraints(),
             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
