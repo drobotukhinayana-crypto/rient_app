@@ -5,6 +5,8 @@ import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
+import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 
@@ -60,6 +62,36 @@ class WorkersService {
       await handleUnauthorizedIfNeeded(ref, e);
       throw CustomException(causedError: e);
     }
+  }
+
+  double _timeToHourFromSchedulePattern(String? value) {
+    if (value == null || value.isEmpty) return 0;
+    final parts = value.split(':');
+    if (parts.length < 2) return 0;
+    final hour = int.tryParse(parts[0]) ?? 0;
+    final minute = int.tryParse(parts[1]) ?? 0;
+    return hour + (minute / 60.0);
+  }
+
+  /// Дни недели (1…7), когда филиал открыт по [SchedulePattern] текущего филиала.
+  Set<int> _weekdaysFromBranchSchedulePatterns(
+    List<SchedulePattern>? patterns,
+    int branchId,
+  ) {
+    if (patterns == null || patterns.isEmpty) return const {};
+    final result = <int>{};
+    for (final pattern in patterns) {
+      if (!(pattern.active ?? false)) continue;
+      final patternBranch = pattern.branch;
+      if (patternBranch != null && patternBranch != branchId) continue;
+      final weekday = _weekdayFromApi(pattern.day);
+      if (weekday == null) continue;
+      final start = _timeToHourFromSchedulePattern(pattern.timeStart);
+      final end = _timeToHourFromSchedulePattern(pattern.timeEnd);
+      if (start <= 0 || end <= 0 || end <= start) continue;
+      result.add(weekday);
+    }
+    return result;
   }
 
   int? _weekdayFromApi(String? day) {
@@ -148,6 +180,20 @@ class WorkersService {
         }
 
         map[workerId] = weekdays;
+      }
+
+      /// Если у сотрудника в ответе API нет ни одного дня, подставляем дни работы
+      /// филиала из [BranchApi.schedulePatterns] — как в сетке расписания по часам филиала.
+      final fallbackWeekdays = _weekdaysFromBranchSchedulePatterns(
+        ref.read(currentBranchProvider)?.schedulePatterns,
+        branchId,
+      );
+      if (fallbackWeekdays.isNotEmpty) {
+        for (final id in map.keys.toList()) {
+          if (map[id]!.isEmpty) {
+            map[id] = {...fallbackWeekdays};
+          }
+        }
       }
 
       return map;

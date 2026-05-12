@@ -320,7 +320,18 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final monthKey = scheduleMonthKey(_monthStart);
 
     ref.invalidate(scheduleAppointmentsProvider);
-    ref.invalidate(availableWorkersForDateProvider(selectedDate));
+    final weekAnchor = _toDateOnly(
+      _viewMode == ViewMode.day ? selectedDate : _weekStart,
+    );
+    final monday =
+        weekAnchor.subtract(Duration(days: weekAnchor.weekday - 1));
+    for (var i = 0; i < 7; i++) {
+      ref.invalidate(
+        availableWorkersForDateProvider(
+          monday.add(Duration(days: i)),
+        ),
+      );
+    }
     ref.invalidate(scheduleStatisticsForWeekProvider(weekKey));
     ref.invalidate(scheduleStatisticsForMonthProvider(monthKey));
     ref.invalidate(scheduleWorkersProvider);
@@ -329,6 +340,23 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     setState(() {
       _refreshVersion++;
     });
+  }
+
+  Future<void> _openAddEntryFromEmptySlot({
+    required AddNewEntryInitialData extra,
+  }) async {
+    try {
+      await context.pushNamed<bool>(
+        AddNewEntryPage.name,
+        extra: extra,
+      );
+    } finally {
+      if (mounted) {
+        // Всегда обновляем экран после закрытия карточки (в т.ч. системная
+        // «Назад» и pop без результата), иначе загруженность может остаться старой.
+        _forceRefreshScheduleScreen();
+      }
+    }
   }
 
   static DateTime _safeParseToLocal(String? raw, DateTime fallback) {
@@ -1097,20 +1125,24 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                   AddNewEntryPage.name,
                                                   extra: appointment,
                                                 );
+                                            if (!mounted) return;
                                             if (wasDeleted == true) {
                                               refreshScheduleAfterMutation(
                                                 appointment,
                                               );
-                                              _forceRefreshScheduleScreen();
                                             }
+                                            // Всегда после закрытия карточки: pop(true) с root-навигатором
+                                            // не всегда доходит до await, а загруженность должна обновиться.
+                                            _forceRefreshScheduleScreen();
                                           },
                                           onEmptySlotTap: (workerId, dateTime) {
                                             if (!canCreateSchedule) return;
-                                            context.pushNamed(
-                                              AddNewEntryPage.name,
-                                              extra: AddNewEntryInitialData(
-                                                workerId: workerId,
-                                                startDateTime: dateTime,
+                                            unawaited(
+                                              _openAddEntryFromEmptySlot(
+                                                extra: AddNewEntryInitialData(
+                                                  workerId: workerId,
+                                                  startDateTime: dateTime,
+                                                ),
                                               ),
                                             );
                                           },
@@ -1140,20 +1172,25 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                   AddNewEntryPage.name,
                                                   extra: appointment,
                                                 );
+                                            if (!mounted) return;
                                             if (wasDeleted == true) {
                                               refreshScheduleAfterMutation(
                                                 appointment,
                                               );
-                                              _forceRefreshScheduleScreen();
                                             }
+                                            _forceRefreshScheduleScreen();
                                           },
                                           onEmptySlotTap: (dateTime) {
                                             if (!canCreateSchedule) return;
-                                            context.pushNamed(
-                                              AddNewEntryPage.name,
-                                              extra: AddNewEntryInitialData(
-                                                workerId: specialistIdForData,
-                                                startDateTime: dateTime,
+                                            if (specialistIdForData == null) {
+                                              return;
+                                            }
+                                            unawaited(
+                                              _openAddEntryFromEmptySlot(
+                                                extra: AddNewEntryInitialData(
+                                                  workerId: specialistIdForData,
+                                                  startDateTime: dateTime,
+                                                ),
                                               ),
                                             );
                                           },
@@ -1224,20 +1261,25 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                 AddNewEntryPage.name,
                                                 extra: appointment,
                                               );
+                                          if (!mounted) return;
                                           if (wasDeleted == true) {
                                             refreshScheduleAfterMutation(
                                               appointment,
                                             );
-                                            _forceRefreshScheduleScreen();
                                           }
+                                          _forceRefreshScheduleScreen();
                                         },
                                         onEmptySlotTap: (dateTime) {
                                           if (!canCreateSchedule) return;
-                                          context.pushNamed(
-                                            AddNewEntryPage.name,
-                                            extra: AddNewEntryInitialData(
-                                              workerId: specialistIdForData,
-                                              startDateTime: dateTime,
+                                          if (specialistIdForData == null) {
+                                            return;
+                                          }
+                                          unawaited(
+                                            _openAddEntryFromEmptySlot(
+                                              extra: AddNewEntryInitialData(
+                                                workerId: specialistIdForData,
+                                                startDateTime: dateTime,
+                                              ),
                                             ),
                                           );
                                         },

@@ -39,6 +39,43 @@ import 'package:rient_app/features/schedule/view/providers/schedule_statistics_p
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
+DateTime _dateOnlyForScheduleStats(DateTime d) =>
+    DateTime(d.year, d.month, d.day);
+
+/// Инвалидация загруженности и available_workers для конкретного календарного дня.
+void _invalidateScheduleStatsForDayWidgetRef(WidgetRef ref, DateTime localDay) {
+  final d = _dateOnlyForScheduleStats(localDay);
+  ref.invalidate(availableWorkersForDateProvider(d));
+  ref.invalidate(scheduleStatisticsForWeekProvider(scheduleWeekKey(d)));
+  ref.invalidate(scheduleStatisticsForMonthProvider(scheduleMonthKey(d)));
+}
+
+void _invalidateScheduleStatsForDayContainer(
+  ProviderContainer container,
+  DateTime localDay,
+) {
+  final d = _dateOnlyForScheduleStats(localDay);
+  container.invalidate(availableWorkersForDateProvider(d));
+  container.invalidate(scheduleStatisticsForWeekProvider(scheduleWeekKey(d)));
+  container.invalidate(scheduleStatisticsForMonthProvider(scheduleMonthKey(d)));
+}
+
+/// После переноса записи — обновить статистику для нового и (если отличается) старого дня.
+void _invalidateScheduleStatsForDateMoveWidgetRef(
+  WidgetRef ref,
+  DateTime newLocal,
+  DateTime? oldLocal,
+) {
+  _invalidateScheduleStatsForDayWidgetRef(ref, newLocal);
+  if (oldLocal != null) {
+    final newD = _dateOnlyForScheduleStats(newLocal);
+    final oldD = _dateOnlyForScheduleStats(oldLocal);
+    if (oldD != newD) {
+      _invalidateScheduleStatsForDayWidgetRef(ref, oldLocal);
+    }
+  }
+}
+
 // Тема как на главной: фон экрана и поверхности.
 bool _entryIsDark(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark;
@@ -262,20 +299,22 @@ class AddNewEntryPage extends ConsumerWidget {
   void _invalidateScheduleCaches(BuildContext context) {
     final container = ProviderScope.containerOf(context, listen: false);
     final selectedDate = container.read(selectedScheduleDateProvider);
-    final normalizedDate = DateTime(
+    final normalizedSelected = DateTime(
       selectedDate.year,
       selectedDate.month,
       selectedDate.day,
     );
-    final weekKey = scheduleWeekKey(normalizedDate);
-    final monthKey = scheduleMonthKey(
-      DateTime(normalizedDate.year, normalizedDate.month, 1),
-    );
+    final days = <DateTime>{normalizedSelected};
+    final draft = container.read(createEntryDraftProvider);
+    if (draft != null) {
+      final s = draft.startDateTime;
+      days.add(DateTime(s.year, s.month, s.day));
+    }
 
     container.invalidate(scheduleAppointmentsProvider);
-    container.invalidate(availableWorkersForDateProvider(normalizedDate));
-    container.invalidate(scheduleStatisticsForWeekProvider(weekKey));
-    container.invalidate(scheduleStatisticsForMonthProvider(monthKey));
+    for (final d in days) {
+      _invalidateScheduleStatsForDayContainer(container, d);
+    }
   }
 
   void _showDeleteDialog(BuildContext context) {
@@ -324,10 +363,47 @@ class AddNewEntryPage extends ConsumerWidget {
                           listen: false,
                         );
                         container.invalidate(scheduleAppointmentsProvider);
-                        container.invalidate(availableWorkersForDateProvider);
-                        container.invalidate(scheduleStatisticsForWeekProvider);
-                        container.invalidate(
-                          scheduleStatisticsForMonthProvider,
+                        DateTime? appointmentDay;
+                        final raw = initialAppointment?.datetime;
+                        if (raw != null && raw.trim().isNotEmpty) {
+                          final p = DateTime.tryParse(raw);
+                          if (p != null) {
+                            final loc = p.toLocal();
+                            appointmentDay = DateTime(
+                              loc.year,
+                              loc.month,
+                              loc.day,
+                            );
+                          }
+                        }
+                        final stripDate = container.read(
+                          selectedScheduleDateProvider,
+                        );
+                        final stripDay = DateTime(
+                          stripDate.year,
+                          stripDate.month,
+                          stripDate.day,
+                        );
+                        final daysToRefresh = <DateTime>{
+                          stripDay,
+                          if (appointmentDay != null) appointmentDay,
+                        };
+                        for (final d in daysToRefresh) {
+                          _invalidateScheduleStatsForDayContainer(container, d);
+                        }
+                        final daysToRetry = List<DateTime>.from(daysToRefresh);
+                        unawaited(
+                          Future<void>.delayed(
+                            const Duration(milliseconds: 550),
+                            () {
+                              for (final d in daysToRetry) {
+                                _invalidateScheduleStatsForDayContainer(
+                                  container,
+                                  d,
+                                );
+                              }
+                            },
+                          ),
                         );
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Запись удалена')),
@@ -464,6 +540,7 @@ class AddNewEntryPage extends ConsumerWidget {
       bottomNavigationBar: _BottomActionsBar(
         isEditMode: isEditMode || initialAppointment != null,
         initialAppointmentId: initialAppointment?.id,
+        initialAppointmentDatetime: initialAppointment?.datetime,
       ),
     );
   }
@@ -1403,7 +1480,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final isWorkerRole = roleId == UserRole.worker.value;
     final currentWorkerIdAsync = ref.watch(currentWorkerIdProvider);
     final currentWorkerId = currentWorkerIdAsync.value;
+    final isEditingEntry = widget.initialAppointment != null;
+    final workerCanPickTransferTarget =
+        isWorkerRole && isEditingEntry && canTransferSchedule;
+    final useWorkerReadOnlySpecialistTile =
+        isWorkerRole && !workerCanPickTransferTarget;
     if (isWorkerRole &&
+        !workerCanPickTransferTarget &&
         currentWorkerId != null &&
         currentWorkerId > 0 &&
         _selectedSpecialistId != currentWorkerId) {
@@ -1431,8 +1514,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       final cid = item?.service.id;
       if (cid != null && cid != 0) requiredCatalogServiceIds.add(cid);
     }
-    /// Для воркера не дергаем подбор по услугам (всегда только текущий сотрудник).
-    final specialistFilterKeyForWatch = isWorkerRole
+    /// Новая запись у воркера — только на себя. Редактирование с transfer_schedule —
+    /// подбор специалистов по тем же услугам каталога, что и у администратора.
+    final specialistFilterKeyForWatch =
+        (isWorkerRole && !workerCanPickTransferTarget)
         ? '$branchId|all'
         : (requiredCatalogServiceIds.isEmpty
               ? '$branchId|all'
@@ -1456,9 +1541,25 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final List<_SpecialistOption> specialists;
     if (isWorkerRole) {
       if (currentWorkerId != null && currentWorkerId > 0) {
-        specialists = specialistsBase
-            .where((s) => s.id == currentWorkerId)
-            .toList();
+        if (workerCanPickTransferTarget) {
+          specialists = eligibleSpecialistIdsAsync.when(
+            data: (eligible) => specialistsBase
+                .where((s) => eligible.contains(s.id))
+                .toList(),
+            loading: () {
+              final keepId = _selectedSpecialistId ?? currentWorkerId;
+              return specialistsBase.where((s) => s.id == keepId).toList();
+            },
+            error: (_, __) {
+              final keepId = _selectedSpecialistId ?? currentWorkerId;
+              return specialistsBase.where((s) => s.id == keepId).toList();
+            },
+          );
+        } else {
+          specialists = specialistsBase
+              .where((s) => s.id == currentWorkerId)
+              .toList();
+        }
       } else {
         specialists = const [];
       }
@@ -1469,7 +1570,15 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         data: (eligible) => specialistsBase
             .where((s) => eligible.contains(s.id))
             .toList(),
-        loading: () => const <_SpecialistOption>[],
+        loading: () {
+          final keepId = _selectedSpecialistId;
+          if (keepId != null && keepId > 0) {
+            final match =
+                specialistsBase.where((s) => s.id == keepId).toList();
+            if (match.isNotEmpty) return match;
+          }
+          return const <_SpecialistOption>[];
+        },
         error: (_, __) => specialistsBase,
       );
     }
@@ -1981,7 +2090,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                 Gap(16),
                 Text('Специалист', style: AppFonts.c1Medium),
                 Gap(8),
-                if (isWorkerRole)
+                if (useWorkerReadOnlySpecialistTile)
                   DefaultContainerWidget(
                     color: mutedFill,
                     borderRadius: BorderRadius.circular(300),
@@ -2120,7 +2229,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                         ),
                       )
                       .toList(),
-                  onChanged: (!canChangeWorker || specialists.isEmpty)
+                  onChanged: ((!canChangeWorker && !workerCanPickTransferTarget) ||
+                          specialists.isEmpty)
                       ? null
                       : (value) {
                           setState(() {
@@ -2685,10 +2795,12 @@ class _BottomActionsBar extends ConsumerWidget {
   const _BottomActionsBar({
     required this.isEditMode,
     required this.initialAppointmentId,
+    this.initialAppointmentDatetime,
   });
 
   final bool isEditMode;
   final int? initialAppointmentId;
+  final String? initialAppointmentDatetime;
 
   String _formatMoney(double value) => '${value.round()}₽';
   String _formatDiscount(double value) => '${value.round()}%';
@@ -2786,9 +2898,49 @@ class _BottomActionsBar extends ConsumerWidget {
               : null;
         }
         ref.invalidate(scheduleAppointmentsProvider);
-        ref.invalidate(availableWorkersForDateProvider);
-        ref.invalidate(scheduleStatisticsForWeekProvider);
-        ref.invalidate(scheduleStatisticsForMonthProvider);
+        DateTime? oldDayLocal;
+        if (isEditMode && initialAppointmentDatetime != null) {
+          final raw = initialAppointmentDatetime!.trim();
+          if (raw.isNotEmpty) {
+            final parsed = DateTime.tryParse(raw);
+            if (parsed != null) {
+              final loc = parsed.toLocal();
+              oldDayLocal = DateTime(loc.year, loc.month, loc.day);
+            }
+          }
+        }
+        _invalidateScheduleStatsForDateMoveWidgetRef(
+          ref,
+          draft.startDateTime,
+          oldDayLocal,
+        );
+        if (context.mounted) {
+          final retryContainer = ProviderScope.containerOf(
+            context,
+            listen: false,
+          );
+          final retryNewDay = DateTime(
+            draft.startDateTime.year,
+            draft.startDateTime.month,
+            draft.startDateTime.day,
+          );
+          unawaited(Future<void>.delayed(const Duration(milliseconds: 550), () {
+            _invalidateScheduleStatsForDayContainer(retryContainer, retryNewDay);
+            if (oldDayLocal != null) {
+              final oldD = DateTime(
+                oldDayLocal.year,
+                oldDayLocal.month,
+                oldDayLocal.day,
+              );
+              if (oldD != retryNewDay) {
+                _invalidateScheduleStatsForDayContainer(
+                  retryContainer,
+                  oldDayLocal,
+                );
+              }
+            }
+          }));
+        }
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

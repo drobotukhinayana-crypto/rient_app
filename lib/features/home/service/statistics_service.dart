@@ -133,6 +133,9 @@ class StatisticsService {
           'datetime__gte': startDateStr,
           'datetime__lte': endDateStr,
           if (workerId != null && workerId > 0) 'worker': workerId,
+          // Снимаем промежуточный HTTP-кэш: после первой записи на день ответ
+          // должен сразу отличаться от «пустого» диапазона.
+          '_': DateTime.now().microsecondsSinceEpoch.toString(),
         },
         options: Options(headers: {'Authorization': 'JWT $token'}),
       );
