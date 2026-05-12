@@ -102,6 +102,32 @@ Color _entryDivider(BuildContext context) => _entryIsDark(context)
 
 Color _entryAccent(BuildContext context) => AppColors.themeAccent(context);
 
+/// Для списка клиентов при отсутствии права `see_contact_data`: последние 4 цифры
+/// номера заменяются на `****` (остальной формат сохраняется).
+String _maskPhoneLastFourDigitsForList(String phone) {
+  if (phone.isEmpty) return phone;
+  var digitCount = 0;
+  int? maskStartIndex;
+  for (var i = phone.length - 1; i >= 0; i--) {
+    final c = phone.codeUnitAt(i);
+    final isDigit = c >= 0x30 && c <= 0x39;
+    if (isDigit) {
+      digitCount++;
+      if (digitCount == 4) {
+        maskStartIndex = i;
+        break;
+      }
+    }
+  }
+  if (maskStartIndex == null) {
+    return digitCount > 0 ? '****' : phone;
+  }
+  return '${phone.substring(0, maskStartIndex)}****';
+}
+
+/// Пока в поле отображается номер с `****`, обычная маска не должна вырезать звёздочки.
+final _passthroughPhoneMaskFormatter = _PassthroughPhoneFormatter();
+
 Color _entryPrimaryText(BuildContext context) =>
     _entryIsDark(context) ? AppColors.primaryDarkDark : AppColors.primaryDark;
 
@@ -583,8 +609,41 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     unawaited(_applyRememberedClientForNewEntry());
   }
 
+  String _effectiveClientPhoneForSubmit(bool canSeeContactData) {
+    if (!canSeeContactData && _selectedClient != null) {
+      return _selectedClient!.phone.trim();
+    }
+    return _phoneController.text.trim();
+  }
+
+  void _syncPhoneFieldForSelectedClientPrivacy(bool canSeeContactData) {
+    final client = _selectedClient;
+    if (client == null || client.phone.isEmpty) return;
+    final full = client.phone;
+    final masked = _maskPhoneLastFourDigitsForList(full);
+    final target = canSeeContactData ? full : masked;
+    if (_phoneController.text == target) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final c = _selectedClient;
+      if (c == null || c.phone.isEmpty) return;
+      final t = canSeeContactData
+          ? c.phone
+          : _maskPhoneLastFourDigitsForList(c.phone);
+      if (_phoneController.text != t) {
+        setState(() {
+          _phoneController.text = t;
+        });
+      }
+    });
+  }
+
   Future<void> rememberClient() async {
-    final phone = _phoneController.text.trim();
+    final canSeeContactData = ref.read(workerPermissionsProvider).maybeWhen(
+          data: (v) => v.seeContactData,
+          orElse: () => true,
+        );
+    final phone = _effectiveClientPhoneForSubmit(canSeeContactData);
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     if (phone.isEmpty || firstName.isEmpty || lastName.isEmpty) {
@@ -1037,6 +1096,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     required int branchId,
     required double totalSum,
     required double selectedClientDiscount,
+    required bool canSeeContactData,
   }) {
     if (selectedSpecialistId == null || branchId == 0) {
       return null;
@@ -1080,8 +1140,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (completeServices.isEmpty) return null;
     completeServices.sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
+    final effectivePhone =
+        _effectiveClientPhoneForSubmit(canSeeContactData).trim();
     final hasRequiredManualClientData =
-        _phoneController.text.trim().isNotEmpty &&
+        effectivePhone.isNotEmpty &&
         _firstNameController.text.trim().isNotEmpty &&
         _lastNameController.text.trim().isNotEmpty;
     final shouldCreateClient =
@@ -1101,7 +1163,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       discountPercent: selectedClientDiscount.round(),
       services: completeServices,
       startDateTime: completeServices.first.dateTime,
-      clientPhone: _phoneController.text.trim(),
+      clientPhone: effectivePhone,
       clientFirstName: _firstNameController.text.trim(),
       clientLastName: _lastNameController.text.trim(),
       clientCommentText: _commentClientController.text.trim(),
@@ -1497,6 +1559,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       });
     }
 
+    _syncPhoneFieldForSelectedClientPrivacy(canSeeContactData);
+
     final workersAsync = ref.watch(scheduleWorkersProvider);
     final branchId = ref.watch(currentBranchIdProvider);
     /// Услуги текущего выбранного воркера (по состоянию формы), чтобы сопоставить
@@ -1649,6 +1713,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       branchId: branchId,
       totalSum: selectedServicesTotal,
       selectedClientDiscount: selectedClientDiscount,
+      canSeeContactData: canSeeContactData,
     );
     final hasCompleteService = _services.any(
       (service) =>
@@ -1766,9 +1831,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   controller: _phoneController,
                   label: 'Телефон',
                   hintText: 'Телефон',
-                  canEdit: canSeeContactData,
+                  canEdit: true,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [_phoneMaskFormatter],
+                  inputFormatters: canSeeContactData || _selectedClient == null
+                      ? <TextInputFormatter>[_phoneMaskFormatter]
+                      : <TextInputFormatter>[_passthroughPhoneMaskFormatter],
                   onCleared: () {
                     unawaited(_clearRememberedClientIfChanged(''));
                     setState(() {
@@ -1780,23 +1847,21 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       _commentClientController.clear();
                     });
                   },
-                  onChanged: canSeeContactData
-                      ? (value) {
-                          unawaited(_clearRememberedClientIfChanged(value));
-                          setState(() {
-                            _phoneSearchQuery = value;
-                            _showClientSuggestions = value.trim().isNotEmpty;
-                            _selectedClient = null;
-                            if (value.trim().isEmpty) {
-                              _firstNameController.clear();
-                              _lastNameController.clear();
-                              _commentClientController.clear();
-                            }
-                          });
-                        }
-                      : null,
+                  onChanged: (value) {
+                    unawaited(_clearRememberedClientIfChanged(value));
+                    setState(() {
+                      _phoneSearchQuery = value;
+                      _showClientSuggestions = value.trim().isNotEmpty;
+                      _selectedClient = null;
+                      if (value.trim().isEmpty) {
+                        _firstNameController.clear();
+                        _lastNameController.clear();
+                        _commentClientController.clear();
+                      }
+                    });
+                  },
                 ),
-                if (canSeeContactData && _showClientSuggestions) ...[
+                if (_showClientSuggestions) ...[
                   const Gap(8),
                   DefaultContainerWidget(
                     color: mutedFill,
@@ -1835,7 +1900,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                     style: AppFonts.c1Regular,
                                   ),
                                   subtitle: Text(
-                                    clientsByPhone[i].phone,
+                                    canSeeContactData
+                                        ? clientsByPhone[i].phone
+                                        : _maskPhoneLastFourDigitsForList(
+                                            clientsByPhone[i].phone,
+                                          ),
                                     style: AppFonts.c2Tabbar.copyWith(
                                       color: AppColors.grey,
                                     ),
@@ -1843,8 +1912,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                   onTap: () {
                                     setState(() {
                                       _selectedClient = clientsByPhone[i];
-                                      _phoneController.text =
-                                          clientsByPhone[i].phone;
+                                      _phoneController.text = canSeeContactData
+                                          ? clientsByPhone[i].phone
+                                          : _maskPhoneLastFourDigitsForList(
+                                              clientsByPhone[i].phone,
+                                            );
                                       _firstNameController.text =
                                           clientsByPhone[i].firstName;
                                       _lastNameController.text =
@@ -3196,6 +3268,17 @@ class _SpecialistAvatar extends StatelessWidget {
     final second = parts[1].substring(0, 1).toUpperCase();
     return '$first$second';
   }
+}
+
+/// Не меняет ввод: нужен, чтобы строка с маской `****` не проходила через
+/// [_PhoneMaskFormatter], который оставляет только цифры.
+class _PassthroughPhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) =>
+      newValue;
 }
 
 class _PhoneMaskFormatter extends TextInputFormatter {
