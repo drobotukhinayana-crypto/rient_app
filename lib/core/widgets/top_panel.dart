@@ -26,6 +26,8 @@ class TopPanel extends StatefulWidget {
     required this.title,
     this.occupancyByDay,
     this.showViewModeSwitcher = true,
+    /// В расписании: скрыть выбор специалиста (например, вход под одним воркером).
+    this.showSpecialistSelector = true,
     this.onScheduleStateChanged,
     this.specialists,
     this.initialSelectedSpecialist,
@@ -45,6 +47,9 @@ class TopPanel extends StatefulWidget {
   /// Показывать переключатель День/Неделя/Месяц и навигатор по датам.
   /// На главной странице передают [false].
   final bool showViewModeSwitcher;
+
+  /// Показывать [SpecialistSelectorPill] в расписании. Для аккаунта сотрудника обычно [false].
+  final bool showSpecialistSelector;
 
   /// Список специалистов для страницы расписания. Если передан и длина < 3, в режиме «День» в панели показывается [SpecialistSelectorPill].
   final List<SpecialistItem>? specialists;
@@ -238,7 +243,8 @@ class _TopPanelState extends State<TopPanel> {
                 ),
               ),
             ],
-            if (_viewMode != ViewMode.day &&
+            if (widget.showSpecialistSelector &&
+                _viewMode != ViewMode.day &&
                 widget.specialists != null &&
                 widget.specialists!.isNotEmpty) ...[
               Gap(12),
@@ -271,7 +277,8 @@ class _TopPanelState extends State<TopPanel> {
                 useGreyCircles: true,
                 occupancyByDay: widget.occupancyByDay,
               ),
-              if (widget.specialists != null &&
+              if (widget.showSpecialistSelector &&
+                  widget.specialists != null &&
                   widget.specialists!.isNotEmpty &&
                   widget.specialists!.length < 3) ...[
                 Gap(12),

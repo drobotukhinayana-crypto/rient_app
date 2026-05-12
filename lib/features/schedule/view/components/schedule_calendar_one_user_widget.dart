@@ -45,6 +45,7 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
     this.breakEnd,
     this.workerStartHour,
     this.workerEndHour,
+    this.workingWeekdays,
     this.timeRulerSize = kDefaultTimeRulerSize,
     this.timeIntervalMinutes = 10,
     this.onScrollPositionReady,
@@ -67,6 +68,10 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
   /// Окно смены мастера в дне: штриховка до/после относительно [startHour]/[endHour] филиала.
   final double? workerStartHour;
   final double? workerEndHour;
+
+  /// Для недели: дни недели (1=пн … 7=вс), когда у мастера есть смена по графику филиала.
+  /// Если задано и день не входит в множество — колонка целиком штрихуется (выходной).
+  final Set<int>? workingWeekdays;
 
   /// Ширина шкалы времени (0 — только у первой колонки в мультидне).
   final double timeRulerSize;
@@ -182,6 +187,18 @@ class _ScheduleCalendarOneUserWidgetState
       );
       for (var i = 0; i < 7; i++) {
         final day = weekStart.add(Duration(days: i));
+        final workerDays = widget.workingWeekdays;
+        if (workerDays != null && !workerDays.contains(day.weekday)) {
+          regions.add(
+            TimeRegion(
+              startTime: at(day, widget.startHour),
+              endTime: at(day, widget.endHour),
+              enablePointerInteraction: false,
+            ),
+          );
+          continue;
+        }
+
         final hours = widget.weekWorkHoursByWeekday![day.weekday];
 
         if (hours == null) {
@@ -501,8 +518,9 @@ class _ScheduleCalendarOneUserWidgetState
           final date = details.date;
           if (date == null) return;
           final tappedAppointments = details.appointments;
-          if (tappedAppointments != null && tappedAppointments.isNotEmpty)
+          if (tappedAppointments != null && tappedAppointments.isNotEmpty) {
             return;
+          }
           if (details.targetElement == CalendarElement.calendarCell) {
             widget.onEmptySlotTap!(date);
           }

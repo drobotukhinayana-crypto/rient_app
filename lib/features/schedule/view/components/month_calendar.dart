@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:rient_app/core/painting/diagonal_hatch.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
@@ -15,6 +16,9 @@ class MonthCalendar extends StatelessWidget {
     required this.month,
     this.slotsByDay,
     this.occupancyByDay,
+    /// Дни недели (1=пн … 7=вс), когда у мастера есть смена. Если задано —
+    /// остальные дни **текущего месяца** визуально помечаются как выходные.
+    this.workingWeekdays,
     this.onDayTap,
   });
 
@@ -27,7 +31,19 @@ class MonthCalendar extends StatelessWidget {
   /// Заполненность по дням (для отрисовки дуги на кружках).
   final List<OccupancyByDay>? occupancyByDay;
 
+  /// См. [MonthCalendar.workingWeekdays].
+  final Set<int>? workingWeekdays;
+
   final ValueChanged<DateTime>? onDayTap;
+
+  static bool _isNonWorkingDay(
+    DateTime date,
+    bool isCurrentMonth,
+    Set<int>? workingWeekdays,
+  ) {
+    if (workingWeekdays == null || !isCurrentMonth) return false;
+    return !workingWeekdays.contains(date.weekday);
+  }
 
   static double _occupancyForDate(
     List<OccupancyByDay> list,
@@ -107,6 +123,11 @@ class MonthCalendar extends StatelessWidget {
                       isDark: isDark,
                       slots: null,
                       occupancyPercent: occupancy,
+                      isNonWorkingDay: MonthCalendar._isNonWorkingDay(
+                        date,
+                        false,
+                        workingWeekdays,
+                      ),
                       onTap: onDayTap != null ? () => onDayTap!(date) : null,
                     );
                   }
@@ -127,13 +148,18 @@ class MonthCalendar extends StatelessWidget {
                       isDark: isDark,
                       slots: null,
                       occupancyPercent: occupancy,
+                      isNonWorkingDay: MonthCalendar._isNonWorkingDay(
+                        date,
+                        false,
+                        workingWeekdays,
+                      ),
                       onTap: onDayTap != null ? () => onDayTap!(date) : null,
                     );
                   }
                   final dayNum = index - leadingEmpty + 1;
                   final date = DateTime(month.year, month.month, dayNum);
-                  final slots =
-                      slotsByDay?[dayNum] ?? (dayNum % 3 == 0 ? 2 : 7);
+                  /// Только если API вернул день: иначе без подписи (не показываем +0 и не подставляем фиктивные числа).
+                  final slots = slotsByDay?[dayNum];
                   final showArc = slotsByDay != null
                       ? slotsByDay!.containsKey(dayNum)
                       : true;
@@ -145,8 +171,14 @@ class MonthCalendar extends StatelessWidget {
                     isCurrentMonth: true,
                     isDark: isDark,
                     slots: slots,
-                    showArc: showArc && slots > 0,
+                    showArc:
+                        showArc && (slots != null && slots > 0),
                     occupancyPercent: occupancy,
+                    isNonWorkingDay: MonthCalendar._isNonWorkingDay(
+                      date,
+                      true,
+                      workingWeekdays,
+                    ),
                     onTap: onDayTap != null ? () => onDayTap!(date) : null,
                   );
                 }),
@@ -166,6 +198,7 @@ class _DayCell extends StatelessWidget {
     this.slots,
     this.showArc = false,
     this.occupancyPercent = 0,
+    this.isNonWorkingDay = false,
     this.onTap,
   });
 
@@ -175,6 +208,7 @@ class _DayCell extends StatelessWidget {
   final int? slots;
   final bool showArc;
   final double occupancyPercent;
+  final bool isNonWorkingDay;
   final VoidCallback? onTap;
 
   static const _cellSize = 40.0;
@@ -198,18 +232,19 @@ class _DayCell extends StatelessWidget {
                   isDark: isDark,
                   showArc: showArc,
                   occupancyPercent: occupancyPercent,
+                  isNonWorkingDay: isNonWorkingDay,
                 ),
                 child: Center(
                   child: Text(
                     '${date.day}',
                     style: AppFonts.b1Medium.copyWith(
-                      color: isCurrentMonth
+                      color: !isCurrentMonth
                           ? (isDark
-                              ? AppColors.primaryDarkDark
-                              : AppColors.primaryDark)
-                          : (isDark
                               ? AppColors.tabbarGreyDark
-                              : AppColors.tabbarGrey),
+                              : AppColors.tabbarGrey)
+                          : (isDark
+                              ? AppColors.primaryDarkDark
+                              : AppColors.primaryDark),
                     ),
                   ),
                 ),
@@ -220,8 +255,9 @@ class _DayCell extends StatelessWidget {
               Text(
                 '+$slots',
                 style: AppFonts.c2Tabbar.copyWith(
-                  color:
-                      isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey,
+                  color: isDark
+                      ? AppColors.tabbarGreyDark
+                      : AppColors.tabbarGrey,
                 ),
               ),
             ],
@@ -238,12 +274,14 @@ class _MonthDayCirclePainter extends CustomPainter {
     required this.isDark,
     required this.showArc,
     this.occupancyPercent = 0,
+    this.isNonWorkingDay = false,
   });
 
   final bool isCurrentMonth;
   final bool isDark;
   final bool showArc;
   final double occupancyPercent;
+  final bool isNonWorkingDay;
 
   static const _arcStrokeWidth = 2.5;
 
@@ -279,6 +317,17 @@ class _MonthDayCirclePainter extends CustomPainter {
         arcPaint,
       );
     }
+
+    // Выходной мастера: параллельные диагонали в круге (как в ячейке недели)
+    if (isCurrentMonth && isNonWorkingDay) {
+      paintDiagonalStripeHatchInCircle(
+        canvas,
+        size,
+        center,
+        radius,
+        isDark: isDark,
+      );
+    }
   }
 
   @override
@@ -286,5 +335,6 @@ class _MonthDayCirclePainter extends CustomPainter {
       old.isCurrentMonth != isCurrentMonth ||
       old.isDark != isDark ||
       old.showArc != showArc ||
-      old.occupancyPercent != occupancyPercent;
+      old.occupancyPercent != occupancyPercent ||
+      old.isNonWorkingDay != isNonWorkingDay;
 }

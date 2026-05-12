@@ -24,7 +24,12 @@ import 'package:rient_app/features/create/service/clients_service.dart';
 import 'package:rient_app/features/create/view/components/client_status_selector_widget.dart';
 import 'package:rient_app/features/create/view/providers/clients_provider.dart';
 import 'package:rient_app/features/create/view/providers/worker_services_provider.dart';
+import 'package:rient_app/features/create/view/providers/workers_offering_catalog_services_provider.dart';
+import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
+import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
@@ -240,7 +245,7 @@ class AddNewEntryInitialData {
   final int? workerId;
 }
 
-class AddNewEntryPage extends StatelessWidget {
+class AddNewEntryPage extends ConsumerWidget {
   const AddNewEntryPage({
     super.key,
     this.initialAppointment,
@@ -372,11 +377,16 @@ class AddNewEntryPage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bodyKey = GlobalKey<_BodyWidgetState>();
     final appBarSurface = _entryAppBarSurface(context);
     final cardSurface = _entryCardSurface(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final permissions = ref.watch(workerPermissionsProvider).maybeWhen(
+          data: (v) => v,
+          orElse: () => null,
+        );
+    final canDeleteSchedule = permissions?.deleteSchedule ?? true;
     return Scaffold(
       backgroundColor: _entryScaffoldBg(context),
       appBar: AppBar(
@@ -420,6 +430,7 @@ class AddNewEntryPage extends StatelessWidget {
                   unawaited(_rememberClientFromBody(bodyKey));
                 }
                 if (value == 'delete' &&
+                    canDeleteSchedule &&
                     (isEditMode || initialAppointment != null)) {
                   _showDeleteDialog(context);
                 }
@@ -430,7 +441,7 @@ class AddNewEntryPage extends StatelessWidget {
                   padding: EdgeInsets.only(left: 10),
                   child: Text('Запомнить клиента', style: AppFonts.b2Medium),
                 ),
-                if (isEditMode || initialAppointment != null)
+                if (canDeleteSchedule && (isEditMode || initialAppointment != null))
                   PopupMenuItem<String>(
                     value: 'delete',
                     padding: EdgeInsets.only(left: 10),
@@ -626,6 +637,24 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     } catch (_) {
       // Ignore broken storage payload.
     }
+  }
+
+  void _ensureSpecialistLockedToCurrentWorker(int workerId) {
+    if (workerId <= 0) return;
+    if (_selectedSpecialistId == workerId) return;
+    setState(() {
+      final hadDifferent =
+          _selectedSpecialistId != null && _selectedSpecialistId != workerId;
+      _selectedSpecialistId = workerId;
+      if (hadDifferent) {
+        for (final service in _services) {
+          service.selectedServiceId = null;
+          service.durationMinutes = 10;
+          service.addDurationMinutes = 0;
+          service.selectedTime = null;
+        }
+      }
+    });
   }
 
   Future<void> _clearRememberedClientIfChanged(String nextPhone) async {
@@ -1362,8 +1391,56 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final permissions = ref.watch(workerPermissionsProvider).maybeWhen(
+          data: (v) => v,
+          orElse: () => null,
+        );
+    final canSeeContactData = permissions?.seeContactData ?? true;
+    final canChangeStatus = permissions?.changeStatus ?? true;
+    final canChangeWorker = permissions?.changeWorker ?? true;
+    final canTransferSchedule = permissions?.transferSchedule ?? true;
+    final roleId = ref.watch(roleProvider);
+    final isWorkerRole = roleId == UserRole.worker.value;
+    final currentWorkerIdAsync = ref.watch(currentWorkerIdProvider);
+    final currentWorkerId = currentWorkerIdAsync.value;
+    if (isWorkerRole &&
+        currentWorkerId != null &&
+        currentWorkerId > 0 &&
+        _selectedSpecialistId != currentWorkerId) {
+      final wid = currentWorkerId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _ensureSpecialistLockedToCurrentWorker(wid);
+      });
+    }
+
     final workersAsync = ref.watch(scheduleWorkersProvider);
-    final specialists = workersAsync.maybeWhen(
+    final branchId = ref.watch(currentBranchIdProvider);
+    /// Услуги текущего выбранного воркера (по состоянию формы), чтобы сопоставить
+    /// выбранные позиции с id услуги в каталоге — без цикла «список специалистов».
+    final workerServicesForCatalogAsync = _selectedSpecialistId == null
+        ? const AsyncValue.data(<WorkerServiceItem>[])
+        : ref.watch(workerServicesForWorkerProvider(_selectedSpecialistId!));
+    final workerServicesForCatalog =
+        workerServicesForCatalogAsync.value ?? const <WorkerServiceItem>[];
+    final requiredCatalogServiceIds = <int>{};
+    for (final block in _services) {
+      final sid = block.selectedServiceId;
+      if (sid == null) continue;
+      final item = _selectedWorkerService(workerServicesForCatalog, sid);
+      final cid = item?.service.id;
+      if (cid != null && cid != 0) requiredCatalogServiceIds.add(cid);
+    }
+    /// Для воркера не дергаем подбор по услугам (всегда только текущий сотрудник).
+    final specialistFilterKeyForWatch = isWorkerRole
+        ? '$branchId|all'
+        : (requiredCatalogServiceIds.isEmpty
+              ? '$branchId|all'
+              : '$branchId|${([...requiredCatalogServiceIds]..sort()).join(',')}');
+    final eligibleSpecialistIdsAsync = ref.watch(
+      workersOfferingCatalogServicesProvider(specialistFilterKeyForWatch),
+    );
+    final specialistsBase = workersAsync.maybeWhen(
       data: (response) => response.results
           .map(
             (worker) => _SpecialistOption(
@@ -1376,6 +1453,26 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           .toList(),
       orElse: () => const <_SpecialistOption>[],
     );
+    final List<_SpecialistOption> specialists;
+    if (isWorkerRole) {
+      if (currentWorkerId != null && currentWorkerId > 0) {
+        specialists = specialistsBase
+            .where((s) => s.id == currentWorkerId)
+            .toList();
+      } else {
+        specialists = const [];
+      }
+    } else if (requiredCatalogServiceIds.isEmpty) {
+      specialists = specialistsBase;
+    } else {
+      specialists = eligibleSpecialistIdsAsync.when(
+        data: (eligible) => specialistsBase
+            .where((s) => eligible.contains(s.id))
+            .toList(),
+        loading: () => const <_SpecialistOption>[],
+        error: (_, __) => specialistsBase,
+      );
+    }
     final selectedSpecialistId =
         specialists.any((item) => item.id == _selectedSpecialistId)
         ? _selectedSpecialistId
@@ -1383,7 +1480,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final workerServicesAsync = selectedSpecialistId == null
         ? const AsyncValue.data(<WorkerServiceItem>[])
         : ref.watch(workerServicesForWorkerProvider(selectedSpecialistId));
-    final branchId = ref.watch(currentBranchIdProvider);
     final selectedDateOnly = _dateOnly(_selectedDate);
     final selectedShiftAsync = ref.watch(
       availableWorkersForDateProvider(selectedDateOnly),
@@ -1537,13 +1633,21 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                 ],
                 Gap(16),
                 // статус клиента
-                ClientStatusSelectorWidget(
-                  initialIndex: _selectedStatusIndex,
-                  onSelected: (index, _) {
-                    setState(() {
-                      _selectedStatusIndex = index;
-                    });
-                  },
+                IgnorePointer(
+                  ignoring: !canChangeStatus,
+                  child: Opacity(
+                    opacity: canChangeStatus ? 1 : 0.6,
+                    child: ClientStatusSelectorWidget(
+                      initialIndex: _selectedStatusIndex,
+                      onSelected: canChangeStatus
+                          ? (index, _) {
+                              setState(() {
+                                _selectedStatusIndex = index;
+                              });
+                            }
+                          : null,
+                    ),
+                  ),
                 ),
 
                 Gap(12),
@@ -1553,6 +1657,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   controller: _phoneController,
                   label: 'Телефон',
                   hintText: 'Телефон',
+                  canEdit: canSeeContactData,
                   keyboardType: TextInputType.number,
                   inputFormatters: [_phoneMaskFormatter],
                   onCleared: () {
@@ -1566,21 +1671,23 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       _commentClientController.clear();
                     });
                   },
-                  onChanged: (value) {
-                    unawaited(_clearRememberedClientIfChanged(value));
-                    setState(() {
-                      _phoneSearchQuery = value;
-                      _showClientSuggestions = value.trim().isNotEmpty;
-                      _selectedClient = null;
-                      if (value.trim().isEmpty) {
-                        _firstNameController.clear();
-                        _lastNameController.clear();
-                        _commentClientController.clear();
-                      }
-                    });
-                  },
+                  onChanged: canSeeContactData
+                      ? (value) {
+                          unawaited(_clearRememberedClientIfChanged(value));
+                          setState(() {
+                            _phoneSearchQuery = value;
+                            _showClientSuggestions = value.trim().isNotEmpty;
+                            _selectedClient = null;
+                            if (value.trim().isEmpty) {
+                              _firstNameController.clear();
+                              _lastNameController.clear();
+                              _commentClientController.clear();
+                            }
+                          });
+                        }
+                      : null,
                 ),
-                if (_showClientSuggestions) ...[
+                if (canSeeContactData && _showClientSuggestions) ...[
                   const Gap(8),
                   DefaultContainerWidget(
                     color: mutedFill,
@@ -1874,7 +1981,43 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                 Gap(16),
                 Text('Специалист', style: AppFonts.c1Medium),
                 Gap(8),
-                DropdownButtonFormField2<int>(
+                if (isWorkerRole)
+                  DefaultContainerWidget(
+                    color: mutedFill,
+                    borderRadius: BorderRadius.circular(300),
+                    hasShadow: false,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: currentWorkerIdAsync.isLoading
+                        ? Text(
+                            'Загрузка профиля…',
+                            style: AppFonts.c1Regular.copyWith(
+                              color: AppColors.grey,
+                            ),
+                          )
+                        : workersAsync.isLoading
+                        ? Text(
+                            'Загрузка специалистов...',
+                            style: AppFonts.c1Regular.copyWith(
+                              color: AppColors.grey,
+                            ),
+                          )
+                        : specialists.isNotEmpty
+                        ? _SpecialistDropdownTile(
+                            fullName: specialists.first.fullName,
+                            avatarUrl: specialists.first.avatarUrl,
+                          )
+                        : Text(
+                            'Сотрудник не найден в филиале',
+                            style: AppFonts.c1Regular.copyWith(
+                              color: AppColors.grey,
+                            ),
+                          ),
+                  )
+                else
+                  DropdownButtonFormField2<int>(
                   valueListenable: ValueNotifier<int?>(selectedSpecialistId),
                   isExpanded: true,
                   alignment: AlignmentDirectional.centerStart,
@@ -1885,6 +2028,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   hint: Text(
                     workersAsync.isLoading
                         ? 'Загрузка специалистов...'
+                        : (requiredCatalogServiceIds.isNotEmpty &&
+                              eligibleSpecialistIdsAsync.isLoading)
+                        ? 'Подбор специалистов по услуге…'
                         : 'Выберите специалиста',
                     style: AppFonts.c1Regular.copyWith(color: primaryText),
                   ),
@@ -1974,7 +2120,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                         ),
                       )
                       .toList(),
-                  onChanged: specialists.isEmpty
+                  onChanged: (!canChangeWorker || specialists.isEmpty)
                       ? null
                       : (value) {
                           setState(() {
@@ -1994,7 +2140,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   children: [
                     Text('Дата', style: AppFonts.c1Medium),
                     GestureDetector(
-                      onTap: selectedSpecialistId == null ? null : _pickDate,
+                      onTap: (selectedSpecialistId == null || !canTransferSchedule)
+                          ? null
+                          : _pickDate,
                       behavior: HitTestBehavior.opaque,
                       child: SizedBox(
                         width: 120,
@@ -2339,6 +2487,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                   slots: slots,
                                   selectedTime: _services[index].selectedTime,
                                   onSelect: (time) {
+                                    if (!canTransferSchedule) return;
                                     setState(
                                       () =>
                                           _services[index].selectedTime = time,
@@ -2349,6 +2498,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                       availableSlots: availableSlots,
                                       initialTime: initialTime,
                                       onSelect: (time) {
+                                        if (!canTransferSchedule) return;
                                         setState(
                                           () => _services[index].selectedTime =
                                               time,
@@ -2560,6 +2710,18 @@ class _BottomActionsBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final permissions = ref.watch(workerPermissionsProvider).maybeWhen(
+          data: (v) => v,
+          orElse: () => null,
+        );
+    final canCreateSchedule = permissions?.createSchedule ?? true;
+    final canEditSchedule =
+        (permissions?.transferSchedule ?? true) ||
+        (permissions?.changeWorker ?? true) ||
+        (permissions?.changeStatus ?? true) ||
+        (permissions?.change ?? true);
+    final canSubmitByPermissions = isEditMode ? canEditSchedule : canCreateSchedule;
+
     final totalPrice = ref.watch(createEntryTotalPriceProvider);
     final discount = ref.watch(createEntryDiscountProvider);
     final canSave = ref.watch(createEntryCanSaveProvider);
@@ -2570,7 +2732,9 @@ class _BottomActionsBar extends ConsumerWidget {
     final accent = _entryAccent(context);
 
     Future<void> createAppointment({required bool closeAfterSave}) async {
-      if (!canSave || draft == null || isSaving) return;
+      if (!canSubmitByPermissions || !canSave || draft == null || isSaving) {
+        return;
+      }
       ref.read(createEntrySavingProvider.notifier).state = true;
       try {
         var resolvedClientId = draft.clientId;
@@ -2737,14 +2901,14 @@ class _BottomActionsBar extends ConsumerWidget {
           MainButton(
             title: 'Сохранить',
             onTap: () => createAppointment(closeAfterSave: false),
-            isActive: canSave && !isSaving,
+            isActive: canSave && !isSaving && canSubmitByPermissions,
             isLoading: isSaving,
           ),
           const Gap(12),
           MainButton(
             title: 'Сохранить и закрыть',
             onTap: () => createAppointment(closeAfterSave: true),
-            isActive: canSave && !isSaving,
+            isActive: canSave && !isSaving && canSubmitByPermissions,
             isLoading: isSaving,
           ),
         ],

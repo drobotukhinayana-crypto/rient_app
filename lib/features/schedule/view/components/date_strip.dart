@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:dart_date/dart_date.dart';
 import 'package:flutter/material.dart';
+import 'package:rient_app/core/painting/diagonal_hatch.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
@@ -49,6 +50,8 @@ class DateStrip extends StatefulWidget {
     this.showFullDateLabel = true,
     this.useGreyCircles = false,
     this.useMonthCalendarCircleFill = false,
+    /// Дни недели (1=пн … 7=вс), когда у мастера смена; иначе кружок штрихуется.
+    this.workingWeekdays,
   });
 
   /// Начальная выбранная дата (по умолчанию сегодня).
@@ -78,6 +81,9 @@ class DateStrip extends StatefulWidget {
   final bool useMonthCalendarCircleFill;
   final List<OccupancyByDay>? occupancyByDay;
 
+  /// См. [DateStrip.workingWeekdays].
+  final Set<int>? workingWeekdays;
+
   @override
   State<DateStrip> createState() => _DateStripState();
 }
@@ -97,7 +103,8 @@ class _DateStripState extends State<DateStrip> {
   void didUpdateWidget(covariant DateStrip oldWidget) {
     if (oldWidget.initialDate != widget.initialDate ||
         oldWidget.selectedDate != widget.selectedDate ||
-        oldWidget.visibleWeekStart != widget.visibleWeekStart) {
+        oldWidget.visibleWeekStart != widget.visibleWeekStart ||
+        oldWidget.workingWeekdays != widget.workingWeekdays) {
       _buildDates();
     }
     super.didUpdateWidget(oldWidget);
@@ -115,6 +122,12 @@ class _DateStripState extends State<DateStrip> {
     }
     final monday = anchor.subtract(Duration(days: anchor.weekday - 1));
     _dates = List.generate(7, (i) => monday.add(Duration(days: i)));
+  }
+
+  bool _isNonWorkingDay(DateTime d) {
+    final w = widget.workingWeekdays;
+    if (w == null) return false;
+    return !w.contains(d.weekday);
   }
 
   bool _hasData(DateTime d) {
@@ -187,6 +200,7 @@ class _DateStripState extends State<DateStrip> {
                               )
                               ?.occupancy ??
                           0,
+                      isNonWorkingDay: _isNonWorkingDay(_dates[i]),
                     ),
                   ),
                 ),
@@ -218,6 +232,7 @@ class _DateCircleItem extends StatelessWidget {
     required this.useGreyCircles,
     required this.useMonthCalendarCircleFill,
     required this.isDark,
+    this.isNonWorkingDay = false,
   });
 
   final double occupancyPercent;
@@ -228,6 +243,7 @@ class _DateCircleItem extends StatelessWidget {
   final bool useGreyCircles;
   final bool useMonthCalendarCircleFill;
   final bool isDark;
+  final bool isNonWorkingDay;
 
   @override
   Widget build(BuildContext context) {
@@ -242,6 +258,8 @@ class _DateCircleItem extends StatelessWidget {
 
     final dayNumberColor = isSelected
         ? AppColors.primaryWhite
+        : isNonWorkingDay
+        ? (isDark ? AppColors.primaryDarkDark : AppColors.primaryDark)
         : isDark
         ? (showArc ? AppColors.primaryDarkDark : AppColors.tabbarGreyDark)
         : (showArc ? AppColors.primaryDark : AppColors.grey);
@@ -266,6 +284,7 @@ class _DateCircleItem extends StatelessWidget {
               unselectedFillColor: unselectedFillColor,
               isDark: isDark,
               occupancyPercent: occupancyPercent,
+              isNonWorkingDay: isNonWorkingDay,
             ),
             child: Center(
               child: Text(
@@ -292,6 +311,7 @@ class _DateCirclePainter extends CustomPainter {
     required this.unselectedFillColor,
     required this.isDark,
     required this.occupancyPercent,
+    this.isNonWorkingDay = false,
   });
 
   final bool isSelected;
@@ -299,6 +319,7 @@ class _DateCirclePainter extends CustomPainter {
   final Color unselectedFillColor;
   final bool isDark;
   final double occupancyPercent;
+  final bool isNonWorkingDay;
   static const _arcStrokeWidth = 4.0;
 
   @override
@@ -373,6 +394,16 @@ class _DateCirclePainter extends CustomPainter {
         arcPaint,
       );
     }
+
+    if (isNonWorkingDay) {
+      paintDiagonalStripeHatchInCircle(
+        canvas,
+        size,
+        center,
+        radius,
+        isDark: isDark,
+      );
+    }
   }
 
   @override
@@ -381,6 +412,7 @@ class _DateCirclePainter extends CustomPainter {
         oldDelegate.showArc != showArc ||
         oldDelegate.unselectedFillColor != unselectedFillColor ||
         oldDelegate.isDark != isDark ||
-        oldDelegate.occupancyPercent != occupancyPercent;
+        oldDelegate.occupancyPercent != occupancyPercent ||
+        oldDelegate.isNonWorkingDay != isNonWorkingDay;
   }
 }

@@ -8,10 +8,13 @@ import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/widgets/app_drawer.dart';
+import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/chat/chat_page.dart';
 import 'package:rient_app/features/create/view/add_new_entry_page.dart'
     show AddNewEntryPage;
 import 'package:rient_app/features/home/view/components/restore_selected_branch.dart';
+import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/link/view/link_page.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
@@ -52,6 +55,15 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     with WidgetsBindingObserver {
   DateTime? _lastResumeRefreshAt;
 
+  bool _showCreateTab() {
+    final roleId = ref.watch(roleProvider);
+    if (roleId != UserRole.worker.value) {
+      return true;
+    }
+    final permissionsAsync = ref.watch(workerPermissionsProvider);
+    return permissionsAsync.value?.createSchedule == true;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -81,16 +93,19 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     await refreshTokenSilentlyIfPossible(ref as Ref);
   }
 
-  int get _navbarIndexFromShell => widget.navigationShell.currentIndex < 2
-      ? widget.navigationShell.currentIndex
-      : widget.navigationShell.currentIndex + 1;
+  int _navbarIndexFromShell(bool showCreateTab) {
+    if (!showCreateTab) return widget.navigationShell.currentIndex;
+    return widget.navigationShell.currentIndex < 2
+        ? widget.navigationShell.currentIndex
+        : widget.navigationShell.currentIndex + 1;
+  }
 
-  void navigateOnTabIndexed(int index) {
-    if (index == 2) {
+  void navigateOnTabIndexed(int index, {required bool showCreateTab}) {
+    if (showCreateTab && index == 2) {
       TabBarPage.openCreatePage(context);
       return;
     }
-    final shellIndex = index < 2 ? index : index - 1;
+    final shellIndex = showCreateTab && index > 2 ? index - 1 : index;
     final alreadyHere = shellIndex == widget.navigationShell.currentIndex;
     if (alreadyHere) {
       switch (shellIndex) {
@@ -111,6 +126,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final showCreateTab = _showCreateTab();
     return RestoreSelectedBranch(
       child: Scaffold(
         key: appShellScaffoldKey,
@@ -120,8 +136,10 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
         drawer: const AppDrawer(),
         body: widget.navigationShell,
         bottomNavigationBar: _NavbarWidget(
-          currentIndex: _navbarIndexFromShell,
-          onTabTapped: navigateOnTabIndexed,
+          currentIndex: _navbarIndexFromShell(showCreateTab),
+          showCreateTab: showCreateTab,
+          onTabTapped: (idx) =>
+              navigateOnTabIndexed(idx, showCreateTab: showCreateTab),
         ),
       ),
     );
@@ -129,9 +147,14 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
 }
 
 class _NavbarWidget extends StatelessWidget {
-  const _NavbarWidget({required this.currentIndex, required this.onTabTapped});
+  const _NavbarWidget({
+    required this.currentIndex,
+    required this.onTabTapped,
+    required this.showCreateTab,
+  });
   final int currentIndex;
   final void Function(int) onTabTapped;
+  final bool showCreateTab;
 
   @override
   Widget build(BuildContext context) {
@@ -170,28 +193,29 @@ class _NavbarWidget extends StatelessWidget {
                     hasCartCountLabel: true,
                   ),
                 ),
-                Expanded(
-                  child: _NavbarIcon(
-                    isActive: currentIndex == 2,
-                    imageAsset: AppImages.addTab,
-                    title: 'Создать',
-                    onTap: () => onTabTapped(2),
+                if (showCreateTab)
+                  Expanded(
+                    child: _NavbarIcon(
+                      isActive: currentIndex == 2,
+                      imageAsset: AppImages.addTab,
+                      title: 'Создать',
+                      onTap: () => onTabTapped(2),
+                    ),
                   ),
-                ),
                 Expanded(
                   child: _NavbarIcon(
-                    isActive: currentIndex == 3,
+                    isActive: currentIndex == (showCreateTab ? 3 : 2),
                     imageAsset: AppImages.chatTab,
                     title: 'Сообщения',
-                    onTap: () => onTabTapped(3),
+                    onTap: () => onTabTapped(showCreateTab ? 3 : 2),
                   ),
                 ),
                 Expanded(
                   child: _NavbarIcon(
-                    isActive: currentIndex == 4,
+                    isActive: currentIndex == (showCreateTab ? 4 : 3),
                     imageAsset: AppImages.linkTab,
                     title: 'Ссылка',
-                    onTap: () => onTabTapped(4),
+                    onTap: () => onTabTapped(showCreateTab ? 4 : 3),
                   ),
                 ),
               ],

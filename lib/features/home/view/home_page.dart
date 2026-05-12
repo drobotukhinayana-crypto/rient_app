@@ -12,6 +12,7 @@ import 'package:rient_app/features/home/view/components/services_today_grid_view
 import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
 import 'package:rient_app/features/home/view/providers/today_revenue_metrics_provider.dart';
+import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class HomePage extends StatelessWidget {
@@ -88,6 +89,10 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
     final statisticsAsync = ref.watch(statisticsProvider);
     final roleId = ref.watch(roleProvider);
     final isWorkerRole = roleId == UserRole.worker.value;
+    final workerPermissions = ref.watch(workerPermissionsProvider).maybeWhen(
+          data: (v) => v,
+          orElse: () => null,
+        );
     final isOwnerOrManager =
         roleId == UserRole.owner.value || roleId == UserRole.manager.value;
     final todayRevenueAsync = ref.watch(todayRevenueMetricsProvider);
@@ -224,57 +229,62 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                     ],
                   ),
 
-                  if (isWorkerRole && statistics.incomeByDay != null) ...[
+                  if (isWorkerRole &&
+                      statistics.incomeByDay != null &&
+                      ((workerPermissions?.seeIncome ?? true) ||
+                          (workerPermissions?.seeToBePaid ?? true))) ...[
                     Gap(10),
                     Row(
                       children: [
-                        // доход
-                        Expanded(
-                          child: DefaultContainerWidget(
-                            color: isDark
-                                ? AppColors.primaryWhiteDark
-                                : Colors.white,
-                            hasShadow: false,
-                            borderRadius: BorderRadius.circular(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Доход', style: AppFonts.b2Medium),
-                                Gap(8),
-                                Text(
-                                  '${dayIncomeValue.toStringAsFixed(0)} ₽',
-                                  style: AppFonts.h4Medium.copyWith(
-                                    color: AppColors.themeAccent(context),
+                        if (workerPermissions?.seeIncome ?? true)
+                          Expanded(
+                            child: DefaultContainerWidget(
+                              color: isDark
+                                  ? AppColors.primaryWhiteDark
+                                  : Colors.white,
+                              hasShadow: false,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Доход', style: AppFonts.b2Medium),
+                                  Gap(8),
+                                  Text(
+                                    '${dayIncomeValue.toStringAsFixed(0)} ₽',
+                                    style: AppFonts.h4Medium.copyWith(
+                                      color: AppColors.themeAccent(context),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                        Gap(12),
-                        // к выплате
-                        Expanded(
-                          child: DefaultContainerWidget(
-                            color: isDark
-                                ? AppColors.primaryWhiteDark
-                                : Colors.white,
-                            hasShadow: false,
-                            borderRadius: BorderRadius.circular(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('К выплате', style: AppFonts.b2Medium),
-                                Gap(8),
-                                Text(
-                                  '${dayPayDueValue.toStringAsFixed(0)} ₽',
-                                  style: AppFonts.h4Medium.copyWith(
-                                    color: AppColors.themeAccent(context),
+                        if ((workerPermissions?.seeIncome ?? true) &&
+                            (workerPermissions?.seeToBePaid ?? true))
+                          Gap(12),
+                        if (workerPermissions?.seeToBePaid ?? true)
+                          Expanded(
+                            child: DefaultContainerWidget(
+                              color: isDark
+                                  ? AppColors.primaryWhiteDark
+                                  : Colors.white,
+                              hasShadow: false,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('К выплате', style: AppFonts.b2Medium),
+                                  Gap(8),
+                                  Text(
+                                    '${dayPayDueValue.toStringAsFixed(0)} ₽',
+                                    style: AppFonts.h4Medium.copyWith(
+                                      color: AppColors.themeAccent(context),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ],

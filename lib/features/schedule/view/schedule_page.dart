@@ -10,10 +10,14 @@ import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
+import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/create/view/add_new_entry_page.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
+import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
+import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
@@ -633,12 +637,31 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
     final workersAsync = ref.watch(scheduleWorkersProvider);
+    final roleId = ref.watch(roleProvider);
+    final isWorkerRole = roleId == UserRole.worker.value;
+    final workerPermissions = ref.watch(workerPermissionsProvider).maybeWhen(
+          data: (v) => v,
+          orElse: () => null,
+        );
+    final canCreateSchedule = workerPermissions?.createSchedule ?? true;
+    final canEditSchedule =
+        (workerPermissions?.transferSchedule ?? true) ||
+        (workerPermissions?.changeWorker ?? true) ||
+        (workerPermissions?.changeStatus ?? true) ||
+        (workerPermissions?.deleteSchedule ?? true);
+    final currentWorkerIdAsync = ref.watch(currentWorkerIdProvider);
+    final currentWorkerId = currentWorkerIdAsync.value;
     final currentBranch = ref.watch(currentBranchProvider);
     final scheduleCellIntervalMinutes = ref.watch(
       scheduleCellIntervalMinutesProvider,
     );
     final selectedDate = ref.watch(selectedScheduleDateProvider);
-    final workerWeekdaysById = ref.watch(workerWeekdaysByIdProvider).value ?? const <int, Set<int>>{};
+    final workerIdMissing =
+        isWorkerRole && !currentWorkerIdAsync.isLoading && currentWorkerId == null;
+    final workerWeekdaysAsync = ref.watch(workerWeekdaysByIdProvider);
+    final workerWeekdaysById = workerWeekdaysAsync.hasValue
+        ? workerWeekdaysAsync.requireValue
+        : const <int, Set<int>>{};
     final availableWorkersAsync = ref.watch(
       availableWorkersForDateProvider(selectedDate),
     );
@@ -665,7 +688,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       _monthStart,
     );
     // Для всех режимов показываем активных сотрудников на выбранную дату.
-    final specialists = availableWorkersAsync.maybeWhen(
+    final allSpecialists = availableWorkersAsync.maybeWhen(
       data: (available) {
         if (available.isEmpty) {
           final allWorkers = workersAsync.value?.results ?? const <WorkerApi>[];
@@ -678,6 +701,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       },
       orElse: () => <SpecialistItem>[],
     );
+    final specialists = isWorkerRole
+        ? allSpecialists.where((s) => s.id == currentWorkerId).toList()
+        : allSpecialists;
     final savedSelectedId = ref.watch(selectedSpecialistIdProvider);
     SpecialistItem? initialSelected;
     if (specialists.isNotEmpty) {
@@ -696,24 +722,29 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       currentBranch?.schedulePatterns ?? const [],
     );
     final selectedSpecialistId = initialSelected?.id;
+    /// Пока нет списка доступных на дату, у воркера всё равно известен id из профиля.
+    final specialistIdForData = selectedSpecialistId ??
+        (isWorkerRole && currentWorkerId != null && currentWorkerId > 0
+            ? currentWorkerId
+            : null);
     final selectedBreak = _breakForSpecialist(
       availableWorkersAsync.value ?? const [],
-      selectedSpecialistId,
+      specialistIdForData,
     );
-    final selectedWorkerHours = selectedSpecialistId != null
+    final selectedWorkerHours = specialistIdForData != null
         ? (() {
             final hasWorkerInBranch = workerWeekdaysById.containsKey(
-              selectedSpecialistId,
+              specialistIdForData,
             );
             if (!hasWorkerInBranch) {
               return (start: null, end: null);
             }
             final byShift = _workerShiftHoursForId(
               availableWorkersAsync.value ?? const [],
-              selectedSpecialistId,
+              specialistIdForData,
             );
             if (byShift.start != null && byShift.end != null) return byShift;
-            final weekdays = workerWeekdaysById[selectedSpecialistId] ?? const <int>{};
+            final weekdays = workerWeekdaysById[specialistIdForData] ?? const <int>{};
             final isWorkingWeekday = weekdays.contains(selectedDate.weekday);
             if (isWorkingWeekday) {
               return (
@@ -746,7 +777,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final weekEndDate = weekStartDate
         .add(const Duration(days: 7))
         .subtract(const Duration(milliseconds: 1));
-    final multiDayColumns = _viewMode == ViewMode.day && specialists.length > 1;
+    final multiDayColumns =
+        !isWorkerRole &&
+        _viewMode == ViewMode.day &&
+        specialists.length > 1;
     final dayAppsBySpecialistIndex = multiDayColumns
         ? <AsyncValue<List<AppointmentApi>>>[
             for (var i = 0; i < specialists.length; i++)
@@ -766,7 +800,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         : ref.watch(
             scheduleAppointmentsProvider(
               AppointmentsQuery(
-                workerId: selectedSpecialistId,
+                workerId: specialistIdForData,
                 dateTimeGte: dayStart,
                 dateTimeLte: dayEnd,
               ),
@@ -775,7 +809,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final weekAppointmentsAsync = ref.watch(
       scheduleAppointmentsProvider(
         AppointmentsQuery(
-          workerId: selectedSpecialistId,
+          workerId: specialistIdForData,
           dateTimeGte: weekStartDate,
           dateTimeLte: weekEndDate,
         ),
@@ -794,7 +828,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final dayAppointmentsLoading = multiDayColumns
         ? dayAppsBySpecialistIndex.any((a) => a.isLoading)
         : dayAppointmentsSingleAsync.isLoading;
+    final Set<int>? workingWeekdaysForWeekCalendar =
+        specialistIdForData == null
+        ? null
+        : (!workerWeekdaysAsync.hasValue
+              ? null
+              : (workerWeekdaysById[specialistIdForData] ?? const <int>{}));
+
     final showGlobalLoader =
+        (isWorkerRole && currentWorkerIdAsync.isLoading) ||
         availableWorkersLoading ||
         (_viewMode == ViewMode.day && dayAppointmentsLoading) ||
         (_viewMode == ViewMode.week && weekAppointmentsAsync.isLoading) ||
@@ -822,7 +864,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           ref.invalidate(
             scheduleAppointmentsProvider(
               AppointmentsQuery(
-                workerId: selectedSpecialistId,
+                workerId: specialistIdForData,
                 dateTimeGte: dayStart,
                 dateTimeLte: dayEnd,
               ),
@@ -834,13 +876,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       ref.invalidate(
         scheduleAppointmentsProvider(
           AppointmentsQuery(
-            workerId: selectedSpecialistId,
+            workerId: specialistIdForData,
             dateTimeGte: weekStartDate,
             dateTimeLte: weekEndDate,
           ),
         ),
       );
-      if (mutatedWorkerId != null && mutatedWorkerId != selectedSpecialistId) {
+      if (mutatedWorkerId != null && mutatedWorkerId != specialistIdForData) {
         ref.invalidate(
           scheduleAppointmentsProvider(
             AppointmentsQuery(
@@ -882,18 +924,22 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
               TopPanel(
                 title: 'Расписание',
                 showViewModeSwitcher: true,
+                showSpecialistSelector: !isWorkerRole,
                 viewMode: _viewMode,
                 onScheduleStateChanged: _onScheduleStateChanged,
                 specialists: specialists,
                 initialSelectedSpecialist: initialSelected,
-                onSpecialistSelected: (s) async {
-                  ref.read(selectedSpecialistIdProvider.notifier).state = s.id;
-                  final storage = ref.read(localStorageProvider);
-                  await storage.saveString(
-                    selectedSpecialistIdStorageKey,
-                    s.id.toString(),
-                  );
-                },
+                onSpecialistSelected: isWorkerRole
+                    ? null
+                    : (s) async {
+                        ref.read(selectedSpecialistIdProvider.notifier).state =
+                            s.id;
+                        final storage = ref.read(localStorageProvider);
+                        await storage.saveString(
+                          selectedSpecialistIdStorageKey,
+                          s.id.toString(),
+                        );
+                      },
                 scheduleSelectedDate: selectedDate,
                 occupancyByDay: occupancyByDay,
                 onScheduleDateSelected: (date) {
@@ -919,187 +965,203 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                     ),
                   ),
                   data: (_) => _viewMode == ViewMode.day
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (multiDayColumns)
-                              Padding(
+                      ? (workerIdMissing
+                          ? Center(
+                              child: Padding(
                                 padding: AppDecoration.padding16,
-                                child: SpecialistListView(
-                                  specialists: specialists,
-                                  scrollController:
-                                      _daySpecialistsScrollController,
-                                  itemWidth: 114,
-                                  leadingInset: isWideScreen ? 51 : 28,
+                                child: Text(
+                                  'Не удалось определить сотрудника для расписания',
+                                  style: TextStyle(color: AppColors.grey),
+                                  textAlign: TextAlign.center,
                                 ),
                               ),
-                            Expanded(
-                              child: multiDayColumns
-                                  ? ScheduleCalendarDayMultiColumn(
-                                      key: ValueKey(
-                                        'schedule_day_multi_${scheduleDateKey(selectedDate)}_$_refreshVersion',
-                                      ),
-                                      date: selectedDate,
-                                      branchStartHour: dayWorkHours.startHour,
-                                      branchEndHour: dayWorkHours.endHour,
-                                      horizontalScrollController:
-                                          _dayCalendarScrollController,
-                                      columnWidth: 114,
-                                      timeIntervalMinutes:
-                                          scheduleCellIntervalMinutes,
-                                      columns: () {
-                                        final shifts =
-                                            availableWorkersAsync.value ??
-                                            const [];
-                                        return [
-                                          for (
-                                            var i = 0;
-                                            i < specialists.length;
-                                            i++
-                                          )
-                                            () {
-                                              final workerId =
-                                                  specialists[i].id!;
-                                              final hasWorkerInBranch =
-                                                  workerWeekdaysById.containsKey(
-                                                    workerId,
-                                                  );
-                                              if (!hasWorkerInBranch) {
-                                                return ScheduleCalendarDayColumn(
-                                                  workerId: workerId,
-                                                  name: specialists[i].name,
-                                                  items: _mapAppointmentsForRange(
-                                                    dayAppsBySpecialistIndex[i]
-                                                            .value ??
-                                                        const [],
-                                                    dayStart,
-                                                    dayEnd,
-                                                  ),
-                                                  breakStart: null,
-                                                  breakEnd: null,
-                                                  workerStartHour: null,
-                                                  workerEndHour: null,
-                                                );
-                                              }
-                                              final byShift =
-                                                  _workerShiftHoursForId(
-                                                    shifts,
-                                                    workerId,
-                                                  );
-                                              final weekdays =
-                                                  workerWeekdaysById[workerId] ??
-                                                  const <int>{};
-                                              final byWeekday =
-                                                  weekdays.contains(
-                                                    selectedDate.weekday,
-                                                  )
-                                                  ? (
-                                                      start:
-                                                          dayWorkHours.startHour,
-                                                      end:
-                                                          dayWorkHours.endHour,
-                                                    )
-                                                  : (start: null, end: null);
-                                              final effectiveHours =
-                                                  (byShift.start != null &&
-                                                      byShift.end != null)
-                                                  ? byShift
-                                                  : byWeekday;
-
-                                              return ScheduleCalendarDayColumn(
-                                                workerId: workerId,
-                                                name: specialists[i].name,
-                                                items: _mapAppointmentsForRange(
-                                                  dayAppsBySpecialistIndex[i]
-                                                          .value ??
-                                                      const [],
-                                                  dayStart,
-                                                  dayEnd,
-                                                ),
-                                                breakStart: _breakForSpecialist(
-                                                  shifts,
-                                                  specialists[i].id,
-                                                ).breakStart,
-                                                breakEnd: _breakForSpecialist(
-                                                  shifts,
-                                                  specialists[i].id,
-                                                ).breakEnd,
-                                                workerStartHour:
-                                                    effectiveHours.start,
-                                                workerEndHour: effectiveHours.end,
-                                              );
-                                            }(),
-                                        ];
-                                      }(),
-                                      onAppointmentTap: (item) async {
-                                        final appointment = item.source;
-                                        if (appointment == null) return;
-                                        final wasDeleted = await context
-                                            .pushNamed<bool>(
-                                              AddNewEntryPage.name,
-                                              extra: appointment,
-                                            );
-                                        if (wasDeleted == true) {
-                                          refreshScheduleAfterMutation(
-                                            appointment,
-                                          );
-                                          _forceRefreshScheduleScreen();
-                                        }
-                                      },
-                                      onEmptySlotTap: (workerId, dateTime) {
-                                        context.pushNamed(
-                                          AddNewEntryPage.name,
-                                          extra: AddNewEntryInitialData(
-                                            workerId: workerId,
-                                            startDateTime: dateTime,
-                                          ),
-                                        );
-                                      },
-                                    )
-                                  : ScheduleCalendarOneUserWidget(
-                                      key: ValueKey(
-                                        'schedule_day_${scheduleDateKey(selectedDate)}_$_refreshVersion',
-                                      ),
-                                      date: selectedDate,
-                                      items: dayItems,
-                                      viewMode: ViewMode.day,
-                                      timeIntervalMinutes:
-                                          scheduleCellIntervalMinutes,
-                                      startHour: dayWorkHours.startHour,
-                                      endHour: dayWorkHours.endHour,
-                                      breakStart: selectedBreak.breakStart,
-                                      breakEnd: selectedBreak.breakEnd,
-                                      workerStartHour:
-                                          selectedWorkerHours.start,
-                                      workerEndHour: selectedWorkerHours.end,
-                                      onAppointmentTap: (item) async {
-                                        final appointment = item.source;
-                                        if (appointment == null) return;
-                                        final wasDeleted = await context
-                                            .pushNamed<bool>(
-                                              AddNewEntryPage.name,
-                                              extra: appointment,
-                                            );
-                                        if (wasDeleted == true) {
-                                          refreshScheduleAfterMutation(
-                                            appointment,
-                                          );
-                                          _forceRefreshScheduleScreen();
-                                        }
-                                      },
-                                      onEmptySlotTap: (dateTime) {
-                                        context.pushNamed(
-                                          AddNewEntryPage.name,
-                                          extra: AddNewEntryInitialData(
-                                            workerId: selectedSpecialistId,
-                                            startDateTime: dateTime,
-                                          ),
-                                        );
-                                      },
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (multiDayColumns)
+                                  Padding(
+                                    padding: AppDecoration.padding16,
+                                    child: SpecialistListView(
+                                      specialists: specialists,
+                                      scrollController:
+                                          _daySpecialistsScrollController,
+                                      itemWidth: 114,
+                                      leadingInset: isWideScreen ? 51 : 28,
                                     ),
-                            ),
-                          ],
-                        )
+                                  ),
+                                Expanded(
+                                  child: multiDayColumns
+                                      ? ScheduleCalendarDayMultiColumn(
+                                          key: ValueKey(
+                                            'schedule_day_multi_${scheduleDateKey(selectedDate)}_$_refreshVersion',
+                                          ),
+                                          date: selectedDate,
+                                          branchStartHour: dayWorkHours.startHour,
+                                          branchEndHour: dayWorkHours.endHour,
+                                          horizontalScrollController:
+                                              _dayCalendarScrollController,
+                                          columnWidth: 114,
+                                          timeIntervalMinutes:
+                                              scheduleCellIntervalMinutes,
+                                          columns: () {
+                                            final shifts =
+                                                availableWorkersAsync.value ??
+                                                const [];
+                                            return [
+                                              for (
+                                                var i = 0;
+                                                i < specialists.length;
+                                                i++
+                                              )
+                                                () {
+                                                  final workerId =
+                                                      specialists[i].id!;
+                                                  final hasWorkerInBranch =
+                                                      workerWeekdaysById.containsKey(
+                                                        workerId,
+                                                      );
+                                                  if (!hasWorkerInBranch) {
+                                                    return ScheduleCalendarDayColumn(
+                                                      workerId: workerId,
+                                                      name: specialists[i].name,
+                                                      items: _mapAppointmentsForRange(
+                                                        dayAppsBySpecialistIndex[i]
+                                                                .value ??
+                                                            const [],
+                                                        dayStart,
+                                                        dayEnd,
+                                                      ),
+                                                      breakStart: null,
+                                                      breakEnd: null,
+                                                      workerStartHour: null,
+                                                      workerEndHour: null,
+                                                    );
+                                                  }
+                                                  final byShift =
+                                                      _workerShiftHoursForId(
+                                                        shifts,
+                                                        workerId,
+                                                      );
+                                                  final weekdays =
+                                                      workerWeekdaysById[workerId] ??
+                                                      const <int>{};
+                                                  final byWeekday =
+                                                      weekdays.contains(
+                                                        selectedDate.weekday,
+                                                      )
+                                                      ? (
+                                                          start:
+                                                              dayWorkHours.startHour,
+                                                          end:
+                                                              dayWorkHours.endHour,
+                                                        )
+                                                      : (start: null, end: null);
+                                                  final effectiveHours =
+                                                      (byShift.start != null &&
+                                                          byShift.end != null)
+                                                      ? byShift
+                                                      : byWeekday;
+
+                                                  return ScheduleCalendarDayColumn(
+                                                    workerId: workerId,
+                                                    name: specialists[i].name,
+                                                    items: _mapAppointmentsForRange(
+                                                      dayAppsBySpecialistIndex[i]
+                                                              .value ??
+                                                          const [],
+                                                      dayStart,
+                                                      dayEnd,
+                                                    ),
+                                                    breakStart: _breakForSpecialist(
+                                                      shifts,
+                                                      specialists[i].id,
+                                                    ).breakStart,
+                                                    breakEnd: _breakForSpecialist(
+                                                      shifts,
+                                                      specialists[i].id,
+                                                    ).breakEnd,
+                                                    workerStartHour:
+                                                        effectiveHours.start,
+                                                    workerEndHour: effectiveHours.end,
+                                                  );
+                                                }(),
+                                            ];
+                                          }(),
+                                          onAppointmentTap: (item) async {
+                                            if (!canEditSchedule) return;
+                                            final appointment = item.source;
+                                            if (appointment == null) return;
+                                            final wasDeleted = await context
+                                                .pushNamed<bool>(
+                                                  AddNewEntryPage.name,
+                                                  extra: appointment,
+                                                );
+                                            if (wasDeleted == true) {
+                                              refreshScheduleAfterMutation(
+                                                appointment,
+                                              );
+                                              _forceRefreshScheduleScreen();
+                                            }
+                                          },
+                                          onEmptySlotTap: (workerId, dateTime) {
+                                            if (!canCreateSchedule) return;
+                                            context.pushNamed(
+                                              AddNewEntryPage.name,
+                                              extra: AddNewEntryInitialData(
+                                                workerId: workerId,
+                                                startDateTime: dateTime,
+                                              ),
+                                            );
+                                          },
+                                        )
+                                      : ScheduleCalendarOneUserWidget(
+                                          key: ValueKey(
+                                            'schedule_day_${scheduleDateKey(selectedDate)}_$_refreshVersion',
+                                          ),
+                                          date: selectedDate,
+                                          items: dayItems,
+                                          viewMode: ViewMode.day,
+                                          timeIntervalMinutes:
+                                              scheduleCellIntervalMinutes,
+                                          startHour: dayWorkHours.startHour,
+                                          endHour: dayWorkHours.endHour,
+                                          breakStart: selectedBreak.breakStart,
+                                          breakEnd: selectedBreak.breakEnd,
+                                          workerStartHour:
+                                              selectedWorkerHours.start,
+                                          workerEndHour: selectedWorkerHours.end,
+                                          onAppointmentTap: (item) async {
+                                            if (!canEditSchedule) return;
+                                            final appointment = item.source;
+                                            if (appointment == null) return;
+                                            final wasDeleted = await context
+                                                .pushNamed<bool>(
+                                                  AddNewEntryPage.name,
+                                                  extra: appointment,
+                                                );
+                                            if (wasDeleted == true) {
+                                              refreshScheduleAfterMutation(
+                                                appointment,
+                                              );
+                                              _forceRefreshScheduleScreen();
+                                            }
+                                          },
+                                          onEmptySlotTap: (dateTime) {
+                                            if (!canCreateSchedule) return;
+                                            context.pushNamed(
+                                              AddNewEntryPage.name,
+                                              extra: AddNewEntryInitialData(
+                                                workerId: specialistIdForData,
+                                                startDateTime: dateTime,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                ),
+                              ],
+                            ))
+                      
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1115,7 +1177,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       ),
                                       child: DateStrip(
                                         key: ValueKey(
-                                          'week_strip_${weekKey}_$_refreshVersion',
+                                          'week_strip_${weekKey}_'
+                                          '${Object.hashAll(workingWeekdaysForWeekCalendar ?? const <int>{})}_'
+                                          '$_refreshVersion',
                                         ),
                                         initialDate: _weekStart,
                                         selectedDate: selectedDate,
@@ -1125,12 +1189,18 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         useGreyCircles: true,
                                         useMonthCalendarCircleFill: true,
                                         occupancyByDay: occupancyByDay,
+                                        workingWeekdays:
+                                            workingWeekdaysForWeekCalendar,
                                       ),
                                     ),
                                     Expanded(
                                       child: ScheduleCalendarOneUserWidget(
                                         key: ValueKey(
-                                          'schedule_week_${weekKey}_$_refreshVersion',
+                                          'schedule_week_${weekKey}_'
+                                          '${specialistIdForData ?? 0}_'
+                                          '${workerWeekdaysAsync.hasValue}_'
+                                          '${Object.hashAll(workingWeekdaysForWeekCalendar ?? const <int>{})}_'
+                                          '$_refreshVersion',
                                         ),
                                         date: _weekStart,
                                         items: weekItems,
@@ -1141,9 +1211,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         endHour: weekWorkHours.endHour,
                                         weekWorkHoursByWeekday:
                                             weekWorkHoursByWeekday,
+                                        workingWeekdays:
+                                            workingWeekdaysForWeekCalendar,
                                         breakStart: selectedBreak.breakStart,
                                         breakEnd: selectedBreak.breakEnd,
                                         onAppointmentTap: (item) async {
+                                          if (!canEditSchedule) return;
                                           final appointment = item.source;
                                           if (appointment == null) return;
                                           final wasDeleted = await context
@@ -1159,10 +1232,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                           }
                                         },
                                         onEmptySlotTap: (dateTime) {
+                                          if (!canCreateSchedule) return;
                                           context.pushNamed(
                                             AddNewEntryPage.name,
                                             extra: AddNewEntryInitialData(
-                                              workerId: selectedSpecialistId,
+                                              workerId: specialistIdForData,
                                               startDateTime: dateTime,
                                             ),
                                           );
@@ -1182,11 +1256,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                   child: SingleChildScrollView(
                                     child: MonthCalendar(
                                       key: ValueKey(
-                                        'month_${monthKey}_$_refreshVersion',
+                                        'month_${monthKey}_'
+                                        '${Object.hashAll(workingWeekdaysForWeekCalendar ?? const <int>{})}_'
+                                        '$_refreshVersion',
                                       ),
                                       month: _monthStart,
                                       slotsByDay: slotsByDay,
                                       occupancyByDay: monthOccupancyByDay,
+                                      workingWeekdays:
+                                          workingWeekdaysForWeekCalendar,
                                       onDayTap: _switchToDayMode,
                                     ),
                                   ),
