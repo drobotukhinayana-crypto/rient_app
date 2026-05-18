@@ -248,6 +248,46 @@ class _DateStripState extends State<DateStrip> {
   }
 }
 
+/// Кружок загруженности одного дня — тот же вид, что в [DateStrip] (режим «Неделя»).
+class ScheduleDayLoadCircle extends StatelessWidget {
+  const ScheduleDayLoadCircle({
+    super.key,
+    required this.date,
+    required this.occupancyPercent,
+    this.isSelected = false,
+    this.zeroOccupancyFill = DateStrip._workScheduleCircleFill,
+  });
+
+  final DateTime date;
+  final double occupancyPercent;
+  final bool isSelected;
+  final Color zeroOccupancyFill;
+
+  static const circleSize = 41.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dayNumberColor =
+        isDark ? AppColors.primaryWhite : AppColors.primaryDark;
+    final isEmpty = occupancyPercent <= 0;
+
+    return _DateCircleItem(
+      date: date,
+      occupancyPercent: occupancyPercent,
+      isSelected: isSelected,
+      showArc: occupancyPercent > 0,
+      size: circleSize,
+      useGreyCircles: true,
+      useMonthCalendarCircleFill: true,
+      workScheduleWeekDates: false,
+      isDark: isDark,
+      circleFillOverride: isEmpty ? zeroOccupancyFill : null,
+      dayNumberStyle: AppFonts.medium18.copyWith(color: dayNumberColor),
+    );
+  }
+}
+
 class _DateCircleItem extends StatelessWidget {
   const _DateCircleItem({
     this.occupancyPercent = 0,
@@ -260,6 +300,8 @@ class _DateCircleItem extends StatelessWidget {
     required this.workScheduleWeekDates,
     required this.isDark,
     this.isNonWorkingDay = false,
+    this.circleFillOverride,
+    this.dayNumberStyle,
   });
 
   final double occupancyPercent;
@@ -272,6 +314,8 @@ class _DateCircleItem extends StatelessWidget {
   final bool workScheduleWeekDates;
   final bool isDark;
   final bool isNonWorkingDay;
+  final Color? circleFillOverride;
+  final TextStyle? dayNumberStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -280,15 +324,18 @@ class _DateCircleItem extends StatelessWidget {
       isDark ? Brightness.dark : Brightness.light,
     );
     final highlightCircle = isSelected;
-    final unselectedFillColor = workScheduleWeekDates
-        ? (isDark ? AppColors.secondaryDarkDark : DateStrip._workScheduleCircleFill)
-        : useMonthCalendarCircleFill
-        ? (isDark ? AppColors.primaryWhiteDark : AppColors.primaryWhite)
-        : (isDark
-              ? AppColors.secondaryDarkDark
-              : (useGreyCircles
-                    ? AppColors.secondaryDark
-                    : AppColors.primaryWhite));
+    final unselectedFillColor = circleFillOverride ??
+        (workScheduleWeekDates
+            ? (isDark
+                ? AppColors.secondaryDarkDark
+                : DateStrip._workScheduleCircleFill)
+            : useMonthCalendarCircleFill
+            ? (isDark ? AppColors.primaryWhiteDark : AppColors.primaryWhite)
+            : (isDark
+                  ? AppColors.secondaryDarkDark
+                  : (useGreyCircles
+                        ? AppColors.secondaryDark
+                        : AppColors.primaryWhite)));
 
     final dayNumberColor = workScheduleWeekDates
         ? (highlightCircle
@@ -330,7 +377,9 @@ class _DateCircleItem extends StatelessWidget {
             child: Center(
               child: Text(
                 '${date.day}',
-                style: AppFonts.b1Medium.copyWith(color: dayNumberColor),
+                style:
+                    dayNumberStyle ??
+                    AppFonts.b1Medium.copyWith(color: dayNumberColor),
               ),
             ),
           ),

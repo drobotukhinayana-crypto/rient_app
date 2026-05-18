@@ -10,7 +10,6 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/features/analytics/view/providers/analytics_statistics_provider.dart';
-import 'package:rient_app/features/analytics/view/components/analytics_day_load_circle.dart';
 import 'package:rient_app/features/schedule/view/components/date_strip.dart';
 import 'package:rient_app/features/chat/view/components/messages_date_range_dialog.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
@@ -249,6 +248,7 @@ class _AnalyticsViewData {
     required this.stripSelectedDate,
     required this.singleDayLoad,
     required this.singleDayLabel,
+    required this.showPeriodWorkload,
   });
 
   final int fillRatePercent;
@@ -264,6 +264,7 @@ class _AnalyticsViewData {
   final DateTime? stripSelectedDate;
   final double? singleDayLoad;
   final String? singleDayLabel;
+  final bool showPeriodWorkload;
 
   static DateTime _weekMonday(DateTime date) {
     final d = DateTime(date.year, date.month, date.day);
@@ -379,6 +380,12 @@ class _AnalyticsViewData {
     }
 
     final weekStart = _weekMonday(start);
+    final isDateRange = filterMode == _AnalyticsFilterMode.dateRange;
+    final periodOccupancy = isDateRange
+        ? weekDays
+            .map((e) => OccupancyByDay(date: e.date, occupancy: e.occupancy))
+            .toList()
+        : stats.occupancyByDay;
 
     return _AnalyticsViewData(
       fillRatePercent: fillRate.clamp(0, 100),
@@ -390,7 +397,7 @@ class _AnalyticsViewData {
       averageCheck: avgCheck,
       weekDays: weekDays,
       weekStart: weekStart,
-      occupancyByDay: stats.occupancyByDay,
+      occupancyByDay: periodOccupancy,
       stripSelectedDate: _stripSelectedDate(weekStart),
       singleDayLoad: filterMode == _AnalyticsFilterMode.singleDay
           ? weekDays.first.occupancy * 100
@@ -398,6 +405,7 @@ class _AnalyticsViewData {
       singleDayLabel: filterMode == _AnalyticsFilterMode.singleDay
           ? 'Загруженность ${_formatDayLabel(start)}'
           : null,
+      showPeriodWorkload: isDateRange,
     );
   }
 
@@ -420,18 +428,23 @@ class _AnalyticsViewData {
           });
 
     final weekStart = _weekMonday(start);
-    final occupancyByDay = List.generate(7, (i) {
-      final d = weekStart.add(Duration(days: i));
-      final occ = weekDays
-          .firstWhereOrNull(
-            (e) =>
-                e.date.year == d.year &&
-                e.date.month == d.month &&
-                e.date.day == d.day,
-          )
-          ?.occupancy;
-      return OccupancyByDay(date: d, occupancy: occ ?? 0);
-    });
+    final isDateRange = mode == _AnalyticsFilterMode.dateRange;
+    final occupancyByDay = isDateRange
+        ? weekDays
+            .map((e) => OccupancyByDay(date: e.date, occupancy: e.occupancy))
+            .toList()
+        : List.generate(7, (i) {
+            final d = weekStart.add(Duration(days: i));
+            final occ = weekDays
+                .firstWhereOrNull(
+                  (e) =>
+                      e.date.year == d.year &&
+                      e.date.month == d.month &&
+                      e.date.day == d.day,
+                )
+                ?.occupancy;
+            return OccupancyByDay(date: d, occupancy: occ ?? 0);
+          });
 
     return _AnalyticsViewData(
       fillRatePercent: mode == _AnalyticsFilterMode.singleDay ? 55 : 77,
@@ -449,6 +462,33 @@ class _AnalyticsViewData {
       singleDayLabel: mode == _AnalyticsFilterMode.singleDay
           ? 'Загруженность ${_formatDayLabel(start)}'
           : null,
+      showPeriodWorkload: isDateRange,
+    );
+  }
+}
+
+class _AnalyticsPeriodLoadStrip extends StatelessWidget {
+  const _AnalyticsPeriodLoadStrip({required this.days});
+
+  final List<({DateTime date, double occupancy})> days;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 72,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: days.length,
+        separatorBuilder: (_, __) => const Gap(4),
+        itemBuilder: (context, index) {
+          final day = days[index];
+          final percent = (day.occupancy * 100).clamp(0.0, 100.0);
+          return ScheduleDayLoadCircle(
+            date: day.date,
+            occupancyPercent: percent,
+          );
+        },
+      ),
     );
   }
 }
@@ -578,50 +618,61 @@ class _AnalyticsHeader extends StatelessWidget {
                           color: pillFill,
                           borderRadius: BorderRadius.circular(300),
                         ),
+                        alignment: Alignment.center,
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  _DateChip(
-                                    label: formatChipDate(rangeStart!),
-                                    accent: selectedMonthColor,
+                            Text(
+                              formatChipDate(rangeStart!),
+                              style: AppFonts.b2Medium.copyWith(
+                                color: selectedMonthColor,
+                              ),
+                            ),
+                            if (filterMode == _AnalyticsFilterMode.dateRange &&
+                                rangeEnd != null) ...[
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
+                                child: Text(
+                                  '—',
+                                  style: AppFonts.b2Regular.copyWith(
+                                    color: inactiveMonthColor,
                                   ),
-                                  if (filterMode ==
-                                          _AnalyticsFilterMode.dateRange &&
-                                      rangeEnd != null) ...[
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      child: Text(
-                                        '—',
-                                        style: AppFonts.b2Regular.copyWith(
-                                          color: inactiveMonthColor,
-                                        ),
-                                      ),
-                                    ),
-                                    _DateChip(
-                                      label: formatChipDate(rangeEnd!),
-                                      accent: selectedMonthColor,
-                                    ),
-                                  ],
-                                ],
+                                ),
                               ),
-                            ),
-                            GestureDetector(
-                              onTap: onClearFilter,
-                              behavior: HitTestBehavior.opaque,
-                              child: Icon(
-                                Icons.close,
-                                size: 18,
-                                color: AppColors.tabbarGrey,
+                              Text(
+                                formatChipDate(rangeEnd!),
+                                style: AppFonts.b2Medium.copyWith(
+                                  color: selectedMonthColor,
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
               ),
+              if (filterMode != _AnalyticsFilterMode.month) ...[
+                const Gap(8),
+                GestureDetector(
+                  onTap: onClearFilter,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: pillFill,
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.close,
+                      size: 18,
+                      color: accent,
+                    ),
+                  ),
+                ),
+              ],
               const Gap(8),
               GestureDetector(
                 onTap: onCalendarTap,
@@ -783,18 +834,6 @@ class _MonthStripState extends State<_MonthStrip> {
   }
 }
 
-class _DateChip extends StatelessWidget {
-  const _DateChip({required this.label, required this.accent});
-
-  final String label;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(label, style: AppFonts.b2Medium.copyWith(color: accent));
-  }
-}
-
 class _AnalyticsContent extends StatelessWidget {
   const _AnalyticsContent({
     required this.isDark,
@@ -824,8 +863,11 @@ class _AnalyticsContent extends StatelessWidget {
     final cardColor = isDark ? AppColors.primaryWhiteDark : Colors.white;
     final labelColor = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
 
-    final showWeekStrip = data.singleDayLoad == null;
-    final workloadTitle = data.singleDayLabel ?? 'Загруженность на неделю';
+    final showWeekStrip =
+        data.singleDayLoad == null && !data.showPeriodWorkload;
+    final showPeriodStrip = data.showPeriodWorkload;
+    final workloadTitle = data.singleDayLabel ??
+        (showPeriodStrip ? 'Загруженность за период' : 'Загруженность на неделю');
 
     return SingleChildScrollView(
       padding: AppDecoration.padding16.copyWith(top: 12, bottom: 24),
@@ -902,15 +944,14 @@ class _AnalyticsContent extends StatelessWidget {
                         Expanded(
                           child: Text(
                             data.singleDayLabel!,
-                            style: AppFonts.b2Medium.copyWith(
+                            style: AppFonts.medium18.copyWith(
                               color: labelColor,
                             ),
                           ),
                         ),
-                        AnalyticsDayLoadCircle(
+                        ScheduleDayLoadCircle(
                           date: data.weekDays.first.date,
                           occupancyPercent: data.singleDayLoad!,
-                          isDark: isDark,
                         ),
                       ],
                     ),
@@ -919,7 +960,7 @@ class _AnalyticsContent extends StatelessWidget {
               ],
             ),
           ),
-          if (showWeekStrip) ...[
+          if (showWeekStrip || showPeriodStrip) ...[
             const Gap(32),
             _AnalyticsSection(
               title: workloadTitle,
@@ -927,15 +968,17 @@ class _AnalyticsContent extends StatelessWidget {
               accent: accent,
               labelColor: labelColor,
               onToggle: onWorkloadToggle,
-              child: DateStrip(
-                visibleWeekStart: data.weekStart,
-                initialDate: data.stripSelectedDate,
-                selectedDate: data.stripSelectedDate,
-                occupancyByDay: data.occupancyByDay,
-                showFullDateLabel: false,
-                useGreyCircles: true,
-                useMonthCalendarCircleFill: true,
-              ),
+              child: showPeriodStrip
+                  ? _AnalyticsPeriodLoadStrip(days: data.weekDays)
+                  : DateStrip(
+                      visibleWeekStart: data.weekStart,
+                      initialDate: data.stripSelectedDate,
+                      selectedDate: data.stripSelectedDate,
+                      occupancyByDay: data.occupancyByDay,
+                      showFullDateLabel: false,
+                      useGreyCircles: true,
+                      useMonthCalendarCircleFill: true,
+                    ),
             ),
           ],
           const Gap(32),
