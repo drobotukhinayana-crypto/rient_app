@@ -137,7 +137,8 @@ class _AppDateRangePickerDialogState extends State<AppDateRangePickerDialog> {
     final surface = isDark ? AppColors.primaryWhiteDark : Colors.white;
     final primaryText =
         isDark ? AppColors.primaryWhite : AppColors.primaryDark;
-    final secondaryText = AppColors.tabbarGrey;
+    final secondaryText =
+        isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey;
     final accent = AppColors.themeAccent(context);
     final fieldFill =
         isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight;
@@ -171,7 +172,7 @@ class _AppDateRangePickerDialogState extends State<AppDateRangePickerDialog> {
             const Gap(12),
             _RangeCalendarGrid(
               month: _month,
-              secondaryText: secondaryText,
+              isDark: isDark,
               rangeStart: range?.$1,
               rangeEnd: range?.$2,
               isSameDay: _isSameDay,
@@ -346,7 +347,7 @@ class _NavIcon extends StatelessWidget {
 class _RangeCalendarGrid extends StatelessWidget {
   const _RangeCalendarGrid({
     required this.month,
-    required this.secondaryText,
+    required this.isDark,
     required this.rangeStart,
     required this.rangeEnd,
     required this.isSameDay,
@@ -354,11 +355,14 @@ class _RangeCalendarGrid extends StatelessWidget {
   });
 
   final DateTime month;
-  final Color secondaryText;
+  final bool isDark;
   final DateTime? rangeStart;
   final DateTime? rangeEnd;
   final bool Function(DateTime? a, DateTime b) isSameDay;
   final ValueChanged<DateTime> onDayTap;
+
+  Color get _weekdayLabelColor =>
+      isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey;
 
   static DateTime _dateOnly(DateTime d) =>
       DateTime(d.year, d.month, d.day);
@@ -375,15 +379,19 @@ class _RangeCalendarGrid extends StatelessWidget {
     return !d.isBefore(_dateOnly(start)) && !d.isAfter(_dateOnly(last));
   }
 
-  Color _defaultDayColor(DateTime date) {
+  Color _defaultDayColor(DateTime date, {required bool inRange}) {
     final normalized = _dateOnly(date);
     final today = _dateOnly(DateTime.now());
 
-    if (normalized == today) return _rangeSelectedTextColor;
-    if (_isWeekend(date) || normalized.isBefore(today)) {
-      return AppColors.grey;
+    if (inRange) return _rangeSelectedTextColor;
+
+    if (normalized == today) {
+      return isDark ? AppColors.mainAccentDark : _rangeSelectedTextColor;
     }
-    return AppColors.primaryDark;
+    if (_isWeekend(date) || normalized.isBefore(today)) {
+      return isDark ? AppColors.tabbarGreyDark : AppColors.grey;
+    }
+    return isDark ? AppColors.primaryWhite : AppColors.primaryDark;
   }
 
   @override
@@ -407,7 +415,7 @@ class _RangeCalendarGrid extends StatelessWidget {
               child: Center(
                 child: Text(
                   _weekdayLabels[i],
-                  style: AppFonts.c2Tabbar.copyWith(color: secondaryText),
+                  style: AppFonts.c2Tabbar.copyWith(color: _weekdayLabelColor),
                 ),
               ),
             ),
@@ -435,11 +443,15 @@ class _RangeCalendarGrid extends StatelessWidget {
 
                   return _RangeDayCell(
                     date: date,
+                    isDark: isDark,
                     isRangeStart: isStart,
                     isRangeEnd: isEnd,
                     inRangeMiddle: inMiddle,
                     showRangeBand: inRange && hasRangeEnd,
-                    defaultTextColor: _defaultDayColor(date),
+                    defaultTextColor: _defaultDayColor(
+                      date,
+                      inRange: inRange,
+                    ),
                     onTap: () => onDayTap(date),
                   );
                 }),
@@ -463,6 +475,7 @@ class _EmptyDayCell extends StatelessWidget {
 class _RangeDayCell extends StatelessWidget {
   const _RangeDayCell({
     required this.date,
+    required this.isDark,
     required this.isRangeStart,
     required this.isRangeEnd,
     required this.inRangeMiddle,
@@ -472,6 +485,7 @@ class _RangeDayCell extends StatelessWidget {
   });
 
   final DateTime date;
+  final bool isDark;
   final bool isRangeStart;
   final bool isRangeEnd;
   final bool inRangeMiddle;
@@ -482,6 +496,12 @@ class _RangeDayCell extends StatelessWidget {
   static const _circleSize = 38.0;
   static const _bandInset = 2.0;
 
+  Color get _rangeBandColorThemed =>
+      isDark ? const Color(0xFF3D4F6E) : _rangeBandColor;
+
+  Color get _rangeEndpointFillThemed =>
+      isDark ? AppColors.mainAccentDark : _rangeEndpointFill;
+
   @override
   Widget build(BuildContext context) {
     final dayText = '${date.day}';
@@ -489,7 +509,7 @@ class _RangeDayCell extends StatelessWidget {
     final isSingleDay = isRangeStart && !showRangeBand;
 
     final textColor = isEndpoint || isSingleDay
-        ? _rangeSelectedTextColor
+        ? (isDark ? AppColors.primaryWhite : _rangeSelectedTextColor)
         : defaultTextColor;
 
     return SizedBox(
@@ -507,7 +527,7 @@ class _RangeDayCell extends StatelessWidget {
                 right: 0,
                 top: _bandInset,
                 bottom: _bandInset,
-                child: const ColoredBox(color: _rangeBandColor),
+                child: ColoredBox(color: _rangeBandColorThemed),
               ),
             if (isRangeStart && showRangeBand)
               Positioned(
@@ -515,7 +535,7 @@ class _RangeDayCell extends StatelessWidget {
                 right: 0,
                 top: _bandInset,
                 bottom: _bandInset,
-                child: const ColoredBox(color: _rangeBandColor),
+                child: ColoredBox(color: _rangeBandColorThemed),
               ),
             if (isRangeEnd)
               Positioned(
@@ -523,15 +543,15 @@ class _RangeDayCell extends StatelessWidget {
                 right: _circleSize / 2,
                 top: _bandInset,
                 bottom: _bandInset,
-                child: const ColoredBox(color: _rangeBandColor),
+                child: ColoredBox(color: _rangeBandColorThemed),
               ),
             if (isEndpoint || isSingleDay)
               Container(
                 width: _circleSize,
                 height: _circleSize,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _rangeEndpointFill,
+                  color: _rangeEndpointFillThemed,
                 ),
                 alignment: Alignment.center,
                 child: Text(

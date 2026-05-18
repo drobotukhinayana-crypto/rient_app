@@ -4,9 +4,9 @@ import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/date_range_picker_dialog.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/chat/view/components/message_notification_card.dart';
-import 'package:rient_app/core/widgets/date_range_picker_dialog.dart';
 import 'package:rient_app/features/chat/view/components/message_notification_item.dart';
 import 'package:rient_app/features/chat/view/components/messages_filter_segment.dart';
 import 'package:rient_app/features/chat/view/components/messages_mock_data.dart';
@@ -94,31 +94,32 @@ class _ChatPageState extends State<ChatPage> {
           _MessagesHeader(
             isDark: isDark,
             onCalendarTap: _openDateRangeDialog,
-          ),
-          Padding(
-            padding: AppDecoration.padding16.copyWith(top: 12, bottom: 12),
-            child: MessagesFilterSegment(
-              value: _filter,
-              unreadCount: _unread.length,
-              readCount: _read.length,
-              onChanged: (value) => setState(() => _filter = value),
-            ),
+            filter: _filter,
+            unreadCount: _unread.length,
+            readCount: _read.length,
+            onFilterChanged: (value) => setState(() => _filter = value),
           ),
           Expanded(
             child: _visibleItems.isEmpty
                 ? Center(
-                    child: Text(
-                      _filter == MessagesFilter.unread
-                          ? 'Нет непросмотренных сообщений'
-                          : 'Нет просмотренных сообщений',
-                      style: AppFonts.b2Regular.copyWith(
-                        color: AppColors.tabbarGrey,
-                      ),
-                      textAlign: TextAlign.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset(AppImages.empty),
+                        const Gap(12),
+                        Text(
+                          'Сообщений пока нет',
+                          style: AppFonts.b2Regular.copyWith(
+                            color: isDark
+                                ? AppColors.tabbarGreyDark
+                                : AppColors.primaryDark,
+                          ),
+                        ),
+                      ],
                     ),
                   )
                 : ListView.separated(
-                    padding: AppDecoration.padding16.copyWith(top: 0),
+                    padding: AppDecoration.padding16.copyWith(top: 12),
                     itemCount: _visibleItems.length,
                     separatorBuilder: (_, __) => const Gap(10),
                     itemBuilder: (context, index) {
@@ -130,12 +131,13 @@ class _ChatPageState extends State<ChatPage> {
                     },
                   ),
           ),
-          _MessagesBottomActions(
-            isDark: isDark,
-            accent: accent,
-            onDeleteAll: _deleteAll,
-            onMarkAllRead: _markAllRead,
-          ),
+          if (_visibleItems.isNotEmpty)
+            _MessagesBottomActions(
+              isDark: isDark,
+              accent: accent,
+              onDeleteAll: _deleteAll,
+              onMarkAllRead: _markAllRead,
+            ),
         ],
       ),
     );
@@ -146,10 +148,18 @@ class _MessagesHeader extends StatelessWidget {
   const _MessagesHeader({
     required this.isDark,
     required this.onCalendarTap,
+    required this.filter,
+    required this.unreadCount,
+    required this.readCount,
+    required this.onFilterChanged,
   });
 
   final bool isDark;
   final VoidCallback onCalendarTap;
+  final MessagesFilter filter;
+  final int unreadCount;
+  final int readCount;
+  final ValueChanged<MessagesFilter> onFilterChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -158,46 +168,58 @@ class _MessagesHeader extends StatelessWidget {
     return DefaultContainerWidget(
       borderRadius: BorderRadius.circular(24),
       hasShadow: false,
-      padding: const EdgeInsets.only(top: 52, bottom: 8, left: 16, right: 16),
+      padding: const EdgeInsets.only(top: 52, bottom: 12, left: 16, right: 16),
       color: isDark ? AppColors.primaryWhiteDark : Colors.white,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          GestureDetector(
-            onTap: () => appShellScaffoldKey.currentState?.openDrawer(),
-            behavior: HitTestBehavior.opaque,
-            child: Image.asset(
-              isDark ? AppImages.burgerDark : AppImages.burger,
-            ),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => appShellScaffoldKey.currentState?.openDrawer(),
+                behavior: HitTestBehavior.opaque,
+                child: Image.asset(
+                  isDark ? AppImages.burgerDark : AppImages.burger,
+                ),
+              ),
+              const Gap(12),
+              Text(
+                'Сообщения',
+                style: AppFonts.h3Medium.copyWith(
+                  color: isDark ? AppColors.primaryWhite : AppColors.primaryDark,
+                ),
+              ),
+              const Spacer(),
+              const ProfileSelectorPill(),
+              const Gap(8),
+              GestureDetector(
+                onTap: onCalendarTap,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isDark
+                        ? AppColors.secondaryDarkLight
+                        : AppColors.secondaryLight,
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.calendar_today_outlined,
+                    size: 18,
+                    color: accent,
+                  ),
+                ),
+              ),
+            ],
           ),
           const Gap(12),
-          Text(
-            'Сообщения',
-            style: AppFonts.h3Medium.copyWith(
-              color: isDark ? AppColors.primaryWhite : AppColors.primaryDark,
-            ),
-          ),
-          const Spacer(),
-          const ProfileSelectorPill(),
-          const Gap(8),
-          GestureDetector(
-            onTap: onCalendarTap,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isDark
-                    ? AppColors.secondaryDarkLight
-                    : AppColors.secondaryLight,
-              ),
-              alignment: Alignment.center,
-              child: Icon(
-                Icons.calendar_today_outlined,
-                size: 18,
-                color: accent,
-              ),
-            ),
+          MessagesFilterSegment(
+            value: filter,
+            unreadCount: unreadCount,
+            readCount: readCount,
+            onChanged: onFilterChanged,
           ),
         ],
       ),
@@ -221,8 +243,9 @@ class _MessagesBottomActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final barColor = isDark ? AppColors.primaryWhiteDark : Colors.white;
-    final buttonFill =
-        isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight;
+    final buttonFill = isDark
+        ? AppColors.secondaryDarkLight
+        : AppColors.secondaryLight;
 
     return Container(
       decoration: BoxDecoration(

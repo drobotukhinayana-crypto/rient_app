@@ -160,69 +160,62 @@ class _NavbarWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final safeArea = MediaQuery.of(context).viewPadding.bottom;
-    final screenBackground = isDark
-        ? AppColors.secondaryDarkLight
-        : AppColors.tabBarScreenBackground;
-    return Container(
-      color: screenBackground,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: isDark ? AppColors.primaryWhiteDark : AppColors.secondaryLight,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Gap(10),
-            Row(
-              children: [
+    final barColor = isDark ? AppColors.primaryWhiteDark : Colors.white;
+
+    return ColoredBox(
+      color: barColor,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Gap(10),
+          Row(
+            children: [
+              Expanded(
+                child: _NavbarIcon(
+                  isActive: currentIndex == 0,
+                  imageAsset: AppImages.homeTab,
+                  title: 'Главная',
+                  onTap: () => onTabTapped(0),
+                ),
+              ),
+              Expanded(
+                child: _NavbarIcon(
+                  isActive: currentIndex == 1,
+                  imageAsset: AppImages.calendarTab,
+                  title: 'Расписание',
+                  onTap: () => onTabTapped(1),
+                  hasCartCountLabel: true,
+                ),
+              ),
+              if (showCreateTab)
                 Expanded(
                   child: _NavbarIcon(
-                    isActive: currentIndex == 0,
-                    imageAsset: AppImages.homeTab,
-                    title: 'Главная',
-                    onTap: () => onTabTapped(0),
+                    isActive: currentIndex == 2,
+                    imageAsset: AppImages.addTab,
+                    title: 'Создать',
+                    onTap: () => onTabTapped(2),
                   ),
                 ),
-                Expanded(
-                  child: _NavbarIcon(
-                    isActive: currentIndex == 1,
-                    imageAsset: AppImages.calendarTab,
-                    title: 'Расписание',
-                    onTap: () => onTabTapped(1),
-                    hasCartCountLabel: true,
-                  ),
+              Expanded(
+                child: _NavbarIcon(
+                  isActive: currentIndex == (showCreateTab ? 3 : 2),
+                  imageAsset: AppImages.chatTab,
+                  title: 'Сообщения',
+                  onTap: () => onTabTapped(showCreateTab ? 3 : 2),
                 ),
-                if (showCreateTab)
-                  Expanded(
-                    child: _NavbarIcon(
-                      isActive: currentIndex == 2,
-                      imageAsset: AppImages.addTab,
-                      title: 'Создать',
-                      onTap: () => onTabTapped(2),
-                    ),
-                  ),
-                Expanded(
-                  child: _NavbarIcon(
-                    isActive: currentIndex == (showCreateTab ? 3 : 2),
-                    imageAsset: AppImages.chatTab,
-                    title: 'Сообщения',
-                    onTap: () => onTabTapped(showCreateTab ? 3 : 2),
-                  ),
+              ),
+              Expanded(
+                child: _NavbarIcon(
+                  isActive: currentIndex == (showCreateTab ? 4 : 3),
+                  imageAsset: AppImages.linkTab,
+                  title: 'Ссылка',
+                  onTap: () => onTabTapped(showCreateTab ? 4 : 3),
                 ),
-                Expanded(
-                  child: _NavbarIcon(
-                    isActive: currentIndex == (showCreateTab ? 4 : 3),
-                    imageAsset: AppImages.linkTab,
-                    title: 'Ссылка',
-                    onTap: () => onTabTapped(showCreateTab ? 4 : 3),
-                  ),
-                ),
-              ],
-            ),
-            Gap(safeArea),
-          ],
-        ),
+              ),
+            ],
+          ),
+          Gap(safeArea),
+        ],
       ),
     );
   }

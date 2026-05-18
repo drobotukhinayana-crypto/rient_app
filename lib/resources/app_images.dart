@@ -11,6 +11,7 @@ class AppImages {
   static const String arrowTop = 'assets/images/arrow_top.png';
   static const String back = 'assets/images/back.png';
   static const String backButtonDark = 'assets/images/back_button_dark.png';
+  static const String ban = 'assets/images/ban.png';
   static const String branch = 'assets/images/branch.png';
   static const String burger = 'assets/images/burger.png';
   static const String burgerDark = 'assets/images/burger_dark.png';
@@ -52,6 +53,7 @@ class AppImages {
   static const String telegramBurger = 'assets/images/telegram_burger.png';
   static const String themeBurger = 'assets/images/theme_burger.png';
   static const String timeBurger = 'assets/images/time_burger.png';
+  static const String webremove = 'assets/images/webremove.png';
   static const String whatsappIconBurger =
       'assets/images/whatsapp-icon_burger.png';
   static const String whatsapp = 'assets/images/whatsapp.png';
