@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
@@ -8,7 +9,16 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/change_time_picker_dialog.dart';
 import 'package:rient_app/core/widgets/custom_switch_widget.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
+import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
+import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
+import 'package:rient_app/features/schedule/service/worker_schedule_configs_service.dart';
+import 'package:rient_app/features/schedule/view/providers/specialist_schedule_loader.dart';
+import 'package:rient_app/features/schedule/view/providers/specialist_schedule_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
 
 class SpecialistSchedulePageArgs {
   const SpecialistSchedulePageArgs({
@@ -22,7 +32,7 @@ class SpecialistSchedulePageArgs {
   final String? pictureUrl;
 }
 
-class SpecialistSchedulePage extends StatefulWidget {
+class SpecialistSchedulePage extends ConsumerStatefulWidget {
   const SpecialistSchedulePage({super.key, required this.args});
 
   final SpecialistSchedulePageArgs args;
@@ -31,10 +41,11 @@ class SpecialistSchedulePage extends StatefulWidget {
   static const path = 'specialist_schedule';
 
   @override
-  State<SpecialistSchedulePage> createState() => _SpecialistSchedulePageState();
+  ConsumerState<SpecialistSchedulePage> createState() =>
+      _SpecialistSchedulePageState();
 }
 
-class _SpecialistSchedulePageState extends State<SpecialistSchedulePage> {
+class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage> {
   static const _scheduleTypes = ['Неделя', 'Смена'];
   static const _defaultGroupStart = '09:00';
   static const _defaultGroupEnd = '20:00';
@@ -42,30 +53,42 @@ class _SpecialistSchedulePageState extends State<SpecialistSchedulePage> {
   String _scheduleType = _scheduleTypes.first;
   bool _weekdaysExpanded = true;
   bool _weekendsExpanded = true;
+  bool _formInitialized = false;
+  bool _isSaving = false;
 
   late String _weekdayGroupStart;
   late String _weekdayGroupEnd;
-  late List<_DayScheduleDraft> _weekdays;
+  late List<SpecialistDayDraft> _weekdays;
 
   late String _weekendGroupStart;
   late String _weekendGroupEnd;
-  late List<_DayScheduleDraft> _weekends;
+  late List<SpecialistDayDraft> _weekends;
 
   late final TextEditingController _workDaysController;
   late final TextEditingController _offDaysController;
   DateTime? _shiftStartDate;
   String _shiftWorkStart = _defaultGroupStart;
   String _shiftWorkEnd = _defaultGroupEnd;
+  String? _configUuid;
+  List<SchedulePatternItemApi> _loadedPatterns = const [];
+
+  int? get _workerId => int.tryParse(widget.args.employeeId);
+
+  SpecialistScheduleLoadQuery? get _loadQuery {
+    final id = _workerId;
+    if (id == null || id <= 0) return null;
+    return SpecialistScheduleLoadQuery(workerId: id);
+  }
 
   @override
   void initState() {
     super.initState();
     _weekdayGroupStart = _defaultGroupStart;
     _weekdayGroupEnd = _defaultGroupEnd;
-    _weekdays = _defaultDays(const ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ']);
+    _weekdays = const [];
     _weekendGroupStart = _defaultGroupStart;
     _weekendGroupEnd = _defaultGroupEnd;
-    _weekends = _defaultDays(const ['СБ', 'ВС']);
+    _weekends = const [];
     _workDaysController = TextEditingController(text: '1');
     _offDaysController = TextEditingController(text: '1');
     _shiftStartDate = DateTime.now();
@@ -100,15 +123,21 @@ class _SpecialistSchedulePageState extends State<SpecialistSchedulePage> {
   bool get _isWeekSchedule => _scheduleType == 'Неделя';
   bool get _isShiftSchedule => _scheduleType == 'Смена';
 
-  List<_DayScheduleDraft> _defaultDays(List<String> labels) => [
-        for (final label in labels)
-          _DayScheduleDraft(
-            label: label,
-            enabled: true,
-            start: _defaultGroupStart,
-            end: _defaultGroupEnd,
-          ),
-      ];
+  void _applyLoadedForm(SpecialistScheduleFormState form) {
+    _scheduleType = form.scheduleTypeLabel;
+    _weekdays = List.of(form.weekdays);
+    _weekends = List.of(form.weekends);
+    _weekdayGroupStart = form.weekdayGroupStart;
+    _weekdayGroupEnd = form.weekdayGroupEnd;
+    _weekendGroupStart = form.weekendGroupStart;
+    _weekendGroupEnd = form.weekendGroupEnd;
+    _configUuid = form.configUuid;
+    _workDaysController.text = form.workDays;
+    _offDaysController.text = form.offDays;
+    _shiftStartDate = form.shiftStartDate ?? DateTime.now();
+    _shiftWorkStart = form.shiftWorkStart;
+    _shiftWorkEnd = form.shiftWorkEnd;
+  }
 
   void _applyGroupTimesToWeekdays() {
     setState(() {
@@ -141,11 +170,11 @@ class _SpecialistSchedulePageState extends State<SpecialistSchedulePage> {
     required bool expanded,
     required String groupStart,
     required String groupEnd,
-    required List<_DayScheduleDraft> days,
+    required List<SpecialistDayDraft> days,
     required VoidCallback onToggleExpanded,
     required VoidCallback onPickGroupStart,
     required VoidCallback onPickGroupEnd,
-    required void Function(int index, _DayScheduleDraft day) onDayChanged,
+    required void Function(int index, SpecialistDayDraft day) onDayChanged,
   }) {
     return _ScheduleDaysSection(
       groupTitle: groupTitle,
@@ -191,8 +220,66 @@ class _SpecialistSchedulePageState extends State<SpecialistSchedulePage> {
     onPicked(picked);
   }
 
-  void _onSave() {
-    context.pop();
+  Future<void> _onSave() async {
+    final workerId = _workerId;
+    final branchId = ref.read(currentBranchIdProvider);
+    if (workerId == null || workerId <= 0 || branchId == 0) return;
+
+    setState(() => _isSaving = true);
+    try {
+      final configBody = buildConfigPatchRequest(
+        scheduleTypeLabel: _scheduleType,
+        weekdayGroupStart: _weekdayGroupStart,
+        weekdayGroupEnd: _weekdayGroupEnd,
+        workDays: _workDaysController.text.trim(),
+        offDays: _offDaysController.text.trim(),
+        shiftStartDate: _shiftStartDate,
+        shiftWorkStart: _shiftWorkStart,
+        shiftWorkEnd: _shiftWorkEnd,
+      );
+
+      final configsService = ref.read(workerScheduleConfigsServiceProvider);
+      final currentWorkerId = await ref.read(currentWorkerIdProvider.future);
+      if (currentWorkerId == workerId) {
+        await configsService.updateMyScheduleConfig(body: configBody);
+      } else if (_configUuid != null && _configUuid!.isNotEmpty) {
+        await configsService.updateWorkerScheduleConfig(
+          workerId: workerId,
+          configUuid: _configUuid!,
+          body: configBody,
+        );
+      }
+
+      if (_isWeekSchedule && _loadedPatterns.isNotEmpty) {
+        final batch = buildWorkerPatternsBatchRequest(
+          branchId: branchId,
+          originalPatterns: _loadedPatterns,
+          allDays: [..._weekdays, ..._weekends],
+        );
+        if (batch.patterns.isNotEmpty) {
+          await ref.read(schedulePatternsServiceProvider).updateWorkerSchedulePatternsBatch(
+                workerId: workerId,
+                body: batch,
+              );
+        }
+      }
+
+      final loadQuery = _loadQuery;
+      if (loadQuery != null) {
+        ref.invalidate(specialistScheduleFormProvider(loadQuery));
+      }
+      ref.invalidate(workScheduleMonthProvider);
+
+      if (!mounted) return;
+      context.pop();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось сохранить график')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -202,7 +289,61 @@ class _SpecialistSchedulePageState extends State<SpecialistSchedulePage> {
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
     final accent = AppColors.themeAccent(context);
+    final loadQuery = _loadQuery;
 
+    if (loadQuery == null) {
+      return Scaffold(
+        backgroundColor: screenBackground,
+        body: const Center(child: Text('Некорректный сотрудник')),
+      );
+    }
+
+    final formAsync = ref.watch(specialistScheduleFormProvider(loadQuery));
+
+    return formAsync.when(
+      loading: () => Scaffold(
+        backgroundColor: screenBackground,
+        body: const Center(child: LoadingWidget()),
+      ),
+      error: (_, __) => Scaffold(
+        backgroundColor: screenBackground,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Не удалось загрузить график',
+              style: AppFonts.b1Medium,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+      data: (form) {
+        if (!_formInitialized) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            setState(() {
+              _applyLoadedForm(form);
+              _loadedPatterns = form.loadedPatterns;
+              _formInitialized = true;
+            });
+          });
+          return Scaffold(
+            backgroundColor: screenBackground,
+            body: const Center(child: LoadingWidget()),
+          );
+        }
+        return _buildForm(context, isDark, screenBackground, accent);
+      },
+    );
+  }
+
+  Widget _buildForm(
+    BuildContext context,
+    bool isDark,
+    Color screenBackground,
+    Color accent,
+  ) {
     return Scaffold(
       backgroundColor: screenBackground,
       body: Column(
@@ -309,6 +450,8 @@ class _SpecialistSchedulePageState extends State<SpecialistSchedulePage> {
                 const Gap(12),
                 MainButton(
                   title: 'Сохранить',
+                  isLoading: _isSaving,
+                  isActive: !_isSaving,
                   onTap: _onSave,
                 ),
               ],
@@ -316,41 +459,6 @@ class _SpecialistSchedulePageState extends State<SpecialistSchedulePage> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _DayScheduleDraft {
-  const _DayScheduleDraft({
-    required this.label,
-    required this.enabled,
-    this.start = '09:00',
-    this.end = '20:00',
-    this.breakStart,
-    this.breakEnd,
-  });
-
-  final String label;
-  final bool enabled;
-  final String start;
-  final String end;
-  final String? breakStart;
-  final String? breakEnd;
-
-  _DayScheduleDraft copyWith({
-    bool? enabled,
-    String? start,
-    String? end,
-    String? breakStart,
-    String? breakEnd,
-  }) {
-    return _DayScheduleDraft(
-      label: label,
-      enabled: enabled ?? this.enabled,
-      start: start ?? this.start,
-      end: end ?? this.end,
-      breakStart: breakStart ?? this.breakStart,
-      breakEnd: breakEnd ?? this.breakEnd,
     );
   }
 }
@@ -747,7 +855,7 @@ class _ScheduleDaysSection extends StatelessWidget {
   final bool expanded;
   final String groupStart;
   final String groupEnd;
-  final List<_DayScheduleDraft> days;
+  final List<SpecialistDayDraft> days;
   final VoidCallback onToggleExpanded;
   final VoidCallback onPickGroupStart;
   final VoidCallback onPickGroupEnd;
@@ -838,7 +946,7 @@ class _DayScheduleContent extends StatelessWidget {
     required this.onPickBreakEnd,
   });
 
-  final _DayScheduleDraft day;
+  final SpecialistDayDraft day;
   final ValueChanged<bool> onEnabledChanged;
   final VoidCallback onPickStart;
   final VoidCallback onPickEnd;

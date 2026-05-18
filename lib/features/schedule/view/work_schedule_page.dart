@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
+import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_month_grid.dart';
+import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/features/schedule/view/specialist_schedule_page.dart';
 
@@ -22,10 +25,14 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
   late DateTime _monthStart;
   late DateTime _selectedDate;
   DateTime? _highlightedCellDate;
-  late List<WorkScheduleEmployeeRow> _employees;
   late ScrollController _datesHeaderScroll;
   late ScrollController _gridHorizontalScroll;
   bool _syncingHorizontalScroll = false;
+
+  WorkScheduleMonthQuery get _monthQuery => WorkScheduleMonthQuery(
+        monthStart: _monthStart,
+        highlightedCellDate: _highlightedCellDate,
+      );
 
   @override
   void initState() {
@@ -35,7 +42,6 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     _datesHeaderScroll.addListener(_onDatesHeaderScrolled);
     _gridHorizontalScroll.addListener(_onGridHorizontalScrolled);
     _syncToNow();
-    _employees = mockWorkScheduleEmployeesForMonth(_monthStart);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToInitialDay();
     });
@@ -86,11 +92,8 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     _monthStart = DateTime(now.year, now.month, 1);
   }
 
-  void _reloadEmployees() {
-    _employees = mockWorkScheduleEmployeesForMonth(
-      _monthStart,
-      highlightedCellDate: _highlightedCellDate,
-    );
+  void _invalidateMonth() {
+    ref.invalidate(workScheduleMonthProvider(_monthQuery));
   }
 
   DateTime _initialScrollDate() {
@@ -153,8 +156,8 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
           lastDay,
         );
       }
-      _reloadEmployees();
     });
+    _invalidateMonth();
     ref.read(selectedScheduleDateProvider.notifier).state = _selectedDate;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToInitialDay();
@@ -164,13 +167,13 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
   void _onDateSelected(DateTime date) {
     setState(() {
       _selectedDate = DateTime(date.year, date.month, date.day);
-      _reloadEmployees();
     });
+    _invalidateMonth();
     ref.read(selectedScheduleDateProvider.notifier).state = _selectedDate;
   }
 
-  void _onEmployeeMoreTap(WorkScheduleEmployeeRow employee) {
-    context.pushNamed(
+  Future<void> _onEmployeeMoreTap(WorkScheduleEmployeeRow employee) async {
+    await context.pushNamed(
       SpecialistSchedulePage.name,
       extra: SpecialistSchedulePageArgs(
         employeeId: employee.id,
@@ -178,14 +181,15 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
         pictureUrl: employee.pictureUrl,
       ),
     );
+    _invalidateMonth();
   }
 
   void _onCellTap(WorkScheduleEmployeeRow employee, DateTime date) {
     setState(() {
       _selectedDate = DateTime(date.year, date.month, date.day);
       _highlightedCellDate = _selectedDate;
-      _reloadEmployees();
     });
+    _invalidateMonth();
     ref.read(selectedScheduleDateProvider.notifier).state = _selectedDate;
   }
 
@@ -195,6 +199,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     final screenBackground = isDark
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
+    final employeesAsync = ref.watch(workScheduleMonthProvider(_monthQuery));
 
     return Scaffold(
       backgroundColor: screenBackground,
@@ -211,13 +216,26 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
             workScheduleDatesScrollController: _datesHeaderScroll,
           ),
           Expanded(
-            child: WorkScheduleMonthGrid(
-              month: _monthStart,
-              employees: _employees,
-              selectedDate: _selectedDate,
-              horizontalScrollController: _gridHorizontalScroll,
-              onCellTap: _onCellTap,
-              onEmployeeMoreTap: _onEmployeeMoreTap,
+            child: employeesAsync.when(
+              loading: () => const Center(child: LoadingWidget()),
+              error: (error, _) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    'Не удалось загрузить график',
+                    style: AppFonts.b1Medium,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              data: (employees) => WorkScheduleMonthGrid(
+                month: _monthStart,
+                employees: employees,
+                selectedDate: _selectedDate,
+                horizontalScrollController: _gridHorizontalScroll,
+                onCellTap: _onCellTap,
+                onEmployeeMoreTap: _onEmployeeMoreTap,
+              ),
             ),
           ),
         ],

@@ -44,4 +44,28 @@ extension ScheduleItemApiX on ScheduleItemApi {
     if (!key.startsWith('worker/')) return null;
     return int.tryParse(key.substring(7));
   }
+
+  /// Время HH:mm из ответа API (HH:mm:ss).
+  String? get timeStartShort => _shortTime(timeStart);
+
+  String? get timeEndShort => _shortTime(timeEnd);
+
+  String? get breakStartShort => _shortTime(breakStart);
+
+  String? get breakEndShort => _shortTime(breakEnd);
+
+  static String? _shortTime(String? value) {
+    if (value == null || value.isEmpty) return null;
+    return value.length >= 5 ? value.substring(0, 5) : value;
+  }
+
+  DateTime? get dateParsed {
+    final parts = date.split('-');
+    if (parts.length != 3) return null;
+    final year = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final day = int.tryParse(parts[2]);
+    if (year == null || month == null || day == null) return null;
+    return DateTime(year, month, day);
+  }
 }

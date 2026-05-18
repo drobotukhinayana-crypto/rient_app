@@ -116,6 +116,43 @@ class WorkersService {
     }
   }
 
+  /// Строка сотрудника из /workers/?with_schedules=1 (schedule_config, schedule_patterns).
+  Future<Map<String, dynamic>?> getWorkerRow({
+    required int workerId,
+    required int branchId,
+  }) async {
+    final organizationId = ref.read(organizationIdProvider);
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      throw CustomException(causedError: Exception('Token is missing'));
+    }
+
+    final url = ApiConsts().createUrl('organizations/$organizationId/workers/');
+    try {
+      final response = await Dio().get<Map<String, dynamic>>(
+        url,
+        queryParameters: {
+          'branches__id__in': branchId,
+          'page_size': 500,
+          'page': 1,
+          'with_services': 1,
+          'with_schedules': 1,
+        },
+        options: Options(headers: {'Authorization': 'JWT $token'}),
+      );
+      final rows = (response.data?['results'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>();
+      for (final row in rows) {
+        final id = (row['id'] as num?)?.toInt();
+        if (id == workerId) return row;
+      }
+      return null;
+    } catch (e) {
+      await handleUnauthorizedIfNeeded(ref, e);
+      throw CustomException(causedError: e);
+    }
+  }
+
   /// Рабочие дни по каждому сотруднику из /workers/?with_schedules=1.
   Future<Map<int, Set<int>>> getWorkersWorkingWeekdays({
     required int branchId,

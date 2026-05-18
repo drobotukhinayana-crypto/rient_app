@@ -5,30 +5,23 @@ import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
-import 'package:rient_app/features/schedule/data/models/schedules_api/create_worker_schedule_request.dart';
-import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
+import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
+import 'package:rient_app/features/schedule/data/models/schedule_patterns_branch_api/schedule_patterns_branch_api.dart';
+import 'package:rient_app/features/schedule/data/models/schedule_patterns_branch_api/update_branch_schedule_patterns_request.dart';
 
-final schedulesServiceProvider = Provider<SchedulesService>(
-  (ref) => SchedulesService(ref),
+final schedulePatternsServiceProvider = Provider<SchedulePatternsService>(
+  (ref) => SchedulePatternsService(ref),
 );
 
-class SchedulesService {
-  SchedulesService(this.ref);
+class SchedulePatternsService {
+  SchedulePatternsService(this.ref);
 
   final Ref ref;
 
-  /// API расписаний ожидает даты в формате YYYY-MM-DD.
-  static String dateToApi(DateTime date) {
-    final y = date.year;
-    final m = date.month.toString().padLeft(2, '0');
-    final d = date.day.toString().padLeft(2, '0');
-    return '$y-$m-$d';
-  }
-
-  Future<SchedulesApiResponse> getSchedules({
+  /// GET /organizations/{id}/schedule_patterns/
+  Future<SchedulePatternsApiResponse> getSchedulePatterns({
     required int branchId,
-    required DateTime dateGte,
-    required DateTime dateLte,
+    int? workerId,
     int pageSize = 500,
   }) async {
     final organizationId = ref.read(organizationIdProvider);
@@ -39,13 +32,12 @@ class SchedulesService {
     }
 
     final url = ApiConsts().createUrl(
-      'organizations/$organizationId/schedules/',
+      'organizations/$organizationId/schedule_patterns/',
     );
     final queryParams = <String, dynamic>{
-      'date__gte': dateToApi(dateGte),
-      'date__lte': dateToApi(dateLte),
+      'branch__id__in': branchId.toString(),
       'page_size': pageSize,
-      'branch': branchId,
+      if (workerId != null) 'worker__id': workerId,
     };
 
     try {
@@ -56,11 +48,11 @@ class SchedulesService {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        return SchedulesApiResponse.fromJson(response.data!);
+        return SchedulePatternsApiResponse.fromJson(response.data!);
       }
       throw CustomException(
         causedError: Exception(
-          'Failed to load schedules: ${response.statusCode}',
+          'Failed to load schedule patterns: ${response.statusCode}',
         ),
       );
     } catch (e) {
@@ -69,12 +61,9 @@ class SchedulesService {
     }
   }
 
-  /// Дневные записи графика сотрудника за период.
-  /// GET /organizations/{id}/workers/{worker_id}/schedules/
-  Future<SchedulesApiResponse> getWorkerSchedules({
-    required int workerId,
-    required DateTime dateGte,
-    required DateTime dateLte,
+  /// GET /organizations/{id}/schedule_patterns_branch/
+  Future<SchedulePatternsBranchApiResponse> getBranchSchedulePatterns({
+    int? branchId,
     int pageSize = 500,
   }) async {
     final organizationId = ref.read(organizationIdProvider);
@@ -85,12 +74,11 @@ class SchedulesService {
     }
 
     final url = ApiConsts().createUrl(
-      'organizations/$organizationId/workers/$workerId/schedules/',
+      'organizations/$organizationId/schedule_patterns_branch/',
     );
     final queryParams = <String, dynamic>{
-      'date__gte': dateToApi(dateGte),
-      'date__lte': dateToApi(dateLte),
       'page_size': pageSize,
+      if (branchId != null) 'branch__id': branchId,
     };
 
     try {
@@ -101,11 +89,11 @@ class SchedulesService {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        return SchedulesApiResponse.fromJson(response.data!);
+        return SchedulePatternsBranchApiResponse.fromJson(response.data!);
       }
       throw CustomException(
         causedError: Exception(
-          'Failed to load worker schedules: ${response.statusCode}',
+          'Failed to load branch schedule patterns: ${response.statusCode}',
         ),
       );
     } catch (e) {
@@ -114,11 +102,11 @@ class SchedulesService {
     }
   }
 
-  /// Создать (или перезаписать) дневной график сотрудника.
-  /// POST /organizations/{id}/workers/{worker_id}/schedules/
-  Future<ScheduleItemApi> createWorkerSchedule({
-    required int workerId,
-    required CreateWorkerScheduleRequest body,
+  /// Пакетное обновление шаблонов графика филиала.
+  /// POST /organizations/{id}/branches/{branch_id}/patterns/
+  Future<void> updateBranchSchedulePatternsBatch({
+    required int branchId,
+    required UpdateBranchSchedulePatternsRequest body,
   }) async {
     final organizationId = ref.read(organizationIdProvider);
     final token = ref.read(tokenProvider);
@@ -127,12 +115,18 @@ class SchedulesService {
       throw CustomException(causedError: Exception('Token is missing'));
     }
 
+    if (body.patterns.isEmpty) {
+      throw CustomException(
+        causedError: Exception('patterns must not be empty'),
+      );
+    }
+
     final url = ApiConsts().createUrl(
-      'organizations/$organizationId/workers/$workerId/schedules/',
+      'organizations/$organizationId/branches/$branchId/patterns/',
     );
 
     try {
-      final response = await Dio().post<Map<String, dynamic>>(
+      final response = await Dio().post<dynamic>(
         url,
         data: body.toJson(),
         options: Options(
@@ -143,12 +137,12 @@ class SchedulesService {
         ),
       );
 
-      if (response.statusCode == 201 && response.data != null) {
-        return ScheduleItemApi.fromJson(response.data!);
+      if (response.statusCode == 200) {
+        return;
       }
       throw CustomException(
         causedError: Exception(
-          'Failed to create worker schedule: ${response.statusCode}',
+          'Failed to update branch schedule patterns: ${response.statusCode}',
         ),
       );
     } catch (e) {
@@ -157,12 +151,11 @@ class SchedulesService {
     }
   }
 
-  /// Обновить дневной график сотрудника.
-  /// PATCH /organizations/{id}/workers/{worker_id}/schedules/{schedule_id}/
-  Future<ScheduleItemApi> updateWorkerSchedule({
+  /// Пакетное обновление шаблонов графика сотрудника.
+  /// POST /organizations/{id}/workers/{worker_id}/patterns/
+  Future<void> updateWorkerSchedulePatternsBatch({
     required int workerId,
-    required int scheduleId,
-    required CreateWorkerScheduleRequest body,
+    required UpdateBranchSchedulePatternsRequest body,
   }) async {
     final organizationId = ref.read(organizationIdProvider);
     final token = ref.read(tokenProvider);
@@ -171,12 +164,18 @@ class SchedulesService {
       throw CustomException(causedError: Exception('Token is missing'));
     }
 
+    if (body.patterns.isEmpty) {
+      throw CustomException(
+        causedError: Exception('patterns must not be empty'),
+      );
+    }
+
     final url = ApiConsts().createUrl(
-      'organizations/$organizationId/workers/$workerId/schedules/$scheduleId/',
+      'organizations/$organizationId/workers/$workerId/patterns/',
     );
 
     try {
-      final response = await Dio().patch<Map<String, dynamic>>(
+      final response = await Dio().post<dynamic>(
         url,
         data: body.toJson(),
         options: Options(
@@ -187,12 +186,12 @@ class SchedulesService {
         ),
       );
 
-      if (response.statusCode == 200 && response.data != null) {
-        return ScheduleItemApi.fromJson(response.data!);
+      if (response.statusCode == 200) {
+        return;
       }
       throw CustomException(
         causedError: Exception(
-          'Failed to update worker schedule: ${response.statusCode}',
+          'Failed to update worker schedule patterns: ${response.statusCode}',
         ),
       );
     } catch (e) {
