@@ -102,6 +102,11 @@ abstract class AppFonts {
     fontWeight: FontWeight.w500,
   );
 
+  static final medium18 = GoogleFonts.montserrat(
+    fontSize: 18,
+    fontWeight: FontWeight.w500,
+  );
+
   static final regular20 = GoogleFonts.montserrat(
     fontSize: 20,
     fontWeight: FontWeight.w400,

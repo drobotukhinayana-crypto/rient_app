@@ -8,7 +8,7 @@ import 'package:rient_app/core/widgets/language_dropdown_pill.dart';
 import 'package:rient_app/core/widgets/logout_confirm_dialog.dart';
 import 'package:rient_app/core/widgets/theme_switch_pill.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
-import 'package:rient_app/features/home/view/home_page.dart';
+import 'package:rient_app/features/analytics/view/analytics_page.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/account_profile_provider.dart';
 import 'package:rient_app/features/schedule/view/work_schedule_page.dart';
@@ -172,7 +172,8 @@ class AppDrawer extends ConsumerWidget {
             _DrawerTile(
               iconAsset: AppImages.chartBurger,
               label: 'Аналитика',
-              onTap: () => closeThen(() => context.goNamed(HomePage.name)),
+              onTap: () =>
+                  closeThen(() => context.pushNamed(AnalyticsPage.name)),
             ),
             Gap(5),
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/features/analytics/view/analytics_page.dart';
 import 'package:rient_app/features/auth/view/auth_page.dart';
 import 'package:rient_app/features/auth/view/auth_password_page.dart';
 import 'package:rient_app/features/auth/view/otp_page.dart';
@@ -80,7 +81,17 @@ final GoRoute _launch = GoRoute(
 final GoRoute _homeTab = GoRoute(
   name: HomePage.name,
   path: HomePage.path,
-  routes: const [],
+  routes: [
+    GoRoute(
+      name: AnalyticsPage.name,
+      path: AnalyticsPage.path,
+      parentNavigatorKey: rootNavigatorKey,
+      pageBuilder: (_, state) => MaterialPage(
+        key: state.pageKey,
+        child: const AnalyticsPage(),
+      ),
+    ),
+  ],
   pageBuilder: (_, state) =>
       MaterialPage(key: state.pageKey, child: const HomePage()),
 );
