@@ -6,10 +6,15 @@ abstract final class WorkScheduleCellColors {
   static const dayOff = Color(0xFF4790AC);
   static const shift = Color(0xFF166BA1);
 
+  /// Ручная правка дня (`schedules.auto == false`), как на вебе.
+  static const manualEdit = Color(0xFF5657AC);
+
   /// Приглушённый синий/бирюзовый для прошедших дней (как на вебе).
   static Color get shiftPast => Color.lerp(shift, Colors.white, 0.48)!;
 
   static Color get dayOffPast => Color.lerp(dayOff, Colors.white, 0.48)!;
+
+  static Color get manualEditPast => Color.lerp(manualEdit, Colors.white, 0.48)!;
 
   static Color get dateHeaderPastFill =>
       Color.lerp(shift, Colors.white, 0.72)!;
@@ -25,7 +30,7 @@ bool isPastWorkScheduleDate(DateTime date) {
 enum WorkScheduleCellKind { shift, dayOff }
 
 class WorkScheduleDayCell {
-  const WorkScheduleDayCell.dayOff()
+  const WorkScheduleDayCell.dayOff({this.isManuallyEdited = false})
     : kind = WorkScheduleCellKind.dayOff,
       timeStart = null,
       timeEnd = null,
@@ -37,6 +42,7 @@ class WorkScheduleDayCell {
     required this.timeEnd,
     this.tone = WorkScheduleShiftTone.full,
     this.isSelected = false,
+    this.isManuallyEdited = false,
   }) : kind = WorkScheduleCellKind.shift;
 
   final WorkScheduleCellKind kind;
@@ -44,6 +50,9 @@ class WorkScheduleDayCell {
   final String? timeEnd;
   final WorkScheduleShiftTone tone;
   final bool isSelected;
+
+  /// День изменён вручную (`auto: false` в workers/.../schedules/).
+  final bool isManuallyEdited;
 }
 
 class WorkScheduleEmployeeRow {

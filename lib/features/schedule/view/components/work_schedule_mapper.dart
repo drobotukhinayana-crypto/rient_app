@@ -77,14 +77,16 @@ Map<int, List<SchedulePatternItemApi>> groupSchedulePatternsByWorker(
 WorkScheduleDayCell workScheduleCellFromScheduleItem(
   ScheduleItemApi? item, {
   bool selected = false,
+  bool isManuallyEdited = false,
 }) {
+  final manual = isManuallyEdited || (item != null && !item.auto);
   if (item == null || !item.active) {
-    return const WorkScheduleDayCell.dayOff();
+    return WorkScheduleDayCell.dayOff(isManuallyEdited: manual);
   }
   final start = item.timeStartShort;
   final end = item.timeEndShort;
   if (start == null || end == null || start.isEmpty || end.isEmpty) {
-    return const WorkScheduleDayCell.dayOff();
+    return WorkScheduleDayCell.dayOff(isManuallyEdited: manual);
   }
   final tone = item.hours >= 10
       ? WorkScheduleShiftTone.full
@@ -94,6 +96,7 @@ WorkScheduleDayCell workScheduleCellFromScheduleItem(
     timeEnd: end,
     tone: tone,
     isSelected: selected,
+    isManuallyEdited: manual,
   );
 }
 

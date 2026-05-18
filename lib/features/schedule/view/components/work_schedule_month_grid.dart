@@ -370,6 +370,24 @@ class _Avatar extends StatelessWidget {
   }
 }
 
+Color _shiftBackground(WorkScheduleDayCell cell, bool isPast) {
+  if (cell.isManuallyEdited) {
+    return isPast
+        ? WorkScheduleCellColors.manualEditPast
+        : WorkScheduleCellColors.manualEdit;
+  }
+  return isPast ? WorkScheduleCellColors.shiftPast : WorkScheduleCellColors.shift;
+}
+
+Color _dayOffBackground(WorkScheduleDayCell cell, bool isPast) {
+  if (cell.isManuallyEdited) {
+    return isPast
+        ? WorkScheduleCellColors.manualEditPast
+        : WorkScheduleCellColors.manualEdit;
+  }
+  return isPast ? WorkScheduleCellColors.dayOffPast : WorkScheduleCellColors.dayOff;
+}
+
 class _DayCell extends StatelessWidget {
   const _DayCell({
     required this.date,
@@ -390,8 +408,7 @@ class _DayCell extends StatelessWidget {
       return _CellContainer(
         isSelected: false,
         accent: accent,
-        backgroundColor:
-            isPast ? WorkScheduleCellColors.dayOffPast : WorkScheduleCellColors.dayOff,
+        backgroundColor: _dayOffBackground(cell, isPast),
         onTap: onTap,
         child: const Text('😴', style: TextStyle(fontSize: 16)),
       );
@@ -400,8 +417,7 @@ class _DayCell extends StatelessWidget {
     return _CellContainer(
       isSelected: cell.isSelected,
       accent: accent,
-      backgroundColor:
-          isPast ? WorkScheduleCellColors.shiftPast : WorkScheduleCellColors.shift,
+      backgroundColor: _shiftBackground(cell, isPast),
       onTap: onTap,
       child: Text(
         '${cell.timeStart}\n${cell.timeEnd}',
