@@ -16,6 +16,9 @@ import 'package:rient_app/features/home/view/providers/current_worker_id_provide
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
 import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
 import 'package:rient_app/features/schedule/service/worker_schedule_configs_service.dart';
+import 'package:rient_app/features/schedule/service/workers_service.dart';
+import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
+import 'package:dio/dio.dart';
 import 'package:rient_app/features/schedule/view/providers/specialist_schedule_loader.dart';
 import 'package:rient_app/features/schedule/view/providers/specialist_schedule_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
@@ -114,7 +117,6 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
       initialDate: initial,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
-      locale: const Locale('ru'),
     );
     if (picked == null || !mounted) return;
     setState(() => _shiftStartDate = picked);
@@ -220,19 +222,89 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
     onPicked(picked);
   }
 
+  String? _saveValidationError() {
+    if (_isWeekSchedule) {
+      return validateSpecialistWeekScheduleDays([..._weekdays, ..._weekends]);
+    }
+    if (_isShiftSchedule) {
+      if (_timeToMinutes(_shiftWorkStart) >= _timeToMinutes(_shiftWorkEnd)) {
+        return 'Время окончания смены должно быть позже начала';
+      }
+    }
+    return null;
+  }
+
+  int _timeToMinutes(String time) {
+    final parts = time.split(':');
+    final h = int.tryParse(parts.first) ?? 0;
+    final m = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+    return h * 60 + m;
+  }
+
+  String? _extractApiErrorMessage(dynamic data) {
+    if (data == null) return null;
+    if (data is String && data.trim().isNotEmpty) return data.trim();
+    if (data is List) {
+      for (final item in data) {
+        final message = _extractApiErrorMessage(item);
+        if (message != null) return message;
+      }
+      return null;
+    }
+    if (data is Map) {
+      for (final value in data.values) {
+        final message = _extractApiErrorMessage(value);
+        if (message != null) return message;
+      }
+    }
+    return null;
+  }
+
+  String _saveErrorMessage(Object error) {
+    if (error is CustomException && error.causedError is DioException) {
+      final dio = error.causedError! as DioException;
+      final message = _extractApiErrorMessage(dio.response?.data);
+      if (message != null) return message;
+    }
+    return 'Не удалось сохранить график';
+  }
+
+  Future<String?> _resolveConfigUuid(int workerId, int branchId) async {
+    if (_configUuid != null && _configUuid!.isNotEmpty) return _configUuid;
+    final row = await ref.read(workersServiceProvider).getWorkerRow(
+          workerId: workerId,
+          branchId: branchId,
+        );
+    final config = row?['schedule_config'];
+    if (config is Map) {
+      return config['id']?.toString();
+    }
+    return null;
+  }
+
   Future<void> _onSave() async {
     final workerId = _workerId;
     final branchId = ref.read(currentBranchIdProvider);
     if (workerId == null || workerId <= 0 || branchId == 0) return;
 
+    final validationError = _saveValidationError();
+    if (validationError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(validationError)),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
+      final workDaysText = _workDaysController.text.trim();
+      final offDaysText = _offDaysController.text.trim();
       final configBody = buildConfigPatchRequest(
         scheduleTypeLabel: _scheduleType,
         weekdayGroupStart: _weekdayGroupStart,
         weekdayGroupEnd: _weekdayGroupEnd,
-        workDays: _workDaysController.text.trim(),
-        offDays: _offDaysController.text.trim(),
+        workDays: workDaysText.isEmpty ? '1' : workDaysText,
+        offDays: offDaysText.isEmpty ? '1' : offDaysText,
         shiftStartDate: _shiftStartDate,
         shiftWorkStart: _shiftWorkStart,
         shiftWorkEnd: _shiftWorkEnd,
@@ -242,40 +314,49 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
       final currentWorkerId = await ref.read(currentWorkerIdProvider.future);
       if (currentWorkerId == workerId) {
         await configsService.updateMyScheduleConfig(body: configBody);
-      } else if (_configUuid != null && _configUuid!.isNotEmpty) {
-        await configsService.updateWorkerScheduleConfig(
-          workerId: workerId,
-          configUuid: _configUuid!,
-          body: configBody,
-        );
+      } else {
+        final configUuid = await _resolveConfigUuid(workerId, branchId);
+        if (configUuid != null && configUuid.isNotEmpty) {
+          await configsService.updateWorkerScheduleConfig(
+            workerId: workerId,
+            configUuid: configUuid,
+            body: configBody,
+          );
+        }
       }
 
       if (_isWeekSchedule && _loadedPatterns.isNotEmpty) {
         final batch = buildWorkerPatternsBatchRequest(
           branchId: branchId,
+          workerId: workerId,
           originalPatterns: _loadedPatterns,
           allDays: [..._weekdays, ..._weekends],
         );
-        if (batch.patterns.isNotEmpty) {
-          await ref.read(schedulePatternsServiceProvider).updateWorkerSchedulePatternsBatch(
-                workerId: workerId,
-                body: batch,
-              );
+        if (batch.patterns.isEmpty) {
+          throw CustomException(
+            causedError: Exception('Нет шаблонов дней для сохранения'),
+          );
         }
+        await ref
+            .read(schedulePatternsServiceProvider)
+            .updateWorkerSchedulePatternsBatch(
+              workerId: workerId,
+              body: batch,
+            );
       }
 
       final loadQuery = _loadQuery;
       if (loadQuery != null) {
         ref.invalidate(specialistScheduleFormProvider(loadQuery));
       }
-      ref.invalidate(workScheduleMonthProvider);
+      bumpWorkScheduleReloadToken(ref);
 
       if (!mounted) return;
-      context.pop();
-    } catch (_) {
+      context.pop(true);
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось сохранить график')),
+        SnackBar(content: Text(_saveErrorMessage(e))),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);

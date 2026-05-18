@@ -1,9 +1,65 @@
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
-import 'package:rient_app/features/schedule/data/models/worker_schedule_config_api/worker_schedule_config_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
+import 'package:rient_app/features/schedule/utils/schedule_day_key.dart';
+import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
+
+/// При дублях `wed`/`wen` или branch/worker — активный шаблон и больший id.
+bool preferSchedulePattern(
+  SchedulePatternItemApi candidate,
+  SchedulePatternItemApi current,
+) {
+  if (candidate.active != current.active) return candidate.active;
+  return candidate.id > current.id;
+}
+
+List<SchedulePatternItemApi> dedupeSchedulePatternsByDay(
+  Iterable<SchedulePatternItemApi> patterns,
+) {
+  final byDay = <String, SchedulePatternItemApi>{};
+  for (final pattern in patterns) {
+    final key = canonicalScheduleDayKey(pattern.day);
+    final existing = byDay[key];
+    if (existing == null || preferSchedulePattern(pattern, existing)) {
+      byDay[key] = pattern;
+    }
+  }
+  return byDay.values.toList();
+}
+
+List<SchedulePatternItemApi> schedulePatternsFromWorkerRow(
+  Map<String, dynamic>? workerRow,
+) {
+  if (workerRow == null) return const [];
+  final raw = workerRow['schedule_patterns'];
+  if (raw is! List) return const [];
+  final patterns = <SchedulePatternItemApi>[];
+  for (final item in raw) {
+    if (item is! Map) continue;
+    try {
+      patterns.add(
+        SchedulePatternItemApi.fromJson(
+          item.map((k, v) => MapEntry(k.toString(), v)),
+        ),
+      );
+    } catch (_) {
+      // пропускаем битые записи
+    }
+  }
+  return patterns;
+}
+
+List<SchedulePatternItemApi> mergeSchedulePatternsForWorker({
+  required List<SchedulePatternItemApi> fromBranchApi,
+  Map<String, dynamic>? workerRow,
+}) {
+  return dedupeSchedulePatternsByDay([
+    ...fromBranchApi,
+    ...schedulePatternsFromWorkerRow(workerRow),
+  ]);
+}
 
 Map<int, List<SchedulePatternItemApi>> groupSchedulePatternsByWorker(
   List<SchedulePatternItemApi> patterns,
@@ -12,7 +68,10 @@ Map<int, List<SchedulePatternItemApi>> groupSchedulePatternsByWorker(
   for (final pattern in patterns) {
     map.putIfAbsent(pattern.worker, () => []).add(pattern);
   }
-  return map;
+  return {
+    for (final entry in map.entries)
+      entry.key: dedupeSchedulePatternsByDay(entry.value),
+  };
 }
 
 WorkScheduleDayCell workScheduleCellFromScheduleItem(
@@ -70,24 +129,18 @@ SchedulePatternItemApi? _patternForWeekday(
   List<SchedulePatternItemApi> patterns,
   int weekday,
 ) {
+  SchedulePatternItemApi? best;
   for (final pattern in patterns) {
-    if (pattern.weekdayNumber == weekday) return pattern;
+    if (pattern.weekdayNumber != weekday) continue;
+    if (best == null || preferSchedulePattern(pattern, best)) {
+      best = pattern;
+    }
   }
-  return null;
-}
-
-Map<String, dynamic>? _configMap(Map<String, dynamic>? workerRow) {
-  final config = workerRow?['schedule_config'];
-  if (config is Map) {
-    return config.map((k, v) => MapEntry(k.toString(), v));
-  }
-  return null;
+  return best;
 }
 
 bool _isShiftSchedule(Map<String, dynamic>? configMap) {
-  final raw = configMap?['schedule_type'];
-  final type = raw is num ? raw.toInt() : WorkerScheduleConfigType.week;
-  return type == WorkerScheduleConfigType.shift;
+  return isShiftWorkerScheduleConfig(configMap);
 }
 
 bool _isShiftWorkDay(DateTime date, Map<String, dynamic>? configMap) {
@@ -124,10 +177,9 @@ WorkScheduleDayCell _cellFromTemplate({
   required DateTime date,
   required List<SchedulePatternItemApi> patterns,
   Map<String, dynamic>? workerRow,
+  Map<String, dynamic>? configMap,
   bool selected = false,
 }) {
-  final configMap = _configMap(workerRow);
-
   if (_isShiftSchedule(configMap)) {
     if (!_isShiftWorkDay(date, configMap)) {
       return const WorkScheduleDayCell.dayOff();
@@ -169,10 +221,12 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
   required WorkerApi worker,
   required DateTime monthStart,
   required List<ScheduleItemApi> schedules,
+  required int branchId,
   List<SchedulePatternItemApi> patterns = const [],
   Map<String, dynamic>? workerRow,
   DateTime? highlightedCellDate,
 }) {
+  final configMap = workerScheduleConfigForBranch(workerRow, branchId);
   final days = daysOfMonth(monthStart);
   final highlighted = highlightedCellDate != null
       ? DateTime(
@@ -193,6 +247,7 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
   final lastName = worker.lastName?.trim() ?? '';
   final name = [firstName, lastName].where((p) => p.isNotEmpty).join(' ');
   final displayName = name.isNotEmpty ? name : 'Сотрудник #${worker.id}';
+  final resolvedPatterns = dedupeSchedulePatternsByDay(patterns);
 
   return WorkScheduleEmployeeRow(
     id: worker.id.toString(),
@@ -213,6 +268,25 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
           );
           // Ручные правки дня — из schedules; auto — общий шаблон, берём patterns/config.
           if (daily != null && !daily.auto) {
+            if (daily.active) {
+              return workScheduleCellFromScheduleItem(
+                daily,
+                selected: selected,
+              );
+            }
+            // Неактивная ручная запись: если в недельном шаблоне день включён — шаблон.
+            if (!_isShiftSchedule(configMap)) {
+              final pattern = _patternForWeekday(
+                resolvedPatterns,
+                date.weekday,
+              );
+              if (pattern != null && pattern.active) {
+                return workScheduleCellFromPattern(
+                  pattern,
+                  selected: selected,
+                );
+              }
+            }
             return workScheduleCellFromScheduleItem(
               daily,
               selected: selected,
@@ -220,8 +294,9 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
           }
           return _cellFromTemplate(
             date: date,
-            patterns: patterns,
+            patterns: resolvedPatterns,
             workerRow: workerRow,
+            configMap: configMap,
             selected: selected,
           );
         }(),

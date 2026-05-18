@@ -10,6 +10,7 @@ class UpdateBranchSchedulePatternItem {
     required this.timeStart,
     required this.timeEnd,
     required this.active,
+    this.worker,
   });
 
   final int id;
@@ -18,6 +19,7 @@ class UpdateBranchSchedulePatternItem {
   final String timeStart;
   final String timeEnd;
   final bool active;
+  final int? worker;
 
   factory UpdateBranchSchedulePatternItem.fromBranchPattern(
     SchedulePatternBranchItemApi pattern, {
@@ -49,11 +51,13 @@ class UpdateBranchSchedulePatternItem {
       timeStart: timeToApi(timeStart ?? pattern.timeStart ?? '09:00:00'),
       timeEnd: timeToApi(timeEnd ?? pattern.timeEnd ?? '20:00:00'),
       active: active ?? pattern.active,
+      worker: pattern.worker,
     );
   }
 
   static String timeToApi(String time) {
     final trimmed = time.trim();
+    if (trimmed.isEmpty) return '09:00:00';
     if (trimmed.length == 5 && trimmed.contains(':')) {
       return '$trimmed:00';
     }
@@ -67,6 +71,7 @@ class UpdateBranchSchedulePatternItem {
         'time_start': timeStart,
         'time_end': timeEnd,
         'active': active,
+        if (worker != null) 'worker': worker,
       };
 }
 

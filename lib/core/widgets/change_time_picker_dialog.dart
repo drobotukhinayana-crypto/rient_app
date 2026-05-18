@@ -28,12 +28,13 @@ Future<String?> showChangeTimePicker(
   required String initialTime,
 }) {
   final parsed = _parseTime(initialTime);
-  var selectedHour = parsed.hour;
+  var selectedHour = parsed.hour.clamp(0, 23);
   var selectedMinute = _nearestMinuteStep(parsed.minute);
 
+  final minuteIndex = _minuteStepValues.indexOf(selectedMinute);
   final hourController = FixedExtentScrollController(initialItem: selectedHour);
   final minuteController = FixedExtentScrollController(
-    initialItem: _minuteStepValues.indexOf(selectedMinute),
+    initialItem: minuteIndex >= 0 ? minuteIndex : 0,
   );
 
   return showDialog<String>(

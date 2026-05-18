@@ -1,5 +1,7 @@
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_branch_api/update_branch_schedule_patterns_request.dart';
+import 'package:rient_app/features/schedule/utils/schedule_day_key.dart';
+import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
 import 'package:rient_app/features/schedule/data/models/worker_schedule_config_api/update_worker_schedule_config_request.dart';
 import 'package:rient_app/features/schedule/data/models/worker_schedule_config_api/worker_schedule_config_api.dart';
 
@@ -88,12 +90,13 @@ const _weekendLabels = ['СБ', 'ВС'];
 
 SpecialistScheduleFormState buildSpecialistFormFromApi({
   required List<SchedulePatternItemApi> patterns,
+  required int branchId,
   Map<String, dynamic>? workerRow,
   List<SchedulePatternItemApi> loadedPatterns = const [],
 }) {
   final byDay = <String, SchedulePatternItemApi>{};
   for (final p in patterns) {
-    byDay[p.day.toLowerCase()] = p;
+    byDay[canonicalScheduleDayKey(p.day)] = p;
   }
 
   SpecialistDayDraft draftFor(String dayKey, String label) {
@@ -140,16 +143,8 @@ SpecialistScheduleFormState buildSpecialistFormFromApi({
     return active.first.end;
   }
 
-  final config = workerRow?['schedule_config'];
-  Map<String, dynamic>? configMap;
-  if (config is Map) {
-    configMap = config.map((k, v) => MapEntry(k.toString(), v));
-  }
-
-  final scheduleTypeRaw = configMap?['schedule_type'];
-  final scheduleType = scheduleTypeRaw is num
-      ? scheduleTypeRaw.toInt()
-      : WorkerScheduleConfigType.week;
+  final configMap = workerScheduleConfigForBranch(workerRow, branchId);
+  final scheduleType = parseWorkerScheduleType(configMap?['schedule_type']);
   final scheduleTypeLabel =
       scheduleType == WorkerScheduleConfigType.shift ? 'Смена' : 'Неделя';
 
@@ -217,20 +212,61 @@ UpdateWorkerScheduleConfigRequest buildConfigPatchRequest({
   );
 }
 
+int _timeToMinutes(String time) {
+  final parts = time.split(':');
+  final h = int.tryParse(parts.first) ?? 0;
+  final m = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+  return h * 60 + m;
+}
+
+/// Сообщение об ошибке валидации или null, если всё ок.
+String? validateSpecialistWeekScheduleDays(List<SpecialistDayDraft> days) {
+  for (final day in days) {
+    if (!day.enabled) continue;
+    if (day.start.trim().isEmpty || day.end.trim().isEmpty) {
+      return '«${day.label}»: укажите время работы';
+    }
+    if (_timeToMinutes(day.start) >= _timeToMinutes(day.end)) {
+      return '«${day.label}»: время окончания должно быть позже начала';
+    }
+    final breakStart = day.breakStart?.trim() ?? '';
+    final breakEnd = day.breakEnd?.trim() ?? '';
+    if (breakStart.isEmpty != breakEnd.isEmpty) {
+      return '«${day.label}»: укажите начало и конец перерыва';
+    }
+    if (breakStart.isNotEmpty &&
+        breakEnd.isNotEmpty &&
+        _timeToMinutes(breakStart) >= _timeToMinutes(breakEnd)) {
+      return '«${day.label}»: некорректное время перерыва';
+    }
+  }
+  return null;
+}
+
 UpdateBranchSchedulePatternsRequest buildWorkerPatternsBatchRequest({
   required int branchId,
+  required int workerId,
   required List<SchedulePatternItemApi> originalPatterns,
   required List<SpecialistDayDraft> allDays,
 }) {
   final originalByDay = <String, SchedulePatternItemApi>{};
-  for (final p in originalPatterns) {
-    originalByDay[p.day.toLowerCase()] = p;
+  for (final pattern in originalPatterns) {
+    if (pattern.worker != workerId) continue;
+    final dayKey = canonicalScheduleDayKey(pattern.day);
+    originalByDay.putIfAbsent(dayKey, () => pattern);
   }
 
   final items = <UpdateBranchSchedulePatternItem>[];
+  final seenBranchDay = <String>{};
+
   for (final day in allDays) {
-    final original = originalByDay[day.dayKey];
-    if (original == null || day.patternId == null) continue;
+    final dayKey = canonicalScheduleDayKey(day.dayKey);
+    final branchDayKey = '$branchId|$dayKey';
+    if (!seenBranchDay.add(branchDayKey)) continue;
+
+    final original = originalByDay[dayKey];
+    if (original == null) continue;
+
     items.add(
       UpdateBranchSchedulePatternItem.fromWorkerPattern(
         original,

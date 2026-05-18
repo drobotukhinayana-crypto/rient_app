@@ -38,6 +38,7 @@ final specialistScheduleFormProvider =
 
   return buildSpecialistFormFromApi(
     patterns: patternsResponse.results,
+    branchId: branchId,
     workerRow: workerRow,
     loadedPatterns: patternsResponse.results,
   );

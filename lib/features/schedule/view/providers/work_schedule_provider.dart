@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mapper.dart';
@@ -11,10 +13,12 @@ class WorkScheduleMonthQuery {
   const WorkScheduleMonthQuery({
     required this.monthStart,
     this.highlightedCellDate,
+    this.loadEpoch = 0,
   });
 
   final DateTime monthStart;
   final DateTime? highlightedCellDate;
+  final int loadEpoch;
 
   DateTime get monthEnd =>
       DateTime(monthStart.year, monthStart.month + 1, 0);
@@ -26,7 +30,8 @@ class WorkScheduleMonthQuery {
         other.monthStart.month == monthStart.month &&
         other.highlightedCellDate?.year == highlightedCellDate?.year &&
         other.highlightedCellDate?.month == highlightedCellDate?.month &&
-        other.highlightedCellDate?.day == highlightedCellDate?.day;
+        other.highlightedCellDate?.day == highlightedCellDate?.day &&
+        other.loadEpoch == loadEpoch;
   }
 
   @override
@@ -36,7 +41,14 @@ class WorkScheduleMonthQuery {
         highlightedCellDate?.year,
         highlightedCellDate?.month,
         highlightedCellDate?.day,
+        loadEpoch,
       );
+}
+
+final workScheduleReloadTokenProvider = StateProvider<int>((ref) => 0);
+
+void bumpWorkScheduleReloadToken(WidgetRef ref) {
+  ref.read(workScheduleReloadTokenProvider.notifier).update((v) => v + 1);
 }
 
 final workScheduleMonthProvider =
@@ -44,6 +56,7 @@ final workScheduleMonthProvider =
   ref,
   query,
 ) async {
+  ref.watch(workScheduleReloadTokenProvider);
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0) throw Exception('No valid branch selected');
 
@@ -51,11 +64,9 @@ final workScheduleMonthProvider =
   final schedulesService = ref.read(schedulesServiceProvider);
   final workersService = ref.read(workersServiceProvider);
 
-  final patternsResponse = await ref.watch(
-    schedulePatternsProvider(
-      SchedulePatternsQuery(branchId: branchId),
-    ).future,
-  );
+  final patternsResponse = await ref
+      .read(schedulePatternsServiceProvider)
+      .getSchedulePatterns(branchId: branchId);
   final patternsByWorker =
       groupSchedulePatternsByWorker(patternsResponse.results);
 
@@ -80,8 +91,12 @@ final workScheduleMonthProvider =
       workScheduleEmployeeRow(
         worker: worker,
         monthStart: query.monthStart,
+        branchId: branchId,
         schedules: schedules.results,
-        patterns: patternsByWorker[worker.id] ?? const [],
+        patterns: mergeSchedulePatternsForWorker(
+          fromBranchApi: patternsByWorker[worker.id] ?? const [],
+          workerRow: workerRows[i],
+        ),
         workerRow: workerRows[i],
         highlightedCellDate: query.highlightedCellDate,
       ),
@@ -89,3 +104,33 @@ final workScheduleMonthProvider =
   }
   return rows;
 });
+
+void invalidateWorkScheduleCaches(
+  WidgetRef ref, {
+  int? branchId,
+  int? workerId,
+}) {
+  ref.invalidate(schedulePatternsProvider);
+  ref.invalidate(scheduleWorkersProvider);
+  if (branchId != null && branchId > 0) {
+    ref.invalidate(
+      schedulePatternsProvider(
+        SchedulePatternsQuery(branchId: branchId, workerId: workerId),
+      ),
+    );
+  }
+  ref.invalidate(workScheduleMonthProvider);
+  bumpWorkScheduleReloadToken(ref);
+}
+
+Future<List<WorkScheduleEmployeeRow>> reloadWorkScheduleMonth(
+  WidgetRef ref,
+  WorkScheduleMonthQuery query, {
+  int? branchId,
+  int? workerId,
+}) async {
+  invalidateWorkScheduleCaches(ref, branchId: branchId, workerId: workerId);
+  // ignore: unused_result
+  ref.refresh(workScheduleMonthProvider(query));
+  return ref.read(workScheduleMonthProvider(query).future);
+}

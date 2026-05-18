@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,7 @@ import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_month_grid.dart';
 import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
@@ -26,9 +29,11 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
   late ScrollController _gridHorizontalScroll;
   bool _syncingHorizontalScroll = false;
   bool _pendingHorizontalScrollToSelectedDate = true;
-
-  WorkScheduleMonthQuery get _monthQuery =>
-      WorkScheduleMonthQuery(monthStart: _monthStart);
+  int _loadEpoch = 0;
+  int _gridVersion = 0;
+  int _fetchGeneration = 0;
+  AsyncValue<List<WorkScheduleEmployeeRow>> _employees =
+      const AsyncValue.loading();
 
   DateTime get _today {
     final now = DateTime.now();
@@ -44,6 +49,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     _gridHorizontalScroll.addListener(_onGridHorizontalScrolled);
     _syncToNow();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_reloadWorkSchedule());
       _scrollToSelectedDate();
     });
   }
@@ -92,8 +98,44 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     _monthStart = DateTime(now.year, now.month, 1);
   }
 
-  void _invalidateMonth() {
-    ref.invalidate(workScheduleMonthProvider(_monthQuery));
+  Future<void> _reloadWorkSchedule({String? employeeId}) async {
+    final generation = ++_fetchGeneration;
+    final branchId = ref.read(currentBranchIdProvider);
+    final workerId =
+        employeeId != null ? int.tryParse(employeeId) : null;
+    final nextEpoch = _loadEpoch + 1;
+    final query = WorkScheduleMonthQuery(
+      monthStart: _monthStart,
+      loadEpoch: nextEpoch,
+    );
+
+    setState(() {
+      _loadEpoch = nextEpoch;
+      _gridVersion++;
+      _employees = const AsyncValue.loading();
+      _pendingHorizontalScrollToSelectedDate = true;
+    });
+
+    try {
+      final rows = await reloadWorkScheduleMonth(
+        ref,
+        query,
+        branchId: branchId,
+        workerId: workerId,
+      );
+      if (!mounted || generation != _fetchGeneration) return;
+      setState(() => _employees = AsyncValue.data(rows));
+    } catch (error, stackTrace) {
+      if (!mounted || generation != _fetchGeneration) return;
+      setState(() => _employees = AsyncValue.error(error, stackTrace));
+    }
+  }
+
+  void _scheduleReloadAfterReturn({String? employeeId}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_reloadWorkSchedule(employeeId: employeeId));
+    });
   }
 
   DateTime _scrollTargetDateInMonth() {
@@ -163,20 +205,25 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     setState(() {
       _monthStart = DateTime(monthStart.year, monthStart.month, 1);
     });
-    _invalidateMonth();
+    unawaited(_reloadWorkSchedule());
     _requestScrollToSelectedDate();
   }
 
   Future<void> _onEmployeeMoreTap(WorkScheduleEmployeeRow employee) async {
-    await context.pushNamed(
-      SpecialistSchedulePage.name,
-      extra: SpecialistSchedulePageArgs(
-        employeeId: employee.id,
-        employeeName: employee.name,
-        pictureUrl: employee.pictureUrl,
-      ),
-    );
-    _invalidateMonth();
+    try {
+      await context.pushNamed<bool>(
+        SpecialistSchedulePage.name,
+        extra: SpecialistSchedulePageArgs(
+          employeeId: employee.id,
+          employeeName: employee.name,
+          pictureUrl: employee.pictureUrl,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        _scheduleReloadAfterReturn(employeeId: employee.id);
+      }
+    }
   }
 
   @override
@@ -185,7 +232,6 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     final screenBackground = isDark
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
-    final employeesAsync = ref.watch(workScheduleMonthProvider(_monthQuery));
 
     return Scaffold(
       backgroundColor: screenBackground,
@@ -201,7 +247,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
             workScheduleDatesScrollController: _datesHeaderScroll,
           ),
           Expanded(
-            child: employeesAsync.when(
+            child: _employees.when(
               loading: () => const Center(child: LoadingWidget()),
               error: (error, _) => Center(
                 child: Padding(
@@ -220,6 +266,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
                   });
                 }
                 return WorkScheduleMonthGrid(
+                  key: ValueKey('work_grid_$_gridVersion'),
                   month: _monthStart,
                   employees: employees,
                   selectedDate: _today,

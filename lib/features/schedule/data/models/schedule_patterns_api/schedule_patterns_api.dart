@@ -57,6 +57,7 @@ extension SchedulePatternItemApiX on SchedulePatternItemApi {
       case 'tue':
         return DateTime.tuesday;
       case 'wed':
+      case 'wen':
         return DateTime.wednesday;
       case 'thu':
         return DateTime.thursday;
@@ -78,6 +79,7 @@ extension SchedulePatternItemApiX on SchedulePatternItemApi {
       case 'tue':
         return 'ВТ';
       case 'wed':
+      case 'wen':
         return 'СР';
       case 'thu':
         return 'ЧТ';
