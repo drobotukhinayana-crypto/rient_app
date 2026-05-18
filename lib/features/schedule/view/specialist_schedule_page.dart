@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
@@ -34,7 +35,7 @@ class SpecialistSchedulePage extends StatefulWidget {
 }
 
 class _SpecialistSchedulePageState extends State<SpecialistSchedulePage> {
-  static const _scheduleTypes = ['Неделя', 'Месяц'];
+  static const _scheduleTypes = ['Неделя', 'Смена'];
   static const _defaultGroupStart = '09:00';
   static const _defaultGroupEnd = '20:00';
 
@@ -50,6 +51,12 @@ class _SpecialistSchedulePageState extends State<SpecialistSchedulePage> {
   late String _weekendGroupEnd;
   late List<_DayScheduleDraft> _weekends;
 
+  late final TextEditingController _workDaysController;
+  late final TextEditingController _offDaysController;
+  DateTime? _shiftStartDate;
+  String _shiftWorkStart = _defaultGroupStart;
+  String _shiftWorkEnd = _defaultGroupEnd;
+
   @override
   void initState() {
     super.initState();
@@ -59,7 +66,39 @@ class _SpecialistSchedulePageState extends State<SpecialistSchedulePage> {
     _weekendGroupStart = _defaultGroupStart;
     _weekendGroupEnd = _defaultGroupEnd;
     _weekends = _defaultDays(const ['СБ', 'ВС']);
+    _workDaysController = TextEditingController(text: '1');
+    _offDaysController = TextEditingController(text: '1');
+    _shiftStartDate = DateTime.now();
   }
+
+  @override
+  void dispose() {
+    _workDaysController.dispose();
+    _offDaysController.dispose();
+    super.dispose();
+  }
+
+  String _formatDate(DateTime date) {
+    final d = date.day.toString().padLeft(2, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    return '$d.$m.${date.year}';
+  }
+
+  Future<void> _pickShiftStartDate() async {
+    final initial = _shiftStartDate ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      locale: const Locale('ru'),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _shiftStartDate = picked);
+  }
+
+  bool get _isWeekSchedule => _scheduleType == 'Неделя';
+  bool get _isShiftSchedule => _scheduleType == 'Смена';
 
   List<_DayScheduleDraft> _defaultDays(List<String> labels) => [
         for (final label in labels)
@@ -181,50 +220,70 @@ class _SpecialistSchedulePageState extends State<SpecialistSchedulePage> {
                   options: _scheduleTypes,
                   onChanged: (value) => setState(() => _scheduleType = value),
                 ),
-                const Gap(12),
-                _buildDaySection(
-                  groupTitle: 'ПН–ПТ',
-                  expanded: _weekdaysExpanded,
-                  groupStart: _weekdayGroupStart,
-                  groupEnd: _weekdayGroupEnd,
-                  days: _weekdays,
-                  onToggleExpanded: () {
-                    setState(() => _weekdaysExpanded = !_weekdaysExpanded);
-                  },
-                  onPickGroupStart: () => _pickTime(_weekdayGroupStart, (v) {
-                    setState(() => _weekdayGroupStart = v);
-                    _applyGroupTimesToWeekdays();
-                  }),
-                  onPickGroupEnd: () => _pickTime(_weekdayGroupEnd, (v) {
-                    setState(() => _weekdayGroupEnd = v);
-                    _applyGroupTimesToWeekdays();
-                  }),
-                  onDayChanged: (index, day) {
-                    setState(() => _weekdays[index] = day);
-                  },
-                ),
-                const Gap(12),
-                _buildDaySection(
-                  groupTitle: 'СБ–ВС',
-                  expanded: _weekendsExpanded,
-                  groupStart: _weekendGroupStart,
-                  groupEnd: _weekendGroupEnd,
-                  days: _weekends,
-                  onToggleExpanded: () {
-                    setState(() => _weekendsExpanded = !_weekendsExpanded);
-                  },
-                  onPickGroupStart: () => _pickTime(_weekendGroupStart, (v) {
-                    setState(() => _weekendGroupStart = v);
-                    _applyGroupTimesToWeekends();
-                  }),
-                  onPickGroupEnd: () => _pickTime(_weekendGroupEnd, (v) {
-                    setState(() => _weekendGroupEnd = v);
-                    _applyGroupTimesToWeekends();
-                  }),
-                  onDayChanged: (index, day) {
-                    setState(() => _weekends[index] = day);
-                  },
-                ),
+                if (_isWeekSchedule) ...[
+                  const Gap(12),
+                  _buildDaySection(
+                    groupTitle: 'ПН–ПТ',
+                    expanded: _weekdaysExpanded,
+                    groupStart: _weekdayGroupStart,
+                    groupEnd: _weekdayGroupEnd,
+                    days: _weekdays,
+                    onToggleExpanded: () {
+                      setState(() => _weekdaysExpanded = !_weekdaysExpanded);
+                    },
+                    onPickGroupStart: () => _pickTime(_weekdayGroupStart, (v) {
+                      setState(() => _weekdayGroupStart = v);
+                      _applyGroupTimesToWeekdays();
+                    }),
+                    onPickGroupEnd: () => _pickTime(_weekdayGroupEnd, (v) {
+                      setState(() => _weekdayGroupEnd = v);
+                      _applyGroupTimesToWeekdays();
+                    }),
+                    onDayChanged: (index, day) {
+                      setState(() => _weekdays[index] = day);
+                    },
+                  ),
+                  const Gap(12),
+                  _buildDaySection(
+                    groupTitle: 'СБ–ВС',
+                    expanded: _weekendsExpanded,
+                    groupStart: _weekendGroupStart,
+                    groupEnd: _weekendGroupEnd,
+                    days: _weekends,
+                    onToggleExpanded: () {
+                      setState(() => _weekendsExpanded = !_weekendsExpanded);
+                    },
+                    onPickGroupStart: () => _pickTime(_weekendGroupStart, (v) {
+                      setState(() => _weekendGroupStart = v);
+                      _applyGroupTimesToWeekends();
+                    }),
+                    onPickGroupEnd: () => _pickTime(_weekendGroupEnd, (v) {
+                      setState(() => _weekendGroupEnd = v);
+                      _applyGroupTimesToWeekends();
+                    }),
+                    onDayChanged: (index, day) {
+                      setState(() => _weekends[index] = day);
+                    },
+                  ),
+                ],
+                if (_isShiftSchedule) ...[
+                  const Gap(12),
+                  _ShiftScheduleCard(
+                    workDaysController: _workDaysController,
+                    offDaysController: _offDaysController,
+                    startDate: _shiftStartDate,
+                    workStart: _shiftWorkStart,
+                    workEnd: _shiftWorkEnd,
+                    onPickDate: _pickShiftStartDate,
+                    onPickWorkStart: () => _pickTime(_shiftWorkStart, (v) {
+                      setState(() => _shiftWorkStart = v);
+                    }),
+                    onPickWorkEnd: () => _pickTime(_shiftWorkEnd, (v) {
+                      setState(() => _shiftWorkEnd = v);
+                    }),
+                    formatDate: _formatDate,
+                  ),
+                ],
               ],
             ),
           ),
@@ -408,21 +467,29 @@ class _ScheduleTypeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.primaryWhiteDark : Colors.white;
     final textColor = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
 
-    return Row(
-      children: [
-        Text(
-          'Тип расписания',
-          style: AppFonts.b1Medium.copyWith(color: textColor),
-        ),
-        const Spacer(),
-        _ScheduleTypeDropdown(
-          value: value,
-          options: options,
-          onChanged: onChanged,
-        ),
-      ],
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Text(
+            'Тип расписания',
+            style: AppFonts.b1Medium.copyWith(color: textColor),
+          ),
+          const Spacer(),
+          _ScheduleTypeDropdown(
+            value: value,
+            options: options,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -471,6 +538,191 @@ class _ScheduleTypeDropdown extends StatelessWidget {
             const Gap(4),
             Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: accent),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ShiftScheduleCard extends StatelessWidget {
+  const _ShiftScheduleCard({
+    required this.workDaysController,
+    required this.offDaysController,
+    required this.startDate,
+    required this.workStart,
+    required this.workEnd,
+    required this.onPickDate,
+    required this.onPickWorkStart,
+    required this.onPickWorkEnd,
+    required this.formatDate,
+  });
+
+  final TextEditingController workDaysController;
+  final TextEditingController offDaysController;
+  final DateTime? startDate;
+  final String workStart;
+  final String workEnd;
+  final VoidCallback onPickDate;
+  final VoidCallback onPickWorkStart;
+  final VoidCallback onPickWorkEnd;
+  final String Function(DateTime) formatDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.primaryWhiteDark : Colors.white;
+    final labelColor = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
+    final dividerColor =
+        isDark ? AppColors.secondaryDarkDark : AppColors.secondaryDark;
+    final accent = AppColors.themeAccent(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Рабочие дни',
+                  textAlign: TextAlign.center,
+                  style: AppFonts.c1Medium.copyWith(color: labelColor),
+                ),
+              ),
+              Text(
+                '/',
+                style: AppFonts.c1Regular.copyWith(color: AppColors.tabbarGrey),
+              ),
+              Expanded(
+                child: Text(
+                  'Выходные дни',
+                  textAlign: TextAlign.center,
+                  style: AppFonts.c1Medium.copyWith(color: labelColor),
+                ),
+              ),
+            ],
+          ),
+          const Gap(8),
+          Row(
+            children: [
+              Expanded(
+                child: _ShiftNumberField(controller: workDaysController),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  '/',
+                  style: AppFonts.c1Regular.copyWith(color: AppColors.tabbarGrey),
+                ),
+              ),
+              Expanded(
+                child: _ShiftNumberField(controller: offDaysController),
+              ),
+            ],
+          ),
+          const Gap(12),
+          Divider(height: 1, thickness: 1, color: dividerColor),
+          const Gap(12),
+          Row(
+            children: [
+              Text(
+                'Дата начала',
+                style: AppFonts.b1Medium.copyWith(color: labelColor),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: onPickDate,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.secondaryDarkLight
+                        : AppColors.secondaryLight,
+                    borderRadius: AppDecoration.borderRadius300,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        startDate == null
+                            ? 'Выберите дату'
+                            : formatDate(startDate!),
+                        style: AppFonts.c1Medium.copyWith(
+                          color: startDate == null
+                              ? AppColors.tabbarGrey
+                              : labelColor,
+                        ),
+                      ),
+                      const Gap(8),
+                      Icon(
+                        Icons.calendar_today_outlined,
+                        size: 18,
+                        color: accent,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Gap(12),
+          Divider(height: 1, thickness: 1, color: dividerColor),
+          const Gap(12),
+          Row(
+            children: [
+              Text(
+                'Время работы',
+                style: AppFonts.b1Medium.copyWith(color: labelColor),
+              ),
+              const Spacer(),
+              _TimeRangeFields(
+                start: workStart,
+                end: workEnd,
+                onPickStart: onPickWorkStart,
+                onPickEnd: onPickWorkEnd,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShiftNumberField extends StatelessWidget {
+  const _ShiftNumberField({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
+
+    return Container(
+      height: 40,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight,
+        borderRadius: AppDecoration.borderRadius300,
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: TextInputType.number,
+        textAlign: TextAlign.center,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        style: AppFonts.c1Medium.copyWith(color: textColor),
+        decoration: InputDecoration(
+          hintText: 'Напишите число',
+          hintStyle: AppFonts.c1Regular.copyWith(color: AppColors.tabbarGrey),
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
         ),
       ),
     );
