@@ -11,7 +11,7 @@ const workScheduleDayColumnWidth = 44.0;
 const workScheduleDayCellGap = 4.0;
 const workScheduleInactiveDayFill = Color(0xFFECEEF2);
 
-const _rowHeight = 72.0;
+const _rowHeight = 80.0;
 const _sidebarRadius = 20.0;
 
 class WorkScheduleMonthGrid extends StatefulWidget {
@@ -117,9 +117,7 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
                     child: _EmployeeColumn(
                       name: employee.name,
                       pictureUrl: employee.pictureUrl,
-                      onMoreTap: widget.onEmployeeMoreTap == null
-                          ? null
-                          : () => widget.onEmployeeMoreTap!(employee),
+                      onMoreTap: () => widget.onEmployeeMoreTap?.call(employee),
                     ),
                   );
                 },
@@ -194,32 +192,28 @@ class _EmployeeColumn extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = AppColors.themeAccent(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _Avatar(name: name, pictureUrl: pictureUrl),
-          const Gap(4),
-          Text(
-            _shortName(name),
-            style: AppFonts.c2Tabbar.copyWith(
-              color: accent,
-              fontWeight: FontWeight.w600,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-          if (onMoreTap != null)
-            GestureDetector(
-              onTap: onMoreTap,
-              behavior: HitTestBehavior.opaque,
-              child: Icon(
-                Icons.more_horiz_rounded,
-                size: 16,
-                color: accent.withValues(alpha: 0.7),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _Avatar(name: name, pictureUrl: pictureUrl),
+              const Gap(4),
+              Text(
+                _shortName(name),
+                style: AppFonts.c2Tabbar.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
-            ),
+            ],
+          ),
+          _EmployeeMoreButton(onTap: onMoreTap),
         ],
       ),
     );
@@ -231,6 +225,37 @@ class _EmployeeColumn extends StatelessWidget {
     final last = parts[1];
     final initial = last.isNotEmpty ? '${last[0]}.' : '';
     return '${parts[0]} $initial'.trim();
+  }
+}
+
+class _EmployeeMoreButton extends StatelessWidget {
+  const _EmployeeMoreButton({this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = AppColors.themeAccent(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 40,
+        height: 18,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.secondaryDarkDark : AppColors.secondaryDark,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Icon(
+          Icons.more_horiz_rounded,
+          size: 16,
+          color: accent,
+        ),
+      ),
+    );
   }
 }
 
