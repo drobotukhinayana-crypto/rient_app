@@ -11,6 +11,17 @@ const workScheduleDayColumnWidth = 44.0;
 const workScheduleDayCellGap = 4.0;
 const workScheduleInactiveDayFill = Color(0xFFECEEF2);
 
+double workScheduleHorizontalOffsetForDayIndex(int dayIndex) {
+  return dayIndex * (workScheduleDayColumnWidth + workScheduleDayCellGap);
+}
+
+int workScheduleDayIndexInMonth(DateTime month, DateTime day) {
+  final days = daysOfMonth(month);
+  return days.indexWhere(
+    (d) => d.year == day.year && d.month == day.month && d.day == day.day,
+  );
+}
+
 const _rowHeight = 80.0;
 const _sidebarRadius = 20.0;
 
@@ -48,6 +59,52 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
     super.initState();
     _employeeVerticalController.addListener(_onEmployeeVerticalScrolled);
     _gridVerticalController.addListener(_onGridVerticalScrolled);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollGridToSelectedDate();
+    });
+  }
+
+  @override
+  void didUpdateWidget(WorkScheduleMonthGrid oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.month != widget.month ||
+        oldWidget.selectedDate != widget.selectedDate) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollGridToSelectedDate();
+      });
+    }
+  }
+
+  void _scrollGridToSelectedDate({int attempt = 0}) {
+    if (!mounted || attempt > 20) return;
+
+    final index = workScheduleDayIndexInMonth(
+      widget.month,
+      widget.selectedDate,
+    );
+    if (index < 0) return;
+
+    final targetOffset = workScheduleHorizontalOffsetForDayIndex(index);
+    final controller = widget.horizontalScrollController;
+
+    if (!controller.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _scrollGridToSelectedDate(attempt: attempt + 1),
+      );
+      return;
+    }
+
+    final position = controller.position;
+    final clamped = targetOffset.clamp(0.0, position.maxScrollExtent);
+    if ((position.pixels - clamped).abs() > 0.5) {
+      controller.jumpTo(clamped);
+    }
+
+    if (targetOffset > position.maxScrollExtent + 0.5) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _scrollGridToSelectedDate(attempt: attempt + 1),
+      );
+    }
   }
 
   @override
@@ -75,6 +132,10 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
     _syncingVerticalScroll = false;
   }
 
+  double _bottomScrollPadding(BuildContext context) {
+    return MediaQuery.paddingOf(context).bottom + 24;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -82,9 +143,10 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
     final monthDays = _monthDays;
     final tableWidth = monthDays.length * workScheduleDayColumnWidth +
         (monthDays.length - 1) * workScheduleDayCellGap;
+    final bottomScrollPadding = _bottomScrollPadding(context);
 
     return Padding(
-      padding: AppDecoration.padding16.copyWith(top: 12, bottom: 8),
+      padding: AppDecoration.padding16.copyWith(top: 12, bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -108,16 +170,26 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
               borderRadius: BorderRadius.circular(_sidebarRadius),
               child: ListView.builder(
                 controller: _employeeVerticalController,
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: EdgeInsets.only(
+                  top: 8,
+                  bottom: 8 + bottomScrollPadding,
+                ),
                 itemCount: widget.employees.length,
                 itemBuilder: (context, index) {
                   final employee = widget.employees[index];
-                  return SizedBox(
-                    height: _rowHeight,
-                    child: _EmployeeColumn(
-                      name: employee.name,
-                      pictureUrl: employee.pictureUrl,
-                      onMoreTap: () => widget.onEmployeeMoreTap?.call(employee),
+                  final isLast = index == widget.employees.length - 1;
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: isLast ? 0 : workScheduleDayCellGap,
+                    ),
+                    child: SizedBox(
+                      height: _rowHeight,
+                      child: _EmployeeColumn(
+                        name: employee.name,
+                        pictureUrl: employee.pictureUrl,
+                        onMoreTap: () =>
+                            widget.onEmployeeMoreTap?.call(employee),
+                      ),
                     ),
                   );
                 },
@@ -137,25 +209,28 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (final employee in widget.employees)
+                      for (var i = 0; i < widget.employees.length; i++)
                         Padding(
-                          padding:
-                              const EdgeInsets.only(bottom: workScheduleDayCellGap),
+                          padding: EdgeInsets.only(
+                            bottom: i < widget.employees.length - 1
+                                ? workScheduleDayCellGap
+                                : 0,
+                          ),
                           child: SizedBox(
                             height: _rowHeight,
                             child: Row(
                               children: [
-                                for (var i = 0; i < monthDays.length; i++) ...[
-                                  if (i > 0) const Gap(workScheduleDayCellGap),
+                                for (var j = 0; j < monthDays.length; j++) ...[
+                                  if (j > 0) const Gap(workScheduleDayCellGap),
                                   SizedBox(
                                     width: workScheduleDayColumnWidth,
                                     child: _DayCell(
-                                      cell: employee.monthCells[i],
+                                      cell: widget.employees[i].monthCells[j],
                                       onTap: widget.onCellTap == null
                                           ? null
                                           : () => widget.onCellTap!(
-                                              employee,
-                                              monthDays[i],
+                                              widget.employees[i],
+                                              monthDays[j],
                                             ),
                                     ),
                                   ),
@@ -164,7 +239,7 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
                             ),
                           ),
                         ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8 + bottomScrollPadding),
                     ],
                   ),
                 ),

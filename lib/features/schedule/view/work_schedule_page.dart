@@ -28,6 +28,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
   late ScrollController _datesHeaderScroll;
   late ScrollController _gridHorizontalScroll;
   bool _syncingHorizontalScroll = false;
+  bool _pendingHorizontalScrollToSelectedDate = true;
 
   WorkScheduleMonthQuery get _monthQuery => WorkScheduleMonthQuery(
         monthStart: _monthStart,
@@ -43,7 +44,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     _gridHorizontalScroll.addListener(_onGridHorizontalScrolled);
     _syncToNow();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToInitialDay();
+      _scrollToSelectedDate();
     });
   }
 
@@ -96,32 +97,54 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     ref.invalidate(workScheduleMonthProvider(_monthQuery));
   }
 
-  DateTime _initialScrollDate() {
+  DateTime _scrollTargetDateInMonth() {
+    final lastDay = daysInMonth(_monthStart);
+    if (_selectedDate.year == _monthStart.year &&
+        _selectedDate.month == _monthStart.month) {
+      final day = _selectedDate.day.clamp(1, lastDay);
+      return DateTime(_monthStart.year, _monthStart.month, day);
+    }
     final now = DateTime.now();
     if (now.year == _monthStart.year && now.month == _monthStart.month) {
       return DateTime(now.year, now.month, now.day);
     }
-    if (_selectedDate.year == _monthStart.year &&
-        _selectedDate.month == _monthStart.month) {
-      return _selectedDate;
-    }
     return DateTime(_monthStart.year, _monthStart.month, 1);
   }
 
-  void _scrollToInitialDay() {
-    final days = daysOfMonth(_monthStart);
-    final target = _initialScrollDate();
-    final index = days.indexWhere(
-      (d) =>
-          d.year == target.year &&
-          d.month == target.month &&
-          d.day == target.day,
-    );
-    if (index < 0) return;
+  void _requestScrollToSelectedDate() {
+    _pendingHorizontalScrollToSelectedDate = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToSelectedDate();
+    });
+  }
 
-    final offset = index * (workScheduleDayColumnWidth + workScheduleDayCellGap);
+  double? _horizontalOffsetForSelectedDate() {
+    final target = _scrollTargetDateInMonth();
+    final index = workScheduleDayIndexInMonth(_monthStart, target);
+    if (index < 0) return null;
+    return workScheduleHorizontalOffsetForDayIndex(index);
+  }
 
-    void applyScroll() {
+  bool _areHorizontalScrollsAligned(double targetOffset) {
+    for (final controller in [_datesHeaderScroll, _gridHorizontalScroll]) {
+      if (!controller.hasClients) return false;
+      final clamped =
+          targetOffset.clamp(0.0, controller.position.maxScrollExtent);
+      if ((controller.position.pixels - clamped).abs() > 0.5) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _scrollToSelectedDate({int attempt = 0}) {
+    if (!_pendingHorizontalScrollToSelectedDate || attempt > 20) return;
+
+    final offset = _horizontalOffsetForSelectedDate();
+    if (offset == null) return;
+
+    _syncingHorizontalScroll = true;
+    try {
       for (final controller in [_datesHeaderScroll, _gridHorizontalScroll]) {
         if (!controller.hasClients) continue;
         final position = controller.position;
@@ -130,13 +153,17 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
           controller.jumpTo(clamped);
         }
       }
+    } finally {
+      _syncingHorizontalScroll = false;
+    }
+
+    if (_areHorizontalScrollsAligned(offset)) {
+      _pendingHorizontalScrollToSelectedDate = false;
+      return;
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      applyScroll();
-      if (!_datesHeaderScroll.hasClients || !_gridHorizontalScroll.hasClients) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => applyScroll());
-      }
+      if (mounted) _scrollToSelectedDate(attempt: attempt + 1);
     });
   }
 
@@ -159,9 +186,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     });
     _invalidateMonth();
     ref.read(selectedScheduleDateProvider.notifier).state = _selectedDate;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToInitialDay();
-    });
+    _requestScrollToSelectedDate();
   }
 
   void _onDateSelected(DateTime date) {
@@ -170,6 +195,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     });
     _invalidateMonth();
     ref.read(selectedScheduleDateProvider.notifier).state = _selectedDate;
+    _requestScrollToSelectedDate();
   }
 
   Future<void> _onEmployeeMoreTap(WorkScheduleEmployeeRow employee) async {
@@ -228,14 +254,21 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
                   ),
                 ),
               ),
-              data: (employees) => WorkScheduleMonthGrid(
-                month: _monthStart,
-                employees: employees,
-                selectedDate: _selectedDate,
-                horizontalScrollController: _gridHorizontalScroll,
-                onCellTap: _onCellTap,
-                onEmployeeMoreTap: _onEmployeeMoreTap,
-              ),
+              data: (employees) {
+                if (_pendingHorizontalScrollToSelectedDate) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _scrollToSelectedDate();
+                  });
+                }
+                return WorkScheduleMonthGrid(
+                  month: _monthStart,
+                  employees: employees,
+                  selectedDate: _selectedDate,
+                  horizontalScrollController: _gridHorizontalScroll,
+                  onCellTap: _onCellTap,
+                  onEmployeeMoreTap: _onEmployeeMoreTap,
+                );
+              },
             ),
           ),
         ],
