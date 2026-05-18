@@ -13,6 +13,7 @@ import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/launch/launch_page.dart';
 import 'package:rient_app/features/link/view/link_page.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
+import 'package:rient_app/features/schedule/view/specialist_schedule_page.dart';
 import 'package:rient_app/features/schedule/view/work_schedule_page.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/tabbar/view/tab_bar_page.dart';
@@ -95,6 +96,25 @@ final GoRoute _scheduleTab = GoRoute(
         key: state.pageKey,
         child: const WorkSchedulePage(),
       ),
+      routes: [
+        GoRoute(
+          name: SpecialistSchedulePage.name,
+          path: SpecialistSchedulePage.path,
+          pageBuilder: (_, state) {
+            final extra = state.extra;
+            final args = extra is SpecialistSchedulePageArgs
+                ? extra
+                : const SpecialistSchedulePageArgs(
+                    employeeId: '',
+                    employeeName: 'Специалист',
+                  );
+            return MaterialPage(
+              key: state.pageKey,
+              child: SpecialistSchedulePage(args: args),
+            );
+          },
+        ),
+      ],
     ),
   ],
   pageBuilder: (_, state) =>

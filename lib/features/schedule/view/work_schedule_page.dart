@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_month_grid.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
+import 'package:rient_app/features/schedule/view/specialist_schedule_page.dart';
 
 class WorkSchedulePage extends ConsumerStatefulWidget {
   const WorkSchedulePage({super.key});
@@ -167,6 +169,17 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     ref.read(selectedScheduleDateProvider.notifier).state = _selectedDate;
   }
 
+  void _onEmployeeMoreTap(WorkScheduleEmployeeRow employee) {
+    context.pushNamed(
+      SpecialistSchedulePage.name,
+      extra: SpecialistSchedulePageArgs(
+        employeeId: employee.id,
+        employeeName: employee.name,
+        pictureUrl: employee.pictureUrl,
+      ),
+    );
+  }
+
   void _onCellTap(WorkScheduleEmployeeRow employee, DateTime date) {
     setState(() {
       _selectedDate = DateTime(date.year, date.month, date.day);
@@ -204,6 +217,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
               selectedDate: _selectedDate,
               horizontalScrollController: _gridHorizontalScroll,
               onCellTap: _onCellTap,
+              onEmployeeMoreTap: _onEmployeeMoreTap,
             ),
           ),
         ],
