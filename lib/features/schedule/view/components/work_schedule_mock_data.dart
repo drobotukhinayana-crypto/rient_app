@@ -5,6 +5,21 @@ enum WorkScheduleShiftTone { full, short }
 abstract final class WorkScheduleCellColors {
   static const dayOff = Color(0xFF4790AC);
   static const shift = Color(0xFF166BA1);
+
+  /// Приглушённый синий/бирюзовый для прошедших дней (как на вебе).
+  static Color get shiftPast => Color.lerp(shift, Colors.white, 0.48)!;
+
+  static Color get dayOffPast => Color.lerp(dayOff, Colors.white, 0.48)!;
+
+  static Color get dateHeaderPastFill =>
+      Color.lerp(shift, Colors.white, 0.72)!;
+}
+
+bool isPastWorkScheduleDate(DateTime date) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final normalized = DateTime(date.year, date.month, date.day);
+  return normalized.isBefore(today);
 }
 
 enum WorkScheduleCellKind { shift, dayOff }

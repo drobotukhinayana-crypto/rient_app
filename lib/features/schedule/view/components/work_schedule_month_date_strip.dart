@@ -86,8 +86,13 @@ class WorkScheduleDayHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = AppColors.themeAccent(context);
+    final isPast = isPastWorkScheduleDate(date);
     final circleFill = isSelected
         ? accent
+        : isPast
+        ? (isDark
+              ? Color.lerp(WorkScheduleCellColors.shift, Colors.black, 0.65)!
+              : WorkScheduleCellColors.dateHeaderPastFill)
         : (isDark
               ? AppColors.secondaryDarkDark
               : workScheduleInactiveDayFill);

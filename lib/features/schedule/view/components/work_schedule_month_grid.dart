@@ -225,6 +225,7 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
                                   SizedBox(
                                     width: workScheduleDayColumnWidth,
                                     child: _DayCell(
+                                      date: monthDays[j],
                                       cell: widget.employees[i].monthCells[j],
                                       onTap: widget.onCellTap == null
                                           ? null
@@ -370,20 +371,27 @@ class _Avatar extends StatelessWidget {
 }
 
 class _DayCell extends StatelessWidget {
-  const _DayCell({required this.cell, this.onTap});
+  const _DayCell({
+    required this.date,
+    required this.cell,
+    this.onTap,
+  });
 
+  final DateTime date;
   final WorkScheduleDayCell cell;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final accent = AppColors.themeAccent(context);
+    final isPast = isPastWorkScheduleDate(date);
 
     if (cell.kind == WorkScheduleCellKind.dayOff) {
       return _CellContainer(
         isSelected: false,
         accent: accent,
-        backgroundColor: WorkScheduleCellColors.dayOff,
+        backgroundColor:
+            isPast ? WorkScheduleCellColors.dayOffPast : WorkScheduleCellColors.dayOff,
         onTap: onTap,
         child: const Text('😴', style: TextStyle(fontSize: 16)),
       );
@@ -392,7 +400,8 @@ class _DayCell extends StatelessWidget {
     return _CellContainer(
       isSelected: cell.isSelected,
       accent: accent,
-      backgroundColor: WorkScheduleCellColors.shift,
+      backgroundColor:
+          isPast ? WorkScheduleCellColors.shiftPast : WorkScheduleCellColors.shift,
       onTap: onTap,
       child: Text(
         '${cell.timeStart}\n${cell.timeEnd}',
