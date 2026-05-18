@@ -7,6 +7,10 @@ import 'package:rient_app/core/widgets/main_button.dart';
 
 const _minuteStepValues = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 
+const _pickerItemExtent = 36.0;
+const _pickerHeight = 180.0;
+const _selectionBarHeight = 36.0;
+
 ({int hour, int minute}) _parseTime(String value) {
   final parts = value.split(':');
   final hour = int.tryParse(parts.first) ?? 0;
@@ -65,9 +69,9 @@ Future<String?> showChangeTimePicker(
             child: Container(
               decoration: BoxDecoration(
                 color: cardColor,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(20),
               ),
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -76,7 +80,7 @@ Future<String?> showChangeTimePicker(
                       Expanded(
                         child: Text(
                           'Изменить время',
-                          style: AppFonts.h3Medium.copyWith(color: titleColor),
+                          style: AppFonts.b1Semi.copyWith(color: titleColor),
                         ),
                       ),
                       GestureDetector(
@@ -84,34 +88,34 @@ Future<String?> showChangeTimePicker(
                         behavior: HitTestBehavior.opaque,
                         child: const Icon(
                           Icons.close,
-                          size: 22,
+                          size: 20,
                           color: AppColors.grey,
                         ),
                       ),
                     ],
                   ),
-                  const Gap(16),
+                  const Gap(12),
                   Container(
-                    height: 220,
+                    height: _pickerHeight,
                     decoration: BoxDecoration(
                       color: pickerBackground,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
                         IgnorePointer(
                           child: Container(
-                            height: 42,
-                            margin: const EdgeInsets.symmetric(horizontal: 10),
+                            height: _selectionBarHeight,
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
                             decoration: BoxDecoration(
                               color: selectionColor,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(10),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 1),
                                 ),
                               ],
                             ),
@@ -122,9 +126,9 @@ Future<String?> showChangeTimePicker(
                             Expanded(
                               child: CupertinoPicker(
                                 scrollController: hourController,
-                                itemExtent: 42,
-                                magnification: 1.08,
-                                squeeze: 1.05,
+                                itemExtent: _pickerItemExtent,
+                                magnification: 1.04,
+                                squeeze: 1.18,
                                 useMagnifier: true,
                                 selectionOverlay:
                                     const SizedBox.shrink(),
@@ -136,9 +140,8 @@ Future<String?> showChangeTimePicker(
                                   (index) => Center(
                                     child: Text(
                                       index.toString().padLeft(2, '0'),
-                                      style: AppFonts.h2Semi.copyWith(
+                                      style: AppFonts.h2Regular.copyWith(
                                         color: wheelColor,
-                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ),
@@ -148,9 +151,9 @@ Future<String?> showChangeTimePicker(
                             Expanded(
                               child: CupertinoPicker(
                                 scrollController: minuteController,
-                                itemExtent: 42,
-                                magnification: 1.08,
-                                squeeze: 1.05,
+                                itemExtent: _pickerItemExtent,
+                                magnification: 1.04,
+                                squeeze: 1.18,
                                 useMagnifier: true,
                                 selectionOverlay:
                                     const SizedBox.shrink(),
@@ -167,9 +170,8 @@ Future<String?> showChangeTimePicker(
                                       _minuteStepValues[index]
                                           .toString()
                                           .padLeft(2, '0'),
-                                      style: AppFonts.h2Semi.copyWith(
+                                      style: AppFonts.h2Regular.copyWith(
                                         color: wheelColor,
-                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ),
@@ -181,9 +183,10 @@ Future<String?> showChangeTimePicker(
                       ],
                     ),
                   ),
-                  const Gap(16),
+                  const Gap(12),
                   MainButton(
                     title: 'Сохранить',
+                    height: 44,
                     onTap: () => Navigator.of(dialogContext).pop(selectedTime),
                   ),
                 ],

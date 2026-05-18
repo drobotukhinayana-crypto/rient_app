@@ -100,6 +100,7 @@ final GoRoute _scheduleTab = GoRoute(
         GoRoute(
           name: SpecialistSchedulePage.name,
           path: SpecialistSchedulePage.path,
+          parentNavigatorKey: rootNavigatorKey,
           pageBuilder: (_, state) {
             final extra = state.extra;
             final args = extra is SpecialistSchedulePageArgs

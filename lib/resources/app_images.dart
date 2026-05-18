@@ -22,6 +22,7 @@ class AppImages {
   static const String closeBurger = 'assets/images/close_burger.png';
   static const String closeRounded = 'assets/images/close_rounded.png';
   static const String comment = 'assets/images/comment.png';
+  static const String empty = 'assets/images/empty.png';
   static const String eyeHideLine = 'assets/images/eye_hide_line.png';
   static const String eyeShowLine = 'assets/images/eye_show_line.png';
   static const String homeTab = 'assets/images/home_tab.png';
