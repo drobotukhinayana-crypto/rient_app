@@ -2,6 +2,7 @@
 class CreateWorkerScheduleRequest {
   const CreateWorkerScheduleRequest({
     required this.date,
+    required this.key,
     required this.timeStart,
     required this.timeEnd,
     required this.active,
@@ -15,6 +16,9 @@ class CreateWorkerScheduleRequest {
   });
 
   final String date;
+
+  /// Ключ субъекта, например `worker/3`.
+  final String key;
   final String timeStart;
   final String timeEnd;
   final bool active;
@@ -37,10 +41,11 @@ class CreateWorkerScheduleRequest {
     String? breakStart,
     String? breakEnd,
     bool auto = false,
-    String? captcha,
+    String captcha = 'dummy',
   }) {
     return CreateWorkerScheduleRequest(
       date: dateToApi(date),
+      key: workerScheduleKey(workerId),
       timeStart: timeToApi(timeStart),
       timeEnd: timeToApi(timeEnd),
       active: active,
@@ -53,6 +58,8 @@ class CreateWorkerScheduleRequest {
       captcha: captcha,
     );
   }
+
+  static String workerScheduleKey(int workerId) => 'worker/$workerId';
 
   static String dateToApi(DateTime date) {
     final y = date.year;
@@ -72,6 +79,7 @@ class CreateWorkerScheduleRequest {
   Map<String, dynamic> toJson() {
     return {
       'date': date,
+      'key': key,
       'time_start': timeStart,
       'time_end': timeEnd,
       'active': active,
@@ -81,7 +89,7 @@ class CreateWorkerScheduleRequest {
       'auto': auto,
       if (breakStart != null) 'break_start': breakStart,
       if (breakEnd != null) 'break_end': breakEnd,
-      if (captcha != null) 'captcha': captcha,
+      'captcha': captcha ?? 'dummy',
     };
   }
 }

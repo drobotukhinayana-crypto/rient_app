@@ -7,6 +7,14 @@ import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dar
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
 
 /// При дублях `wed`/`wen` или branch/worker — активный шаблон и больший id.
+bool _preferDailyScheduleItem(
+  ScheduleItemApi candidate,
+  ScheduleItemApi current,
+) {
+  if (candidate.auto != current.auto) return !candidate.auto;
+  return candidate.id > current.id;
+}
+
 bool preferSchedulePattern(
   SchedulePatternItemApi candidate,
   SchedulePatternItemApi current,
@@ -81,12 +89,18 @@ WorkScheduleDayCell workScheduleCellFromScheduleItem(
 }) {
   final manual = isManuallyEdited || (item != null && !item.auto);
   if (item == null || !item.active) {
-    return WorkScheduleDayCell.dayOff(isManuallyEdited: manual);
+    return _dayOffFromDaily(
+      item,
+      isManuallyEdited: manual,
+    );
   }
   final start = item.timeStartShort;
   final end = item.timeEndShort;
   if (start == null || end == null || start.isEmpty || end.isEmpty) {
-    return WorkScheduleDayCell.dayOff(isManuallyEdited: manual);
+    return _dayOffFromDaily(
+      item,
+      isManuallyEdited: manual,
+    );
   }
   final tone = item.hours >= 10
       ? WorkScheduleShiftTone.full
@@ -97,15 +111,19 @@ WorkScheduleDayCell workScheduleCellFromScheduleItem(
     tone: tone,
     isSelected: selected,
     isManuallyEdited: manual,
+    scheduleId: item.id,
+    breakStart: item.breakStartShort,
+    breakEnd: item.breakEndShort,
   );
 }
 
 WorkScheduleDayCell workScheduleCellFromPattern(
   SchedulePatternItemApi? pattern, {
   bool selected = false,
+  ScheduleItemApi? daily,
 }) {
   if (pattern == null || !pattern.active) {
-    return const WorkScheduleDayCell.dayOff();
+    return _dayOffFromDaily(daily);
   }
   final start = pattern.timeStartShort;
   final end = pattern.timeEndShort;
@@ -125,6 +143,21 @@ WorkScheduleDayCell workScheduleCellFromPattern(
     timeEnd: end,
     tone: tone,
     isSelected: selected,
+    scheduleId: daily?.id,
+    breakStart: daily?.breakStartShort,
+    breakEnd: daily?.breakEndShort,
+  );
+}
+
+WorkScheduleDayCell _dayOffFromDaily(
+  ScheduleItemApi? daily, {
+  bool isManuallyEdited = false,
+}) {
+  return WorkScheduleDayCell.dayOff(
+    isManuallyEdited: isManuallyEdited,
+    scheduleId: daily?.id,
+    breakStart: daily?.breakStartShort,
+    breakEnd: daily?.breakEndShort,
   );
 }
 
@@ -181,11 +214,12 @@ WorkScheduleDayCell _cellFromTemplate({
   required List<SchedulePatternItemApi> patterns,
   Map<String, dynamic>? workerRow,
   Map<String, dynamic>? configMap,
+  ScheduleItemApi? daily,
   bool selected = false,
 }) {
   if (_isShiftSchedule(configMap)) {
     if (!_isShiftWorkDay(date, configMap)) {
-      return const WorkScheduleDayCell.dayOff();
+      return _dayOffFromDaily(daily);
     }
     final start = _shortTimeFromDynamic(configMap?['time_start']) ?? '09:00';
     final end = _shortTimeFromDynamic(configMap?['time_end']) ?? '20:00';
@@ -199,12 +233,16 @@ WorkScheduleDayCell _cellFromTemplate({
           ? WorkScheduleShiftTone.full
           : WorkScheduleShiftTone.short,
       isSelected: selected,
+      scheduleId: daily?.id,
+      breakStart: daily?.breakStartShort,
+      breakEnd: daily?.breakEndShort,
     );
   }
 
   return workScheduleCellFromPattern(
     _patternForWeekday(patterns, date.weekday),
     selected: selected,
+    daily: daily,
   );
 }
 
@@ -243,7 +281,10 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
   for (final item in schedules) {
     final itemWorkerId = item.workerId;
     if (itemWorkerId != null && itemWorkerId != worker.id) continue;
-    byDate[item.date] = item;
+    final existing = byDate[item.date];
+    if (existing == null || _preferDailyScheduleItem(item, existing)) {
+      byDate[item.date] = item;
+    }
   }
 
   final firstName = worker.firstName?.trim() ?? '';
@@ -287,6 +328,7 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
                 return workScheduleCellFromPattern(
                   pattern,
                   selected: selected,
+                  daily: daily,
                 );
               }
             }
@@ -300,6 +342,7 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
             patterns: resolvedPatterns,
             workerRow: workerRow,
             configMap: configMap,
+            daily: daily,
             selected: selected,
           );
         }(),

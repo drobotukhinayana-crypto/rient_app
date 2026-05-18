@@ -30,12 +30,16 @@ bool isPastWorkScheduleDate(DateTime date) {
 enum WorkScheduleCellKind { shift, dayOff }
 
 class WorkScheduleDayCell {
-  const WorkScheduleDayCell.dayOff({this.isManuallyEdited = false})
-    : kind = WorkScheduleCellKind.dayOff,
-      timeStart = null,
-      timeEnd = null,
-      tone = WorkScheduleShiftTone.full,
-      isSelected = false;
+  const WorkScheduleDayCell.dayOff({
+    this.isManuallyEdited = false,
+    this.scheduleId,
+    this.breakStart,
+    this.breakEnd,
+  })  : kind = WorkScheduleCellKind.dayOff,
+        timeStart = null,
+        timeEnd = null,
+        tone = WorkScheduleShiftTone.full,
+        isSelected = false;
 
   const WorkScheduleDayCell.shift({
     required this.timeStart,
@@ -43,6 +47,9 @@ class WorkScheduleDayCell {
     this.tone = WorkScheduleShiftTone.full,
     this.isSelected = false,
     this.isManuallyEdited = false,
+    this.scheduleId,
+    this.breakStart,
+    this.breakEnd,
   }) : kind = WorkScheduleCellKind.shift;
 
   final WorkScheduleCellKind kind;
@@ -53,6 +60,11 @@ class WorkScheduleDayCell {
 
   /// День изменён вручную (`auto: false` в workers/.../schedules/).
   final bool isManuallyEdited;
+
+  /// Id записи PATCH, если день уже есть в `workers/.../schedules/`.
+  final int? scheduleId;
+  final String? breakStart;
+  final String? breakEnd;
 }
 
 class WorkScheduleEmployeeRow {

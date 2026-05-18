@@ -1,16 +1,21 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/schedule/data/models/schedules_api/create_worker_schedule_request.dart';
+import 'package:rient_app/features/schedule/view/components/work_schedule_day_edit_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_month_grid.dart';
 import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
+import 'package:rient_app/features/schedule/service/schedules_service.dart';
 import 'package:rient_app/features/schedule/view/specialist_schedule_page.dart';
 
 class WorkSchedulePage extends ConsumerStatefulWidget {
@@ -209,6 +214,171 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     _requestScrollToSelectedDate();
   }
 
+  WorkScheduleDayCell? _cellForDate(
+    WorkScheduleEmployeeRow employee,
+    DateTime date,
+  ) {
+    final index = workScheduleDayIndexInMonth(_monthStart, date);
+    if (index < 0 || index >= employee.monthCells.length) return null;
+    return employee.monthCells[index];
+  }
+
+  String? _extractApiErrorMessage(dynamic data, [String? fieldPrefix]) {
+    if (data == null) return null;
+    if (data is String && data.trim().isNotEmpty) {
+      final text = data.trim();
+      if (fieldPrefix != null) return '$fieldPrefix: $text';
+      return text;
+    }
+    if (data is List) {
+      for (final item in data) {
+        final message = _extractApiErrorMessage(item, fieldPrefix);
+        if (message != null) return message;
+      }
+      return null;
+    }
+    if (data is Map) {
+      for (final entry in data.entries) {
+        final key = entry.key.toString();
+        final prefix = fieldPrefix == null ? key : '$fieldPrefix.$key';
+        final message = _extractApiErrorMessage(entry.value, prefix);
+        if (message != null) return message;
+      }
+    }
+    return null;
+  }
+
+  String _saveDayErrorMessage(Object error) {
+    if (error is CustomException && error.causedError is DioException) {
+      final dio = error.causedError! as DioException;
+      final message = _extractApiErrorMessage(dio.response?.data);
+      if (message != null) return message;
+    }
+    return 'Не удалось сохранить день';
+  }
+
+  bool _isDuplicateScheduleDayError(Object error) {
+    if (error is! CustomException || error.causedError is! DioException) {
+      return false;
+    }
+    final message = _extractApiErrorMessage(
+      (error.causedError! as DioException).response?.data,
+    );
+    if (message == null) return false;
+    final lower = message.toLowerCase();
+    return lower.contains('уникальн') ||
+        lower.contains('unique') ||
+        lower.contains('key, date, branch');
+  }
+
+  Future<int?> _findScheduleIdForDate({
+    required int workerId,
+    required DateTime date,
+    required int branchId,
+  }) async {
+    final service = ref.read(schedulesServiceProvider);
+    final response = await service.getWorkerSchedules(
+      workerId: workerId,
+      dateGte: date,
+      dateLte: date,
+    );
+    final dateKey = SchedulesService.dateToApi(date);
+    final key = CreateWorkerScheduleRequest.workerScheduleKey(workerId);
+    for (final item in response.results) {
+      if (item.date == dateKey &&
+          item.branch == branchId &&
+          item.key == key) {
+        return item.id;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _saveWorkerScheduleDay({
+    required int workerId,
+    required int? scheduleId,
+    required DateTime date,
+    required int branchId,
+    required CreateWorkerScheduleRequest body,
+  }) async {
+    final service = ref.read(schedulesServiceProvider);
+    if (scheduleId != null) {
+      await service.updateWorkerSchedule(
+        workerId: workerId,
+        scheduleId: scheduleId,
+        body: body,
+      );
+      return;
+    }
+
+    try {
+      await service.createWorkerSchedule(workerId: workerId, body: body);
+    } catch (e) {
+      if (!_isDuplicateScheduleDayError(e)) rethrow;
+      final existingId = await _findScheduleIdForDate(
+        workerId: workerId,
+        date: date,
+        branchId: branchId,
+      );
+      if (existingId == null) rethrow;
+      await service.updateWorkerSchedule(
+        workerId: workerId,
+        scheduleId: existingId,
+        body: body,
+      );
+    }
+  }
+
+  Future<void> _onDayCellTap(
+    WorkScheduleEmployeeRow employee,
+    DateTime date,
+  ) async {
+    final cell = _cellForDate(employee, date);
+    if (cell == null) return;
+
+    final result = await showWorkScheduleDayEditDialog(
+      context,
+      cell: cell,
+    );
+    if (result == null || !mounted) return;
+
+    final workerId = int.tryParse(employee.id);
+    final branchId = ref.read(currentBranchIdProvider);
+    if (workerId == null || workerId <= 0 || branchId <= 0) return;
+
+    final normalizedDate = DateTime(date.year, date.month, date.day);
+    final fallbackStart = cell.timeStart ?? '09:00';
+    final fallbackEnd = cell.timeEnd ?? '20:00';
+    final body = CreateWorkerScheduleRequest.forWorker(
+      date: normalizedDate,
+      timeStart: result.isWorkingDay ? result.workStart : fallbackStart,
+      timeEnd: result.isWorkingDay ? result.workEnd : fallbackEnd,
+      active: result.isWorkingDay,
+      workerId: workerId,
+      branchId: branchId,
+      breakStart: result.isWorkingDay ? result.breakStart : null,
+      breakEnd: result.isWorkingDay ? result.breakEnd : null,
+      auto: false,
+    );
+
+    try {
+      await _saveWorkerScheduleDay(
+        workerId: workerId,
+        scheduleId: cell.scheduleId,
+        date: normalizedDate,
+        branchId: branchId,
+        body: body,
+      );
+      if (!mounted) return;
+      await _reloadWorkSchedule(employeeId: employee.id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_saveDayErrorMessage(e))),
+      );
+    }
+  }
+
   Future<void> _onEmployeeMoreTap(WorkScheduleEmployeeRow employee) async {
     try {
       await context.pushNamed<bool>(
@@ -228,6 +398,13 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
 
   @override
   Widget build(BuildContext context) {
+    final branchId = ref.watch(currentBranchIdProvider);
+
+    ref.listen<int>(currentBranchIdProvider, (previous, next) {
+      if (previous == null || previous == next || next <= 0) return;
+      unawaited(_reloadWorkSchedule());
+    });
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenBackground = isDark
         ? AppColors.secondaryDarkLight
@@ -266,12 +443,13 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
                   });
                 }
                 return WorkScheduleMonthGrid(
-                  key: ValueKey('work_grid_$_gridVersion'),
+                  key: ValueKey('work_grid_${branchId}_$_gridVersion'),
                   month: _monthStart,
                   employees: employees,
                   selectedDate: _today,
                   horizontalScrollController: _gridHorizontalScroll,
                   onEmployeeMoreTap: _onEmployeeMoreTap,
+                  onCellTap: _onDayCellTap,
                 );
               },
             ),
