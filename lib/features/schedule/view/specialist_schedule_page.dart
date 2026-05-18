@@ -77,6 +77,11 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
 
   int? get _workerId => int.tryParse(widget.args.employeeId);
 
+  static DateTime _dateOnly(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
+
+  DateTime get _today => _dateOnly(DateTime.now());
+
   SpecialistScheduleLoadQuery? get _loadQuery {
     final id = _workerId;
     if (id == null || id <= 0) return null;
@@ -94,7 +99,7 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
     _weekends = const [];
     _workDaysController = TextEditingController(text: '1');
     _offDaysController = TextEditingController(text: '1');
-    _shiftStartDate = DateTime.now();
+    _shiftStartDate = _today;
   }
 
   @override
@@ -111,15 +116,17 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
   }
 
   Future<void> _pickShiftStartDate() async {
-    final initial = _shiftStartDate ?? DateTime.now();
+    final today = _today;
+    final current = _shiftStartDate ?? today;
+    final initial = current.isBefore(today) ? today : current;
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
-      firstDate: DateTime(2000),
+      firstDate: today,
       lastDate: DateTime(2100),
     );
     if (picked == null || !mounted) return;
-    setState(() => _shiftStartDate = picked);
+    setState(() => _shiftStartDate = _dateOnly(picked));
   }
 
   bool get _isWeekSchedule => _scheduleType == 'Неделя';
@@ -136,7 +143,11 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
     _configUuid = form.configUuid;
     _workDaysController.text = form.workDays;
     _offDaysController.text = form.offDays;
-    _shiftStartDate = form.shiftStartDate ?? DateTime.now();
+    _shiftStartDate = form.scheduleTypeLabel == 'Смена'
+        ? _today
+        : (form.shiftStartDate != null
+            ? _dateOnly(form.shiftStartDate!)
+            : _today);
     _shiftWorkStart = form.shiftWorkStart;
     _shiftWorkEnd = form.shiftWorkEnd;
   }
@@ -440,7 +451,12 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
                 _ScheduleTypeRow(
                   value: _scheduleType,
                   options: _scheduleTypes,
-                  onChanged: (value) => setState(() => _scheduleType = value),
+                  onChanged: (value) => setState(() {
+                    _scheduleType = value;
+                    if (value == 'Смена') {
+                      _shiftStartDate = _today;
+                    }
+                  }),
                 ),
                 if (_isWeekSchedule) ...[
                   const Gap(12),
