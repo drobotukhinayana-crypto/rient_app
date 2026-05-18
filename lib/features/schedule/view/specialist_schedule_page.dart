@@ -295,24 +295,21 @@ class _SpecialistSchedulePageState extends State<SpecialistSchedulePage> {
               16,
               12 + MediaQuery.paddingOf(context).bottom,
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: MainButton(
-                    title: 'Отменить',
-                    color: isDark
-                        ? AppColors.secondaryDarkLight
-                        : AppColors.secondaryLight,
-                    textColor: accent,
-                    onTap: () => context.pop(),
-                  ),
+                MainButton(
+                  title: 'Отменить',
+                  color: isDark
+                      ? AppColors.secondaryDarkLight
+                      : AppColors.secondaryLight,
+                  textColor: accent,
+                  onTap: () => context.pop(),
                 ),
                 const Gap(12),
-                Expanded(
-                  child: MainButton(
-                    title: 'Сохранить',
-                    onTap: _onSave,
-                  ),
+                MainButton(
+                  title: 'Сохранить',
+                  onTap: _onSave,
                 ),
               ],
             ),
