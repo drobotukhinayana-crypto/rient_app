@@ -52,6 +52,10 @@ class DateStrip extends StatefulWidget {
     this.useMonthCalendarCircleFill = false,
     /// Дни недели (1=пн … 7=вс), когда у мастера смена; иначе кружок штрихуется.
     this.workingWeekdays,
+    /// График работы: все дни #ECEEF2, невыбранные — светлый текст, выбранный — тёмный.
+    this.workScheduleWeekDates = false,
+    /// Отступ слева, чтобы дни совпали с колонками сетки (колонка сотрудников).
+    this.leadingInset = 0,
   });
 
   /// Начальная выбранная дата (по умолчанию сегодня).
@@ -83,6 +87,12 @@ class DateStrip extends StatefulWidget {
 
   /// См. [DateStrip.workingWeekdays].
   final Set<int>? workingWeekdays;
+
+  final bool workScheduleWeekDates;
+
+  final double leadingInset;
+
+  static const _workScheduleCircleFill = Color(0xFFECEEF2);
 
   @override
   State<DateStrip> createState() => _DateStripState();
@@ -175,36 +185,52 @@ class _DateStripState extends State<DateStrip> {
           height: 72,
           child: Row(
             children: [
-              for (var i = 0; i < _dates.length; i++) ...[
-                if (i > 0) const SizedBox(width: 4),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: widget.onDateSelected != null
-                        ? () => widget.onDateSelected!(_dates[i])
-                        : null,
-                    child: _DateCircleItem(
-                      date: _dates[i],
-                      isSelected: _stateFor(_dates[i]) == _DayState.selected,
-                      showArc:
-                          _stateFor(_dates[i]) == _DayState.pastWithData &&
-                          _hasData(_dates[i]),
-                      size: _circleSize,
-                      useGreyCircles: widget.useGreyCircles,
-                      useMonthCalendarCircleFill:
-                          widget.useMonthCalendarCircleFill,
-                      isDark: Theme.of(context).brightness == Brightness.dark,
-                      occupancyPercent:
-                          widget.occupancyByDay
-                              ?.firstWhereOrNull(
-                                (element) => element.date.isSameDay(_dates[i]),
-                              )
-                              ?.occupancy ??
-                          0,
-                      isNonWorkingDay: _isNonWorkingDay(_dates[i]),
-                    ),
-                  ),
+              if (widget.leadingInset > 0)
+                SizedBox(width: widget.leadingInset),
+              Expanded(
+                child: Row(
+                  children: [
+                    for (var i = 0; i < _dates.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 4),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: widget.onDateSelected != null
+                              ? () => widget.onDateSelected!(_dates[i])
+                              : null,
+                          child: _DateCircleItem(
+                            date: _dates[i],
+                            isSelected:
+                                _stateFor(_dates[i]) == _DayState.selected,
+                            showArc:
+                                !widget.workScheduleWeekDates &&
+                                _stateFor(_dates[i]) ==
+                                    _DayState.pastWithData &&
+                                _hasData(_dates[i]),
+                            size: _circleSize,
+                            useGreyCircles: widget.useGreyCircles,
+                            useMonthCalendarCircleFill:
+                                widget.useMonthCalendarCircleFill,
+                            workScheduleWeekDates:
+                                widget.workScheduleWeekDates,
+                            isDark:
+                                Theme.of(context).brightness ==
+                                Brightness.dark,
+                            occupancyPercent:
+                                widget.occupancyByDay
+                                    ?.firstWhereOrNull(
+                                      (element) =>
+                                          element.date.isSameDay(_dates[i]),
+                                    )
+                                    ?.occupancy ??
+                                0,
+                            isNonWorkingDay: _isNonWorkingDay(_dates[i]),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
+              ),
             ],
           ),
         ),
@@ -231,6 +257,7 @@ class _DateCircleItem extends StatelessWidget {
     required this.size,
     required this.useGreyCircles,
     required this.useMonthCalendarCircleFill,
+    required this.workScheduleWeekDates,
     required this.isDark,
     this.isNonWorkingDay = false,
   });
@@ -242,13 +269,20 @@ class _DateCircleItem extends StatelessWidget {
   final double size;
   final bool useGreyCircles;
   final bool useMonthCalendarCircleFill;
+  final bool workScheduleWeekDates;
   final bool isDark;
   final bool isNonWorkingDay;
 
   @override
   Widget build(BuildContext context) {
     final weekdayShort = _weekdayShort[date.weekday - 1];
-    final unselectedFillColor = useMonthCalendarCircleFill
+    final accent = AppColors.themeAccentBrightness(
+      isDark ? Brightness.dark : Brightness.light,
+    );
+    final highlightCircle = isSelected;
+    final unselectedFillColor = workScheduleWeekDates
+        ? (isDark ? AppColors.secondaryDarkDark : DateStrip._workScheduleCircleFill)
+        : useMonthCalendarCircleFill
         ? (isDark ? AppColors.primaryWhiteDark : AppColors.primaryWhite)
         : (isDark
               ? AppColors.secondaryDarkDark
@@ -256,7 +290,11 @@ class _DateCircleItem extends StatelessWidget {
                     ? AppColors.secondaryDark
                     : AppColors.primaryWhite));
 
-    final dayNumberColor = isSelected
+    final dayNumberColor = workScheduleWeekDates
+        ? (highlightCircle
+              ? AppColors.primaryWhite
+              : (isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey))
+        : isSelected
         ? AppColors.primaryWhite
         : isNonWorkingDay
         ? (isDark ? AppColors.primaryDarkDark : AppColors.primaryDark)
@@ -264,10 +302,11 @@ class _DateCircleItem extends StatelessWidget {
         ? (showArc ? AppColors.primaryDarkDark : AppColors.tabbarGreyDark)
         : (showArc ? AppColors.primaryDark : AppColors.grey);
 
-    final accent = AppColors.themeAccentBrightness(
-      isDark ? Brightness.dark : Brightness.light,
-    );
-    final weekdayLabelColor = isSelected
+    final weekdayLabelColor = workScheduleWeekDates
+        ? (highlightCircle
+              ? accent
+              : (isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey))
+        : isSelected
         ? accent
         : (isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey);
 
@@ -279,12 +318,14 @@ class _DateCircleItem extends StatelessWidget {
           height: size,
           child: CustomPaint(
             painter: _DateCirclePainter(
-              isSelected: isSelected,
+              isSelected: highlightCircle,
               showArc: showArc,
               unselectedFillColor: unselectedFillColor,
               isDark: isDark,
               occupancyPercent: occupancyPercent,
               isNonWorkingDay: isNonWorkingDay,
+              keepCircleFillWhenSelected:
+                  workScheduleWeekDates && !highlightCircle,
             ),
             child: Center(
               child: Text(
@@ -312,6 +353,7 @@ class _DateCirclePainter extends CustomPainter {
     required this.isDark,
     required this.occupancyPercent,
     this.isNonWorkingDay = false,
+    this.keepCircleFillWhenSelected = false,
   });
 
   final bool isSelected;
@@ -320,6 +362,7 @@ class _DateCirclePainter extends CustomPainter {
   final bool isDark;
   final double occupancyPercent;
   final bool isNonWorkingDay;
+  final bool keepCircleFillWhenSelected;
   static const _arcStrokeWidth = 4.0;
 
   @override
@@ -330,12 +373,15 @@ class _DateCirclePainter extends CustomPainter {
     final selectedFill = AppColors.themeAccentBrightness(
       isDark ? Brightness.dark : Brightness.light,
     );
+    final circleFill = isSelected && !keepCircleFillWhenSelected
+        ? selectedFill
+        : unselectedFillColor;
     final bgPaint = Paint()
-      ..color = isSelected ? selectedFill : unselectedFillColor
+      ..color = circleFill
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius, bgPaint);
 
-    if (isSelected) {
+    if (isSelected && !keepCircleFillWhenSelected) {
       // Если есть данные или заполняемость
       if (showArc || occupancyPercent > 0) {
         // Базовая обводка выбранного дня — MainAccent (синий)
@@ -413,6 +459,7 @@ class _DateCirclePainter extends CustomPainter {
         oldDelegate.unselectedFillColor != unselectedFillColor ||
         oldDelegate.isDark != isDark ||
         oldDelegate.occupancyPercent != occupancyPercent ||
-        oldDelegate.isNonWorkingDay != isNonWorkingDay;
+        oldDelegate.isNonWorkingDay != isNonWorkingDay ||
+        oldDelegate.keepCircleFillWhenSelected != keepCircleFillWhenSelected;
   }
 }

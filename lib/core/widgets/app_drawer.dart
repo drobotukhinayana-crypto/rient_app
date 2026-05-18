@@ -11,7 +11,7 @@ import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/account_profile_provider.dart';
-import 'package:rient_app/features/schedule/view/schedule_page.dart';
+import 'package:rient_app/features/schedule/view/work_schedule_page.dart';
 import 'package:rient_app/resources/resources.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -165,7 +165,8 @@ class AppDrawer extends ConsumerWidget {
             _DrawerTile(
               iconAsset: AppImages.timeBurger,
               label: 'График работы',
-              onTap: () => closeThen(() => context.goNamed(SchedulePage.name)),
+              onTap: () =>
+                  closeThen(() => context.pushNamed(WorkSchedulePage.name)),
             ),
             Gap(5),
             _DrawerTile(

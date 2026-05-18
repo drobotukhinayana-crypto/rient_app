@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
@@ -11,6 +12,7 @@ import 'package:rient_app/features/schedule/view/components/date_strip.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_selector_pill.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
+import 'package:rient_app/features/schedule/view/components/work_schedule_month_date_strip.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_cell_interval_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -40,6 +42,19 @@ class TopPanel extends StatefulWidget {
     this.onDateSelected,
     this.showFullDateLabel = true,
     this.viewMode,
+    /// Заголовок как у расписания в режиме «День» без переключателя День/Неделя/Месяц и интервала.
+    this.scheduleDayHeaderOnly = false,
+    /// Заголовок недели: полоска дат + навигатор месяца, без переключателя режимов.
+    this.scheduleWeekHeaderOnly = false,
+    /// Заголовок графика работы: только навигатор месяца.
+    this.scheduleMonthHeaderOnly = false,
+    this.weekStart,
+    this.onWeekStartChanged,
+    this.monthStart,
+    this.onMonthStartChanged,
+    this.workScheduleDatesScrollController,
+    /// Кнопка «назад» вместо бургер-меню (для вложенных экранов).
+    this.showBackButton = false,
   });
 
   final String title;
@@ -91,6 +106,25 @@ class TopPanel extends StatefulWidget {
   /// Управляемый извне режим расписания (для синхронизации с родителем).
   final ViewMode? viewMode;
 
+  final bool scheduleDayHeaderOnly;
+
+  final bool scheduleWeekHeaderOnly;
+
+  final bool scheduleMonthHeaderOnly;
+
+  /// Понедельник видимой недели (для [scheduleWeekHeaderOnly]).
+  final DateTime? weekStart;
+
+  final ValueChanged<DateTime>? onWeekStartChanged;
+
+  final DateTime? monthStart;
+
+  final ValueChanged<DateTime>? onMonthStartChanged;
+
+  final ScrollController? workScheduleDatesScrollController;
+
+  final bool showBackButton;
+
   @override
   State<TopPanel> createState() => _TopPanelState();
 }
@@ -106,7 +140,20 @@ class _TopPanelState extends State<TopPanel> {
     if (widget.viewMode != null) {
       _viewMode = widget.viewMode!;
     }
-    _syncToToday();
+    if (widget.monthStart != null) {
+      _monthStart = DateTime(
+        widget.monthStart!.year,
+        widget.monthStart!.month,
+        1,
+      );
+    }
+    if (widget.weekStart != null) {
+      _applyWeekStart(widget.weekStart!);
+    } else if (widget.monthStart == null) {
+      _syncToToday();
+    } else {
+      _weekStart = _monthStart;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.onScheduleStateChanged?.call(_viewMode, _weekStart, _monthStart);
     });
@@ -118,16 +165,54 @@ class _TopPanelState extends State<TopPanel> {
     if (widget.viewMode != null && widget.viewMode != _viewMode) {
       _viewMode = widget.viewMode!;
     }
+    if (widget.weekStart != null && widget.weekStart != oldWidget.weekStart) {
+      _applyWeekStart(widget.weekStart!);
+    }
+    if (widget.monthStart != null && widget.monthStart != oldWidget.monthStart) {
+      _monthStart = DateTime(
+        widget.monthStart!.year,
+        widget.monthStart!.month,
+        1,
+      );
+    }
+  }
+
+  void _applyWeekStart(DateTime weekStart) {
+    _weekStart = DateTime(weekStart.year, weekStart.month, weekStart.day);
+    _monthStart = DateTime(_weekStart.year, _weekStart.month, 1);
   }
 
   void _syncToToday() {
     final now = DateTime.now();
     final weekday = now.weekday;
-    _weekStart = now.subtract(Duration(days: weekday - 1));
-    _monthStart = DateTime(now.year, now.month, 1);
+    _applyWeekStart(now.subtract(Duration(days: weekday - 1)));
+  }
+
+  void _shiftWeek(int days) {
+    setState(() {
+      _applyWeekStart(_weekStart.add(Duration(days: days)));
+    });
+    widget.onWeekStartChanged?.call(_weekStart);
+    widget.onScheduleStateChanged?.call(_viewMode, _weekStart, _monthStart);
+  }
+
+  void _shiftMonth(int delta) {
+    setState(() {
+      _monthStart = DateTime(_monthStart.year, _monthStart.month + delta, 1);
+    });
+    widget.onMonthStartChanged?.call(_monthStart);
+    widget.onScheduleStateChanged?.call(_viewMode, _weekStart, _monthStart);
   }
 
   void _goPrevious() {
+    if (widget.scheduleMonthHeaderOnly) {
+      _shiftMonth(-1);
+      return;
+    }
+    if (widget.scheduleWeekHeaderOnly) {
+      _shiftWeek(-7);
+      return;
+    }
     setState(() {
       if (_viewMode == ViewMode.week) {
         _weekStart = _weekStart.subtract(const Duration(days: 7));
@@ -139,6 +224,14 @@ class _TopPanelState extends State<TopPanel> {
   }
 
   void _goNext() {
+    if (widget.scheduleMonthHeaderOnly) {
+      _shiftMonth(1);
+      return;
+    }
+    if (widget.scheduleWeekHeaderOnly) {
+      _shiftWeek(7);
+      return;
+    }
     setState(() {
       if (_viewMode == ViewMode.week) {
         _weekStart = _weekStart.add(const Duration(days: 7));
@@ -154,9 +247,43 @@ class _TopPanelState extends State<TopPanel> {
     widget.onScheduleStateChanged?.call(_viewMode, _weekStart, _monthStart);
   }
 
+  Widget _buildDayDateStrip() {
+    return DateStrip(
+      initialDate: widget.scheduleSelectedDate ?? DateTime.now(),
+      selectedDate: widget.scheduleSelectedDate,
+      onDateSelected: widget.onScheduleDateSelected,
+      useGreyCircles: true,
+      occupancyByDay: widget.occupancyByDay,
+      showFullDateLabel: widget.showFullDateLabel,
+    );
+  }
+
+  Widget? _buildDaySpecialistSelector() {
+    if (!widget.showSpecialistSelector ||
+        widget.specialists == null ||
+        widget.specialists!.isEmpty ||
+        widget.specialists!.length >= 3) {
+      return null;
+    }
+    return SpecialistSelectorPill(
+      specialists: widget.specialists!,
+      initialSelected:
+          widget.initialSelectedSpecialist ?? widget.specialists!.first,
+      onSelected: widget.onSpecialistSelected,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dayHeaderOnly = widget.scheduleDayHeaderOnly;
+    final weekHeaderOnly = widget.scheduleWeekHeaderOnly;
+    final monthHeaderOnly = widget.scheduleMonthHeaderOnly;
+    final showScheduleControls = widget.showViewModeSwitcher &&
+        !dayHeaderOnly &&
+        !weekHeaderOnly &&
+        !monthHeaderOnly;
+    final daySpecialistSelector = _buildDaySpecialistSelector();
     return DefaultContainerWidget(
       borderRadius: BorderRadius.circular(24),
       hasShadow: false,
@@ -169,11 +296,23 @@ class _TopPanelState extends State<TopPanel> {
             children: [
               GestureDetector(
                 onTap: () {
-                  appShellScaffoldKey.currentState?.openDrawer();
+                  if (widget.showBackButton) {
+                    context.pop();
+                  } else {
+                    appShellScaffoldKey.currentState?.openDrawer();
+                  }
                 },
-                child: Image.asset(
-                  isDark ? AppImages.burgerDark : AppImages.burger,
-                ),
+                child: widget.showBackButton
+                    ? Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                        color: isDark
+                            ? AppColors.primaryWhite
+                            : AppColors.primaryDark,
+                      )
+                    : Image.asset(
+                        isDark ? AppImages.burgerDark : AppImages.burger,
+                      ),
               ),
               Gap(12),
               Text(widget.title, style: AppFonts.h3Medium),
@@ -181,7 +320,51 @@ class _TopPanelState extends State<TopPanel> {
               const ProfileSelectorPill(),
             ],
           ),
-          if (widget.showViewModeSwitcher) ...[
+          if (dayHeaderOnly) ...[
+            const Gap(12),
+            _buildDayDateStrip(),
+            if (daySpecialistSelector != null) ...[
+              const Gap(12),
+              daySpecialistSelector,
+            ],
+          ] else if (weekHeaderOnly) ...[
+            const Gap(12),
+            DateStrip(
+              initialDate: widget.scheduleSelectedDate ?? DateTime.now(),
+              selectedDate: widget.scheduleSelectedDate,
+              visibleWeekStart: _weekStart,
+              onDateSelected: widget.onScheduleDateSelected,
+              showFullDateLabel: false,
+              workScheduleWeekDates: true,
+            ),
+            const Gap(8),
+            DateRangeNavigator(
+              mode: DateNavigatorMode.week,
+              weekStart: _weekStart,
+              month: _monthStart,
+              onPrevious: _goPrevious,
+              onNext: _goNext,
+            ),
+          ] else if (monthHeaderOnly) ...[
+            const Gap(12),
+            if (widget.workScheduleDatesScrollController != null &&
+                widget.monthStart != null &&
+                widget.scheduleSelectedDate != null)
+              WorkScheduleMonthDateStrip(
+                month: widget.monthStart!,
+                selectedDate: widget.scheduleSelectedDate!,
+                scrollController: widget.workScheduleDatesScrollController!,
+                onDateSelected: widget.onScheduleDateSelected,
+              ),
+            const Gap(8),
+            DateRangeNavigator(
+              mode: DateNavigatorMode.month,
+              weekStart: _weekStart,
+              month: _monthStart,
+              onPrevious: _goPrevious,
+              onNext: _goNext,
+            ),
+          ] else if (showScheduleControls) ...[
             Gap(12),
             ViewModeSegmentedControl(
               value: _viewMode,
@@ -270,25 +453,10 @@ class _TopPanelState extends State<TopPanel> {
             if (_viewMode == ViewMode.week || _viewMode == ViewMode.month)
               Gap(8),
             if (_viewMode == ViewMode.day) ...[
-              DateStrip(
-                initialDate: widget.scheduleSelectedDate ?? DateTime.now(),
-                selectedDate: widget.scheduleSelectedDate,
-                onDateSelected: widget.onScheduleDateSelected,
-                useGreyCircles: true,
-                occupancyByDay: widget.occupancyByDay,
-              ),
-              if (widget.showSpecialistSelector &&
-                  widget.specialists != null &&
-                  widget.specialists!.isNotEmpty &&
-                  widget.specialists!.length < 3) ...[
-                Gap(12),
-                SpecialistSelectorPill(
-                  specialists: widget.specialists!,
-                  initialSelected:
-                      widget.initialSelectedSpecialist ??
-                      widget.specialists!.first,
-                  onSelected: widget.onSpecialistSelected,
-                ),
+              _buildDayDateStrip(),
+              if (daySpecialistSelector != null) ...[
+                const Gap(12),
+                daySpecialistSelector,
               ],
             ],
           ] else ...[
