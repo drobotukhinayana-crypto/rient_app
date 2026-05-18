@@ -4,8 +4,7 @@ enum WorkScheduleShiftTone { full, short }
 
 abstract final class WorkScheduleCellColors {
   static const dayOff = Color(0xFF4790AC);
-  static const shiftFull = Color(0xFF166BA1);
-  static const shiftShort = Color(0xFF5657AC);
+  static const shift = Color(0xFF166BA1);
 }
 
 enum WorkScheduleCellKind { shift, dayOff }
@@ -121,17 +120,3 @@ List<WorkScheduleEmployeeRow> mockWorkScheduleEmployeesForMonth(
   ];
 }
 
-({Color background, Color text}) shiftColors(WorkScheduleShiftTone tone) {
-  switch (tone) {
-    case WorkScheduleShiftTone.full:
-      return (
-        background: WorkScheduleCellColors.shiftFull,
-        text: Colors.white,
-      );
-    case WorkScheduleShiftTone.short:
-      return (
-        background: WorkScheduleCellColors.shiftShort,
-        text: Colors.white,
-      );
-  }
-}

@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
+import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mapper.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_patterns_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 
 class WorkScheduleMonthQuery {
@@ -47,9 +49,28 @@ final workScheduleMonthProvider =
 
   final workersResponse = await ref.watch(scheduleWorkersProvider.future);
   final schedulesService = ref.read(schedulesServiceProvider);
+  final workersService = ref.read(workersServiceProvider);
+
+  final patternsResponse = await ref.watch(
+    schedulePatternsProvider(
+      SchedulePatternsQuery(branchId: branchId),
+    ).future,
+  );
+  final patternsByWorker =
+      groupSchedulePatternsByWorker(patternsResponse.results);
+
+  final workerRows = await Future.wait(
+    workersResponse.results.map(
+      (worker) => workersService.getWorkerRow(
+        workerId: worker.id,
+        branchId: branchId,
+      ),
+    ),
+  );
 
   final rows = <WorkScheduleEmployeeRow>[];
-  for (final worker in workersResponse.results) {
+  for (var i = 0; i < workersResponse.results.length; i++) {
+    final worker = workersResponse.results[i];
     final schedules = await schedulesService.getWorkerSchedules(
       workerId: worker.id,
       dateGte: query.monthStart,
@@ -60,6 +81,8 @@ final workScheduleMonthProvider =
         worker: worker,
         monthStart: query.monthStart,
         schedules: schedules.results,
+        patterns: patternsByWorker[worker.id] ?? const [],
+        workerRow: workerRows[i],
         highlightedCellDate: query.highlightedCellDate,
       ),
     );

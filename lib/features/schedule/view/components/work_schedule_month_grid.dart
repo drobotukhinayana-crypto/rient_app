@@ -389,16 +389,15 @@ class _DayCell extends StatelessWidget {
       );
     }
 
-    final colors = shiftColors(cell.tone);
     return _CellContainer(
       isSelected: cell.isSelected,
       accent: accent,
-      backgroundColor: colors.background,
+      backgroundColor: WorkScheduleCellColors.shift,
       onTap: onTap,
       child: Text(
         '${cell.timeStart}\n${cell.timeEnd}',
         style: AppFonts.c2Tabbar.copyWith(
-          color: colors.text,
+          color: Colors.white,
           height: 1.1,
           fontSize: 9,
           fontWeight: FontWeight.w500,
