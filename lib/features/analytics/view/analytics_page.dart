@@ -10,10 +10,16 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/features/analytics/view/providers/analytics_statistics_provider.dart';
+import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/view/components/date_strip.dart';
-import 'package:rient_app/features/chat/view/components/messages_date_range_dialog.dart';
+import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
+import 'package:rient_app/core/widgets/date_range_picker_dialog.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
 const _monthNominative = [
@@ -32,6 +38,11 @@ const _monthNominative = [
 ];
 
 enum _AnalyticsFilterMode { month, singleDay, dateRange }
+
+const _allSpecialistsItem = SpecialistItem(
+  name: 'Все специалисты',
+  role: '',
+);
 
 class AnalyticsPage extends ConsumerStatefulWidget {
   const AnalyticsPage({super.key});
@@ -52,6 +63,8 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
   bool _generalExpanded = true;
   bool _workloadExpanded = true;
   bool _clientsExpanded = true;
+  bool _topServicesExpanded = true;
+  SpecialistItem _selectedSpecialist = _allSpecialistsItem;
 
   @override
   void initState() {
@@ -60,25 +73,31 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     _focusedMonth = DateTime(now.year, now.month, 1);
   }
 
-  /// С текущего месяца вперёд; если выбран прошлый месяц (календарь) — с него до +24 мес.
+  static const _monthsBeforeCurrent = 12;
+  static const _monthsAfterCurrent = 24;
+
+  static DateTime _addMonths(DateTime month, int delta) =>
+      DateTime(month.year, month.month + delta, 1);
+
+  /// 12 мес. назад от текущего, 24 вперёд; при выборе прошлого месяца — с него.
   List<DateTime> get _visibleMonths {
     final now = DateTime.now();
     final currentMonth = DateTime(now.year, now.month, 1);
     final focused = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
 
-    if (focused.isBefore(currentMonth)) {
-      final monthsUntilCurrent =
-          (currentMonth.year - focused.year) * 12 +
-          (currentMonth.month - focused.month);
-      final total = monthsUntilCurrent + 24;
-      return List.generate(total, (i) {
-        return DateTime(focused.year, focused.month + i, 1);
-      });
+    var start = _addMonths(currentMonth, -_monthsBeforeCurrent);
+    var end = _addMonths(currentMonth, _monthsAfterCurrent);
+
+    if (focused.isBefore(start)) {
+      start = focused;
+      end = _addMonths(focused, _monthsBeforeCurrent + _monthsAfterCurrent);
+    } else if (focused.isAfter(end)) {
+      end = _addMonths(focused, _monthsAfterCurrent);
     }
 
-    return List.generate(24, (i) {
-      return DateTime(currentMonth.year, currentMonth.month + i, 1);
-    });
+    final count =
+        (end.year - start.year) * 12 + (end.month - start.month) + 1;
+    return List.generate(count, (i) => _addMonths(start, i));
   }
 
   (DateTime start, DateTime end) get _queryRange {
@@ -115,10 +134,11 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
   }
 
   Future<void> _openCalendar() async {
-    final range = await MessagesDateRangeDialog.show(
+    final range = await AppDateRangePickerDialog.show(
       context,
-      initialStart: _rangeStart ?? _focusedMonth,
-      initialEnd: _rangeEnd ?? _rangeStart,
+      initialStart: _rangeStart,
+      initialEnd: _rangeEnd,
+      summaryPrefix: 'Будет показана аналитика за ',
     );
     if (!mounted || range == null) return;
     setState(() {
@@ -152,6 +172,41 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     });
   }
 
+  static String _workerDisplayName(WorkerApi worker) {
+    final name =
+        '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim();
+    return name.isEmpty ? 'Специалист' : name;
+  }
+
+  static List<SpecialistItem> _specialistsFromWorkers(List<WorkerApi> workers) {
+    return [
+      _allSpecialistsItem,
+      for (final worker in workers)
+        SpecialistItem(
+          name: _workerDisplayName(worker),
+          role: worker.specialization ?? '',
+          id: worker.id,
+          pictureUrl: worker.pictureThumbnail ?? worker.picture,
+        ),
+    ];
+  }
+
+  Future<void> _openSpecialistPicker(List<SpecialistItem> specialists) async {
+    if (specialists.isEmpty) return;
+    final initial = specialists.firstWhere(
+      (s) =>
+          s.id == _selectedSpecialist.id &&
+          s.name == _selectedSpecialist.name,
+      orElse: () => _allSpecialistsItem,
+    );
+    await SpecialistSelectDialog.show(
+      context,
+      specialists: specialists,
+      initialSelected: initial,
+      onSave: (selected) => setState(() => _selectedSpecialist = selected),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -159,8 +214,24 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
     final (start, end) = _queryRange;
+    final isWorkerRole = ref.watch(roleProvider) == UserRole.worker.value;
+    final branch = ref.watch(currentBranchProvider);
+    final branchName = branch?.name?.trim();
+    final branchLabel =
+        branchName != null && branchName.isNotEmpty ? 'Филиал $branchName' : '';
+    final workersAsync = ref.watch(scheduleWorkersProvider);
+    final specialists = workersAsync.maybeWhen(
+      data: (response) => _specialistsFromWorkers(response.results),
+      orElse: () => const [_allSpecialistsItem],
+    );
     final statsAsync = ref.watch(
-      analyticsStatisticsProvider(AnalyticsQuery(start: start, end: end)),
+      analyticsStatisticsProvider(
+        AnalyticsQuery(
+          start: start,
+          end: end,
+          workerId: isWorkerRole ? null : _selectedSpecialist.id,
+        ),
+      ),
     );
 
     return Scaffold(
@@ -188,6 +259,10 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
             },
             onCalendarTap: _openCalendar,
             onClearFilter: _clearDateFilter,
+            showSpecialistSelector: !isWorkerRole,
+            specialistTitle: _selectedSpecialist.name,
+            branchLabel: branchLabel,
+            onSpecialistTap: () => _openSpecialistPicker(specialists),
           ),
           Expanded(
             child: statsAsync.when(
@@ -198,6 +273,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 generalExpanded: _generalExpanded,
                 workloadExpanded: _workloadExpanded,
                 clientsExpanded: _clientsExpanded,
+                topServicesExpanded: _topServicesExpanded,
                 formatMoney: _formatMoney,
                 onGeneralToggle: () =>
                     setState(() => _generalExpanded = !_generalExpanded),
@@ -205,6 +281,9 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                     setState(() => _workloadExpanded = !_workloadExpanded),
                 onClientsToggle: () =>
                     setState(() => _clientsExpanded = !_clientsExpanded),
+                onTopServicesToggle: () => setState(
+                  () => _topServicesExpanded = !_topServicesExpanded,
+                ),
               ),
               data: (stats) => _AnalyticsContent(
                 isDark: isDark,
@@ -217,6 +296,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 generalExpanded: _generalExpanded,
                 workloadExpanded: _workloadExpanded,
                 clientsExpanded: _clientsExpanded,
+                topServicesExpanded: _topServicesExpanded,
                 formatMoney: _formatMoney,
                 onGeneralToggle: () =>
                     setState(() => _generalExpanded = !_generalExpanded),
@@ -224,6 +304,9 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                     setState(() => _workloadExpanded = !_workloadExpanded),
                 onClientsToggle: () =>
                     setState(() => _clientsExpanded = !_clientsExpanded),
+                onTopServicesToggle: () => setState(
+                  () => _topServicesExpanded = !_topServicesExpanded,
+                ),
               ),
             ),
           ),
@@ -249,6 +332,7 @@ class _AnalyticsViewData {
     required this.singleDayLoad,
     required this.singleDayLabel,
     required this.showPeriodWorkload,
+    required this.topServices,
   });
 
   final int fillRatePercent;
@@ -265,6 +349,52 @@ class _AnalyticsViewData {
   final double? singleDayLoad;
   final String? singleDayLabel;
   final bool showPeriodWorkload;
+  final List<({String name, int count})> topServices;
+
+  static List<({String name, int count})> _buildTopServices(
+    Statistics stats,
+    DateTime start,
+    DateTime end,
+  ) {
+    final aggregated = <String, int>{};
+    for (final item in stats.servicesByDay) {
+      final parts = item.date.split('-');
+      if (parts.length < 3) continue;
+      final d = DateTime(
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+        int.parse(parts[2]),
+      );
+      if (!d.isBefore(start) && !d.isAfter(end)) {
+        for (final entry in item.services.entries) {
+          aggregated[entry.key] = (aggregated[entry.key] ?? 0) + entry.value;
+        }
+      }
+    }
+    if (aggregated.isEmpty) {
+      aggregated.addAll(stats.services);
+    }
+
+    final sorted = aggregated.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return sorted
+        .take(10)
+        .map((e) => (name: e.key, count: e.value))
+        .toList();
+  }
+
+  static List<({String name, int count})> _mockTopServices() => const [
+    (name: 'Маникюр', count: 42),
+    (name: 'Педикюр', count: 38),
+    (name: 'Стрижка', count: 31),
+    (name: 'Окрашивание', count: 24),
+    (name: 'Укладка', count: 19),
+    (name: 'Брови', count: 15),
+    (name: 'Ресницы', count: 12),
+    (name: 'Массаж', count: 9),
+    (name: 'Чистка лица', count: 7),
+    (name: 'SPA-уход', count: 5),
+  ];
 
   static DateTime _weekMonday(DateTime date) {
     final d = DateTime(date.year, date.month, date.day);
@@ -406,6 +536,7 @@ class _AnalyticsViewData {
           ? 'Загруженность ${_formatDayLabel(start)}'
           : null,
       showPeriodWorkload: isDateRange,
+      topServices: _buildTopServices(stats, start, end),
     );
   }
 
@@ -463,6 +594,7 @@ class _AnalyticsViewData {
           ? 'Загруженность ${_formatDayLabel(start)}'
           : null,
       showPeriodWorkload: isDateRange,
+      topServices: _mockTopServices(),
     );
   }
 }
@@ -507,10 +639,18 @@ class _AnalyticsHeader extends StatelessWidget {
     required this.onMonthSelected,
     required this.onCalendarTap,
     required this.onClearFilter,
+    required this.showSpecialistSelector,
+    required this.specialistTitle,
+    required this.branchLabel,
+    required this.onSpecialistTap,
   });
 
   final bool isDark;
   final VoidCallback onBack;
+  final bool showSpecialistSelector;
+  final String specialistTitle;
+  final String branchLabel;
+  final VoidCallback onSpecialistTap;
   final _AnalyticsFilterMode filterMode;
   final DateTime focusedMonth;
   final DateTime? rangeStart;
@@ -694,7 +834,77 @@ class _AnalyticsHeader extends StatelessWidget {
               ),
             ],
           ),
+          if (showSpecialistSelector) ...[
+            const Gap(12),
+            _AnalyticsSpecialistSelector(
+              isDark: isDark,
+              title: specialistTitle,
+              branchLabel: branchLabel,
+              onTap: onSpecialistTap,
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _AnalyticsSpecialistSelector extends StatelessWidget {
+  const _AnalyticsSpecialistSelector({
+    required this.isDark,
+    required this.title,
+    required this.branchLabel,
+    required this.onTap,
+  });
+
+  final bool isDark;
+  final String title;
+  final String branchLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final surface = isDark
+        ? AppColors.secondaryDarkLight
+        : AppColors.secondaryLight;
+    final primaryText =
+        isDark ? AppColors.primaryWhite : AppColors.primaryDark;
+    final secondaryText =
+        isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey;
+    final accent = AppColors.themeAccent(context);
+
+    return Material(
+      color: surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppFonts.b2Medium.copyWith(color: primaryText),
+                    ),
+                    if (branchLabel.isNotEmpty) ...[
+                      const Gap(2),
+                      Text(
+                        branchLabel,
+                        style: AppFonts.c2Tabbar.copyWith(color: secondaryText),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Icon(Icons.keyboard_arrow_down_rounded, color: accent, size: 24),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -722,6 +932,11 @@ class _MonthStrip extends StatefulWidget {
 }
 
 class _MonthStripState extends State<_MonthStrip> {
+  static const _separatorWidth = 20.0;
+  static const _horizontalPadding = 16.0;
+  /// Приблизительная ширина «Сентябрь, 2026» — для начального offset до layout.
+  static const _estimatedMonthItemWidth = 92.0;
+
   late final ScrollController _scrollController;
   late List<GlobalKey> _itemKeys;
 
@@ -729,7 +944,11 @@ class _MonthStripState extends State<_MonthStrip> {
   void initState() {
     super.initState();
     _itemKeys = _keysFor(widget.months.length);
-    _scrollController = ScrollController();
+    final index = _focusedIndex;
+    final initialOffset = index > 0
+        ? index * (_estimatedMonthItemWidth + _separatorWidth)
+        : 0.0;
+    _scrollController = ScrollController(initialScrollOffset: initialOffset);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToFocused());
   }
 
@@ -805,31 +1024,32 @@ class _MonthStripState extends State<_MonthStrip> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
+    return SingleChildScrollView(
       controller: _scrollController,
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: widget.months.length,
-      separatorBuilder: (_, __) => const Gap(20),
-      itemBuilder: (context, index) {
-        final month = widget.months[index];
-        final selected = index == _focusedIndex;
-        return KeyedSubtree(
-          key: _itemKeys[index],
-          child: GestureDetector(
-            onTap: () => widget.onMonthSelected(month),
-            behavior: HitTestBehavior.opaque,
-            child: Center(
-              child: Text(
-                widget.formatMonthLabel(month),
-                style: AppFonts.b2Medium.copyWith(
-                  color: selected ? widget.selectedColor : widget.inactiveColor,
+      padding: const EdgeInsets.symmetric(horizontal: _horizontalPadding),
+      child: Row(
+        children: [
+          for (var index = 0; index < widget.months.length; index++) ...[
+            if (index > 0) const Gap(_separatorWidth),
+            KeyedSubtree(
+              key: _itemKeys[index],
+              child: GestureDetector(
+                onTap: () => widget.onMonthSelected(widget.months[index]),
+                behavior: HitTestBehavior.opaque,
+                child: Text(
+                  widget.formatMonthLabel(widget.months[index]),
+                  style: AppFonts.b2Medium.copyWith(
+                    color: index == _focusedIndex
+                        ? widget.selectedColor
+                        : widget.inactiveColor,
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ],
+      ),
     );
   }
 }
@@ -841,10 +1061,12 @@ class _AnalyticsContent extends StatelessWidget {
     required this.generalExpanded,
     required this.workloadExpanded,
     required this.clientsExpanded,
+    required this.topServicesExpanded,
     required this.formatMoney,
     required this.onGeneralToggle,
     required this.onWorkloadToggle,
     required this.onClientsToggle,
+    required this.onTopServicesToggle,
   });
 
   final bool isDark;
@@ -852,10 +1074,12 @@ class _AnalyticsContent extends StatelessWidget {
   final bool generalExpanded;
   final bool workloadExpanded;
   final bool clientsExpanded;
+  final bool topServicesExpanded;
   final String Function(double) formatMoney;
   final VoidCallback onGeneralToggle;
   final VoidCallback onWorkloadToggle;
   final VoidCallback onClientsToggle;
+  final VoidCallback onTopServicesToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -1012,6 +1236,33 @@ class _AnalyticsContent extends StatelessWidget {
               ],
             ),
           ),
+          const Gap(32),
+          _AnalyticsSection(
+            title: 'Топ 10 услуг',
+            expanded: topServicesExpanded,
+            accent: accent,
+            labelColor: labelColor,
+            onToggle: onTopServicesToggle,
+            child: data.topServices.isEmpty
+                ? Text(
+                    'Нет данных об услугах',
+                    style: AppFonts.b2Medium.copyWith(color: labelColor),
+                  )
+                : Column(
+                    children: [
+                      for (var i = 0; i < data.topServices.length; i++) ...[
+                        if (i > 0) const Gap(10),
+                        _TopServiceRowCard(
+                          rank: i + 1,
+                          name: data.topServices[i].name,
+                          cardColor: cardColor,
+                          labelColor: labelColor,
+                          accent: accent,
+                        ),
+                      ],
+                    ],
+                  ),
+          ),
         ],
       ),
     );
@@ -1071,6 +1322,49 @@ class _AnalyticsSection extends StatelessWidget {
         const Gap(12),
         child,
       ],
+    );
+  }
+}
+
+class _TopServiceRowCard extends StatelessWidget {
+  const _TopServiceRowCard({
+    required this.rank,
+    required this.name,
+    required this.cardColor,
+    required this.labelColor,
+    required this.accent,
+  });
+
+  final int rank;
+  final String name;
+  final Color cardColor;
+  final Color labelColor;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultContainerWidget(
+      color: cardColor,
+      hasShadow: false,
+      borderRadius: BorderRadius.circular(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 24,
+            child: Text(
+              '$rank',
+              style: AppFonts.b2Medium.copyWith(color: accent),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              name,
+              style: AppFonts.b2Medium.copyWith(color: labelColor),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -7,21 +7,29 @@ import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
 
 class AnalyticsQuery {
-  const AnalyticsQuery({required this.start, required this.end});
+  const AnalyticsQuery({
+    required this.start,
+    required this.end,
+    this.workerId,
+  });
 
   final DateTime start;
   final DateTime end;
+
+  /// `null` — все специалисты филиала (только для ролей с доступом).
+  final int? workerId;
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is AnalyticsQuery &&
         other.start == start &&
-        other.end == end;
+        other.end == end &&
+        other.workerId == workerId;
   }
 
   @override
-  int get hashCode => Object.hash(start, end);
+  int get hashCode => Object.hash(start, end, workerId);
 }
 
 final analyticsStatisticsProvider =
@@ -32,11 +40,14 @@ final analyticsStatisticsProvider =
   }
 
   final roleId = ref.watch(roleProvider);
-  final workerId = roleId == UserRole.worker.value
-      ? await ref.watch(currentWorkerIdProvider.future)
-      : null;
-  if (roleId == UserRole.worker.value && (workerId == null || workerId <= 0)) {
-    throw Exception('Не найден worker.id в accounts');
+  final int? workerId;
+  if (roleId == UserRole.worker.value) {
+    workerId = await ref.watch(currentWorkerIdProvider.future);
+    if (workerId == null || workerId <= 0) {
+      throw Exception('Не найден worker.id в accounts');
+    }
+  } else {
+    workerId = query.workerId;
   }
 
   return ref.read(statisticsServiceProvider).getStatistics(

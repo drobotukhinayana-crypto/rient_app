@@ -6,7 +6,7 @@ import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/chat/view/components/message_notification_card.dart';
-import 'package:rient_app/features/chat/view/components/messages_date_range_dialog.dart';
+import 'package:rient_app/core/widgets/date_range_picker_dialog.dart';
 import 'package:rient_app/features/chat/view/components/message_notification_item.dart';
 import 'package:rient_app/features/chat/view/components/messages_filter_segment.dart';
 import 'package:rient_app/features/chat/view/components/messages_mock_data.dart';
@@ -27,7 +27,7 @@ class _ChatPageState extends State<ChatPage> {
   MessagesFilter _filter = MessagesFilter.unread;
   late List<MessageNotificationItem> _unread;
   late List<MessageNotificationItem> _read;
-  MessagesDateRange? _dateRange;
+  AppDateRangePickerResult? _dateRange;
 
   @override
   void initState() {
@@ -70,7 +70,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _openDateRangeDialog() async {
-    final range = await MessagesDateRangeDialog.show(
+    final range = await AppDateRangePickerDialog.show(
       context,
       initialStart: _dateRange?.start,
       initialEnd: _dateRange?.end,

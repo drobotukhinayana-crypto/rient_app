@@ -167,11 +167,13 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
                             onTap: () => setState(() => _selected = s),
                             child: Row(
                               children: [
-                                _SpecialistAvatarSmall(
-                                  pictureUrl: s.pictureUrl,
-                                  name: s.name,
-                                ),
-                                Gap(6),
+                                if (s.id != null) ...[
+                                  _SpecialistAvatarSmall(
+                                    pictureUrl: s.pictureUrl,
+                                    name: s.name,
+                                  ),
+                                  const Gap(6),
+                                ],
                                 Text(
                                   s.name,
                                   style: AppFonts.c1Regular.copyWith(
