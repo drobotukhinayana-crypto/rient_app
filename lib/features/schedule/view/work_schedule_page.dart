@@ -442,14 +442,17 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
                     if (mounted) _scrollToSelectedDate();
                   });
                 }
-                return WorkScheduleMonthGrid(
-                  key: ValueKey('work_grid_${branchId}_$_gridVersion'),
-                  month: _monthStart,
-                  employees: employees,
-                  selectedDate: _today,
-                  horizontalScrollController: _gridHorizontalScroll,
-                  onEmployeeMoreTap: _onEmployeeMoreTap,
-                  onCellTap: _onDayCellTap,
+                return Align(
+                  alignment: Alignment.topCenter,
+                  child: WorkScheduleMonthGrid(
+                    key: ValueKey('work_grid_${branchId}_$_gridVersion'),
+                    month: _monthStart,
+                    employees: employees,
+                    selectedDate: _today,
+                    horizontalScrollController: _gridHorizontalScroll,
+                    onEmployeeMoreTap: _onEmployeeMoreTap,
+                    onCellTap: _onDayCellTap,
+                  ),
                 );
               },
             ),

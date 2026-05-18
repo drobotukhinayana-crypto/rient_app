@@ -136,10 +136,156 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
     return MediaQuery.paddingOf(context).bottom + 24;
   }
 
+  double _rowsHeight(int employeeCount) {
+    if (employeeCount <= 0) return 0;
+    return employeeCount * _rowHeight +
+        (employeeCount - 1) * workScheduleDayCellGap;
+  }
+
+  /// Высота белого блока по числу строк (без лишнего запаса снизу).
+  double _gridContentHeight(int employeeCount, {double extraBottom = 0}) {
+    if (employeeCount <= 0) return 0;
+    return 16 + _rowsHeight(employeeCount) + extraBottom;
+  }
+
+  Widget _employeeRow(int index) {
+    final employee = widget.employees[index];
+    final isLast = index == widget.employees.length - 1;
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : workScheduleDayCellGap),
+      child: SizedBox(
+        height: _rowHeight,
+        child: _EmployeeColumn(
+          name: employee.name,
+          pictureUrl: employee.pictureUrl,
+          onMoreTap: () => widget.onEmployeeMoreTap?.call(employee),
+        ),
+      ),
+    );
+  }
+
+  Widget _scheduleRow(int rowIndex, List<DateTime> monthDays) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: rowIndex < widget.employees.length - 1
+            ? workScheduleDayCellGap
+            : 0,
+      ),
+      child: SizedBox(
+        height: _rowHeight,
+        child: Row(
+          children: [
+            for (var j = 0; j < monthDays.length; j++) ...[
+              if (j > 0) const Gap(workScheduleDayCellGap),
+              SizedBox(
+                width: workScheduleDayColumnWidth,
+                child: _DayCell(
+                  date: monthDays[j],
+                  cell: widget.employees[rowIndex].monthCells[j],
+                  onTap: widget.onCellTap == null
+                      ? null
+                      : () => widget.onCellTap!(
+                            widget.employees[rowIndex],
+                            monthDays[j],
+                          ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _scheduleTable(
+    List<DateTime> monthDays,
+    double tableWidth, {
+    required bool scrollVertically,
+    required double bottomInset,
+  }) {
+    final rows = [
+      for (var i = 0; i < widget.employees.length; i++)
+        _scheduleRow(i, monthDays),
+      if (scrollVertically) SizedBox(height: 8 + bottomInset),
+    ];
+
+    final table = SizedBox(
+      width: tableWidth,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: rows,
+      ),
+    );
+
+    final horizontal = SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      controller: widget.horizontalScrollController,
+      child: table,
+    );
+
+    if (!scrollVertically) return horizontal;
+
+    return SingleChildScrollView(
+      controller: _gridVerticalController,
+      child: horizontal,
+    );
+  }
+
+  BoxDecoration _sidebarDecoration(bool isDark) {
+    return BoxDecoration(
+      color: isDark ? AppColors.primaryWhiteDark : Colors.white,
+      borderRadius: BorderRadius.circular(_sidebarRadius),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+          blurRadius: 12,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );
+  }
+
+  Widget _employeeSidebar({
+    required bool isDark,
+    required double height,
+    required bool scrollVertically,
+    required double bottomInset,
+  }) {
+    final clip = ClipRRect(
+      borderRadius: BorderRadius.circular(_sidebarRadius),
+      child: scrollVertically
+          ? ListView.builder(
+              controller: _employeeVerticalController,
+              padding: EdgeInsets.only(top: 8, bottom: 8 + bottomInset),
+              itemCount: widget.employees.length,
+              itemBuilder: (context, index) => _employeeRow(index),
+            )
+          : Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < widget.employees.length; i++)
+                    _employeeRow(i),
+                ],
+              ),
+            ),
+    );
+
+    return SizedBox(
+      width: workScheduleEmployeeColumnWidth,
+      height: height,
+      child: Container(
+        decoration: _sidebarDecoration(isDark),
+        child: clip,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sidebarColor = isDark ? AppColors.primaryWhiteDark : Colors.white;
     final monthDays = _monthDays;
     final tableWidth = monthDays.length * workScheduleDayColumnWidth +
         (monthDays.length - 1) * workScheduleDayCellGap;
@@ -147,107 +293,44 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
 
     return Padding(
       padding: AppDecoration.padding16.copyWith(top: 12, bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: workScheduleEmployeeColumnWidth,
-            child: Container(
-            decoration: BoxDecoration(
-              color: sidebarColor,
-              borderRadius: BorderRadius.circular(_sidebarRadius),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: isDark ? 0.25 : 0.06,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxHeight = constraints.maxHeight;
+          final compactHeight =
+              _gridContentHeight(widget.employees.length);
+          final scrollVertically = compactHeight > maxHeight;
+          final gridHeight =
+              scrollVertically ? maxHeight : compactHeight;
+          final bottomInset =
+              scrollVertically ? bottomScrollPadding : 0.0;
+
+          return SizedBox(
+            height: gridHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _employeeSidebar(
+                  isDark: isDark,
+                  height: gridHeight,
+                  scrollVertically: scrollVertically,
+                  bottomInset: bottomInset,
+                ),
+                const Gap(workScheduleEmployeeToGridGap),
+                Expanded(
+                  child: SizedBox(
+                    height: gridHeight,
+                    child: _scheduleTable(
+                      monthDays,
+                      tableWidth,
+                      scrollVertically: scrollVertically,
+                      bottomInset: bottomInset,
+                    ),
                   ),
-                  blurRadius: 12,
-                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(_sidebarRadius),
-              child: ListView.builder(
-                controller: _employeeVerticalController,
-                padding: EdgeInsets.only(
-                  top: 8,
-                  bottom: 8 + bottomScrollPadding,
-                ),
-                itemCount: widget.employees.length,
-                itemBuilder: (context, index) {
-                  final employee = widget.employees[index];
-                  final isLast = index == widget.employees.length - 1;
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      bottom: isLast ? 0 : workScheduleDayCellGap,
-                    ),
-                    child: SizedBox(
-                      height: _rowHeight,
-                      child: _EmployeeColumn(
-                        name: employee.name,
-                        pictureUrl: employee.pictureUrl,
-                        onMoreTap: () =>
-                            widget.onEmployeeMoreTap?.call(employee),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            ),
-          ),
-          const Gap(workScheduleEmployeeToGridGap),
-          Expanded(
-            child: SingleChildScrollView(
-              controller: _gridVerticalController,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                controller: widget.horizontalScrollController,
-                child: SizedBox(
-                  width: tableWidth,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (var i = 0; i < widget.employees.length; i++)
-                        Padding(
-                          padding: EdgeInsets.only(
-                            bottom: i < widget.employees.length - 1
-                                ? workScheduleDayCellGap
-                                : 0,
-                          ),
-                          child: SizedBox(
-                            height: _rowHeight,
-                            child: Row(
-                              children: [
-                                for (var j = 0; j < monthDays.length; j++) ...[
-                                  if (j > 0) const Gap(workScheduleDayCellGap),
-                                  SizedBox(
-                                    width: workScheduleDayColumnWidth,
-                                    child: _DayCell(
-                                      date: monthDays[j],
-                                      cell: widget.employees[i].monthCells[j],
-                                      onTap: widget.onCellTap == null
-                                          ? null
-                                          : () => widget.onCellTap!(
-                                              widget.employees[i],
-                                              monthDays[j],
-                                            ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                      SizedBox(height: 8 + bottomScrollPadding),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
