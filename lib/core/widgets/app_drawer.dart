@@ -7,11 +7,12 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/language_dropdown_pill.dart';
 import 'package:rient_app/core/widgets/logout_confirm_dialog.dart';
 import 'package:rient_app/core/widgets/theme_switch_pill.dart';
-import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/analytics/view/analytics_page.dart';
-import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/home/view/providers/account_profile_provider.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/view/work_schedule_page.dart';
+import 'package:rient_app/features/settings/view/settings_page.dart';
 import 'package:rient_app/resources/resources.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -27,10 +28,9 @@ class AppDrawer extends ConsumerWidget {
     final onSurface = isDark
         ? AppColors.primaryDarkDark
         : AppColors.primaryDark;
-    final profile = ref.watch(accountProfileProvider).maybeWhen(
-      data: (v) => v,
-      orElse: () => null,
-    );
+    final profile = ref
+        .watch(accountProfileProvider)
+        .maybeWhen(data: (v) => v, orElse: () => null);
     final userEmail = (profile?.email ?? '').trim();
     final userName = userEmail.isNotEmpty ? userEmail : 'Пользователь';
     final nameJobLine = () {
@@ -52,11 +52,12 @@ class AppDrawer extends ConsumerWidget {
     final roleAndBranch = branchName.isEmpty
         ? roleTitle
         : '$roleTitle | $branchName';
+    final showWorkSchedule =
+        roleId == UserRole.owner.value || roleId == UserRole.worker.value;
     final avatarInitial = userName.isNotEmpty ? userName[0].toUpperCase() : 'U';
-    final avatarUrl =
-        (profile?.avatarThumbnail?.isNotEmpty ?? false)
-            ? profile!.avatarThumbnail
-            : profile?.avatar;
+    final avatarUrl = (profile?.avatarThumbnail?.isNotEmpty ?? false)
+        ? profile!.avatarThumbnail
+        : profile?.avatar;
 
     void closeThen(VoidCallback action) {
       Navigator.of(context).pop();
@@ -111,9 +112,9 @@ class AppDrawer extends ConsumerWidget {
                 children: [
                   CircleAvatar(
                     radius: 25,
-                    backgroundColor: AppColors.themeAccent(context).withValues(
-                      alpha: 0.2,
-                    ),
+                    backgroundColor: AppColors.themeAccent(
+                      context,
+                    ).withValues(alpha: 0.2),
                     backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                         ? NetworkImage(avatarUrl)
                         : null,
@@ -161,19 +162,29 @@ class AppDrawer extends ConsumerWidget {
                 ],
               ),
             ),
-            Gap(5),
-            _DrawerTile(
-              iconAsset: AppImages.timeBurger,
-              label: 'График работы',
-              onTap: () =>
-                  closeThen(() => context.pushNamed(WorkSchedulePage.name)),
-            ),
+            if (showWorkSchedule) ...[
+              Gap(5),
+              _DrawerTile(
+                iconAsset: AppImages.timeBurger,
+                label: 'График работы',
+                onTap: () =>
+                    closeThen(() => context.pushNamed(WorkSchedulePage.name)),
+              ),
+            ],
             Gap(5),
             _DrawerTile(
               iconAsset: AppImages.chartBurger,
               label: 'Аналитика',
               onTap: () =>
                   closeThen(() => context.pushNamed(AnalyticsPage.name)),
+            ),
+            Gap(5),
+            _DrawerTile(
+              icon: Icons.settings_outlined,
+
+              label: 'Настройки',
+              onTap: () =>
+                  closeThen(() => context.pushNamed(SettingsPage.name)),
             ),
             Gap(5),
 
@@ -303,13 +314,15 @@ class _DrawerSocialPill extends StatelessWidget {
 
 class _DrawerTile extends StatelessWidget {
   const _DrawerTile({
-    required this.iconAsset,
+    this.iconAsset,
+    this.icon,
     required this.label,
     required this.onTap,
     this.labelStyle,
-  });
+  }) : assert(iconAsset != null || icon != null);
 
-  final String iconAsset;
+  final String? iconAsset;
+  final IconData? icon;
   final String label;
   final VoidCallback onTap;
   final TextStyle? labelStyle;
@@ -320,6 +333,7 @@ class _DrawerTile extends StatelessWidget {
     final onSurface = isDark
         ? AppColors.primaryDarkDark
         : AppColors.primaryDark;
+    final drawerIconColor = AppColors.themeAccent(context);
 
     return InkWell(
       onTap: onTap,
@@ -327,7 +341,10 @@ class _DrawerTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            Image.asset(iconAsset, width: 24, height: 24),
+            if (iconAsset != null)
+              Image.asset(iconAsset!, width: 24, height: 24)
+            else
+              Icon(icon, size: 24, color: AppColors.mainAccentDark),
             const Gap(6),
             Expanded(
               child: Text(

@@ -1,0 +1,166 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gap/gap.dart';
+import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/utils/const/app_colors.dart';
+import 'package:rient_app/core/utils/const/app_decoration.dart';
+import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
+import 'package:rient_app/features/settings/view/components/settings_worker_picker_sheet.dart';
+import 'package:rient_app/resources/resources.dart';
+
+class SettingsPage extends ConsumerWidget {
+  const SettingsPage({super.key});
+
+  static const name = 'settings_page';
+  static const path = 'settings';
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenBg = isDark
+        ? AppColors.secondaryDarkLight
+        : AppColors.tabBarScreenBackground;
+
+    return Scaffold(
+      backgroundColor: screenBg,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SettingsHeader(isDark: isDark, onBack: () => context.pop()),
+          Expanded(
+            child: ListView(
+              padding: AppDecoration.padding16.copyWith(top: 12),
+              children: [
+                _SettingsTile(
+                  iconAsset: AppImages.ban,
+                  title: 'Сбросить доступ сотруднику',
+                  onTap: () => SettingsWorkerPickerSheet.show(
+                    context,
+                    action: SettingsWorkerAction.resetAccess,
+                  ),
+                ),
+                const Gap(12),
+                _SettingsTile(
+                  iconAsset: AppImages.webremove,
+                  title: 'Запретить онлайн запись',
+                  onTap: () => SettingsWorkerPickerSheet.show(
+                    context,
+                    action: SettingsWorkerAction.prohibitOnlineBooking,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsHeader extends StatelessWidget {
+  const _SettingsHeader({required this.isDark, required this.onBack});
+
+  final bool isDark;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final circleColor = isDark
+        ? AppColors.secondaryDarkLight
+        : AppColors.secondaryLight;
+    final iconColor = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
+
+    return DefaultContainerWidget(
+      borderRadius: const BorderRadius.only(
+        bottomLeft: Radius.circular(24),
+        bottomRight: Radius.circular(24),
+      ),
+      hasShadow: false,
+      padding: EdgeInsets.only(
+        top: MediaQuery.paddingOf(context).top + 8,
+        bottom: 14,
+        left: 16,
+        right: 16,
+      ),
+      color: isDark ? AppColors.primaryWhiteDark : Colors.white,
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: onBack,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: circleColor,
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 18,
+                color: iconColor,
+              ),
+            ),
+          ),
+          const Gap(12),
+          Expanded(
+            child: Text(
+              'Настройки',
+              style: AppFonts.h3Medium.copyWith(
+                color: isDark ? AppColors.primaryWhite : AppColors.primaryDark,
+              ),
+            ),
+          ),
+          const ProfileSelectorPill(),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.iconAsset,
+    required this.title,
+    required this.onTap,
+  });
+
+  final String iconAsset;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = AppColors.themeAccent(context);
+    final cardColor = isDark ? AppColors.primaryWhiteDark : Colors.white;
+    final titleColor = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
+
+    return DefaultContainerWidget(
+      color: cardColor,
+      hasShadow: true,
+      borderRadius: BorderRadius.circular(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Row(
+          children: [
+            Image.asset(iconAsset, width: 24, height: 24),
+            const Gap(12),
+            Expanded(
+              child: Text(
+                title,
+                style: AppFonts.b2Medium.copyWith(color: titleColor),
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 22, color: accent),
+          ],
+        ),
+      ),
+    );
+  }
+}

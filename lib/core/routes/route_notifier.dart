@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/features/analytics/view/analytics_page.dart';
+import 'package:rient_app/features/settings/view/settings_page.dart';
 import 'package:rient_app/features/auth/view/auth_page.dart';
 import 'package:rient_app/features/auth/view/auth_password_page.dart';
 import 'package:rient_app/features/auth/view/otp_page.dart';
@@ -89,6 +90,15 @@ final GoRoute _homeTab = GoRoute(
       pageBuilder: (_, state) => MaterialPage(
         key: state.pageKey,
         child: const AnalyticsPage(),
+      ),
+    ),
+    GoRoute(
+      name: SettingsPage.name,
+      path: SettingsPage.path,
+      parentNavigatorKey: rootNavigatorKey,
+      pageBuilder: (_, state) => MaterialPage(
+        key: state.pageKey,
+        child: const SettingsPage(),
       ),
     ),
   ],
