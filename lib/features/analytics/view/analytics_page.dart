@@ -16,6 +16,7 @@ import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/view/components/date_strip.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
+import 'package:rient_app/features/schedule/view/components/specialist_selector_pill.dart';
 import 'package:rient_app/core/widgets/date_range_picker_dialog.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart'
     show OccupancyByDay;
@@ -193,22 +194,6 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     ];
   }
 
-  Future<void> _openSpecialistPicker(List<SpecialistItem> specialists) async {
-    if (specialists.isEmpty) return;
-    final initial = specialists.firstWhere(
-      (s) =>
-          s.id == _selectedSpecialist.id &&
-          s.name == _selectedSpecialist.name,
-      orElse: () => _allSpecialistsItem,
-    );
-    await SpecialistSelectDialog.show(
-      context,
-      specialists: specialists,
-      initialSelected: initial,
-      onSave: (selected) => setState(() => _selectedSpecialist = selected),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -263,9 +248,15 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
             onCalendarTap: _openCalendar,
             onClearFilter: _clearDateFilter,
             showSpecialistSelector: !isWorkerRole,
-            specialistTitle: _selectedSpecialist.name,
-            branchLabel: branchLabel,
-            onSpecialistTap: () => _openSpecialistPicker(specialists),
+            specialists: specialists,
+            selectedSpecialist: _selectedSpecialist.id != null
+                ? _selectedSpecialist
+                : SpecialistItem(
+                    name: _selectedSpecialist.name,
+                    role: branchLabel,
+                  ),
+            onSpecialistSelected: (selected) =>
+                setState(() => _selectedSpecialist = selected),
           ),
           Expanded(
             child: statsAsync.when(
@@ -661,17 +652,17 @@ class _AnalyticsHeader extends StatelessWidget {
     required this.onCalendarTap,
     required this.onClearFilter,
     required this.showSpecialistSelector,
-    required this.specialistTitle,
-    required this.branchLabel,
-    required this.onSpecialistTap,
+    required this.specialists,
+    required this.selectedSpecialist,
+    required this.onSpecialistSelected,
   });
 
   final bool isDark;
   final VoidCallback onBack;
   final bool showSpecialistSelector;
-  final String specialistTitle;
-  final String branchLabel;
-  final VoidCallback onSpecialistTap;
+  final List<SpecialistItem> specialists;
+  final SpecialistItem selectedSpecialist;
+  final ValueChanged<SpecialistItem> onSpecialistSelected;
   final _AnalyticsFilterMode filterMode;
   final DateTime focusedMonth;
   final DateTime? rangeStart;
@@ -857,12 +848,22 @@ class _AnalyticsHeader extends StatelessWidget {
           ),
           if (showSpecialistSelector) ...[
             const Gap(12),
-            _AnalyticsSpecialistSelector(
-              isDark: isDark,
-              title: specialistTitle,
-              branchLabel: branchLabel,
-              onTap: onSpecialistTap,
-            ),
+            if (selectedSpecialist.id != null)
+              SpecialistSelectorPill(
+                key: ValueKey('worker_${selectedSpecialist.id}'),
+                specialists: specialists,
+                initialSelected: selectedSpecialist,
+                onSelected: onSpecialistSelected,
+              )
+            else
+              _AnalyticsAllSpecialistsSelector(
+                isDark: isDark,
+                title: selectedSpecialist.name,
+                subtitle: selectedSpecialist.role,
+                specialists: specialists,
+                selectedSpecialist: _allSpecialistsItem,
+                onSpecialistSelected: onSpecialistSelected,
+              ),
           ],
         ],
       ),
@@ -870,24 +871,37 @@ class _AnalyticsHeader extends StatelessWidget {
   }
 }
 
-class _AnalyticsSpecialistSelector extends StatelessWidget {
-  const _AnalyticsSpecialistSelector({
+class _AnalyticsAllSpecialistsSelector extends StatelessWidget {
+  const _AnalyticsAllSpecialistsSelector({
     required this.isDark,
     required this.title,
-    required this.branchLabel,
-    required this.onTap,
+    required this.subtitle,
+    required this.specialists,
+    required this.selectedSpecialist,
+    required this.onSpecialistSelected,
   });
 
   final bool isDark;
   final String title;
-  final String branchLabel;
-  final VoidCallback onTap;
+  final String subtitle;
+  final List<SpecialistItem> specialists;
+  final SpecialistItem selectedSpecialist;
+  final ValueChanged<SpecialistItem> onSpecialistSelected;
+
+  Future<void> _openDialog(BuildContext context) async {
+    if (specialists.isEmpty) return;
+    await SpecialistSelectDialog.show(
+      context,
+      specialists: specialists,
+      initialSelected: selectedSpecialist,
+      onSave: onSpecialistSelected,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final surface = isDark
-        ? AppColors.secondaryDarkLight
-        : AppColors.secondaryLight;
+    final surface =
+        isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight;
     final primaryText =
         isDark ? AppColors.primaryWhite : AppColors.primaryDark;
     final secondaryText =
@@ -898,7 +912,7 @@ class _AnalyticsSpecialistSelector extends StatelessWidget {
       color: surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        onTap: onTap,
+        onTap: () => _openDialog(context),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -912,10 +926,10 @@ class _AnalyticsSpecialistSelector extends StatelessWidget {
                       title,
                       style: AppFonts.b2Medium.copyWith(color: primaryText),
                     ),
-                    if (branchLabel.isNotEmpty) ...[
+                    if (subtitle.isNotEmpty) ...[
                       const Gap(2),
                       Text(
-                        branchLabel,
+                        subtitle,
                         style: AppFonts.c2Tabbar.copyWith(color: secondaryText),
                       ),
                     ],
@@ -1214,7 +1228,7 @@ class _AnalyticsContent extends StatelessWidget {
             ),
           ),
           if (showWeekStrip || showPeriodStrip) ...[
-            const Gap(32),
+            const Gap(16),
             _AnalyticsSection(
               title: workloadTitle,
               expanded: workloadExpanded,
@@ -1234,7 +1248,7 @@ class _AnalyticsContent extends StatelessWidget {
                     ),
             ),
           ],
-          const Gap(32),
+          const Gap(16),
           _AnalyticsSection(
             title: 'Клиенты',
             expanded: clientsExpanded,
@@ -1283,7 +1297,7 @@ class _AnalyticsContent extends StatelessWidget {
               accent: accent,
             ),
           ),
-          const Gap(32),
+          const Gap(16),
           _AnalyticsSection(
             title: 'Топ 10 услуг',
             expanded: topServicesExpanded,
@@ -1501,6 +1515,7 @@ class _MetricCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(title, style: AppFonts.b2Medium.copyWith(color: labelColor)),
           const Gap(8),
@@ -1531,46 +1546,43 @@ class _AnalyticsMetricCardGrid extends StatelessWidget {
   final Color labelColor;
   final Color accent;
 
+  static const _crossAxisCount = 2;
+  static const _spacing = 10.0;
+  /// Высота карточки как в прежней вёрстке (padding + заголовок + gap + значение).
+  static const _cellHeight = 84.0;
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (var i = 0; i < metrics.length; i += 2) ...[
-          if (i > 0) const Gap(10),
-          if (i + 1 < metrics.length)
-            Row(
-              children: [
-                Expanded(
-                  child: _MetricCard(
-                    title: metrics[i].title,
-                    value: metrics[i].value,
-                    cardColor: cardColor,
-                    labelColor: labelColor,
-                    accent: accent,
-                  ),
-                ),
-                const Gap(10),
-                Expanded(
-                  child: _MetricCard(
-                    title: metrics[i + 1].title,
-                    value: metrics[i + 1].value,
-                    cardColor: cardColor,
-                    labelColor: labelColor,
-                    accent: accent,
-                  ),
-                ),
-              ],
-            )
-          else
-            _MetricCard(
-              title: metrics[i].title,
-              value: metrics[i].value,
-              cardColor: cardColor,
-              labelColor: labelColor,
-              accent: accent,
-            ),
-        ],
-      ],
+    if (metrics.isEmpty) return const SizedBox.shrink();
+
+    final rowCount = (metrics.length + _crossAxisCount - 1) ~/ _crossAxisCount;
+    final gridHeight =
+        rowCount * _cellHeight + (rowCount - 1) * _spacing;
+
+    return SizedBox(
+      height: gridHeight,
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        itemCount: metrics.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _crossAxisCount,
+          mainAxisSpacing: _spacing,
+          crossAxisSpacing: _spacing,
+          mainAxisExtent: _cellHeight,
+        ),
+        itemBuilder: (context, index) {
+          final metric = metrics[index];
+          return _MetricCard(
+            title: metric.title,
+            value: metric.value,
+            cardColor: cardColor,
+            labelColor: labelColor,
+            accent: accent,
+          );
+        },
+      ),
     );
   }
 }

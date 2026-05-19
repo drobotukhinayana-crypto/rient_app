@@ -54,6 +54,7 @@ class AppDrawer extends ConsumerWidget {
         : '$roleTitle | $branchName';
     final showWorkSchedule =
         roleId == UserRole.owner.value || roleId == UserRole.worker.value;
+    final showAnalytics = roleId != UserRole.administrator.value;
     final avatarInitial = userName.isNotEmpty ? userName[0].toUpperCase() : 'U';
     final avatarUrl = (profile?.avatarThumbnail?.isNotEmpty ?? false)
         ? profile!.avatarThumbnail
@@ -171,13 +172,15 @@ class AppDrawer extends ConsumerWidget {
                     closeThen(() => context.pushNamed(WorkSchedulePage.name)),
               ),
             ],
-            Gap(5),
-            _DrawerTile(
-              iconAsset: AppImages.chartBurger,
-              label: 'Аналитика',
-              onTap: () =>
-                  closeThen(() => context.pushNamed(AnalyticsPage.name)),
-            ),
+            if (showAnalytics) ...[
+              Gap(5),
+              _DrawerTile(
+                iconAsset: AppImages.chartBurger,
+                label: 'Аналитика',
+                onTap: () =>
+                    closeThen(() => context.pushNamed(AnalyticsPage.name)),
+              ),
+            ],
             Gap(5),
             _DrawerTile(
               icon: Icons.settings_outlined,
