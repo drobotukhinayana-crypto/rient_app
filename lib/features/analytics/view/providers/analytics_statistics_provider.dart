@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/features/analytics/data/models/analytics_summary/analytics_summary.dart';
+import 'package:rient_app/features/analytics/service/analytics_service.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
-import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
-import 'package:rient_app/features/home/service/statistics_service.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
 
@@ -11,6 +11,7 @@ class AnalyticsQuery {
     required this.start,
     required this.end,
     this.workerId,
+    this.type = 'interval',
   });
 
   final DateTime start;
@@ -19,21 +20,25 @@ class AnalyticsQuery {
   /// `null` — все специалисты филиала (только для ролей с доступом).
   final int? workerId;
 
+  /// `interval` | `month` — тип сравнения для блока comparison.
+  final String type;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is AnalyticsQuery &&
         other.start == start &&
         other.end == end &&
-        other.workerId == workerId;
+        other.workerId == workerId &&
+        other.type == type;
   }
 
   @override
-  int get hashCode => Object.hash(start, end, workerId);
+  int get hashCode => Object.hash(start, end, workerId, type);
 }
 
-final analyticsStatisticsProvider =
-    FutureProvider.family<Statistics, AnalyticsQuery>((ref, query) async {
+final analyticsSummaryProvider =
+    FutureProvider.family<AnalyticsSummary, AnalyticsQuery>((ref, query) async {
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0) {
     throw Exception('No valid branch found');
@@ -50,10 +55,11 @@ final analyticsStatisticsProvider =
     workerId = query.workerId;
   }
 
-  return ref.read(statisticsServiceProvider).getStatistics(
+  return ref.read(analyticsServiceProvider).getSummary(
         startDate: query.start,
         endDate: query.end,
         branchId: branchId,
         workerId: workerId,
+        type: query.type,
       );
     });

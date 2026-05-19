@@ -9,6 +9,7 @@ import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
+import 'package:rient_app/features/analytics/data/models/analytics_summary/analytics_summary.dart';
 import 'package:rient_app/features/analytics/view/providers/analytics_statistics_provider.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
@@ -16,7 +17,8 @@ import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.
 import 'package:rient_app/features/schedule/view/components/date_strip.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/core/widgets/date_range_picker_dialog.dart';
-import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
+import 'package:rient_app/features/home/data/models/statistics/statistics.dart'
+    show OccupancyByDay;
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
@@ -224,15 +226,16 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
       data: (response) => _specialistsFromWorkers(response.results),
       orElse: () => const [_allSpecialistsItem],
     );
-    final statsAsync = ref.watch(
-      analyticsStatisticsProvider(
-        AnalyticsQuery(
-          start: start,
-          end: end,
-          workerId: isWorkerRole ? null : _selectedSpecialist.id,
-        ),
-      ),
+    final comparisonType = _filterMode == _AnalyticsFilterMode.month
+        ? 'month'
+        : 'interval';
+    final analyticsQuery = AnalyticsQuery(
+      start: start,
+      end: end,
+      workerId: isWorkerRole ? null : _selectedSpecialist.id,
+      type: comparisonType,
     );
+    final statsAsync = ref.watch(analyticsSummaryProvider(analyticsQuery));
 
     return Scaffold(
       backgroundColor: screenBg,
@@ -267,28 +270,36 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
           Expanded(
             child: statsAsync.when(
               loading: () => const Center(child: LoadingWidget()),
-              error: (_, __) => _AnalyticsContent(
-                isDark: isDark,
-                data: _AnalyticsViewData.mock(_filterMode, start, end),
-                generalExpanded: _generalExpanded,
-                workloadExpanded: _workloadExpanded,
-                clientsExpanded: _clientsExpanded,
-                topServicesExpanded: _topServicesExpanded,
-                formatMoney: _formatMoney,
-                onGeneralToggle: () =>
-                    setState(() => _generalExpanded = !_generalExpanded),
-                onWorkloadToggle: () =>
-                    setState(() => _workloadExpanded = !_workloadExpanded),
-                onClientsToggle: () =>
-                    setState(() => _clientsExpanded = !_clientsExpanded),
-                onTopServicesToggle: () => setState(
-                  () => _topServicesExpanded = !_topServicesExpanded,
+              error: (_, __) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Не удалось загрузить аналитику',
+                        style: AppFonts.b1Medium.copyWith(
+                          color: isDark
+                              ? AppColors.primaryWhite
+                              : AppColors.primaryDark,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const Gap(12),
+                      TextButton(
+                        onPressed: () => ref.invalidate(
+                          analyticsSummaryProvider(analyticsQuery),
+                        ),
+                        child: const Text('Повторить'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              data: (stats) => _AnalyticsContent(
+              data: (summary) => _AnalyticsContent(
                 isDark: isDark,
-                data: _AnalyticsViewData.fromStatistics(
-                  stats,
+                data: _AnalyticsViewData.fromAnalyticsSummary(
+                  summary,
                   filterMode: _filterMode,
                   start: start,
                   end: end,
@@ -325,6 +336,15 @@ class _AnalyticsViewData {
     required this.payDue,
     required this.newClients,
     required this.averageCheck,
+    required this.totalClients,
+    required this.existingClients,
+    required this.oneshotClients,
+    required this.averageAge,
+    required this.maleClients,
+    required this.femaleClients,
+    required this.showIncome,
+    required this.showPayDue,
+    required this.showAverageCheck,
     required this.weekDays,
     required this.weekStart,
     required this.occupancyByDay,
@@ -342,6 +362,15 @@ class _AnalyticsViewData {
   final double payDue;
   final int newClients;
   final double averageCheck;
+  final int? totalClients;
+  final int? existingClients;
+  final int? oneshotClients;
+  final double? averageAge;
+  final int? maleClients;
+  final int? femaleClients;
+  final bool showIncome;
+  final bool showPayDue;
+  final bool showAverageCheck;
   final List<({DateTime date, double occupancy})> weekDays;
   final DateTime weekStart;
   final List<OccupancyByDay> occupancyByDay;
@@ -351,30 +380,59 @@ class _AnalyticsViewData {
   final bool showPeriodWorkload;
   final List<({String name, int count})> topServices;
 
+  static String _dateKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  static DateTime? _parseDate(String raw) {
+    final parts = raw.split('-');
+    if (parts.length < 3) return null;
+    return DateTime(
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    );
+  }
+
+  static int _percentFromApi(double value) =>
+      value > 1 ? value.round() : (value * 100).round();
+
+  /// API отдаёт загруженность в процентах (0–100), не в долях.
+  static double _occupancyPercent(double value) =>
+      value > 1 ? value : value * 100;
+
+  static List<AnalyticsOccupancyDay> _mergedOccupancyDays(
+    AnalyticsSummary summary,
+  ) {
+    final byDate = <String, AnalyticsOccupancyDay>{};
+    for (final day in summary.summary.occupancyByDay) {
+      if (day.date.isNotEmpty) byDate[day.date] = day;
+    }
+    for (final day in summary.occupancy) {
+      if (day.date.isNotEmpty) byDate[day.date] = day;
+    }
+    return byDate.values.toList();
+  }
+
+  static double _occupancyForDate(
+    List<AnalyticsOccupancyDay> days,
+    DateTime date, {
+    double fallback = 0,
+  }) {
+    final item = days.firstWhereOrNull((e) => e.date == _dateKey(date));
+    if (item == null) return _occupancyPercent(fallback);
+    return _occupancyPercent(item.occupancy);
+  }
+
   static List<({String name, int count})> _buildTopServices(
-    Statistics stats,
-    DateTime start,
-    DateTime end,
+    AnalyticsSummary summary,
   ) {
     final aggregated = <String, int>{};
-    for (final item in stats.servicesByDay) {
-      final parts = item.date.split('-');
-      if (parts.length < 3) continue;
-      final d = DateTime(
-        int.parse(parts[0]),
-        int.parse(parts[1]),
-        int.parse(parts[2]),
-      );
-      if (!d.isBefore(start) && !d.isAfter(end)) {
-        for (final entry in item.services.entries) {
-          aggregated[entry.key] = (aggregated[entry.key] ?? 0) + entry.value;
-        }
-      }
+    for (final service in summary.global.services) {
+      final count = service.countValue;
+      if (count <= 0) continue;
+      aggregated[service.displayName] =
+          (aggregated[service.displayName] ?? 0) + count;
     }
-    if (aggregated.isEmpty) {
-      aggregated.addAll(stats.services);
-    }
-
     final sorted = aggregated.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     return sorted
@@ -382,19 +440,6 @@ class _AnalyticsViewData {
         .map((e) => (name: e.key, count: e.value))
         .toList();
   }
-
-  static List<({String name, int count})> _mockTopServices() => const [
-    (name: 'Маникюр', count: 42),
-    (name: 'Педикюр', count: 38),
-    (name: 'Стрижка', count: 31),
-    (name: 'Окрашивание', count: 24),
-    (name: 'Укладка', count: 19),
-    (name: 'Брови', count: 15),
-    (name: 'Ресницы', count: 12),
-    (name: 'Массаж', count: 9),
-    (name: 'Чистка лица', count: 7),
-    (name: 'SPA-уход', count: 5),
-  ];
 
   static DateTime _weekMonday(DateTime date) {
     final d = DateTime(date.year, date.month, date.day);
@@ -409,8 +454,8 @@ class _AnalyticsViewData {
     return weekStart;
   }
 
-  factory _AnalyticsViewData.fromStatistics(
-    Statistics stats, {
+  factory _AnalyticsViewData.fromAnalyticsSummary(
+    AnalyticsSummary summary, {
     required _AnalyticsFilterMode filterMode,
     required DateTime start,
     required DateTime end,
@@ -420,41 +465,59 @@ class _AnalyticsViewData {
       days.add(DateTime(d.year, d.month, d.day));
     }
 
-    final occupancyInRange = stats.occupancyByDay.where((e) {
-      final d = DateTime(e.date.year, e.date.month, e.date.day);
-      return !d.isBefore(start) && !d.isAfter(end);
-    }).toList();
+    final occupancyDays = _mergedOccupancyDays(summary);
+    final appointments = summary.summary.appointments;
+    final current = summary.comparison.current;
 
-    final fillRate = occupancyInRange.isNotEmpty
-        ? (occupancyInRange.map((e) => e.occupancy).average * 100).round()
-        : (stats.occupancy * 100).round();
+    final fillRate = _percentFromApi(summary.summary.occupancy);
+    final productivity = current.occupancy != null
+        ? _percentFromApi(current.occupancy!)
+        : () {
+            final total = current.totalAppointments ?? appointments.total;
+            final completed = current.completedAppointments ??
+                (appointments.total - appointments.cancelled)
+                    .clamp(0, appointments.total);
+            return total > 0 ? (completed / total * 100).round() : 0;
+          }();
 
-    var served = 0;
-    for (final item in stats.appointmentsByDay) {
-      final parts = item.date.split('-');
-      if (parts.length < 3) continue;
-      final d = DateTime(
-        int.parse(parts[0]),
-        int.parse(parts[1]),
-        int.parse(parts[2]),
-      );
-      if (!d.isBefore(start) && !d.isAfter(end)) {
-        served += item.appointments.total;
-      }
-    }
-    if (served == 0) served = stats.appointments.total;
+    final served = current.totalClients ??
+        current.completedAppointments ??
+        appointments.total;
+
+    final showIncome = summary.meta.canSeeIncome;
+    final showPayDue = summary.meta.canSeePayDue;
+    final showAverageCheck = summary.meta.canSeeIncome;
 
     var income = 0.0;
     var payDue = 0.0;
-    for (final item in stats.incomeByDay ?? const <IncomeByDay>[]) {
-      final d = DateTime(item.date.year, item.date.month, item.date.day);
-      if (!d.isBefore(start) && !d.isAfter(end)) {
-        income += item.income;
-        payDue += item.payDue;
+    if (showIncome || showPayDue) {
+      final incomeDays = summary.summary.incomeByDay.isNotEmpty
+          ? summary.summary.incomeByDay
+          : current.incomeByDay;
+      for (final item in incomeDays) {
+        final d = _parseDate(item.date);
+        if (d == null || d.isBefore(start) || d.isAfter(end)) continue;
+        if (showIncome) income += item.incomeValue;
+        if (showPayDue) payDue += item.payDueValue;
       }
     }
+    if (showIncome && income == 0 && current.totalIncome != null) {
+      income = current.totalIncome!;
+    }
 
-    final avgCheck = served > 0 ? income / served : 0.0;
+    final avgCheck = current.averageTransactions ??
+        (served > 0 && showAverageCheck ? income / served : 0.0);
+
+    final globalClients = summary.global.clients;
+    final totalClients = globalClients.total > 0
+        ? globalClients.total
+        : current.totalClients;
+    final existingClients = current.existingClients;
+    final oneshotClients = current.oneshotClients;
+    final averageAge = globalClients.averageAge;
+    final maleClients = globalClients.maleTotal;
+    final femaleClients = globalClients.femaleTotal;
+    final hasGenderStats = maleClients > 0 || femaleClients > 0;
 
     List<({DateTime date, double occupancy})> weekDays;
     if (filterMode == _AnalyticsFilterMode.dateRange) {
@@ -462,141 +525,99 @@ class _AnalyticsViewData {
           .map(
             (d) => (
               date: d,
-              occupancy:
-                  stats.occupancyByDay
-                      .firstWhereOrNull(
-                        (e) =>
-                            e.date.year == d.year &&
-                            e.date.month == d.month &&
-                            e.date.day == d.day,
-                      )
-                      ?.occupancy ??
-                  0,
+              occupancy: _occupancyForDate(occupancyDays, d),
             ),
           )
           .toList();
     } else if (filterMode == _AnalyticsFilterMode.month) {
-      final monday = start.subtract(Duration(days: start.weekday - 1));
+      final monday = _weekMonday(DateTime.now());
       weekDays = List.generate(7, (i) {
         final d = monday.add(Duration(days: i));
-        final occ =
-            stats.occupancyByDay
-                .firstWhereOrNull(
-                  (e) =>
-                      e.date.year == d.year &&
-                      e.date.month == d.month &&
-                      e.date.day == d.day,
-                )
-                ?.occupancy ??
-            0;
-        return (date: d, occupancy: occ);
+        return (
+          date: d,
+          occupancy: _occupancyForDate(occupancyDays, d),
+        );
       });
     } else {
       weekDays = [
         (
           date: start,
-          occupancy:
-              stats.occupancyByDay
-                  .firstWhereOrNull(
-                    (e) =>
-                        e.date.year == start.year &&
-                        e.date.month == start.month &&
-                        e.date.day == start.day,
-                  )
-                  ?.occupancy ??
-              stats.occupancy,
+          occupancy: _occupancyForDate(
+            occupancyDays,
+            start,
+            fallback: summary.summary.occupancy,
+          ),
         ),
       ];
     }
 
-    final weekStart = _weekMonday(start);
+    final weekStart = filterMode == _AnalyticsFilterMode.month
+        ? _weekMonday(DateTime.now())
+        : _weekMonday(start);
     final isDateRange = filterMode == _AnalyticsFilterMode.dateRange;
     final periodOccupancy = isDateRange
         ? weekDays
             .map((e) => OccupancyByDay(date: e.date, occupancy: e.occupancy))
             .toList()
-        : stats.occupancyByDay;
+        : [
+            for (final day in occupancyDays)
+              if (_parseDate(day.date) case final d?)
+                OccupancyByDay(
+                  date: d,
+                  occupancy: _occupancyPercent(day.occupancy),
+                ),
+          ];
+
+    final singleDayOccupancy = filterMode == _AnalyticsFilterMode.singleDay
+        ? () {
+            final selected = DateTime(start.year, start.month, start.day);
+            final now = DateTime.now();
+            final isToday = selected.year == now.year &&
+                selected.month == now.month &&
+                selected.day == now.day;
+            if (isToday && summary.summary.occupancyToday != null) {
+              return _percentFromApi(summary.summary.occupancyToday!).toDouble();
+            }
+            return _occupancyForDate(
+              occupancyDays,
+              selected,
+              fallback: summary.summary.occupancy,
+            );
+          }()
+        : null;
 
     return _AnalyticsViewData(
       fillRatePercent: fillRate.clamp(0, 100),
-      productivityPercent: (fillRate * 1.1).round().clamp(0, 100),
+      productivityPercent: productivity.clamp(0, 100),
       clientsServed: served,
       income: income,
       payDue: payDue,
-      newClients: stats.appointments.newCount,
+      newClients: current.newClients ?? appointments.newCount,
       averageCheck: avgCheck,
+      totalClients: totalClients,
+      existingClients: existingClients,
+      oneshotClients: oneshotClients,
+      averageAge: averageAge,
+      maleClients: hasGenderStats ? maleClients : null,
+      femaleClients: hasGenderStats ? femaleClients : null,
+      showIncome: showIncome,
+      showPayDue: showPayDue,
+      showAverageCheck: showAverageCheck,
       weekDays: weekDays,
       weekStart: weekStart,
       occupancyByDay: periodOccupancy,
       stripSelectedDate: _stripSelectedDate(weekStart),
-      singleDayLoad: filterMode == _AnalyticsFilterMode.singleDay
-          ? weekDays.first.occupancy * 100
-          : null,
+      singleDayLoad: singleDayOccupancy,
       singleDayLabel: filterMode == _AnalyticsFilterMode.singleDay
           ? 'Загруженность ${_formatDayLabel(start)}'
           : null,
       showPeriodWorkload: isDateRange,
-      topServices: _buildTopServices(stats, start, end),
+      topServices: _buildTopServices(summary),
     );
   }
 
   static String _formatDayLabel(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
-
-  factory _AnalyticsViewData.mock(
-    _AnalyticsFilterMode mode,
-    DateTime start,
-    DateTime end,
-  ) {
-    final weekDays = mode == _AnalyticsFilterMode.dateRange
-        ? List.generate(end.difference(start).inDays + 1, (i) {
-            final d = start.add(Duration(days: i));
-            return (date: d, occupancy: 0.45 + (i % 3) * 0.15);
-          })
-        : List.generate(7, (i) {
-            final d = start.add(Duration(days: i));
-            return (date: d, occupancy: 0.35 + (i % 4) * 0.12);
-          });
-
-    final weekStart = _weekMonday(start);
-    final isDateRange = mode == _AnalyticsFilterMode.dateRange;
-    final occupancyByDay = isDateRange
-        ? weekDays
-            .map((e) => OccupancyByDay(date: e.date, occupancy: e.occupancy))
-            .toList()
-        : List.generate(7, (i) {
-            final d = weekStart.add(Duration(days: i));
-            final occ = weekDays
-                .firstWhereOrNull(
-                  (e) =>
-                      e.date.year == d.year &&
-                      e.date.month == d.month &&
-                      e.date.day == d.day,
-                )
-                ?.occupancy;
-            return OccupancyByDay(date: d, occupancy: occ ?? 0);
-          });
-
-    return _AnalyticsViewData(
-      fillRatePercent: mode == _AnalyticsFilterMode.singleDay ? 55 : 77,
-      productivityPercent: mode == _AnalyticsFilterMode.singleDay ? 75 : 98,
-      clientsServed: mode == _AnalyticsFilterMode.singleDay ? 10 : 120,
-      income: mode == _AnalyticsFilterMode.singleDay ? 14300 : 44300,
-      payDue: mode == _AnalyticsFilterMode.singleDay ? 2300 : 11300,
-      newClients: mode == _AnalyticsFilterMode.singleDay ? 12 : 123,
-      averageCheck: 3300,
-      weekDays: weekDays,
-      weekStart: weekStart,
-      occupancyByDay: occupancyByDay,
-      stripSelectedDate: _stripSelectedDate(weekStart),
-      singleDayLoad: mode == _AnalyticsFilterMode.singleDay ? 62 : null,
-      singleDayLabel: mode == _AnalyticsFilterMode.singleDay
-          ? 'Загруженность ${_formatDayLabel(start)}'
-          : null,
-      showPeriodWorkload: isDateRange,
-      topServices: _mockTopServices(),
-    );
-  }
 }
 
 class _AnalyticsPeriodLoadStrip extends StatelessWidget {
@@ -614,7 +635,7 @@ class _AnalyticsPeriodLoadStrip extends StatelessWidget {
         separatorBuilder: (_, __) => const Gap(4),
         itemBuilder: (context, index) {
           final day = days[index];
-          final percent = (day.occupancy * 100).clamp(0.0, 100.0);
+          final percent = day.occupancy.clamp(0.0, 100.0);
           return ScheduleDayLoadCircle(
             date: day.date,
             occupancyPercent: percent,
@@ -1085,6 +1106,8 @@ class _AnalyticsContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = AppColors.themeAccent(context);
     final cardColor = isDark ? AppColors.primaryWhiteDark : Colors.white;
+    final workloadSurfaceColor =
+        isDark ? AppColors.secondaryDarkLight : AppColors.secondaryDark;
     final labelColor = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
 
     final showWeekStrip =
@@ -1130,29 +1153,32 @@ class _AnalyticsContent extends StatelessWidget {
                   accent: accent,
                 ),
                 const Gap(12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MetricCard(
-                        title: 'Доход',
-                        value: formatMoney(data.income),
-                        cardColor: cardColor,
-                        labelColor: labelColor,
-                        accent: accent,
-                      ),
-                    ),
-                    const Gap(10),
-                    Expanded(
-                      child: _MetricCard(
-                        title: 'К выплате',
-                        value: formatMoney(data.payDue),
-                        cardColor: cardColor,
-                        labelColor: labelColor,
-                        accent: accent,
-                      ),
-                    ),
-                  ],
-                ),
+                if (data.showIncome || data.showPayDue)
+                  Row(
+                    children: [
+                      if (data.showIncome)
+                        Expanded(
+                          child: _MetricCard(
+                            title: 'Доход',
+                            value: formatMoney(data.income),
+                            cardColor: cardColor,
+                            labelColor: labelColor,
+                            accent: accent,
+                          ),
+                        ),
+                      if (data.showIncome && data.showPayDue) const Gap(10),
+                      if (data.showPayDue)
+                        Expanded(
+                          child: _MetricCard(
+                            title: 'К выплате',
+                            value: formatMoney(data.payDue),
+                            cardColor: cardColor,
+                            labelColor: labelColor,
+                            accent: accent,
+                          ),
+                        ),
+                    ],
+                  ),
                 if (data.singleDayLoad != null) ...[
                   const Gap(10),
                   DefaultContainerWidget(
@@ -1173,9 +1199,12 @@ class _AnalyticsContent extends StatelessWidget {
                             ),
                           ),
                         ),
+                        const Gap(12),
                         ScheduleDayLoadCircle(
                           date: data.weekDays.first.date,
                           occupancyPercent: data.singleDayLoad!,
+                          useMonthCalendarCircleFill: false,
+                          circleFill: workloadSurfaceColor,
                         ),
                       ],
                     ),
@@ -1212,28 +1241,46 @@ class _AnalyticsContent extends StatelessWidget {
             accent: accent,
             labelColor: labelColor,
             onToggle: onClientsToggle,
-            child: Row(
-              children: [
-                Expanded(
-                  child: _MetricCard(
-                    title: 'Новые клиенты',
-                    value: '${data.newClients}',
-                    cardColor: cardColor,
-                    labelColor: labelColor,
-                    accent: accent,
-                  ),
+            child: _AnalyticsMetricCardGrid(
+              metrics: [
+                _AnalyticsMetricItem(
+                  title: 'Новые клиенты',
+                  value: '${data.newClients}',
                 ),
-                const Gap(10),
-                Expanded(
-                  child: _MetricCard(
+                if (data.showAverageCheck)
+                  _AnalyticsMetricItem(
                     title: 'Средний чек',
                     value: formatMoney(data.averageCheck),
-                    cardColor: cardColor,
-                    labelColor: labelColor,
-                    accent: accent,
                   ),
-                ),
+                if (data.totalClients != null)
+                  _AnalyticsMetricItem(
+                    title: 'Всего клиентов',
+                    value: '${data.totalClients}',
+                  ),
+                if (data.existingClients != null)
+                  _AnalyticsMetricItem(
+                    title: 'Постоянные',
+                    value: '${data.existingClients}',
+                  ),
+                if (data.oneshotClients != null)
+                  _AnalyticsMetricItem(
+                    title: 'Разовые',
+                    value: '${data.oneshotClients}',
+                  ),
+                if (data.averageAge != null)
+                  _AnalyticsMetricItem(
+                    title: 'Средний возраст',
+                    value: '${data.averageAge!.round()} лет',
+                  ),
+                if (data.maleClients != null && data.femaleClients != null)
+                  _AnalyticsMetricItem(
+                    title: 'Пол',
+                    value: 'М ${data.maleClients} · Ж ${data.femaleClients}',
+                  ),
               ],
+              cardColor: cardColor,
+              labelColor: labelColor,
+              accent: accent,
             ),
           ),
           const Gap(32),
@@ -1460,6 +1507,70 @@ class _MetricCard extends StatelessWidget {
           Text(value, style: AppFonts.h4Medium.copyWith(color: accent)),
         ],
       ),
+    );
+  }
+}
+
+class _AnalyticsMetricItem {
+  const _AnalyticsMetricItem({required this.title, required this.value});
+
+  final String title;
+  final String value;
+}
+
+class _AnalyticsMetricCardGrid extends StatelessWidget {
+  const _AnalyticsMetricCardGrid({
+    required this.metrics,
+    required this.cardColor,
+    required this.labelColor,
+    required this.accent,
+  });
+
+  final List<_AnalyticsMetricItem> metrics;
+  final Color cardColor;
+  final Color labelColor;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var i = 0; i < metrics.length; i += 2) ...[
+          if (i > 0) const Gap(10),
+          if (i + 1 < metrics.length)
+            Row(
+              children: [
+                Expanded(
+                  child: _MetricCard(
+                    title: metrics[i].title,
+                    value: metrics[i].value,
+                    cardColor: cardColor,
+                    labelColor: labelColor,
+                    accent: accent,
+                  ),
+                ),
+                const Gap(10),
+                Expanded(
+                  child: _MetricCard(
+                    title: metrics[i + 1].title,
+                    value: metrics[i + 1].value,
+                    cardColor: cardColor,
+                    labelColor: labelColor,
+                    accent: accent,
+                  ),
+                ),
+              ],
+            )
+          else
+            _MetricCard(
+              title: metrics[i].title,
+              value: metrics[i].value,
+              cardColor: cardColor,
+              labelColor: labelColor,
+              accent: accent,
+            ),
+        ],
+      ],
     );
   }
 }

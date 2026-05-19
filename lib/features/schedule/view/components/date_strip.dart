@@ -256,12 +256,16 @@ class ScheduleDayLoadCircle extends StatelessWidget {
     required this.occupancyPercent,
     this.isSelected = false,
     this.zeroOccupancyFill = DateStrip._workScheduleCircleFill,
+    this.useMonthCalendarCircleFill = true,
+    this.circleFill,
   });
 
   final DateTime date;
   final double occupancyPercent;
   final bool isSelected;
   final Color zeroOccupancyFill;
+  final bool useMonthCalendarCircleFill;
+  final Color? circleFill;
 
   static const circleSize = 41.0;
 
@@ -279,10 +283,11 @@ class ScheduleDayLoadCircle extends StatelessWidget {
       showArc: occupancyPercent > 0,
       size: circleSize,
       useGreyCircles: true,
-      useMonthCalendarCircleFill: true,
+      useMonthCalendarCircleFill: useMonthCalendarCircleFill,
       workScheduleWeekDates: false,
       isDark: isDark,
-      circleFillOverride: isEmpty ? zeroOccupancyFill : null,
+      circleFillOverride:
+          circleFill ?? (isEmpty ? zeroOccupancyFill : null),
       dayNumberStyle: AppFonts.medium18.copyWith(color: dayNumberColor),
     );
   }
