@@ -1,6 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
+import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
@@ -64,6 +68,8 @@ final workScheduleMonthProvider =
   final schedulesService = ref.read(schedulesServiceProvider);
   final workersService = ref.read(workersServiceProvider);
 
+  final workers = await _workersForWorkSchedule(ref, workersResponse.results);
+
   final patternsResponse = await ref
       .read(schedulePatternsServiceProvider)
       .getSchedulePatterns(branchId: branchId);
@@ -71,7 +77,7 @@ final workScheduleMonthProvider =
       groupSchedulePatternsByWorker(patternsResponse.results);
 
   final workerRows = await Future.wait(
-    workersResponse.results.map(
+    workers.map(
       (worker) => workersService.getWorkerRow(
         workerId: worker.id,
         branchId: branchId,
@@ -80,8 +86,8 @@ final workScheduleMonthProvider =
   );
 
   final rows = <WorkScheduleEmployeeRow>[];
-  for (var i = 0; i < workersResponse.results.length; i++) {
-    final worker = workersResponse.results[i];
+  for (var i = 0; i < workers.length; i++) {
+    final worker = workers[i];
     final schedules = await schedulesService.getWorkerSchedules(
       workerId: worker.id,
       dateGte: query.monthStart,
@@ -104,6 +110,28 @@ final workScheduleMonthProvider =
   }
   return rows;
 });
+
+/// Сотрудник видит только свой график; владелец/менеджер — всех в филиале.
+Future<List<WorkerApi>> _workersForWorkSchedule(
+  Ref ref,
+  List<WorkerApi> branchWorkers,
+) async {
+  final roleId = ref.watch(roleProvider);
+  if (roleId != UserRole.worker.value) {
+    return branchWorkers;
+  }
+
+  final selfId = await ref.watch(currentWorkerIdProvider.future);
+  if (selfId == null || selfId <= 0) {
+    throw Exception('Worker profile not found');
+  }
+
+  final own = branchWorkers.where((w) => w.id == selfId).toList();
+  if (own.isEmpty) {
+    throw Exception('Worker not found in branch');
+  }
+  return own;
+}
 
 void invalidateWorkScheduleCaches(
   WidgetRef ref, {

@@ -13,7 +13,6 @@ import 'package:rient_app/features/create/view/add_new_entry_page.dart'
     show AddNewEntryInitialData, AddNewEntryPage;
 import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/launch/launch_page.dart';
-import 'package:rient_app/features/link/view/link_page.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
 import 'package:rient_app/features/schedule/view/specialist_schedule_page.dart';
 import 'package:rient_app/features/schedule/view/work_schedule_page.dart';
@@ -29,7 +28,6 @@ final _rootNavigatorSchedule = GlobalKey<NavigatorState>(
   debugLabel: 'schedule',
 );
 final _rootNavigatorChat = GlobalKey<NavigatorState>(debugLabel: 'chat');
-final _rootNavigatorLink = GlobalKey<NavigatorState>(debugLabel: 'link');
 
 class RouterNotifier extends ChangeNotifier {
   RouterNotifier({required this.ref});
@@ -59,10 +57,6 @@ class RouterNotifier extends ChangeNotifier {
         StatefulShellBranch(
           navigatorKey: _rootNavigatorChat,
           routes: [_chatTab],
-        ),
-        StatefulShellBranch(
-          navigatorKey: _rootNavigatorLink,
-          routes: [_linkTab],
         ),
       ],
     ),
@@ -149,14 +143,6 @@ final GoRoute _chatTab = GoRoute(
   routes: const [],
   pageBuilder: (_, state) =>
       MaterialPage(key: state.pageKey, child: const ChatPage()),
-);
-
-final GoRoute _linkTab = GoRoute(
-  name: LinkPage.name,
-  path: LinkPage.path,
-  routes: const [],
-  pageBuilder: (_, state) =>
-      MaterialPage(key: state.pageKey, child: const LinkPage()),
 );
 
 final GoRoute _auth = GoRoute(

@@ -16,7 +16,7 @@ import 'package:rient_app/features/create/view/add_new_entry_page.dart'
 import 'package:rient_app/features/home/view/components/restore_selected_branch.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/home/view/home_page.dart';
-import 'package:rient_app/features/link/view/link_page.dart';
+import 'package:rient_app/features/link/view/widget_link_share.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -39,8 +39,12 @@ class TabBarPage extends ConsumerStatefulWidget {
       case Tabs.chat:
         context.goNamed(ChatPage.name, extra: initialTab);
       case Tabs.link:
-        context.goNamed(LinkPage.name, extra: initialTab);
+        context.goNamed(HomePage.name, extra: initialTab);
     }
+  }
+
+  static void openLinkShare(BuildContext context, WidgetRef ref) {
+    unawaited(WidgetLinkShare.open(context, ref));
   }
 
   static void openCreatePage(BuildContext context) {
@@ -93,6 +97,8 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     await refreshTokenSilentlyIfPossible(ref as Ref);
   }
 
+  int _linkNavbarIndex(bool showCreateTab) => showCreateTab ? 4 : 3;
+
   int _navbarIndexFromShell(bool showCreateTab) {
     if (!showCreateTab) return widget.navigationShell.currentIndex;
     return widget.navigationShell.currentIndex < 2
@@ -105,8 +111,13 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
       TabBarPage.openCreatePage(context);
       return;
     }
+    if (index == _linkNavbarIndex(showCreateTab)) {
+      TabBarPage.openLinkShare(context, ref);
+      return;
+    }
     final shellIndex = showCreateTab && index > 2 ? index - 1 : index;
     final alreadyHere = shellIndex == widget.navigationShell.currentIndex;
+
     if (alreadyHere) {
       switch (shellIndex) {
         case 0:
@@ -115,8 +126,6 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
           context.goNamed(SchedulePage.name);
         case 2:
           context.goNamed(ChatPage.name);
-        case 3:
-          context.goNamed(LinkPage.name);
       }
     } else {
       widget.navigationShell.goBranch(shellIndex);
@@ -206,7 +215,7 @@ class _NavbarWidget extends StatelessWidget {
               ),
               Expanded(
                 child: _NavbarIcon(
-                  isActive: currentIndex == (showCreateTab ? 4 : 3),
+                  isActive: false,
                   imageAsset: AppImages.linkTab,
                   title: 'Ссылка',
                   onTap: () => onTabTapped(showCreateTab ? 4 : 3),
