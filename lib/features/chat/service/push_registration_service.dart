@@ -53,7 +53,6 @@ class PushRegistrationService {
       final messaging = FirebaseMessaging.instance;
       await messaging.setAutoInitEnabled(true);
       if (Platform.isIOS) {
-        await messaging.requestPermission(alert: true, badge: true, sound: true);
         await _waitForApnsToken(messaging);
       }
       _tokenRefreshSubscription ??= messaging.onTokenRefresh.listen((token) {
