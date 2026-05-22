@@ -58,17 +58,19 @@ class MessageNotificationCard extends StatelessWidget {
                           color: bodyColor,
                         ),
                       ),
-                      const Gap(16),
-                      Center(
-                        child: GestureDetector(
-                          onTap: onOpenCard,
-                          behavior: HitTestBehavior.opaque,
-                          child: Text(
-                            'Перейти в карточку >',
-                            style: AppFonts.medium14.copyWith(color: accent),
+                      if (item.appointmentId != null) ...[
+                        const Gap(16),
+                        Center(
+                          child: GestureDetector(
+                            onTap: onOpenCard,
+                            behavior: HitTestBehavior.opaque,
+                            child: Text(
+                              'Перейти в карточку >',
+                              style: AppFonts.medium14.copyWith(color: accent),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),

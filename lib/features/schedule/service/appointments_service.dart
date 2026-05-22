@@ -15,6 +15,30 @@ class AppointmentsService {
 
   final Ref ref;
 
+  Future<AppointmentApi?> getAppointmentById(int appointmentId) async {
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      throw CustomException(causedError: Exception('Token is missing'));
+    }
+
+    final url = ApiConsts().createUrl('appointments/$appointmentId/');
+
+    try {
+      final response = await Dio().get<Map<String, dynamic>>(
+        url,
+        options: Options(headers: {'Authorization': 'JWT $token'}),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        return AppointmentApi.fromJson(response.data!);
+      }
+      return null;
+    } catch (e) {
+      await handleUnauthorizedIfNeeded(ref, e);
+      throw CustomException(causedError: e);
+    }
+  }
+
   Future<AppointmentsApiResponse> getAppointments({
     required int branchId,
     required int workerId,

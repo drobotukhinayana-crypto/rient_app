@@ -1,4 +1,4 @@
-package com.example.rient_app
+package com.rientAppp
 
 import io.flutter.embedding.android.FlutterActivity
 

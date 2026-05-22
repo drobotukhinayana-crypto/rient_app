@@ -1,4 +1,4 @@
-/// Уведомление на вкладке «Сообщения» (мок / будущий API).
+/// Уведомление на вкладке «Сообщения».
 class MessageNotificationItem {
   const MessageNotificationItem({
     required this.id,
@@ -7,9 +7,11 @@ class MessageNotificationItem {
     required this.timestamp,
     required this.isUnread,
     this.showAccent = false,
+    this.appointmentId,
+    this.type,
   });
 
-  final String id;
+  final int id;
   final String title;
   final String description;
   final String timestamp;
@@ -17,4 +19,7 @@ class MessageNotificationItem {
 
   /// Синяя полоска слева (например, «Новая запись»).
   final bool showAccent;
+
+  final int? appointmentId;
+  final String? type;
 }

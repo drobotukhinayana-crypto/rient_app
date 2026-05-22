@@ -12,10 +12,12 @@ import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_storage_provider.dart';
 import 'package:rient_app/features/auth/view/providers/selected_organization_member_provider.dart';
+import 'package:rient_app/features/chat/service/push_registration_service.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 
 /// Очистка сессии из UI-слоя (WidgetRef) и переход на экран входа.
 Future<void> performLogout(WidgetRef ref) async {
+  await ref.read(pushRegistrationServiceProvider).deactivateCurrentDevice();
   await ref.read(sessionDataControllerProvider.notifier).deleteSessionData();
   await ref.read(tokenProvider.notifier).clearToken();
   await ref.read(emailStorageProvider.notifier).clearEmail();
@@ -33,6 +35,7 @@ Future<void> performLogout(WidgetRef ref) async {
 
 /// Очистка сессии из сервисов/провайдеров (Ref) и переход на экран входа.
 Future<void> performLogoutWithRef(Ref ref) async {
+  await ref.read(pushRegistrationServiceProvider).deactivateCurrentDevice();
   await ref.read(sessionDataControllerProvider.notifier).deleteSessionData();
   await ref.read(tokenProvider.notifier).clearToken();
   await ref.read(emailStorageProvider.notifier).clearEmail();

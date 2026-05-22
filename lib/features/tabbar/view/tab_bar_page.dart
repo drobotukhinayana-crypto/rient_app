@@ -10,7 +10,10 @@ import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/widgets/app_drawer.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/chat/chat_page.dart';
+import 'package:rient_app/features/chat/service/push_registration_service.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/create/view/add_new_entry_page.dart'
     show AddNewEntryPage;
 import 'package:rient_app/features/home/view/components/restore_selected_branch.dart';
@@ -72,6 +75,12 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(pushMessagingBootstrapProvider);
+      unawaited(
+        ref.read(pushRegistrationServiceProvider).registerCurrentDevice(),
+      );
+    });
   }
 
   @override
@@ -95,6 +104,8 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     }
     _lastResumeRefreshAt = now;
     await refreshTokenSilentlyIfPossible(ref as Ref);
+    if (!mounted) return;
+    await ref.read(pushRegistrationServiceProvider).registerCurrentDevice();
   }
 
   int _linkNavbarIndex(bool showCreateTab) => showCreateTab ? 4 : 3;
@@ -136,6 +147,22 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final showCreateTab = _showCreateTab();
+
+    ref.listen<int>(organizationIdProvider, (previous, next) {
+      if (next > 0 && previous != next) {
+        unawaited(
+          ref.read(pushRegistrationServiceProvider).registerCurrentDevice(),
+        );
+      }
+    });
+    ref.listen<int>(currentBranchIdProvider, (previous, next) {
+      if (next > 0 && previous != next) {
+        unawaited(
+          ref.read(pushRegistrationServiceProvider).registerCurrentDevice(),
+        );
+      }
+    });
+
     return RestoreSelectedBranch(
       child: Scaffold(
         key: appShellScaffoldKey,

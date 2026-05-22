@@ -7,6 +7,7 @@ import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
+import 'package:rient_app/features/chat/view/providers/push_settings_provider.dart';
 import 'package:rient_app/features/settings/view/components/settings_worker_picker_sheet.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -33,6 +34,8 @@ class SettingsPage extends ConsumerWidget {
             child: ListView(
               padding: AppDecoration.padding16.copyWith(top: 12),
               children: [
+                const _PushNotificationsTile(),
+                const Gap(12),
                 _SettingsTile(
                   iconAsset: AppImages.ban,
                   title: 'Сбросить доступ сотруднику',
@@ -54,6 +57,63 @@ class SettingsPage extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PushNotificationsTile extends ConsumerStatefulWidget {
+  const _PushNotificationsTile();
+
+  @override
+  ConsumerState<_PushNotificationsTile> createState() =>
+      _PushNotificationsTileState();
+}
+
+class _PushNotificationsTileState extends ConsumerState<_PushNotificationsTile> {
+  bool _isUpdating = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final deviceAsync = ref.watch(currentPushSettingsDeviceProvider);
+    final pushEnabled = deviceAsync.value?.pushEnabled ?? true;
+    final isLoading = deviceAsync.isLoading || _isUpdating;
+
+    return Material(
+      color: isDark ? AppColors.primaryWhiteDark : Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: SwitchListTile(
+        title: Text(
+          'Push-уведомления',
+          style: AppFonts.b1Medium.copyWith(
+            color: isDark ? AppColors.primaryWhite : AppColors.primaryDark,
+          ),
+        ),
+        subtitle: deviceAsync.hasError
+            ? Text(
+                'Не удалось загрузить настройки',
+                style: AppFonts.c1Regular.copyWith(color: AppColors.red),
+              )
+            : null,
+        value: pushEnabled,
+        onChanged: isLoading
+            ? null
+            : (value) async {
+                setState(() => _isUpdating = true);
+                try {
+                  await setPushEnabled(ref, value);
+                } catch (_) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Не удалось изменить настройку'),
+                    ),
+                  );
+                } finally {
+                  if (mounted) setState(() => _isUpdating = false);
+                }
+              },
       ),
     );
   }

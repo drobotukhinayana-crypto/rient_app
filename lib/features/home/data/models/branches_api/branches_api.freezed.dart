@@ -287,7 +287,7 @@ as List<BranchApi>,
 /// @nodoc
 mixin _$BranchApi {
 
- int get id;@JsonKey(name: 'is_main') bool? get isMain; String? get name; String? get country; String? get region; String? get city; String? get address; Location? get location; String? get timezone; int? get workspaces; String? get phone; String? get email; List<SchedulePattern>? get schedulePatterns;@JsonKey(name: 'has_chat_settings') bool? get hasChatSettings;@JsonKey(name: 'is_blocked') bool? get isBlocked;@JsonKey(name: 'is_available') bool? get isAvailable; bool? get yandexable;@JsonKey(name: 'number_of_workers') int? get numberOfWorkers;@JsonKey(name: 'has_chat_push_settings') bool? get hasChatPushSettings;
+ int get id;@JsonKey(name: 'is_main') bool? get isMain; String? get name; String? get country; String? get region; String? get city; String? get address; Location? get location; String? get timezone; int? get workspaces; String? get phone; String? get email;@JsonKey(name: 'schedule_patterns') List<SchedulePattern>? get schedulePatterns;@JsonKey(name: 'has_chat_settings') bool? get hasChatSettings;@JsonKey(name: 'is_blocked') bool? get isBlocked;@JsonKey(name: 'is_available') bool? get isAvailable; bool? get yandexable;@JsonKey(name: 'number_of_workers') int? get numberOfWorkers;@JsonKey(name: 'has_chat_push_settings') bool? get hasChatPushSettings;
 /// Create a copy of BranchApi
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -320,7 +320,7 @@ abstract mixin class $BranchApiCopyWith<$Res>  {
   factory $BranchApiCopyWith(BranchApi value, $Res Function(BranchApi) _then) = _$BranchApiCopyWithImpl;
 @useResult
 $Res call({
- int id,@JsonKey(name: 'is_main') bool? isMain, String? name, String? country, String? region, String? city, String? address, Location? location, String? timezone, int? workspaces, String? phone, String? email, List<SchedulePattern>? schedulePatterns,@JsonKey(name: 'has_chat_settings') bool? hasChatSettings,@JsonKey(name: 'is_blocked') bool? isBlocked,@JsonKey(name: 'is_available') bool? isAvailable, bool? yandexable,@JsonKey(name: 'number_of_workers') int? numberOfWorkers,@JsonKey(name: 'has_chat_push_settings') bool? hasChatPushSettings
+ int id,@JsonKey(name: 'is_main') bool? isMain, String? name, String? country, String? region, String? city, String? address, Location? location, String? timezone, int? workspaces, String? phone, String? email,@JsonKey(name: 'schedule_patterns') List<SchedulePattern>? schedulePatterns,@JsonKey(name: 'has_chat_settings') bool? hasChatSettings,@JsonKey(name: 'is_blocked') bool? isBlocked,@JsonKey(name: 'is_available') bool? isAvailable, bool? yandexable,@JsonKey(name: 'number_of_workers') int? numberOfWorkers,@JsonKey(name: 'has_chat_push_settings') bool? hasChatPushSettings
 });
 
 
@@ -452,7 +452,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id, @JsonKey(name: 'is_main')  bool? isMain,  String? name,  String? country,  String? region,  String? city,  String? address,  Location? location,  String? timezone,  int? workspaces,  String? phone,  String? email,  List<SchedulePattern>? schedulePatterns, @JsonKey(name: 'has_chat_settings')  bool? hasChatSettings, @JsonKey(name: 'is_blocked')  bool? isBlocked, @JsonKey(name: 'is_available')  bool? isAvailable,  bool? yandexable, @JsonKey(name: 'number_of_workers')  int? numberOfWorkers, @JsonKey(name: 'has_chat_push_settings')  bool? hasChatPushSettings)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id, @JsonKey(name: 'is_main')  bool? isMain,  String? name,  String? country,  String? region,  String? city,  String? address,  Location? location,  String? timezone,  int? workspaces,  String? phone,  String? email, @JsonKey(name: 'schedule_patterns')  List<SchedulePattern>? schedulePatterns, @JsonKey(name: 'has_chat_settings')  bool? hasChatSettings, @JsonKey(name: 'is_blocked')  bool? isBlocked, @JsonKey(name: 'is_available')  bool? isAvailable,  bool? yandexable, @JsonKey(name: 'number_of_workers')  int? numberOfWorkers, @JsonKey(name: 'has_chat_push_settings')  bool? hasChatPushSettings)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _BranchApi() when $default != null:
 return $default(_that.id,_that.isMain,_that.name,_that.country,_that.region,_that.city,_that.address,_that.location,_that.timezone,_that.workspaces,_that.phone,_that.email,_that.schedulePatterns,_that.hasChatSettings,_that.isBlocked,_that.isAvailable,_that.yandexable,_that.numberOfWorkers,_that.hasChatPushSettings);case _:
@@ -473,7 +473,7 @@ return $default(_that.id,_that.isMain,_that.name,_that.country,_that.region,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id, @JsonKey(name: 'is_main')  bool? isMain,  String? name,  String? country,  String? region,  String? city,  String? address,  Location? location,  String? timezone,  int? workspaces,  String? phone,  String? email,  List<SchedulePattern>? schedulePatterns, @JsonKey(name: 'has_chat_settings')  bool? hasChatSettings, @JsonKey(name: 'is_blocked')  bool? isBlocked, @JsonKey(name: 'is_available')  bool? isAvailable,  bool? yandexable, @JsonKey(name: 'number_of_workers')  int? numberOfWorkers, @JsonKey(name: 'has_chat_push_settings')  bool? hasChatPushSettings)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id, @JsonKey(name: 'is_main')  bool? isMain,  String? name,  String? country,  String? region,  String? city,  String? address,  Location? location,  String? timezone,  int? workspaces,  String? phone,  String? email, @JsonKey(name: 'schedule_patterns')  List<SchedulePattern>? schedulePatterns, @JsonKey(name: 'has_chat_settings')  bool? hasChatSettings, @JsonKey(name: 'is_blocked')  bool? isBlocked, @JsonKey(name: 'is_available')  bool? isAvailable,  bool? yandexable, @JsonKey(name: 'number_of_workers')  int? numberOfWorkers, @JsonKey(name: 'has_chat_push_settings')  bool? hasChatPushSettings)  $default,) {final _that = this;
 switch (_that) {
 case _BranchApi():
 return $default(_that.id,_that.isMain,_that.name,_that.country,_that.region,_that.city,_that.address,_that.location,_that.timezone,_that.workspaces,_that.phone,_that.email,_that.schedulePatterns,_that.hasChatSettings,_that.isBlocked,_that.isAvailable,_that.yandexable,_that.numberOfWorkers,_that.hasChatPushSettings);}
@@ -490,7 +490,7 @@ return $default(_that.id,_that.isMain,_that.name,_that.country,_that.region,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id, @JsonKey(name: 'is_main')  bool? isMain,  String? name,  String? country,  String? region,  String? city,  String? address,  Location? location,  String? timezone,  int? workspaces,  String? phone,  String? email,  List<SchedulePattern>? schedulePatterns, @JsonKey(name: 'has_chat_settings')  bool? hasChatSettings, @JsonKey(name: 'is_blocked')  bool? isBlocked, @JsonKey(name: 'is_available')  bool? isAvailable,  bool? yandexable, @JsonKey(name: 'number_of_workers')  int? numberOfWorkers, @JsonKey(name: 'has_chat_push_settings')  bool? hasChatPushSettings)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id, @JsonKey(name: 'is_main')  bool? isMain,  String? name,  String? country,  String? region,  String? city,  String? address,  Location? location,  String? timezone,  int? workspaces,  String? phone,  String? email, @JsonKey(name: 'schedule_patterns')  List<SchedulePattern>? schedulePatterns, @JsonKey(name: 'has_chat_settings')  bool? hasChatSettings, @JsonKey(name: 'is_blocked')  bool? isBlocked, @JsonKey(name: 'is_available')  bool? isAvailable,  bool? yandexable, @JsonKey(name: 'number_of_workers')  int? numberOfWorkers, @JsonKey(name: 'has_chat_push_settings')  bool? hasChatPushSettings)?  $default,) {final _that = this;
 switch (_that) {
 case _BranchApi() when $default != null:
 return $default(_that.id,_that.isMain,_that.name,_that.country,_that.region,_that.city,_that.address,_that.location,_that.timezone,_that.workspaces,_that.phone,_that.email,_that.schedulePatterns,_that.hasChatSettings,_that.isBlocked,_that.isAvailable,_that.yandexable,_that.numberOfWorkers,_that.hasChatPushSettings);case _:
@@ -505,7 +505,7 @@ return $default(_that.id,_that.isMain,_that.name,_that.country,_that.region,_tha
 @JsonSerializable()
 
 class _BranchApi implements BranchApi {
-  const _BranchApi({required this.id, @JsonKey(name: 'is_main') required this.isMain, required this.name, required this.country, required this.region, required this.city, required this.address, required this.location, required this.timezone, required this.workspaces, required this.phone, required this.email, required final  List<SchedulePattern>? schedulePatterns, @JsonKey(name: 'has_chat_settings') required this.hasChatSettings, @JsonKey(name: 'is_blocked') required this.isBlocked, @JsonKey(name: 'is_available') required this.isAvailable, required this.yandexable, @JsonKey(name: 'number_of_workers') required this.numberOfWorkers, @JsonKey(name: 'has_chat_push_settings') required this.hasChatPushSettings}): _schedulePatterns = schedulePatterns;
+  const _BranchApi({required this.id, @JsonKey(name: 'is_main') required this.isMain, required this.name, required this.country, required this.region, required this.city, required this.address, required this.location, required this.timezone, required this.workspaces, required this.phone, required this.email, @JsonKey(name: 'schedule_patterns') required final  List<SchedulePattern>? schedulePatterns, @JsonKey(name: 'has_chat_settings') required this.hasChatSettings, @JsonKey(name: 'is_blocked') required this.isBlocked, @JsonKey(name: 'is_available') required this.isAvailable, required this.yandexable, @JsonKey(name: 'number_of_workers') required this.numberOfWorkers, @JsonKey(name: 'has_chat_push_settings') required this.hasChatPushSettings}): _schedulePatterns = schedulePatterns;
   factory _BranchApi.fromJson(Map<String, dynamic> json) => _$BranchApiFromJson(json);
 
 @override final  int id;
@@ -521,7 +521,7 @@ class _BranchApi implements BranchApi {
 @override final  String? phone;
 @override final  String? email;
  final  List<SchedulePattern>? _schedulePatterns;
-@override List<SchedulePattern>? get schedulePatterns {
+@override@JsonKey(name: 'schedule_patterns') List<SchedulePattern>? get schedulePatterns {
   final value = _schedulePatterns;
   if (value == null) return null;
   if (_schedulePatterns is EqualUnmodifiableListView) return _schedulePatterns;
@@ -569,7 +569,7 @@ abstract mixin class _$BranchApiCopyWith<$Res> implements $BranchApiCopyWith<$Re
   factory _$BranchApiCopyWith(_BranchApi value, $Res Function(_BranchApi) _then) = __$BranchApiCopyWithImpl;
 @override @useResult
 $Res call({
- int id,@JsonKey(name: 'is_main') bool? isMain, String? name, String? country, String? region, String? city, String? address, Location? location, String? timezone, int? workspaces, String? phone, String? email, List<SchedulePattern>? schedulePatterns,@JsonKey(name: 'has_chat_settings') bool? hasChatSettings,@JsonKey(name: 'is_blocked') bool? isBlocked,@JsonKey(name: 'is_available') bool? isAvailable, bool? yandexable,@JsonKey(name: 'number_of_workers') int? numberOfWorkers,@JsonKey(name: 'has_chat_push_settings') bool? hasChatPushSettings
+ int id,@JsonKey(name: 'is_main') bool? isMain, String? name, String? country, String? region, String? city, String? address, Location? location, String? timezone, int? workspaces, String? phone, String? email,@JsonKey(name: 'schedule_patterns') List<SchedulePattern>? schedulePatterns,@JsonKey(name: 'has_chat_settings') bool? hasChatSettings,@JsonKey(name: 'is_blocked') bool? isBlocked,@JsonKey(name: 'is_available') bool? isAvailable, bool? yandexable,@JsonKey(name: 'number_of_workers') int? numberOfWorkers,@JsonKey(name: 'has_chat_push_settings') bool? hasChatPushSettings
 });
 
 

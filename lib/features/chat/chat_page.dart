@@ -1,72 +1,218 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/date_range_picker_dialog.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/core/widgets/loading_widget.dart';
+import 'package:rient_app/features/chat/service/mobile_push_service.dart';
 import 'package:rient_app/features/chat/view/components/message_notification_card.dart';
 import 'package:rient_app/features/chat/view/components/message_notification_item.dart';
 import 'package:rient_app/features/chat/view/components/messages_filter_segment.dart';
-import 'package:rient_app/features/chat/view/components/messages_mock_data.dart';
+import 'package:rient_app/features/chat/view/providers/push_history_provider.dart';
+import 'package:rient_app/features/chat/view/push_history_mapper.dart';
+import 'package:rient_app/features/create/view/add_new_entry_page.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
+import 'package:rient_app/features/schedule/service/appointments_service.dart';
 import 'package:rient_app/resources/resources.dart';
 
-class ChatPage extends StatefulWidget {
+class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
 
   static const name = 'chat_page';
   static const path = '/chat_page';
 
   @override
-  State<ChatPage> createState() => _ChatPageState();
+  ConsumerState<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends ConsumerState<ChatPage> {
   MessagesFilter _filter = MessagesFilter.unread;
-  late List<MessageNotificationItem> _unread;
-  late List<MessageNotificationItem> _read;
   AppDateRangePickerResult? _dateRange;
+  final List<MessageNotificationItem> _items = [];
+  final ScrollController _scrollController = ScrollController();
+
+  int _page = 1;
+  bool _hasMore = true;
+  bool _isLoading = false;
+  bool _isLoadingMore = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _unread = List.of(mockUnreadMessages);
-    _read = List.of(mockReadMessages);
-  }
-
-  List<MessageNotificationItem> get _visibleItems =>
-      _filter == MessagesFilter.unread ? _unread : _read;
-
-  void _markAllRead() {
-    setState(() {
-      _read = [
-        ..._read,
-        ..._unread.map(
-          (m) => MessageNotificationItem(
-            id: m.id,
-            title: m.title,
-            description: m.description,
-            timestamp: m.timestamp,
-            isUnread: false,
-            showAccent: false,
-          ),
-        ),
-      ];
-      _unread = [];
-      _filter = MessagesFilter.read;
+    _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_loadFirstPage());
     });
   }
 
-  void _deleteAll() {
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  PushHistoryListQuery get _listQuery => PushHistoryListQuery(
+        isRead: _filter == MessagesFilter.read,
+        datetimeGte: _dateRange?.start,
+        datetimeLte: _dateRange?.end != null
+            ? DateTime(
+                _dateRange!.end!.year,
+                _dateRange!.end!.month,
+                _dateRange!.end!.day,
+                23,
+                59,
+                59,
+              )
+            : null,
+        page: _page,
+      );
+
+  void _onScroll() {
+    if (!_hasMore || _isLoading || _isLoadingMore) return;
+    if (_scrollController.position.pixels <
+        _scrollController.position.maxScrollExtent - 200) {
+      return;
+    }
+    unawaited(_loadNextPage());
+  }
+
+  Future<void> _loadFirstPage() async {
     setState(() {
-      if (_filter == MessagesFilter.unread) {
-        _unread = [];
-      } else {
-        _read = [];
+      _page = 1;
+      _hasMore = true;
+      _items.clear();
+      _isLoading = true;
+      _isLoadingMore = false;
+      _errorMessage = null;
+    });
+
+    try {
+      final response = await ref.read(
+        pushHistoryListProvider(_listQuery.copyWith(page: 1)).future,
+      );
+      if (!mounted) return;
+      setState(() {
+        _items.addAll(
+          response.results.map(messageNotificationItemFromPush),
+        );
+        _hasMore = response.next != null && response.next!.isNotEmpty;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Не удалось загрузить сообщения';
+      });
+    }
+  }
+
+  Future<void> _loadNextPage() async {
+    if (!_hasMore || _isLoadingMore) return;
+    setState(() => _isLoadingMore = true);
+    final nextPage = _page + 1;
+
+    try {
+      final response = await ref.read(
+        pushHistoryListProvider(_listQuery.copyWith(page: nextPage)).future,
+      );
+      if (!mounted) return;
+      setState(() {
+        _page = nextPage;
+        _items.addAll(
+          response.results.map(messageNotificationItemFromPush),
+        );
+        _hasMore = response.next != null && response.next!.isNotEmpty;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<void> _markAllRead() async {
+    try {
+      await ref.read(mobilePushServiceProvider).markAllAsRead(
+            datetimeGte: _dateRange?.start,
+            datetimeLte: _dateRange?.end != null
+                ? DateTime(
+                    _dateRange!.end!.year,
+                    _dateRange!.end!.month,
+                    _dateRange!.end!.day,
+                    23,
+                    59,
+                    59,
+                  )
+                : null,
+          );
+      invalidatePushHistory(ref);
+      if (!mounted) return;
+      setState(() => _filter = MessagesFilter.read);
+      await _loadFirstPage();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось отметить все как прочитанные')),
+      );
+    }
+  }
+
+  Future<void> _onNotificationTap(MessageNotificationItem item) async {
+    if (item.isUnread) {
+      try {
+        await ref.read(mobilePushServiceProvider).markAsRead(
+              id: item.id,
+              isRead: true,
+            );
+        invalidatePushHistory(ref);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось отметить как прочитанное')),
+        );
+        return;
       }
-    });
+    }
+
+    final appointmentId = item.appointmentId;
+    if (appointmentId == null || appointmentId <= 0) {
+      if (item.isUnread) await _loadFirstPage();
+      return;
+    }
+
+    try {
+      final appointment = await ref
+          .read(appointmentsServiceProvider)
+          .getAppointmentById(appointmentId);
+      if (!mounted) return;
+      if (appointment == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Запись не найдена')),
+        );
+        return;
+      }
+      await context.pushNamed<bool>(
+        AddNewEntryPage.name,
+        extra: appointment,
+      );
+      if (!mounted) return;
+      await _loadFirstPage();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось открыть запись')),
+      );
+    }
   }
 
   Future<void> _openDateRangeDialog() async {
@@ -77,6 +223,14 @@ class _ChatPageState extends State<ChatPage> {
     );
     if (!mounted || range == null) return;
     setState(() => _dateRange = range);
+    invalidatePushHistory(ref);
+    await _loadFirstPage();
+  }
+
+  void _onFilterChanged(MessagesFilter value) {
+    if (_filter == value) return;
+    setState(() => _filter = value);
+    unawaited(_loadFirstPage());
   }
 
   @override
@@ -86,6 +240,16 @@ class _ChatPageState extends State<ChatPage> {
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
     final accent = AppColors.themeAccent(context);
+    final countsAsync = ref.watch(pushHistoryCountProvider);
+
+    final unreadCount = countsAsync.maybeWhen(
+      data: (c) => c.unread,
+      orElse: () => 0,
+    );
+    final readCount = countsAsync.maybeWhen(
+      data: (c) => (c.total - c.unread).clamp(0, c.total),
+      orElse: () => 0,
+    );
 
     return Scaffold(
       backgroundColor: screenBackground,
@@ -95,51 +259,90 @@ class _ChatPageState extends State<ChatPage> {
             isDark: isDark,
             onCalendarTap: _openDateRangeDialog,
             filter: _filter,
-            unreadCount: _unread.length,
-            readCount: _read.length,
-            onFilterChanged: (value) => setState(() => _filter = value),
+            unreadCount: unreadCount,
+            readCount: readCount,
+            onFilterChanged: _onFilterChanged,
           ),
-          Expanded(
-            child: _visibleItems.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Image.asset(AppImages.empty),
-                        const Gap(12),
-                        Text(
-                          'Сообщений пока нет',
-                          style: AppFonts.b2Regular.copyWith(
-                            color: isDark
-                                ? AppColors.tabbarGreyDark
-                                : AppColors.primaryDark,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    padding: AppDecoration.padding16.copyWith(top: 12),
-                    itemCount: _visibleItems.length,
-                    separatorBuilder: (_, __) => const Gap(10),
-                    itemBuilder: (context, index) {
-                      final item = _visibleItems[index];
-                      return MessageNotificationCard(
-                        item: item,
-                        onOpenCard: () {},
-                      );
-                    },
-                  ),
-          ),
-          if (_visibleItems.isNotEmpty)
+          Expanded(child: _buildBody(isDark)),
+          if (_filter == MessagesFilter.unread &&
+              _items.isNotEmpty &&
+              !_isLoading)
             _MessagesBottomActions(
               isDark: isDark,
               accent: accent,
-              onDeleteAll: _deleteAll,
               onMarkAllRead: _markAllRead,
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBody(bool isDark) {
+    if (_isLoading && _items.isEmpty) {
+      return const Center(child: LoadingWidget());
+    }
+
+    if (_errorMessage != null && _items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _errorMessage!,
+              style: AppFonts.b2Regular.copyWith(
+                color: isDark
+                    ? AppColors.tabbarGreyDark
+                    : AppColors.primaryDark,
+              ),
+            ),
+            const Gap(12),
+            TextButton(
+              onPressed: _loadFirstPage,
+              child: const Text('Повторить'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(AppImages.empty),
+            const Gap(12),
+            Text(
+              'Сообщений пока нет',
+              style: AppFonts.b2Regular.copyWith(
+                color: isDark
+                    ? AppColors.tabbarGreyDark
+                    : AppColors.primaryDark,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      controller: _scrollController,
+      padding: AppDecoration.padding16.copyWith(top: 12),
+      itemCount: _items.length + (_isLoadingMore ? 1 : 0),
+      separatorBuilder: (_, __) => const Gap(10),
+      itemBuilder: (context, index) {
+        if (index >= _items.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: LoadingWidget(side: 24)),
+          );
+        }
+        final item = _items[index];
+        return MessageNotificationCard(
+          item: item,
+          onOpenCard: () => _onNotificationTap(item),
+        );
+      },
     );
   }
 }
@@ -231,13 +434,11 @@ class _MessagesBottomActions extends StatelessWidget {
   const _MessagesBottomActions({
     required this.isDark,
     required this.accent,
-    required this.onDeleteAll,
     required this.onMarkAllRead,
   });
 
   final bool isDark;
   final Color accent;
-  final VoidCallback onDeleteAll;
   final VoidCallback onMarkAllRead;
 
   @override
@@ -256,26 +457,11 @@ class _MessagesBottomActions extends StatelessWidget {
         ),
       ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: _ActionButton(
-              title: 'Удалить все',
-              fillColor: buttonFill,
-              textColor: AppColors.red,
-              onTap: onDeleteAll,
-            ),
-          ),
-          const Gap(12),
-          Expanded(
-            child: _ActionButton(
-              title: 'Прочитать все',
-              fillColor: buttonFill,
-              textColor: accent,
-              onTap: onMarkAllRead,
-            ),
-          ),
-        ],
+      child: _ActionButton(
+        title: 'Прочитать все',
+        fillColor: buttonFill,
+        textColor: accent,
+        onTap: onMarkAllRead,
       ),
     );
   }
