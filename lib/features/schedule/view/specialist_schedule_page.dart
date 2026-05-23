@@ -16,6 +16,8 @@ import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
 import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
+import 'package:rient_app/features/schedule/utils/work_schedule_appointment_conflict.dart'
+    show humanizeScheduleApiError, isScheduleAppointmentConflictError;
 import 'package:rient_app/features/schedule/service/worker_schedule_configs_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
@@ -75,6 +77,12 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
   String _shiftWorkEnd = _defaultGroupEnd;
   String? _configUuid;
   List<SchedulePatternItemApi> _loadedPatterns = const [];
+  List<SpecialistDayDraft> _lastSavedWeekdays = const [];
+  List<SpecialistDayDraft> _lastSavedWeekends = const [];
+  String _lastSavedWeekdayGroupStart = _defaultGroupStart;
+  String _lastSavedWeekdayGroupEnd = _defaultGroupEnd;
+  String _lastSavedWeekendGroupStart = _defaultGroupStart;
+  String _lastSavedWeekendGroupEnd = _defaultGroupEnd;
   String _employeeDisplayName = '';
   String? _employeeSpecialization;
   String? _employeePictureUrl;
@@ -136,6 +144,41 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
   bool get _isWeekSchedule => _scheduleType == 'Неделя';
   bool get _isShiftSchedule => _scheduleType == 'Смена';
 
+  List<SpecialistDayDraft> _cloneDayDrafts(List<SpecialistDayDraft> days) {
+    return days
+        .map(
+          (d) => SpecialistDayDraft(
+            label: d.label,
+            dayKey: d.dayKey,
+            enabled: d.enabled,
+            start: d.start,
+            end: d.end,
+            patternId: d.patternId,
+            breakStart: d.breakStart,
+            breakEnd: d.breakEnd,
+          ),
+        )
+        .toList();
+  }
+
+  void _snapshotSavedWeekSchedule() {
+    _lastSavedWeekdays = _cloneDayDrafts(_weekdays);
+    _lastSavedWeekends = _cloneDayDrafts(_weekends);
+    _lastSavedWeekdayGroupStart = _weekdayGroupStart;
+    _lastSavedWeekdayGroupEnd = _weekdayGroupEnd;
+    _lastSavedWeekendGroupStart = _weekendGroupStart;
+    _lastSavedWeekendGroupEnd = _weekendGroupEnd;
+  }
+
+  void _restoreSavedWeekSchedule() {
+    _weekdays = _cloneDayDrafts(_lastSavedWeekdays);
+    _weekends = _cloneDayDrafts(_lastSavedWeekends);
+    _weekdayGroupStart = _lastSavedWeekdayGroupStart;
+    _weekdayGroupEnd = _lastSavedWeekdayGroupEnd;
+    _weekendGroupStart = _lastSavedWeekendGroupStart;
+    _weekendGroupEnd = _lastSavedWeekendGroupEnd;
+  }
+
   void _applyLoadedForm(SpecialistScheduleFormState form) {
     _scheduleType = form.scheduleTypeLabel;
     _weekdays = List.of(form.weekdays);
@@ -157,6 +200,7 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
     _employeeDisplayName = form.employeeName;
     _employeeSpecialization = form.employeeSpecialization;
     _employeePictureUrl = form.employeePictureUrl;
+    _snapshotSavedWeekSchedule();
   }
 
   String? get _headerEmployeePictureUrl {
@@ -296,7 +340,9 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
   String _saveErrorMessage(Object error) {
     if (error is CustomException && error.causedError is DioException) {
       final dio = error.causedError! as DioException;
-      final message = _extractApiErrorMessage(dio.response?.data);
+      final message = humanizeScheduleApiError(
+        _extractApiErrorMessage(dio.response?.data),
+      );
       if (message != null) return message;
     }
     return 'Не удалось сохранить график';
@@ -385,9 +431,13 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
       bumpWorkScheduleReloadToken(ref);
 
       if (!mounted) return;
+      _snapshotSavedWeekSchedule();
       context.pop(true);
     } catch (e) {
       if (!mounted) return;
+      if (isScheduleAppointmentConflictError(e)) {
+        setState(_restoreSavedWeekSchedule);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_saveErrorMessage(e))),
       );

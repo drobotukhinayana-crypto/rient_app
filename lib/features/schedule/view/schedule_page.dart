@@ -25,7 +25,13 @@ import 'package:rient_app/features/schedule/data/models/available_workers_api/av
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/view/components/date_strip.dart';
 import 'package:rient_app/features/schedule/view/components/month_calendar.dart';
-import 'package:rient_app/features/schedule/view/components/schedule_calendar_day_multi_column.dart';
+import 'package:rient_app/features/schedule/view/components/schedule_calendar_day_multi_column.dart'
+    show
+        ScheduleCalendarDayColumn,
+        ScheduleCalendarDayMultiColumn,
+        scheduleDaySpecialistColumnWidth,
+        scheduleDaySpecialistLeadingInset,
+        scheduleDaySpecialistRowHorizontalPadding;
 import 'package:rient_app/features/schedule/view/components/schedule_calendar_one_user_widget.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_list_view.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
@@ -59,6 +65,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   Timer? _wsReconnectTimer;
   Timer? _wsDebounceRefreshTimer;
   bool _wsEnabled = true;
+
+  /// Пока перезагружается доступность на дату, не сбрасываем колонки календаря.
+  List<SpecialistItem> _lastDaySpecialists = const [];
+
+  bool _pendingDayHorizontalScrollAlign = false;
 
   @override
   void initState() {
@@ -217,6 +228,41 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     _syncingDayHorizontalScroll = false;
   }
 
+  void _alignDayHorizontalScroll({int attempt = 0}) {
+    if (!mounted || attempt > 20) return;
+
+    if (!_daySpecialistsScrollController.hasClients ||
+        !_dayCalendarScrollController.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _alignDayHorizontalScroll(attempt: attempt + 1);
+      });
+      return;
+    }
+
+    final specialists = _daySpecialistsScrollController.position;
+    final calendar = _dayCalendarScrollController.position;
+    final target = specialists.pixels.clamp(
+      calendar.minScrollExtent,
+      calendar.maxScrollExtent,
+    );
+
+    _syncingDayHorizontalScroll = true;
+    try {
+      if ((calendar.pixels - target).abs() > 0.5) {
+        _dayCalendarScrollController.jumpTo(target);
+      }
+    } finally {
+      _syncingDayHorizontalScroll = false;
+    }
+  }
+
+  void _scheduleDayHorizontalScrollAlign() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _alignDayHorizontalScroll();
+    });
+  }
+
   static List<SpecialistItem> _availableToSpecialists(
     List<AvailableWorkerShift> shifts,
     List<WorkerApi> allWorkers,
@@ -313,6 +359,27 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   static DateTime _toDateOnly(DateTime value) =>
       DateTime(value.year, value.month, value.day);
 
+  void _bumpScheduleUiVersion() {
+    if (!mounted) return;
+    setState(() => _refreshVersion++);
+  }
+
+  /// После создания/редактирования записи — только записи и статистика.
+  void _refreshScheduleAppointmentsOnly() {
+    final selectedDate = ref.read(selectedScheduleDateProvider);
+    final weekKey = scheduleWeekKey(
+      _viewMode == ViewMode.day ? selectedDate : _weekStart,
+    );
+    final monthKey = scheduleMonthKey(_monthStart);
+
+    ref.invalidate(scheduleAppointmentsProvider);
+    ref.invalidate(scheduleStatisticsForWeekProvider(weekKey));
+    ref.invalidate(scheduleStatisticsForMonthProvider(monthKey));
+    _pendingDayHorizontalScrollAlign = true;
+    _bumpScheduleUiVersion();
+    _scheduleDayHorizontalScrollAlign();
+  }
+
   void _forceRefreshScheduleScreen() {
     final selectedDate = ref.read(selectedScheduleDateProvider);
     final weekKey = scheduleWeekKey(
@@ -337,10 +404,33 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     ref.invalidate(scheduleStatisticsForMonthProvider(monthKey));
     ref.invalidate(scheduleWorkersProvider);
 
-    if (!mounted) return;
-    setState(() {
-      _refreshVersion++;
-    });
+    _bumpScheduleUiVersion();
+    _scheduleDayHorizontalScrollAlign();
+  }
+
+  List<SpecialistItem> _daySpecialistsFromProviders({
+    required AsyncValue<List<AvailableWorkerShift>> availableWorkersAsync,
+    required AsyncValue<WorkersApiResponse> workersAsync,
+  }) {
+    final allWorkers = workersAsync.value?.results ?? const <WorkerApi>[];
+    return availableWorkersAsync.when(
+      data: (available) {
+        if (available.isEmpty) {
+          return _allWorkersToSpecialists(allWorkers);
+        }
+        return _availableToSpecialists(available, allWorkers);
+      },
+      loading: () {
+        if (_lastDaySpecialists.isNotEmpty) return _lastDaySpecialists;
+        if (allWorkers.isNotEmpty) return _allWorkersToSpecialists(allWorkers);
+        return const <SpecialistItem>[];
+      },
+      error: (_, __) {
+        if (_lastDaySpecialists.isNotEmpty) return _lastDaySpecialists;
+        if (allWorkers.isNotEmpty) return _allWorkersToSpecialists(allWorkers);
+        return const <SpecialistItem>[];
+      },
+    );
   }
 
   Future<void> _onPullToRefresh() async {
@@ -360,9 +450,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       );
     } finally {
       if (mounted) {
-        // Всегда обновляем экран после закрытия карточки (в т.ч. системная
-        // «Назад» и pop без результата), иначе загруженность может остаться старой.
-        _forceRefreshScheduleScreen();
+        // Только записи/статистика: полный refresh обнуляет список мастеров на дату.
+        _refreshScheduleAppointmentsOnly();
       }
     }
   }
@@ -668,7 +757,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isWideScreen = MediaQuery.sizeOf(context).width >= 900;
     final screenBackground = isDark
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
@@ -719,19 +807,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       _monthStart,
     );
     // Для всех режимов показываем активных сотрудников на выбранную дату.
-    final allSpecialists = availableWorkersAsync.maybeWhen(
-      data: (available) {
-        if (available.isEmpty) {
-          final allWorkers = workersAsync.value?.results ?? const <WorkerApi>[];
-          return _allWorkersToSpecialists(allWorkers);
-        }
-        return _availableToSpecialists(
-          available,
-          workersAsync.value?.results ?? const [],
-        );
-      },
-      orElse: () => <SpecialistItem>[],
+    final allSpecialists = _daySpecialistsFromProviders(
+      availableWorkersAsync: availableWorkersAsync,
+      workersAsync: workersAsync,
     );
+    if (availableWorkersAsync.hasValue && allSpecialists.isNotEmpty) {
+      _lastDaySpecialists = allSpecialists;
+    }
     final specialists = isWorkerRole
         ? allSpecialists.where((s) => s.id == currentWorkerId).toList()
         : allSpecialists;
@@ -874,6 +956,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         (_viewMode == ViewMode.week && weekStatisticsLoading) ||
         (_viewMode == ViewMode.month && monthStatisticsLoading);
 
+    if (_pendingDayHorizontalScrollAlign &&
+        _viewMode == ViewMode.day &&
+        multiDayColumns &&
+        !dayAppointmentsLoading) {
+      _pendingDayHorizontalScrollAlign = false;
+      _scheduleDayHorizontalScrollAlign();
+    }
+
     void refreshScheduleAfterMutation(AppointmentApi mutatedAppointment) {
       final mutatedWorkerId = mutatedAppointment.worker?.id;
       if (_viewMode == ViewMode.day) {
@@ -926,9 +1016,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       }
       // Fallback: сбрасываем кеш всех family-инстансов записей.
       ref.invalidate(scheduleAppointmentsProvider);
-      ref.invalidate(availableWorkersForDateProvider(selectedDate));
       ref.invalidate(scheduleStatisticsForWeekProvider(weekKey));
       ref.invalidate(scheduleStatisticsForMonthProvider(monthKey));
+      _bumpScheduleUiVersion();
     }
 
     ref.listen(scheduleWorkersProvider, (prev, next) {
@@ -1020,8 +1110,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       specialists: specialists,
                                       scrollController:
                                           _daySpecialistsScrollController,
-                                      itemWidth: 114,
-                                      leadingInset: isWideScreen ? 51 : 28,
+                                      itemWidth: scheduleDaySpecialistColumnWidth,
+                                      leadingInset: scheduleDaySpecialistLeadingInset(
+                                        rowHorizontalPadding:
+                                            scheduleDaySpecialistRowHorizontalPadding,
+                                      ),
                                     ),
                                   ),
                                 Expanded(
@@ -1035,7 +1128,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                           branchEndHour: dayWorkHours.endHour,
                                           horizontalScrollController:
                                               _dayCalendarScrollController,
-                                          columnWidth: 114,
+                                          columnWidth:
+                                              scheduleDaySpecialistColumnWidth,
                                           timeIntervalMinutes:
                                               scheduleCellIntervalMinutes,
                                           columns: () {
@@ -1136,9 +1230,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                 appointment,
                                               );
                                             }
-                                            // Всегда после закрытия карточки: pop(true) с root-навигатором
-                                            // не всегда доходит до await, а загруженность должна обновиться.
-                                            _forceRefreshScheduleScreen();
+                                            _refreshScheduleAppointmentsOnly();
                                           },
                                           onEmptySlotTap: (workerId, dateTime) {
                                             if (!canCreateSchedule) return;
@@ -1182,7 +1274,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                 appointment,
                                               );
                                             }
-                                            _forceRefreshScheduleScreen();
+                                            _refreshScheduleAppointmentsOnly();
                                           },
                                           onEmptySlotTap: (dateTime) {
                                             if (!canCreateSchedule) return;
@@ -1270,7 +1362,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                               appointment,
                                             );
                                           }
-                                          _forceRefreshScheduleScreen();
+                                          _refreshScheduleAppointmentsOnly();
                                         },
                                         onEmptySlotTap: (dateTime) {
                                           if (!canCreateSchedule) return;

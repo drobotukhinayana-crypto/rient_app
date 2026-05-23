@@ -42,10 +42,9 @@ import 'package:rient_app/resources/resources.dart';
 DateTime _dateOnlyForScheduleStats(DateTime d) =>
     DateTime(d.year, d.month, d.day);
 
-/// Инвалидация загруженности и available_workers для конкретного календарного дня.
+/// Инвалидация загруженности (статистика недели/месяца) для календарного дня.
 void _invalidateScheduleStatsForDayWidgetRef(WidgetRef ref, DateTime localDay) {
   final d = _dateOnlyForScheduleStats(localDay);
-  ref.invalidate(availableWorkersForDateProvider(d));
   ref.invalidate(scheduleStatisticsForWeekProvider(scheduleWeekKey(d)));
   ref.invalidate(scheduleStatisticsForMonthProvider(scheduleMonthKey(d)));
 }
@@ -55,7 +54,6 @@ void _invalidateScheduleStatsForDayContainer(
   DateTime localDay,
 ) {
   final d = _dateOnlyForScheduleStats(localDay);
-  container.invalidate(availableWorkersForDateProvider(d));
   container.invalidate(scheduleStatisticsForWeekProvider(scheduleWeekKey(d)));
   container.invalidate(scheduleStatisticsForMonthProvider(scheduleMonthKey(d)));
 }

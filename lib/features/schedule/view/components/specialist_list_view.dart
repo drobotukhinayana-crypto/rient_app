@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
+import 'package:rient_app/features/schedule/view/components/schedule_calendar_day_multi_column.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
@@ -10,14 +10,16 @@ class SpecialistListView extends StatelessWidget {
     super.key,
     required this.specialists,
     this.scrollController,
-    this.itemWidth = 114,
-    this.leadingInset = 28,
+    this.itemWidth = scheduleDaySpecialistColumnWidth,
+    this.leadingInset = scheduleDaySpecialistLeadingInsetDefault,
+    this.columnSeparatorWidth = scheduleDayColumnSeparatorWidth,
   });
 
   final List<SpecialistItem> specialists;
   final ScrollController? scrollController;
   final double itemWidth;
   final double leadingInset;
+  final double columnSeparatorWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -25,8 +27,9 @@ class SpecialistListView extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final count = specialists.length;
-        const separatorWidth = 4.0;
-        final separatorsTotalWidth = count > 1 ? (count - 1) * separatorWidth : 0;
+        final separatorsTotalWidth = count > 1
+            ? (count - 1) * columnSeparatorWidth
+            : 0.0;
         final availableCardsWidth = (constraints.maxWidth - leadingInset).clamp(
           0.0,
           double.infinity,
@@ -64,14 +67,14 @@ class SpecialistListView extends StatelessWidget {
                               pictureUrl: item.pictureUrl,
                               name: item.name,
                             ),
-                            Gap(12),
+                            const SizedBox(height: 12),
                             Text(
                               item.name,
                               style: AppFonts.c1Medium,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            Gap(2),
+                            const SizedBox(height: 2),
                             Text(
                               item.role,
                               maxLines: 1,
@@ -85,7 +88,9 @@ class SpecialistListView extends StatelessWidget {
                       ),
                     );
                   },
-                  separatorBuilder: (BuildContext context, int index) => Gap(4),
+                  separatorBuilder: (BuildContext context, int index) => SizedBox(
+                    width: columnSeparatorWidth,
+                  ),
                   itemCount: specialists.length,
                 ),
               ),

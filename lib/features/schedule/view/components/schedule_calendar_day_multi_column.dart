@@ -4,6 +4,38 @@ import 'package:rient_app/features/schedule/view/components/schedule_calendar_on
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
 
+/// Ширина шкалы времени в дневном режиме «все мастера».
+const scheduleDayTimeRulerWidth = 50.0;
+
+/// Разделитель между колонками мастеров (должен совпадать в шапке и в сетке).
+const scheduleDayColumnSeparatorWidth = 1.0;
+
+const scheduleDaySpecialistColumnWidth = 114.0;
+
+/// Горизонтальный padding строки [SpecialistListView] над сеткой.
+const scheduleDaySpecialistRowHorizontalPadding = 16.0;
+
+/// Отступ слева в шапке мастеров, чтобы колонки совпали с сеткой (шкала + разделитель − padding).
+double scheduleDaySpecialistLeadingInset({
+  double rowHorizontalPadding = scheduleDaySpecialistRowHorizontalPadding,
+}) =>
+    scheduleDayTimeRulerWidth +
+    scheduleDayColumnSeparatorWidth -
+    rowHorizontalPadding;
+
+/// [scheduleDaySpecialistLeadingInset] при [scheduleDaySpecialistRowHorizontalPadding].
+const scheduleDaySpecialistLeadingInsetDefault = 35.0;
+
+int scheduleDayColumnItemsKey(List<ScheduleAppointmentItem> items) {
+  if (items.isEmpty) return 0;
+  return Object.hash(
+    items.length,
+    Object.hashAll(
+      items.map((e) => Object.hash(e.startTime, e.endTime, e.subject)),
+    ),
+  );
+}
+
 /// Одна колонка дня: записи мастера с учётом смены и перерыва.
 class ScheduleCalendarDayColumn {
   const ScheduleCalendarDayColumn({
@@ -57,7 +89,7 @@ class ScheduleCalendarDayMultiColumn extends StatefulWidget {
 
 class _ScheduleCalendarDayMultiColumnState
     extends State<ScheduleCalendarDayMultiColumn> {
-  static const _ruler = 50.0;
+  static const _ruler = scheduleDayTimeRulerWidth;
   static const _masterScrollIndex = -1; // Левый столбик времени — мастер.
   final Map<int, ScrollPosition> _positions = <int, ScrollPosition>{};
   final Map<int, VoidCallback> _listeners = <int, VoidCallback>{};
@@ -137,6 +169,15 @@ class _ScheduleCalendarDayMultiColumnState
       for (final index in _positions.keys.toList()) {
         _detachIndex(index);
       }
+      return;
+    }
+    for (var i = 0; i < widget.columns.length; i++) {
+      final oldItems = oldWidget.columns[i].items;
+      final newItems = widget.columns[i].items;
+      if (scheduleDayColumnItemsKey(oldItems) !=
+          scheduleDayColumnItemsKey(newItems)) {
+        _detachIndex(i);
+      }
     }
   }
 
@@ -149,8 +190,9 @@ class _ScheduleCalendarDayMultiColumnState
   }
 
   Widget _calendar(int i, String dateKey) {
+    final itemsKey = scheduleDayColumnItemsKey(widget.columns[i].items);
     return ScheduleCalendarOneUserWidget(
-      key: ValueKey('day_col_${widget.columns[i].workerId}_$dateKey'),
+      key: ValueKey('day_col_${widget.columns[i].workerId}_${dateKey}_$itemsKey'),
       date: widget.date,
       items: widget.columns[i].items,
       viewMode: ViewMode.day,
@@ -218,7 +260,7 @@ class _ScheduleCalendarDayMultiColumnState
             builder: (context, constraints) {
               final columnsCount = widget.columns.length;
               final separatorsTotalWidth = columnsCount > 1
-                  ? (columnsCount - 1).toDouble()
+                  ? (columnsCount - 1) * scheduleDayColumnSeparatorWidth
                   : 0.0;
               final availableWidth = constraints.maxWidth;
               final requestedContentWidth =

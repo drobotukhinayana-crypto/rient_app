@@ -17,6 +17,8 @@ import 'package:rient_app/features/schedule/view/components/work_schedule_mock_d
 import 'package:rient_app/features/schedule/view/components/work_schedule_month_grid.dart';
 import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
+import 'package:rient_app/features/schedule/utils/work_schedule_appointment_conflict.dart'
+    show humanizeScheduleApiError, validateWorkScheduleDayAgainstAppointments, WorkScheduleDayBounds;
 import 'package:rient_app/features/schedule/view/specialist_schedule_page.dart';
 
 class WorkSchedulePage extends ConsumerStatefulWidget {
@@ -321,7 +323,9 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
   String _saveDayErrorMessage(Object error) {
     if (error is CustomException && error.causedError is DioException) {
       final dio = error.causedError! as DioException;
-      final message = _extractApiErrorMessage(dio.response?.data);
+      final message = humanizeScheduleApiError(
+        _extractApiErrorMessage(dio.response?.data),
+      );
       if (message != null) return message;
     }
     return 'Не удалось сохранить день';
@@ -408,17 +412,30 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     final cell = _cellForDate(employee, date);
     if (cell == null) return;
 
-    final result = await showWorkScheduleDayEditDialog(
-      context,
-      cell: cell,
-    );
-    if (result == null || !mounted) return;
-
     final workerId = int.tryParse(employee.id);
     final branchId = ref.read(currentBranchIdProvider);
     if (workerId == null || workerId <= 0 || branchId <= 0) return;
 
     final normalizedDate = DateTime(date.year, date.month, date.day);
+
+    final result = await showWorkScheduleDayEditDialog(
+      context,
+      cell: cell,
+      validateBeforeSave: (draft) => validateWorkScheduleDayAgainstAppointments(
+        ref: ref,
+        branchId: branchId,
+        workerId: workerId,
+        date: normalizedDate,
+        proposed: WorkScheduleDayBounds(
+          isWorkingDay: draft.isWorkingDay,
+          workStart: draft.workStart,
+          workEnd: draft.workEnd,
+          breakStart: draft.breakStart,
+          breakEnd: draft.breakEnd,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
     final fallbackStart = cell.timeStart ?? '09:00';
     final fallbackEnd = cell.timeEnd ?? '20:00';
     final body = CreateWorkerScheduleRequest.forWorker(

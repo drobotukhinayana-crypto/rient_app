@@ -70,6 +70,7 @@ String? _validate({
 Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
   BuildContext context, {
   required WorkScheduleDayCell cell,
+  Future<String?> Function(WorkScheduleDayEditResult result)? validateBeforeSave,
 }) {
   final isWorkingDayInitial = cell.kind == WorkScheduleCellKind.shift;
   var isWorkingDay = isWorkingDayInitial;
@@ -78,6 +79,7 @@ Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
   var breakStart = cell.breakStart ?? '';
   var breakEnd = cell.breakEnd ?? '';
   String? errorText;
+  var isValidating = false;
 
   return showDialog<WorkScheduleDayEditResult>(
     context: context,
@@ -241,7 +243,10 @@ Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
                         child: MainButton(
                           title: 'Сохранить',
                           height: 44,
-                          onTap: () {
+                          isLoading: isValidating,
+                          isActive: !isValidating,
+                          onTap: () async {
+                            if (isValidating) return;
                             final validation = _validate(
                               isWorkingDay: isWorkingDay,
                               workStart: workStart,
@@ -253,19 +258,35 @@ Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
                               setDialogState(() => errorText = validation);
                               return;
                             }
-                            Navigator.of(dialogContext).pop(
-                              WorkScheduleDayEditResult(
-                                isWorkingDay: isWorkingDay,
-                                workStart: workStart,
-                                workEnd: workEnd,
-                                breakStart: breakStart.trim().isEmpty
-                                    ? null
-                                    : breakStart.trim(),
-                                breakEnd: breakEnd.trim().isEmpty
-                                    ? null
-                                    : breakEnd.trim(),
-                              ),
+
+                            final result = WorkScheduleDayEditResult(
+                              isWorkingDay: isWorkingDay,
+                              workStart: workStart,
+                              workEnd: workEnd,
+                              breakStart: breakStart.trim().isEmpty
+                                  ? null
+                                  : breakStart.trim(),
+                              breakEnd: breakEnd.trim().isEmpty
+                                  ? null
+                                  : breakEnd.trim(),
                             );
+
+                            if (validateBeforeSave != null) {
+                              setDialogState(() => isValidating = true);
+                              final conflictError =
+                                  await validateBeforeSave(result);
+                              if (!context.mounted) return;
+                              setDialogState(() {
+                                isValidating = false;
+                                if (conflictError != null) {
+                                  errorText = conflictError;
+                                }
+                              });
+                              if (conflictError != null) return;
+                            }
+
+                            if (!dialogContext.mounted) return;
+                            Navigator.of(dialogContext).pop(result);
                           },
                         ),
                       ),
