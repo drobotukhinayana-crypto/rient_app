@@ -210,7 +210,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       initialEnd: _dateRange?.end,
     );
     if (!mounted || range == null) return;
-    setState(() => _dateRange = range);
+    setState(() {
+      _dateRange = range.clearFilter ? null : range;
+    });
     invalidatePushHistory(ref);
     await _loadFirstPage();
   }

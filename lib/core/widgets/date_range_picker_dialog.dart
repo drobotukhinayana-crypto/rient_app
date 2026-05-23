@@ -29,10 +29,19 @@ const _rangeBandColor = Color(0xFFE8F1FD);
 
 /// Выбранный период дат.
 class AppDateRangePickerResult {
-  const AppDateRangePickerResult({this.start, this.end});
+  const AppDateRangePickerResult({
+    this.start,
+    this.end,
+    this.clearFilter = false,
+  });
 
   final DateTime? start;
   final DateTime? end;
+
+  /// Сбросить применённый фильтр по датам.
+  final bool clearFilter;
+
+  static const cleared = AppDateRangePickerResult(clearFilter: true);
 }
 
 /// Модальное окно выбора периода: календарь с диапазоном, поля дат, подпись.
@@ -72,7 +81,8 @@ class AppDateRangePickerDialog extends StatefulWidget {
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
 
   @override
-  State<AppDateRangePickerDialog> createState() => _AppDateRangePickerDialogState();
+  State<AppDateRangePickerDialog> createState() =>
+      _AppDateRangePickerDialogState();
 }
 
 class _AppDateRangePickerDialogState extends State<AppDateRangePickerDialog> {
@@ -86,11 +96,7 @@ class _AppDateRangePickerDialogState extends State<AppDateRangePickerDialog> {
     final now = DateTime.now();
     _start = widget.initialStart;
     _end = widget.initialEnd;
-    _month = DateTime(
-      (_start ?? now).year,
-      (_start ?? now).month,
-      1,
-    );
+    _month = DateTime((_start ?? now).year, (_start ?? now).month, 1);
   }
 
   void _prevMonth() {
@@ -135,22 +141,27 @@ class _AppDateRangePickerDialogState extends State<AppDateRangePickerDialog> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? AppColors.primaryWhiteDark : Colors.white;
-    final primaryText =
-        isDark ? AppColors.primaryWhite : AppColors.primaryDark;
-    final secondaryText =
-        isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey;
+    final primaryText = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
+    final secondaryText = isDark
+        ? AppColors.tabbarGreyDark
+        : AppColors.tabbarGrey;
     final accent = AppColors.themeAccent(context);
-    final fieldFill =
-        isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight;
+    final fieldFill = isDark
+        ? AppColors.secondaryDarkLight
+        : AppColors.secondaryLight;
     final divider = isDark
         ? AppColors.tabbarGreyDark.withValues(alpha: 0.35)
         : _dividerColor.withValues(alpha: 0.3);
     final range = _orderedRange;
-    final startLabel =
-        _start != null ? AppDateRangePickerDialog.formatDate(_start!) : '—';
-    final endLabel =
-        _end != null ? AppDateRangePickerDialog.formatDate(_end!) : '—';
+    final startLabel = _start != null
+        ? AppDateRangePickerDialog.formatDate(_start!)
+        : '—';
+    final endLabel = _end != null
+        ? AppDateRangePickerDialog.formatDate(_end!)
+        : '—';
     final showSummary = _start != null && _end != null;
+    final showClearFilter =
+        showSummary || widget.initialStart != null || widget.initialEnd != null;
 
     return Dialog(
       backgroundColor: surface,
@@ -182,29 +193,47 @@ class _AppDateRangePickerDialogState extends State<AppDateRangePickerDialog> {
             Container(height: 1, color: divider),
             const Gap(12),
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: _DateFieldColumn(
-                    label: 'Начальная дата',
-                    labelColor: primaryText,
+                  child: Text(
+                    'Начальная дата',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppFonts.medium13.copyWith(color: primaryText),
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Text(
+                    'Конечная дата',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: AppFonts.medium13.copyWith(color: primaryText),
+                  ),
+                ),
+              ],
+            ),
+            const Gap(6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: _DateValueField(
                     value: startLabel,
                     fieldFill: fieldFill,
                     primaryText: primaryText,
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(top: 28, left: 8, right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Text(
                     '—',
                     style: AppFonts.b2Regular.copyWith(color: secondaryText),
                   ),
                 ),
                 Expanded(
-                  child: _DateFieldColumn(
-                    label: 'Конечная дата',
-                    labelColor: primaryText,
-                    alignEnd: true,
+                  child: _DateValueField(
                     value: endLabel,
                     fieldFill: fieldFill,
                     primaryText: primaryText,
@@ -221,6 +250,22 @@ class _AppDateRangePickerDialogState extends State<AppDateRangePickerDialog> {
                 isDark: isDark,
               ),
             ],
+            if (showClearFilter) ...[
+              const Gap(8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  onTap: () => Navigator.of(
+                    context,
+                  ).pop(AppDateRangePickerResult.cleared),
+                  behavior: HitTestBehavior.opaque,
+                  child: Text(
+                    'Сбросить фильтр',
+                    style: AppFonts.semi14.copyWith(color: accent),
+                  ),
+                ),
+              ),
+            ],
             const Gap(16),
             Container(height: 1, color: divider),
             const Gap(16),
@@ -230,10 +275,7 @@ class _AppDateRangePickerDialogState extends State<AppDateRangePickerDialog> {
               onTap: () {
                 if (_start == null) return;
                 Navigator.of(context).pop(
-                  AppDateRangePickerResult(
-                    start: _start,
-                    end: _end ?? _start,
-                  ),
+                  AppDateRangePickerResult(start: _start, end: _end ?? _start),
                 );
               },
             ),
@@ -364,8 +406,7 @@ class _RangeCalendarGrid extends StatelessWidget {
   Color get _weekdayLabelColor =>
       isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey;
 
-  static DateTime _dateOnly(DateTime d) =>
-      DateTime(d.year, d.month, d.day);
+  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   static bool _isWeekend(DateTime d) =>
       d.weekday == DateTime.saturday || d.weekday == DateTime.sunday;
@@ -402,8 +443,7 @@ class _RangeCalendarGrid extends StatelessWidget {
     final leadingEmpty = firstDay.weekday - 1;
     final totalCells = leadingEmpty + daysInMonth;
     final rows = (totalCells / 7).ceil();
-    final hasRangeEnd =
-        rangeEnd != null && !isSameDay(rangeStart, rangeEnd!);
+    final hasRangeEnd = rangeEnd != null && !isSameDay(rangeStart, rangeEnd!);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -437,7 +477,9 @@ class _RangeCalendarGrid extends StatelessWidget {
                   final date = DateTime(month.year, month.month, dayNum);
                   final isStart = isSameDay(rangeStart, date);
                   final isEnd =
-                      hasRangeEnd && rangeEnd != null && isSameDay(rangeEnd, date);
+                      hasRangeEnd &&
+                      rangeEnd != null &&
+                      isSameDay(rangeEnd, date);
                   final inRange = _isInRange(date);
                   final inMiddle = inRange && !isStart && !isEnd;
 
@@ -448,10 +490,7 @@ class _RangeCalendarGrid extends StatelessWidget {
                     isRangeEnd: isEnd,
                     inRangeMiddle: inMiddle,
                     showRangeBand: inRange && hasRangeEnd,
-                    defaultTextColor: _defaultDayColor(
-                      date,
-                      inRange: inRange,
-                    ),
+                    defaultTextColor: _defaultDayColor(date, inRange: inRange),
                     onTap: () => onDayTap(date),
                   );
                 }),
@@ -571,50 +610,32 @@ class _RangeDayCell extends StatelessWidget {
   }
 }
 
-class _DateFieldColumn extends StatelessWidget {
-  const _DateFieldColumn({
-    required this.label,
-    required this.labelColor,
+class _DateValueField extends StatelessWidget {
+  const _DateValueField({
     required this.value,
     required this.fieldFill,
     required this.primaryText,
-    this.alignEnd = false,
   });
 
-  final String label;
-  final Color labelColor;
-  final bool alignEnd;
   final String value;
   final Color fieldFill;
   final Color primaryText;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Align(
-          alignment:
-              alignEnd ? Alignment.centerRight : Alignment.centerLeft,
-          child: Text(
-            label,
-            style: AppFonts.medium15.copyWith(color: labelColor),
-          ),
-        ),
-        const Gap(6),
-        Container(
-          height: 40,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: fieldFill,
-            borderRadius: AppDecoration.borderRadius300,
-          ),
-          child: Text(
-            value,
-            style: AppFonts.c1Medium.copyWith(color: primaryText),
-          ),
-        ),
-      ],
+    return Container(
+      height: 40,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: fieldFill,
+        borderRadius: AppDecoration.borderRadius300,
+      ),
+      child: Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppFonts.c1Medium.copyWith(color: primaryText),
+      ),
     );
   }
 }

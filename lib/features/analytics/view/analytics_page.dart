@@ -145,6 +145,16 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
       summaryPrefix: 'Будет показана аналитика за ',
     );
     if (!mounted || range == null) return;
+    if (range.clearFilter) {
+      final now = DateTime.now();
+      setState(() {
+        _filterMode = _AnalyticsFilterMode.month;
+        _rangeStart = null;
+        _rangeEnd = null;
+        _focusedMonth = DateTime(now.year, now.month, 1);
+      });
+      return;
+    }
     setState(() {
       if (range.start == null) return;
       final start = range.start!;
