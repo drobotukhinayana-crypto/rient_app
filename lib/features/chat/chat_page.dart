@@ -43,6 +43,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _isLoading = false;
   bool _isLoadingMore = false;
   String? _errorMessage;
+  int? _openingNotificationId;
 
   @override
   void initState() {
@@ -61,20 +62,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   PushHistoryListQuery get _listQuery => PushHistoryListQuery(
-        isRead: _filter == MessagesFilter.read,
-        datetimeGte: _dateRange?.start,
-        datetimeLte: _dateRange?.end != null
-            ? DateTime(
-                _dateRange!.end!.year,
-                _dateRange!.end!.month,
-                _dateRange!.end!.day,
-                23,
-                59,
-                59,
-              )
-            : null,
-        page: _page,
-      );
+    isRead: _filter == MessagesFilter.read,
+    datetimeGte: _dateRange?.start,
+    datetimeLte: _dateRange?.end != null
+        ? DateTime(
+            _dateRange!.end!.year,
+            _dateRange!.end!.month,
+            _dateRange!.end!.day,
+            23,
+            59,
+            59,
+          )
+        : null,
+    page: _page,
+  );
 
   void _onScroll() {
     if (!_hasMore || _isLoading || _isLoadingMore) return;
@@ -101,9 +102,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       );
       if (!mounted) return;
       setState(() {
-        _items.addAll(
-          response.results.map(messageNotificationItemFromPush),
-        );
+        _items.addAll(response.results.map(messageNotificationItemFromPush));
         _hasMore = response.next != null && response.next!.isNotEmpty;
         _isLoading = false;
       });
@@ -128,9 +127,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       if (!mounted) return;
       setState(() {
         _page = nextPage;
-        _items.addAll(
-          response.results.map(messageNotificationItemFromPush),
-        );
+        _items.addAll(response.results.map(messageNotificationItemFromPush));
         _hasMore = response.next != null && response.next!.isNotEmpty;
         _isLoadingMore = false;
       });
@@ -142,7 +139,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   Future<void> _markAllRead() async {
     try {
-      await ref.read(mobilePushServiceProvider).markAllAsRead(
+      await ref
+          .read(mobilePushServiceProvider)
+          .markAllAsRead(
             datetimeGte: _dateRange?.start,
             datetimeLte: _dateRange?.end != null
                 ? DateTime(
@@ -162,49 +161,33 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось отметить все как прочитанные')),
+        const SnackBar(
+          content: Text('Не удалось отметить все как прочитанные'),
+        ),
       );
     }
   }
 
-  Future<void> _onNotificationTap(MessageNotificationItem item) async {
-    if (item.isUnread) {
-      try {
-        await ref.read(mobilePushServiceProvider).markAsRead(
-              id: item.id,
-              isRead: true,
-            );
-        invalidatePushHistory(ref);
-      } catch (_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось отметить как прочитанное')),
-        );
-        return;
-      }
-    }
-
+  Future<void> _openAppointmentFromNotification(
+    MessageNotificationItem item,
+  ) async {
     final appointmentId = item.appointmentId;
-    if (appointmentId == null || appointmentId <= 0) {
-      if (item.isUnread) await _loadFirstPage();
-      return;
-    }
+    if (appointmentId == null || appointmentId <= 0) return;
+    if (_openingNotificationId != null) return;
 
+    setState(() => _openingNotificationId = item.id);
     try {
       final appointment = await ref
           .read(appointmentsServiceProvider)
           .getAppointmentById(appointmentId);
       if (!mounted) return;
       if (appointment == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Запись не найдена')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Запись не найдена')));
         return;
       }
-      await context.pushNamed<bool>(
-        AddNewEntryPage.name,
-        extra: appointment,
-      );
+      await context.pushNamed<bool>(AddNewEntryPage.name, extra: appointment);
       if (!mounted) return;
       await _loadFirstPage();
     } catch (_) {
@@ -212,6 +195,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Не удалось открыть запись')),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _openingNotificationId = null);
+      }
     }
   }
 
@@ -267,10 +254,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           if (_filter == MessagesFilter.unread &&
               _items.isNotEmpty &&
               !_isLoading)
-            _MessagesBottomActions(
-              isDark: isDark,
-              accent: accent,
-              onMarkAllRead: _markAllRead,
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: _MessagesBottomActions(
+                isDark: isDark,
+                accent: accent,
+                onMarkAllRead: _markAllRead,
+              ),
             ),
         ],
       ),
@@ -338,9 +328,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           );
         }
         final item = _items[index];
+        final appointmentId = item.appointmentId;
+        final isOpening = _openingNotificationId == item.id;
         return MessageNotificationCard(
           item: item,
-          onOpenCard: () => _onNotificationTap(item),
+          isOpening: isOpening,
+          onOpenCard: appointmentId != null && !isOpening
+              ? () => _openAppointmentFromNotification(item)
+              : null,
         );
       },
     );
@@ -389,7 +384,9 @@ class _MessagesHeader extends StatelessWidget {
               Text(
                 'Сообщения',
                 style: AppFonts.h3Medium.copyWith(
-                  color: isDark ? AppColors.primaryWhite : AppColors.primaryDark,
+                  color: isDark
+                      ? AppColors.primaryWhite
+                      : AppColors.primaryDark,
                 ),
               ),
               const Spacer(),
