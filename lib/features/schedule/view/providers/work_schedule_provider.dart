@@ -124,6 +124,7 @@ final workScheduleMonthProvider =
           fromBranchApi: patternsByWorker[worker.id] ?? const [],
           workerRow: workerRows[i],
         ),
+        branchPatternsByDay: branchPatternsByDay,
         workerRow: workerRows[i],
         highlightedCellDate: query.highlightedCellDate,
       ),

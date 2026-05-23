@@ -4,6 +4,7 @@ import 'package:rient_app/features/home/data/models/branches_api/branches_api.da
 import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
+import 'package:rient_app/features/schedule/utils/schedule_branch_bounds.dart';
 import 'package:rient_app/features/schedule/utils/schedule_day_key.dart';
 import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
@@ -82,6 +83,66 @@ Map<int, List<SchedulePatternItemApi>> groupSchedulePatternsByWorker(
     for (final entry in map.entries)
       entry.key: dedupeSchedulePatternsByDay(entry.value),
   };
+}
+
+WorkScheduleShiftTone _toneForShiftHours(String start, String end) {
+  final startH = int.tryParse(start.split(':').first) ?? 0;
+  final endH = int.tryParse(end.split(':').first) ?? 0;
+  final hours = (endH - startH).clamp(0, 24).toDouble();
+  return hours >= 10 ? WorkScheduleShiftTone.full : WorkScheduleShiftTone.short;
+}
+
+WorkScheduleDayCell _clampCellToBranchPattern(
+  WorkScheduleDayCell cell,
+  SchedulePatternBranchItemApi? branchPattern,
+) {
+  if (cell.kind != WorkScheduleCellKind.shift || branchPattern == null) {
+    return cell;
+  }
+  if (!branchPattern.active) return cell;
+
+  final branchStart = branchPattern.timeStartShort;
+  final branchEnd = branchPattern.timeEndShort;
+  final workerStart = cell.timeStart;
+  final workerEnd = cell.timeEnd;
+  if (branchStart == null ||
+      branchEnd == null ||
+      workerStart == null ||
+      workerEnd == null ||
+      branchStart.isEmpty ||
+      branchEnd.isEmpty) {
+    return cell;
+  }
+
+  final intersect = intersectWorkerShiftWithBranch(
+    workerStart: workerStart,
+    workerEnd: workerEnd,
+    branchStart: branchStart,
+    branchEnd: branchEnd,
+  );
+  if (intersect == null) {
+    return WorkScheduleDayCell.dayOff(
+      isManuallyEdited: cell.isManuallyEdited,
+      scheduleId: cell.scheduleId,
+      breakStart: cell.breakStart,
+      breakEnd: cell.breakEnd,
+    );
+  }
+
+  if (intersect.start == workerStart && intersect.end == workerEnd) {
+    return cell;
+  }
+
+  return WorkScheduleDayCell.shift(
+    timeStart: intersect.start,
+    timeEnd: intersect.end,
+    tone: _toneForShiftHours(intersect.start, intersect.end),
+    isSelected: cell.isSelected,
+    isManuallyEdited: cell.isManuallyEdited,
+    scheduleId: cell.scheduleId,
+    breakStart: cell.breakStart,
+    breakEnd: cell.breakEnd,
+  );
 }
 
 WorkScheduleDayCell workScheduleCellFromScheduleItem(
@@ -346,6 +407,7 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
   required List<ScheduleItemApi> schedules,
   required int branchId,
   List<SchedulePatternItemApi> patterns = const [],
+  Map<String, SchedulePatternBranchItemApi> branchPatternsByDay = const {},
   Map<String, dynamic>? workerRow,
   DateTime? highlightedCellDate,
 }) {
@@ -392,41 +454,53 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
             workerId: worker.id,
             dateKey: dateKey,
           );
+          final branchPattern = _branchPatternForWeekday(
+            branchPatternsByDay,
+            date.weekday,
+          );
+
           // Ручные правки дня — из schedules; auto — общий шаблон, берём patterns/config.
+          final WorkScheduleDayCell cell;
           if (daily != null && !daily.auto) {
             if (daily.active) {
-              return workScheduleCellFromScheduleItem(
+              cell = workScheduleCellFromScheduleItem(
                 daily,
                 selected: selected,
               );
-            }
-            // Неактивная ручная запись: если в недельном шаблоне день включён — шаблон.
-            if (!_isShiftSchedule(configMap)) {
+            } else if (!_isShiftSchedule(configMap)) {
               final pattern = _patternForWeekday(
                 resolvedPatterns,
                 date.weekday,
               );
               if (pattern != null && pattern.active) {
-                return workScheduleCellFromPattern(
+                cell = workScheduleCellFromPattern(
                   pattern,
                   selected: selected,
                   daily: daily,
                 );
+              } else {
+                cell = workScheduleCellFromScheduleItem(
+                  daily,
+                  selected: selected,
+                );
               }
+            } else {
+              cell = workScheduleCellFromScheduleItem(
+                daily,
+                selected: selected,
+              );
             }
-            return workScheduleCellFromScheduleItem(
-              daily,
+          } else {
+            cell = _cellFromTemplate(
+              date: date,
+              patterns: resolvedPatterns,
+              workerRow: workerRow,
+              configMap: configMap,
+              daily: daily,
               selected: selected,
             );
           }
-          return _cellFromTemplate(
-            date: date,
-            patterns: resolvedPatterns,
-            workerRow: workerRow,
-            configMap: configMap,
-            daily: daily,
-            selected: selected,
-          );
+          return _clampCellToBranchPattern(cell, branchPattern);
         }(),
     ],
   );

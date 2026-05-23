@@ -40,6 +40,7 @@ import 'package:rient_app/features/schedule/view/providers/appointments_provider
 import 'package:rient_app/features/schedule/view/providers/schedule_cell_interval_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
+import 'package:rient_app/features/schedule/utils/schedule_branch_bounds.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 
 class SchedulePage extends ConsumerStatefulWidget {
@@ -684,8 +685,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
 
   static ({double? start, double? end}) _workerShiftHoursForId(
     List<AvailableWorkerShift> shifts,
-    int workerId,
-  ) {
+    int workerId, {
+    ({double startHour, double endHour})? branchHours,
+  }) {
     for (final s in shifts) {
       if (s.worker.id != workerId) continue;
       if (s.timeStart.isEmpty || s.timeEnd.isEmpty) {
@@ -694,6 +696,16 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       final start = _timeToHour(s.timeStart);
       final end = _timeToHour(s.timeEnd);
       if (end <= start) return (start: null, end: null);
+      if (branchHours != null) {
+        final clamped = intersectWorkerShiftHoursWithBranch(
+          workerStart: start,
+          workerEnd: end,
+          branchStart: branchHours.startHour,
+          branchEnd: branchHours.endHour,
+        );
+        if (clamped == null) return (start: null, end: null);
+        return (start: clamped.start, end: clamped.end);
+      }
       return (start: start, end: end);
     }
     return (start: null, end: null);
@@ -855,6 +867,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
             final byShift = _workerShiftHoursForId(
               availableWorkersAsync.value ?? const [],
               specialistIdForData,
+              branchHours: dayWorkHours,
             );
             if (byShift.start != null && byShift.end != null) return byShift;
             final weekdays = workerWeekdaysById[specialistIdForData] ?? const <int>{};
@@ -1170,6 +1183,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                       _workerShiftHoursForId(
                                                         shifts,
                                                         workerId,
+                                                        branchHours:
+                                                            dayWorkHours,
                                                       );
                                                   final weekdays =
                                                       workerWeekdaysById[workerId] ??
