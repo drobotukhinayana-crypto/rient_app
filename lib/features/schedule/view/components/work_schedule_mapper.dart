@@ -322,29 +322,6 @@ bool _isShiftSchedule(Map<String, dynamic>? configMap) {
   return isShiftWorkerScheduleConfig(configMap);
 }
 
-bool _isShiftWorkDay(DateTime date, Map<String, dynamic>? configMap) {
-  if (configMap == null) return false;
-
-  final patternRaw = configMap['schedule_shift_pattern']?.toString() ?? '1/1';
-  final parts = patternRaw.split('/');
-  final workDays = int.tryParse(parts.isNotEmpty ? parts[0] : '') ?? 1;
-  final offDays = int.tryParse(parts.length > 1 ? parts[1] : '') ?? 1;
-  if (workDays <= 0 || offDays <= 0) return false;
-
-  final startRaw = configMap['schedule_shift_start_date']?.toString();
-  if (startRaw == null || startRaw.isEmpty) return false;
-  final parsed = DateTime.tryParse(startRaw);
-  if (parsed == null) return false;
-  final shiftStart = DateTime(parsed.year, parsed.month, parsed.day);
-  final target = DateTime(date.year, date.month, date.day);
-  final daysSince = target.difference(shiftStart).inDays;
-  if (daysSince < 0) return false;
-
-  final cycleLength = workDays + offDays;
-  final position = daysSince % cycleLength;
-  return position < workDays;
-}
-
 String? _shortTimeFromDynamic(dynamic value) {
   if (value == null) return null;
   final s = value.toString();
@@ -361,7 +338,7 @@ WorkScheduleDayCell _cellFromTemplate({
   bool selected = false,
 }) {
   if (_isShiftSchedule(configMap)) {
-    if (!_isShiftWorkDay(date, configMap)) {
+    if (!isShiftWorkerWorkDay(date, configMap)) {
       return _dayOffFromDaily(daily);
     }
     final start = _shortTimeFromDynamic(configMap?['time_start']) ?? '09:00';

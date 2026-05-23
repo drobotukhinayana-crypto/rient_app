@@ -36,6 +36,7 @@ import 'package:rient_app/features/schedule/service/appointments_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
+import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -579,8 +580,8 @@ class _BodyWidget extends ConsumerStatefulWidget {
 }
 
 class _BodyWidgetState extends ConsumerState<_BodyWidget> {
-  bool _isCommentVisitExpanded = true;
-  bool _isCommentClientExpanded = true;
+  bool _isCommentVisitExpanded = false;
+  bool _isCommentClientExpanded = false;
   bool _showClientSuggestions = false;
   ClientItem? _selectedClient;
   String _phoneSearchQuery = '';
@@ -675,6 +676,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     _selectedSpecialistId = appointment.worker?.id;
     _selectedStatusIndex = _statusToIndex(appointment.status);
     _commentVisitController.text = appointment.commentText ?? '';
+    if (_commentVisitController.text.trim().isNotEmpty) {
+      _isCommentVisitExpanded = true;
+    }
     _phoneController.text = appointment.client?.phone ?? '';
     _phoneSearchQuery = _phoneController.text;
     _firstNameController.text = appointment.client?.firstName ?? '';
@@ -751,6 +755,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         _firstNameController.text = firstName;
         _lastNameController.text = lastName;
         _commentClientController.text = commentText;
+        if (commentText.isNotEmpty) {
+          _isCommentClientExpanded = true;
+        }
         _selectedStatusIndex = status;
         _selectedClient = ClientItem(
           id: id ?? 0,
@@ -814,7 +821,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       if (fullClient == null || !mounted) return;
       setState(() {
         _selectedClient = fullClient;
-        _commentClientController.text = fullClient!.commentText ?? '';
+        final clientComment = fullClient!.commentText ?? '';
+        _commentClientController.text = clientComment;
+        if (clientComment.trim().isNotEmpty) {
+          _isCommentClientExpanded = true;
+        }
       });
     } catch (_) {
       // Игнорируем ошибку подгрузки деталей: форма редактирования должна оставаться рабочей.
@@ -1062,20 +1073,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return chunks;
   }
 
-  DateTime _resolveInitialDateForWeekdays({
-    required DateTime from,
-    required Set<int> allowedWeekdays,
-  }) {
-    var date = _dateOnly(from);
-    for (var i = 0; i < 370; i++) {
-      if (allowedWeekdays.contains(date.weekday)) {
-        return date;
-      }
-      date = date.add(const Duration(days: 1));
-    }
-    return _dateOnly(from);
-  }
-
   Future<Set<int>> _loadSpecialistWorkingWeekdays({
     required int specialistId,
     required int branchId,
@@ -1209,31 +1206,49 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   Future<void> _pickDate() async {
     final specialistId = _selectedSpecialistId;
     final branchId = ref.read(currentBranchIdProvider);
-    Set<int>? allowedWeekdays;
+
+    bool Function(DateTime day)? isSelectableDay;
     if (specialistId != null && branchId != 0) {
       try {
-        allowedWeekdays = await _loadSpecialistWorkingWeekdays(
-          specialistId: specialistId,
-          branchId: branchId,
+        final workerRow = await ref
+            .read(workersServiceProvider)
+            .getWorkerRow(workerId: specialistId, branchId: branchId);
+        final scheduleConfig = workerScheduleConfigForBranch(
+          workerRow,
+          branchId,
         );
+        if (isShiftWorkerScheduleConfig(scheduleConfig)) {
+          isSelectableDay = (day) => isShiftWorkerWorkDay(
+            _dateOnly(day),
+            scheduleConfig,
+          );
+        } else {
+          final allowedWeekdays = await _loadSpecialistWorkingWeekdays(
+            specialistId: specialistId,
+            branchId: branchId,
+          );
+          if (allowedWeekdays.isEmpty) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('У выбранного мастера нет рабочих дней'),
+              ),
+            );
+            return;
+          }
+          isSelectableDay = (day) => allowedWeekdays.contains(day.weekday);
+        }
       } catch (_) {
-        allowedWeekdays = null;
+        isSelectableDay = null;
       }
     }
     if (!mounted) return;
 
-    if (allowedWeekdays != null && allowedWeekdays.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('У выбранного мастера нет рабочих дней')),
-      );
-      return;
-    }
-
-    final initialDate = allowedWeekdays == null || allowedWeekdays.isEmpty
+    final initialDate = isSelectableDay == null
         ? _selectedDate
-        : _resolveInitialDateForWeekdays(
+        : resolveNextWorkerWorkDate(
             from: _selectedDate,
-            allowedWeekdays: allowedWeekdays,
+            isWorkDay: (d) => isSelectableDay!(_dateOnly(d)),
           );
 
     final picked = await showDatePicker(
@@ -1243,10 +1258,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       lastDate: DateTime(2100),
       locale: const Locale('ru'),
       selectableDayPredicate: (day) {
-        if (allowedWeekdays == null || allowedWeekdays.isEmpty) {
-          return true;
-        }
-        return allowedWeekdays.contains(day.weekday);
+        if (isSelectableDay == null) return true;
+        return isSelectableDay(_dateOnly(day));
       },
     );
     if (picked == null) return;
@@ -1802,7 +1815,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   ),
                 ],
                 Gap(16),
-                // статус клиента
                 IgnorePointer(
                   ignoring: !canChangeStatus,
                   child: Opacity(
@@ -1819,10 +1831,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     ),
                   ),
                 ),
-
                 Gap(12),
-
-                // телефон
                 MainTextField(
                   controller: _phoneController,
                   label: 'Телефон',
@@ -1858,83 +1867,87 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   },
                 ),
                 if (_showClientSuggestions) ...[
-                  const Gap(8),
-                  DefaultContainerWidget(
-                    color: mutedFill,
-                    borderRadius: BorderRadius.circular(16),
-                    hasShadow: false,
-                    hasBorder: true,
-                    borderColor: divider,
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: clientsAsync.isLoading
-                        ? const Padding(
-                            padding: EdgeInsets.all(8),
-                            child: Center(child: CircularProgressIndicator()),
-                          )
-                        : clientsByPhone.isEmpty
-                        ? Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: Text(
-                              'Клиент не найден',
-                              style: AppFonts.c1Regular.copyWith(
-                                color: AppColors.grey,
+                    const Gap(8),
+                    DefaultContainerWidget(
+                      color: mutedFill,
+                      borderRadius: BorderRadius.circular(16),
+                      hasShadow: false,
+                      hasBorder: true,
+                      borderColor: divider,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: clientsAsync.isLoading
+                          ? const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: Center(child: CircularProgressIndicator()),
+                            )
+                          : clientsByPhone.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Text(
+                                'Клиент не найден',
+                                style: AppFonts.c1Regular.copyWith(
+                                  color: AppColors.grey,
+                                ),
                               ),
-                            ),
-                          )
-                        : Column(
-                            children: [
-                              for (
-                                var i = 0;
-                                i < clientsByPhone.length;
-                                i++
-                              ) ...[
-                                ListTile(
-                                  dense: true,
-                                  title: Text(
-                                    '${clientsByPhone[i].firstName} ${clientsByPhone[i].lastName}'
-                                        .trim(),
-                                    style: AppFonts.c1Regular,
-                                  ),
-                                  subtitle: Text(
-                                    canSeeContactData
-                                        ? clientsByPhone[i].phone
-                                        : _maskPhoneLastFourDigitsForList(
-                                            clientsByPhone[i].phone,
-                                          ),
-                                    style: AppFonts.c2Tabbar.copyWith(
-                                      color: AppColors.grey,
+                            )
+                          : Column(
+                              children: [
+                                for (
+                                  var i = 0;
+                                  i < clientsByPhone.length;
+                                  i++
+                                ) ...[
+                                  ListTile(
+                                    dense: true,
+                                    title: Text(
+                                      '${clientsByPhone[i].firstName} ${clientsByPhone[i].lastName}'
+                                          .trim(),
+                                      style: AppFonts.c1Regular,
                                     ),
-                                  ),
-                                  onTap: () {
-                                    setState(() {
-                                      _selectedClient = clientsByPhone[i];
-                                      _phoneController.text = canSeeContactData
+                                    subtitle: Text(
+                                      canSeeContactData
                                           ? clientsByPhone[i].phone
                                           : _maskPhoneLastFourDigitsForList(
                                               clientsByPhone[i].phone,
-                                            );
-                                      _firstNameController.text =
-                                          clientsByPhone[i].firstName;
-                                      _lastNameController.text =
-                                          clientsByPhone[i].lastName;
-                                      _commentClientController.text =
-                                          clientsByPhone[i].commentText ?? '';
-                                      _phoneSearchQuery =
-                                          clientsByPhone[i].phone;
-                                      _showClientSuggestions = false;
-                                    });
-                                  },
-                                ),
-                                if (i < clientsByPhone.length - 1)
-                                  Divider(height: 1, color: divider),
+                                            ),
+                                      style: AppFonts.c2Tabbar.copyWith(
+                                        color: AppColors.grey,
+                                      ),
+                                    ),
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedClient = clientsByPhone[i];
+                                        _phoneController.text =
+                                            canSeeContactData
+                                            ? clientsByPhone[i].phone
+                                            : _maskPhoneLastFourDigitsForList(
+                                                clientsByPhone[i].phone,
+                                              );
+                                        _firstNameController.text =
+                                            clientsByPhone[i].firstName;
+                                        _lastNameController.text =
+                                            clientsByPhone[i].lastName;
+                                        _commentClientController.text =
+                                            clientsByPhone[i].commentText ?? '';
+                                        _phoneSearchQuery =
+                                            clientsByPhone[i].phone;
+                                        _showClientSuggestions = false;
+                                        if ((clientsByPhone[i].commentText ?? '')
+                                            .trim()
+                                            .isNotEmpty) {
+                                          _isCommentClientExpanded = true;
+                                        }
+                                      });
+                                    },
+                                  ),
+                                  if (i < clientsByPhone.length - 1)
+                                    Divider(height: 1, color: divider),
+                                ],
                               ],
-                            ],
-                          ),
-                  ),
+                            ),
+                    ),
                 ],
-
                 Gap(12),
-
                 Row(
                   children: [
                     Expanded(
@@ -1968,11 +1981,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     ),
                   ],
                 ),
-
-                Gap(24),
-
                 if (shouldShowClientCommentField) ...[
-                  // Комментарий к клиенту
+                  Gap(24),
                   GestureDetector(
                     onTap: () {
                       setState(

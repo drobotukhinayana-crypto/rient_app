@@ -68,3 +68,41 @@ bool isShiftWorkerScheduleConfig(Map<String, dynamic>? configMap) {
   return parseWorkerScheduleType(configMap['schedule_type']) ==
       WorkerScheduleConfigType.shift;
 }
+
+/// Рабочий ли день по сменному графику (например 2/3: 2 дня работы, 3 выходных).
+bool isShiftWorkerWorkDay(DateTime date, Map<String, dynamic>? configMap) {
+  if (configMap == null) return false;
+
+  final patternRaw = configMap['schedule_shift_pattern']?.toString() ?? '1/1';
+  final parts = patternRaw.split('/');
+  final workDays = int.tryParse(parts.isNotEmpty ? parts[0] : '') ?? 1;
+  final offDays = int.tryParse(parts.length > 1 ? parts[1] : '') ?? 1;
+  if (workDays <= 0 || offDays <= 0) return false;
+
+  final startRaw = configMap['schedule_shift_start_date']?.toString();
+  if (startRaw == null || startRaw.isEmpty) return false;
+  final parsed = DateTime.tryParse(startRaw);
+  if (parsed == null) return false;
+  final shiftStart = DateTime(parsed.year, parsed.month, parsed.day);
+  final target = DateTime(date.year, date.month, date.day);
+  final daysSince = target.difference(shiftStart).inDays;
+  if (daysSince < 0) return false;
+
+  final cycleLength = workDays + offDays;
+  final position = daysSince % cycleLength;
+  return position < workDays;
+}
+
+/// Ближайший рабочий день начиная с [from] (включительно), не далее [maxDays] вперёд.
+DateTime resolveNextWorkerWorkDate({
+  required DateTime from,
+  required bool Function(DateTime date) isWorkDay,
+  int maxDays = 370,
+}) {
+  var date = DateTime(from.year, from.month, from.day);
+  for (var i = 0; i < maxDays; i++) {
+    if (isWorkDay(date)) return date;
+    date = date.add(const Duration(days: 1));
+  }
+  return DateTime(from.year, from.month, from.day);
+}
