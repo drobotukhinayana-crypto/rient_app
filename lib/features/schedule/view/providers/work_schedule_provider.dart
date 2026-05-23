@@ -4,12 +4,14 @@ import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
+import 'package:rient_app/features/schedule/data/models/schedule_patterns_branch_api/schedule_patterns_branch_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mapper.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_patterns_branch_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_patterns_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 
@@ -69,6 +71,25 @@ final workScheduleMonthProvider =
   final workersService = ref.read(workersServiceProvider);
 
   final workers = await _workersForWorkSchedule(ref, workersResponse.results);
+  final branch = ref.read(currentBranchProvider);
+  final branchName = branch?.name?.trim() ?? 'Филиал';
+
+  final patternsService = ref.read(schedulePatternsServiceProvider);
+  Map<String, SchedulePatternBranchItemApi> branchPatternsByDay;
+  try {
+    final branchPatternsResponse = await patternsService.getBranchSchedulePatterns(
+      branchId: branchId,
+    );
+    branchPatternsByDay = branchSchedulePatternsByDay(branchPatternsResponse);
+  } catch (_) {
+    branchPatternsByDay = const {};
+  }
+  if (branchPatternsByDay.isEmpty) {
+    branchPatternsByDay = branchSchedulePatternsByDayFromBranchApi(
+      branch?.schedulePatterns,
+      branchId,
+    );
+  }
 
   final patternsResponse = await ref
       .read(schedulePatternsServiceProvider)
@@ -108,7 +129,13 @@ final workScheduleMonthProvider =
       ),
     );
   }
-  return rows;
+
+  final branchRow = workScheduleBranchRow(
+    monthStart: query.monthStart,
+    branchName: branchName,
+    patternsByDay: branchPatternsByDay,
+  );
+  return [branchRow, ...rows];
 });
 
 /// Сотрудник видит только свой график; владелец/менеджер — всех в филиале.
@@ -141,6 +168,7 @@ void invalidateWorkScheduleCaches(
   ref.invalidate(schedulePatternsProvider);
   ref.invalidate(scheduleWorkersProvider);
   if (branchId != null && branchId > 0) {
+    ref.invalidate(branchSchedulePatternsBranchProvider(branchId));
     ref.invalidate(
       schedulePatternsProvider(
         SchedulePatternsQuery(branchId: branchId, workerId: workerId),

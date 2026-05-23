@@ -4,6 +4,7 @@ import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
+import 'package:rient_app/resources/resources.dart';
 
 const workScheduleEmployeeColumnWidth = 58.0;
 const workScheduleEmployeeToGridGap = 6.0;
@@ -158,7 +159,10 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
         child: _EmployeeColumn(
           name: employee.name,
           pictureUrl: employee.pictureUrl,
-          onMoreTap: () => widget.onEmployeeMoreTap?.call(employee),
+          isBranchRow: employee.isBranchRow,
+          onMoreTap: employee.isBranchRow
+              ? null
+              : () => widget.onEmployeeMoreTap?.call(employee),
         ),
       ),
     );
@@ -182,7 +186,8 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
                 child: _DayCell(
                   date: monthDays[j],
                   cell: widget.employees[rowIndex].monthCells[j],
-                  onTap: widget.onCellTap == null
+                  onTap: widget.onCellTap == null ||
+                          widget.employees[rowIndex].isBranchRow
                       ? null
                       : () => widget.onCellTap!(
                             widget.employees[rowIndex],
@@ -340,11 +345,13 @@ class _EmployeeColumn extends StatelessWidget {
   const _EmployeeColumn({
     required this.name,
     this.pictureUrl,
+    this.isBranchRow = false,
     this.onMoreTap,
   });
 
   final String name;
   final String? pictureUrl;
+  final bool isBranchRow;
   final VoidCallback? onMoreTap;
 
   @override
@@ -358,10 +365,14 @@ class _EmployeeColumn extends StatelessWidget {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _Avatar(name: name, pictureUrl: pictureUrl),
+              _Avatar(
+                name: name,
+                pictureUrl: pictureUrl,
+                isBranchRow: isBranchRow,
+              ),
               const Gap(4),
               Text(
-                _shortName(name),
+                isBranchRow ? _branchLabel(name) : _shortName(name),
                 style: AppFonts.c2Tabbar.copyWith(
                   color: accent,
                   fontWeight: FontWeight.w600,
@@ -372,10 +383,19 @@ class _EmployeeColumn extends StatelessWidget {
               ),
             ],
           ),
-          _EmployeeMoreButton(onTap: onMoreTap),
+          if (isBranchRow)
+            const SizedBox(height: 18)
+          else
+            _EmployeeMoreButton(onTap: onMoreTap),
         ],
       ),
     );
+  }
+
+  static String _branchLabel(String name) {
+    final trimmed = name.trim();
+    if (trimmed.length <= 8) return trimmed;
+    return '${trimmed.substring(0, 7)}…';
   }
 
   static String _shortName(String fullName) {
@@ -419,14 +439,31 @@ class _EmployeeMoreButton extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({required this.name, this.pictureUrl});
+  const _Avatar({
+    required this.name,
+    this.pictureUrl,
+    this.isBranchRow = false,
+  });
 
   final String name;
   final String? pictureUrl;
+  final bool isBranchRow;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (isBranchRow) {
+      return Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryDark,
+          shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: _branchIcon(isDark),
+      );
+    }
     if (pictureUrl != null && pictureUrl!.isNotEmpty) {
       return ClipOval(
         child: Image.network(
@@ -449,6 +486,30 @@ class _Avatar extends StatelessWidget {
         color: isDark ? AppColors.forthLightDark : AppColors.forthLight,
         shape: BoxShape.circle,
       ),
+    );
+  }
+
+  /// Иконка филиала как на экране выбора при входе ([AuthBranchListView]).
+  static Widget _branchIcon(bool isDark) {
+    if (isDark) {
+      return ColorFiltered(
+        colorFilter: const ColorFilter.mode(
+          AppColors.primaryWhite,
+          BlendMode.srcIn,
+        ),
+        child: Image.asset(
+          AppImages.branch,
+          width: 22,
+          height: 22,
+          fit: BoxFit.contain,
+        ),
+      );
+    }
+    return Image.asset(
+      AppImages.branch,
+      width: 22,
+      height: 22,
+      fit: BoxFit.contain,
     );
   }
 }

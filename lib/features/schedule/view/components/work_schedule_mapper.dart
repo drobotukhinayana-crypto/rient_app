@@ -1,4 +1,6 @@
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
+import 'package:rient_app/features/schedule/data/models/schedule_patterns_branch_api/schedule_patterns_branch_api.dart';
+import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
@@ -114,6 +116,86 @@ WorkScheduleDayCell workScheduleCellFromScheduleItem(
     scheduleId: item.id,
     breakStart: item.breakStartShort,
     breakEnd: item.breakEndShort,
+  );
+}
+
+WorkScheduleDayCell workScheduleCellFromBranchPattern(
+  SchedulePatternBranchItemApi? pattern,
+) {
+  if (pattern == null || !pattern.active) {
+    return const WorkScheduleDayCell.dayOff();
+  }
+  final start = pattern.timeStartShort;
+  final end = pattern.timeEndShort;
+  if (start == null || end == null || start.isEmpty || end.isEmpty) {
+    return const WorkScheduleDayCell.dayOff();
+  }
+  final startH = int.tryParse(start.split(':').first) ?? 0;
+  final endH = int.tryParse(end.split(':').first) ?? 0;
+  final hours = (endH - startH).clamp(0, 24).toDouble();
+  final tone = hours >= 10
+      ? WorkScheduleShiftTone.full
+      : WorkScheduleShiftTone.short;
+  return WorkScheduleDayCell.shift(
+    timeStart: start,
+    timeEnd: end,
+    tone: tone,
+  );
+}
+
+SchedulePatternBranchItemApi? _branchPatternForWeekday(
+  Map<String, SchedulePatternBranchItemApi> patternsByDay,
+  int weekday,
+) {
+  for (final pattern in patternsByDay.values) {
+    if (pattern.weekdayNumber == weekday) return pattern;
+  }
+  return null;
+}
+
+Map<String, SchedulePatternBranchItemApi> branchSchedulePatternsByDayFromBranchApi(
+  List<SchedulePattern>? patterns,
+  int branchId,
+) {
+  final map = <String, SchedulePatternBranchItemApi>{};
+  if (patterns == null) return map;
+  for (final pattern in patterns) {
+    if (!(pattern.active ?? false)) continue;
+    final patternBranch = pattern.branch;
+    if (patternBranch != null && patternBranch != branchId) continue;
+    final day = pattern.day;
+    if (day == null || day.isEmpty) continue;
+    final key = canonicalScheduleDayKey(day);
+    map[key] = SchedulePatternBranchItemApi(
+      id: pattern.id ?? 0,
+      branch: patternBranch ?? branchId,
+      day: key,
+      timeStart: pattern.timeStart,
+      timeEnd: pattern.timeEnd,
+      active: pattern.active ?? false,
+    );
+  }
+  return map;
+}
+
+WorkScheduleEmployeeRow workScheduleBranchRow({
+  required DateTime monthStart,
+  required String branchName,
+  required Map<String, SchedulePatternBranchItemApi> patternsByDay,
+}) {
+  final days = daysOfMonth(monthStart);
+  final displayName = branchName.trim().isEmpty ? 'Филиал' : branchName.trim();
+
+  return WorkScheduleEmployeeRow(
+    id: workScheduleBranchRowId,
+    name: displayName,
+    isBranchRow: true,
+    monthCells: [
+      for (final date in days)
+        workScheduleCellFromBranchPattern(
+          _branchPatternForWeekday(patternsByDay, date.weekday),
+        ),
+    ],
   );
 }
 

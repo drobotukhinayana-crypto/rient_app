@@ -67,18 +67,25 @@ class WorkScheduleDayCell {
   final String? breakEnd;
 }
 
+/// Id строки графика филиала в [WorkScheduleMonthGrid].
+const workScheduleBranchRowId = 'branch';
+
 class WorkScheduleEmployeeRow {
   const WorkScheduleEmployeeRow({
     required this.id,
     required this.name,
     required this.monthCells,
     this.pictureUrl,
+    this.isBranchRow = false,
   });
 
   final String id;
   final String name;
   final String? pictureUrl;
   final List<WorkScheduleDayCell> monthCells;
+
+  /// Первая строка сетки — часы работы филиала (только просмотр).
+  final bool isBranchRow;
 }
 
 int daysInMonth(DateTime month) =>

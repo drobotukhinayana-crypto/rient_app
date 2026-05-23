@@ -334,7 +334,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     WorkScheduleEmployeeRow employee,
     DateTime date,
   ) async {
-    if (isPastWorkScheduleDate(date)) return;
+    if (employee.isBranchRow || isPastWorkScheduleDate(date)) return;
 
     final cell = _cellForDate(employee, date);
     if (cell == null) return;
@@ -383,6 +383,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
   }
 
   Future<void> _onEmployeeMoreTap(WorkScheduleEmployeeRow employee) async {
+    if (employee.isBranchRow) return;
     try {
       await context.pushNamed<bool>(
         SpecialistSchedulePage.name,
