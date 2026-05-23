@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 import 'package:rient_app/features/home/service/statistics_service.dart';
@@ -21,16 +22,39 @@ String scheduleMonthKey(DateTime date) {
   return '$y-$m';
 }
 
+/// Период статистики и опционально сотрудник (загруженность в расписании).
+@immutable
+class ScheduleStatisticsQuery {
+  const ScheduleStatisticsQuery({
+    required this.periodKey,
+    this.workerId,
+  });
+
+  final String periodKey;
+  final int? workerId;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ScheduleStatisticsQuery &&
+        other.periodKey == periodKey &&
+        other.workerId == workerId;
+  }
+
+  @override
+  int get hashCode => Object.hash(periodKey, workerId);
+}
+
 /// Статистика (в т.ч. заполненность по дням) для заданного месяца.
 /// Запрашиваем по неделям (те же диапазоны, что и в режиме «Неделя»), затем объединяем
 /// [occupancyByDay], чтобы данные в месяце совпадали с недельным видом.
-/// [monthKey] — ключ в формате YYYY-MM (см. [scheduleMonthKey]).
+/// [query.periodKey] — ключ в формате YYYY-MM (см. [scheduleMonthKey]).
 final scheduleStatisticsForMonthProvider =
-    FutureProvider.family<Statistics, String>((ref, monthKey) async {
+    FutureProvider.family<Statistics, ScheduleStatisticsQuery>((ref, query) async {
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0) {
     throw Exception('No valid branch selected');
   }
+  final monthKey = query.periodKey;
   final parts = monthKey.split('-');
   if (parts.length != 2) throw Exception('Invalid month key: $monthKey');
   final y = int.tryParse(parts[0]);
@@ -40,11 +64,11 @@ final scheduleStatisticsForMonthProvider =
   final monthEnd = DateTime(y, m + 1, 0);
 
   final service = ref.watch(statisticsServiceProvider);
+  final workerId = query.workerId;
   final mergedOccupancyByDay = <DateTime, OccupancyByDay>{};
   final mergedAppointmentsByDay = <String, AppointmentByDayItem>{};
   Statistics? firstStats;
 
-  // Понедельник первой недели, которая пересекается с месяцем
   DateTime currentWeekStart = monthStart.subtract(
     Duration(days: monthStart.weekday - 1),
   );
@@ -61,6 +85,7 @@ final scheduleStatisticsForMonthProvider =
       startDate: currentWeekStart,
       endDate: weekEnd,
       branchId: branchId,
+      workerId: workerId,
     );
     firstStats ??= stats;
     for (final o in stats.occupancyByDay) {
@@ -88,6 +113,7 @@ final scheduleStatisticsForMonthProvider =
         startDate: monthStart,
         endDate: monthEnd,
         branchId: branchId,
+        workerId: workerId,
       );
   return base.copyWith(
     occupancyByDay: sortedOccupancy,
@@ -98,13 +124,14 @@ final scheduleStatisticsForMonthProvider =
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
 /// Статистика (в т.ч. заполненность по дням) для заданной недели.
-/// [weekKey] — ключ понедельника в формате YYYY-MM-DD (см. [scheduleWeekKey]).
+/// [query.periodKey] — ключ понедельника в формате YYYY-MM-DD (см. [scheduleWeekKey]).
 final scheduleStatisticsForWeekProvider =
-    FutureProvider.family<Statistics, String>((ref, weekKey) async {
+    FutureProvider.family<Statistics, ScheduleStatisticsQuery>((ref, query) async {
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0) {
     throw Exception('No valid branch selected');
   }
+  final weekKey = query.periodKey;
   final parts = weekKey.split('-');
   if (parts.length != 3) throw Exception('Invalid week key: $weekKey');
   final y = int.tryParse(parts[0]);
@@ -120,5 +147,6 @@ final scheduleStatisticsForWeekProvider =
     startDate: weekStart,
     endDate: weekEnd,
     branchId: branchId,
+    workerId: query.workerId,
   );
 });

@@ -44,18 +44,16 @@ DateTime _dateOnlyForScheduleStats(DateTime d) =>
 
 /// Инвалидация загруженности (статистика недели/месяца) для календарного дня.
 void _invalidateScheduleStatsForDayWidgetRef(WidgetRef ref, DateTime localDay) {
-  final d = _dateOnlyForScheduleStats(localDay);
-  ref.invalidate(scheduleStatisticsForWeekProvider(scheduleWeekKey(d)));
-  ref.invalidate(scheduleStatisticsForMonthProvider(scheduleMonthKey(d)));
+  ref.invalidate(scheduleStatisticsForWeekProvider);
+  ref.invalidate(scheduleStatisticsForMonthProvider);
 }
 
 void _invalidateScheduleStatsForDayContainer(
   ProviderContainer container,
   DateTime localDay,
 ) {
-  final d = _dateOnlyForScheduleStats(localDay);
-  container.invalidate(scheduleStatisticsForWeekProvider(scheduleWeekKey(d)));
-  container.invalidate(scheduleStatisticsForMonthProvider(scheduleMonthKey(d)));
+  container.invalidate(scheduleStatisticsForWeekProvider);
+  container.invalidate(scheduleStatisticsForMonthProvider);
 }
 
 /// После переноса записи — обновить статистику для нового и (если отличается) старого дня.

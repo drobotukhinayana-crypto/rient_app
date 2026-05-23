@@ -367,15 +367,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
 
   /// После создания/редактирования записи — только записи и статистика.
   void _refreshScheduleAppointmentsOnly() {
-    final selectedDate = ref.read(selectedScheduleDateProvider);
-    final weekKey = scheduleWeekKey(
-      _viewMode == ViewMode.day ? selectedDate : _weekStart,
-    );
-    final monthKey = scheduleMonthKey(_monthStart);
-
     ref.invalidate(scheduleAppointmentsProvider);
-    ref.invalidate(scheduleStatisticsForWeekProvider(weekKey));
-    ref.invalidate(scheduleStatisticsForMonthProvider(monthKey));
+    ref.invalidate(scheduleStatisticsForWeekProvider);
+    ref.invalidate(scheduleStatisticsForMonthProvider);
     _pendingDayHorizontalScrollAlign = true;
     _bumpScheduleUiVersion();
     _scheduleDayHorizontalScrollAlign();
@@ -383,11 +377,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
 
   void _forceRefreshScheduleScreen() {
     final selectedDate = ref.read(selectedScheduleDateProvider);
-    final weekKey = scheduleWeekKey(
-      _viewMode == ViewMode.day ? selectedDate : _weekStart,
-    );
-    final monthKey = scheduleMonthKey(_monthStart);
-
     ref.invalidate(scheduleAppointmentsProvider);
     final weekAnchor = _toDateOnly(
       _viewMode == ViewMode.day ? selectedDate : _weekStart,
@@ -401,8 +390,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         ),
       );
     }
-    ref.invalidate(scheduleStatisticsForWeekProvider(weekKey));
-    ref.invalidate(scheduleStatisticsForMonthProvider(monthKey));
+    ref.invalidate(scheduleStatisticsForWeekProvider);
+    ref.invalidate(scheduleStatisticsForMonthProvider);
     ref.invalidate(scheduleWorkersProvider);
 
     _bumpScheduleUiVersion();
@@ -801,23 +790,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       _viewMode == ViewMode.day ? selectedDate : _weekStart,
     );
     final monthKey = scheduleMonthKey(_monthStart);
-    final weekStatisticsAsync = ref.watch(
-      scheduleStatisticsForWeekProvider(weekKey),
-    );
-    final occupancyByDay = weekStatisticsAsync.value?.occupancyByDay ?? [];
-    final weekStatisticsLoading = weekStatisticsAsync.isLoading;
-    final monthStatisticsAsync = ref.watch(
-      scheduleStatisticsForMonthProvider(monthKey),
-    );
-    final monthOccupancyByDay =
-        monthStatisticsAsync.value?.occupancyByDay ?? [];
-    final monthStatisticsLoading = monthStatisticsAsync.isLoading;
-    final monthAppointmentsByDay =
-        monthStatisticsAsync.value?.appointmentsByDay ?? [];
-    final slotsByDay = _slotsByDayFromAppointments(
-      monthAppointmentsByDay,
-      _monthStart,
-    );
     // Для всех режимов показываем активных сотрудников на выбранную дату.
     final allSpecialists = _daySpecialistsFromProviders(
       availableWorkersAsync: availableWorkersAsync,
@@ -852,6 +824,43 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         (isWorkerRole && currentWorkerId != null && currentWorkerId > 0
             ? currentWorkerId
             : null);
+    final statisticsWorkerId =
+        specialistIdForData != null && specialistIdForData > 0
+            ? specialistIdForData
+            : null;
+    final dayHeaderWeekKey = scheduleWeekKey(selectedDate);
+    final branchWeekStatisticsAsync = ref.watch(
+      scheduleStatisticsForWeekProvider(
+        ScheduleStatisticsQuery(periodKey: dayHeaderWeekKey),
+      ),
+    );
+    final dayOccupancyByDay =
+        branchWeekStatisticsAsync.value?.occupancyByDay ?? [];
+    final workerWeekStatisticsQuery = ScheduleStatisticsQuery(
+      periodKey: weekKey,
+      workerId: statisticsWorkerId,
+    );
+    final monthStatisticsQuery = ScheduleStatisticsQuery(
+      periodKey: monthKey,
+      workerId: statisticsWorkerId,
+    );
+    final weekStatisticsAsync = ref.watch(
+      scheduleStatisticsForWeekProvider(workerWeekStatisticsQuery),
+    );
+    final weekOccupancyByDay = weekStatisticsAsync.value?.occupancyByDay ?? [];
+    final weekStatisticsLoading = weekStatisticsAsync.isLoading;
+    final monthStatisticsAsync = ref.watch(
+      scheduleStatisticsForMonthProvider(monthStatisticsQuery),
+    );
+    final monthOccupancyByDay =
+        monthStatisticsAsync.value?.occupancyByDay ?? [];
+    final monthStatisticsLoading = monthStatisticsAsync.isLoading;
+    final monthAppointmentsByDay =
+        monthStatisticsAsync.value?.appointmentsByDay ?? [];
+    final slotsByDay = _slotsByDayFromAppointments(
+      monthAppointmentsByDay,
+      _monthStart,
+    );
     final selectedBreak = _breakForSpecialist(
       availableWorkersAsync.value ?? const [],
       specialistIdForData,
@@ -1029,8 +1038,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       }
       // Fallback: сбрасываем кеш всех family-инстансов записей.
       ref.invalidate(scheduleAppointmentsProvider);
-      ref.invalidate(scheduleStatisticsForWeekProvider(weekKey));
-      ref.invalidate(scheduleStatisticsForMonthProvider(monthKey));
+      ref.invalidate(scheduleStatisticsForWeekProvider);
+      ref.invalidate(scheduleStatisticsForMonthProvider);
       _bumpScheduleUiVersion();
     }
 
@@ -1075,7 +1084,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                         );
                       },
                 scheduleSelectedDate: selectedDate,
-                occupancyByDay: occupancyByDay,
+                occupancyByDay: dayOccupancyByDay,
                 onScheduleDateSelected: (date) {
                   ref.read(selectedScheduleDateProvider.notifier).state =
                       DateTime(date.year, date.month, date.day);
@@ -1319,13 +1328,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Padding(
-                                      padding: AppDecoration.padding16.copyWith(
+                                      padding: EdgeInsets.only(
                                         top: 20,
-                                        left: 40,
+                                        left: ScheduleCalendarOneUserWidget
+                                            .kDefaultTimeRulerSize,
                                       ),
                                       child: DateStrip(
                                         key: ValueKey(
                                           'week_strip_${weekKey}_'
+                                          'w${statisticsWorkerId ?? 0}_'
                                           '${Object.hashAll(workingWeekdaysForWeekCalendar ?? const <int>{})}_'
                                           '$_refreshVersion',
                                         ),
@@ -1336,7 +1347,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         showFullDateLabel: false,
                                         useGreyCircles: true,
                                         useMonthCalendarCircleFill: true,
-                                        occupancyByDay: occupancyByDay,
+                                        occupancyByDay: weekOccupancyByDay,
                                         workingWeekdays:
                                             workingWeekdaysForWeekCalendar,
                                       ),
@@ -1409,6 +1420,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                     child: MonthCalendar(
                                       key: ValueKey(
                                         'month_${monthKey}_'
+                                        'w${statisticsWorkerId ?? 0}_'
                                         '${Object.hashAll(workingWeekdaysForWeekCalendar ?? const <int>{})}_'
                                         '$_refreshVersion',
                                       ),
