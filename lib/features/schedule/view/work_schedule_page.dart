@@ -56,8 +56,13 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     _syncToNow();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_reloadWorkSchedule());
-      _scrollToSelectedDate();
     });
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _scheduleHorizontalScrollSync();
   }
 
   @override
@@ -153,9 +158,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
 
   void _requestScrollToSelectedDate() {
     _pendingHorizontalScrollToSelectedDate = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _scrollToSelectedDate();
-    });
+    _scheduleHorizontalScrollSync();
   }
 
   double? _horizontalOffsetForSelectedDate() {
@@ -165,30 +168,96 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     return workScheduleHorizontalOffsetForDayIndex(index);
   }
 
-  bool _areHorizontalScrollsAligned(double targetOffset) {
-    for (final controller in [_datesHeaderScroll, _gridHorizontalScroll]) {
-      if (!controller.hasClients) return false;
-      final clamped =
-          targetOffset.clamp(0.0, controller.position.maxScrollExtent);
-      if ((controller.position.pixels - clamped).abs() > 0.5) {
-        return false;
-      }
+  bool _areHorizontalScrollsAligned([double? targetOffset]) {
+    if (!_datesHeaderScroll.hasClients || !_gridHorizontalScroll.hasClients) {
+      return false;
     }
-    return true;
+    final headerPx = _datesHeaderScroll.offset;
+    final gridPx = _gridHorizontalScroll.offset;
+    if ((headerPx - gridPx).abs() > 0.5) return false;
+    if (targetOffset == null) return true;
+    final headerClamped = targetOffset.clamp(
+      _datesHeaderScroll.position.minScrollExtent,
+      _datesHeaderScroll.position.maxScrollExtent,
+    );
+    return (headerPx - headerClamped).abs() < 0.5;
+  }
+
+  /// Выравнивает шапку с датами и сетку по одному offset.
+  void _alignHorizontalScrolls({int attempt = 0}) {
+    if (attempt > 20) return;
+
+    if (!_datesHeaderScroll.hasClients || !_gridHorizontalScroll.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _alignHorizontalScrolls(attempt: attempt + 1);
+      });
+      return;
+    }
+
+    final headerPx = _datesHeaderScroll.offset;
+    final gridPx = _gridHorizontalScroll.offset;
+    if ((headerPx - gridPx).abs() < 0.5) return;
+
+    final source = gridPx;
+    final headerTarget = source.clamp(
+      _datesHeaderScroll.position.minScrollExtent,
+      _datesHeaderScroll.position.maxScrollExtent,
+    );
+    final gridTarget = source.clamp(
+      _gridHorizontalScroll.position.minScrollExtent,
+      _gridHorizontalScroll.position.maxScrollExtent,
+    );
+
+    _syncingHorizontalScroll = true;
+    try {
+      if ((headerPx - headerTarget).abs() > 0.5) {
+        _datesHeaderScroll.jumpTo(headerTarget);
+      }
+      if ((gridPx - gridTarget).abs() > 0.5) {
+        _gridHorizontalScroll.jumpTo(gridTarget);
+      }
+    } finally {
+      _syncingHorizontalScroll = false;
+    }
+  }
+
+  void _scheduleHorizontalScrollSync() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_pendingHorizontalScrollToSelectedDate) {
+        _scrollToSelectedDate();
+      } else {
+        _alignHorizontalScrolls();
+      }
+    });
   }
 
   void _scrollToSelectedDate({int attempt = 0}) {
-    if (!_pendingHorizontalScrollToSelectedDate || attempt > 20) return;
+    if (!_pendingHorizontalScrollToSelectedDate) return;
+    if (attempt > 20) {
+      _pendingHorizontalScrollToSelectedDate = false;
+      _alignHorizontalScrolls();
+      return;
+    }
 
     final offset = _horizontalOffsetForSelectedDate();
     if (offset == null) return;
 
+    if (!_datesHeaderScroll.hasClients || !_gridHorizontalScroll.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToSelectedDate(attempt: attempt + 1);
+      });
+      return;
+    }
+
     _syncingHorizontalScroll = true;
     try {
       for (final controller in [_datesHeaderScroll, _gridHorizontalScroll]) {
-        if (!controller.hasClients) continue;
         final position = controller.position;
-        final clamped = offset.clamp(0.0, position.maxScrollExtent);
+        final clamped = offset.clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        );
         if ((position.pixels - clamped).abs() > 0.5) {
           controller.jumpTo(clamped);
         }
@@ -445,9 +514,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
               ),
               data: (employees) {
                 if (_pendingHorizontalScrollToSelectedDate) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) _scrollToSelectedDate();
-                  });
+                  _scheduleHorizontalScrollSync();
                 }
                 return Align(
                   alignment: Alignment.topCenter,

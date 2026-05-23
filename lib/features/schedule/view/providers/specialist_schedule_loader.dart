@@ -22,8 +22,14 @@ class SpecialistScheduleFormState {
     this.shiftWorkStart = '09:00',
     this.shiftWorkEnd = '20:00',
     this.loadedPatterns = const [],
+    this.employeeName = '',
+    this.employeeSpecialization,
+    this.employeePictureUrl,
   });
 
+  final String employeeName;
+  final String? employeeSpecialization;
+  final String? employeePictureUrl;
   final String scheduleTypeLabel;
   final List<SpecialistDayDraft> weekdays;
   final List<SpecialistDayDraft> weekends;
@@ -87,6 +93,30 @@ const _weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri'];
 const _weekendKeys = ['sat', 'sun'];
 const _weekdayLabels = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ'];
 const _weekendLabels = ['СБ', 'ВС'];
+
+String specialistEmployeeNameFromWorkerRow(Map<String, dynamic>? workerRow) {
+  if (workerRow == null) return '';
+  final first = workerRow['first_name']?.toString().trim() ?? '';
+  final last = workerRow['last_name']?.toString().trim() ?? '';
+  return [first, last].where((part) => part.isNotEmpty).join(' ');
+}
+
+String? specialistEmployeeSpecializationFromWorkerRow(
+  Map<String, dynamic>? workerRow,
+) {
+  final value = workerRow?['specialization']?.toString().trim();
+  if (value == null || value.isEmpty) return null;
+  return value;
+}
+
+String? specialistEmployeePictureFromWorkerRow(Map<String, dynamic>? workerRow) {
+  if (workerRow == null) return null;
+  final thumbnail = workerRow['picture_thumbnail']?.toString().trim();
+  if (thumbnail != null && thumbnail.isNotEmpty) return thumbnail;
+  final picture = workerRow['picture']?.toString().trim();
+  if (picture != null && picture.isNotEmpty) return picture;
+  return null;
+}
 
 SpecialistScheduleFormState buildSpecialistFormFromApi({
   required List<SchedulePatternItemApi> patterns,
@@ -180,6 +210,13 @@ SpecialistScheduleFormState buildSpecialistFormFromApi({
     shiftWorkStart: configStart,
     shiftWorkEnd: configEnd,
     loadedPatterns: loadedPatterns.isNotEmpty ? loadedPatterns : patterns,
+    employeeName: () {
+      final fromRow = specialistEmployeeNameFromWorkerRow(workerRow);
+      return fromRow.isNotEmpty ? fromRow : 'Сотрудник';
+    }(),
+    employeeSpecialization:
+        specialistEmployeeSpecializationFromWorkerRow(workerRow),
+    employeePictureUrl: specialistEmployeePictureFromWorkerRow(workerRow),
   );
 }
 

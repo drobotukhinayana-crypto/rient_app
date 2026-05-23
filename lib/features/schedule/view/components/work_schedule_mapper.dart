@@ -226,8 +226,8 @@ WorkScheduleDayCell workScheduleCellFromPattern(
     tone: tone,
     isSelected: selected,
     scheduleId: daily?.id,
-    breakStart: daily?.breakStartShort,
-    breakEnd: daily?.breakEndShort,
+    breakStart: daily?.breakStartShort ?? pattern.breakStartShort,
+    breakEnd: daily?.breakEndShort ?? pattern.breakEndShort,
   );
 }
 

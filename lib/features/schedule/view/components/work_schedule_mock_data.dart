@@ -65,6 +65,13 @@ class WorkScheduleDayCell {
   final int? scheduleId;
   final String? breakStart;
   final String? breakEnd;
+
+  /// Перерыв задан (есть начало и конец).
+  bool get hasBreak {
+    final start = breakStart?.trim() ?? '';
+    final end = breakEnd?.trim() ?? '';
+    return start.isNotEmpty && end.isNotEmpty;
+  }
 }
 
 /// Id строки графика филиала в [WorkScheduleMonthGrid].

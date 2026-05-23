@@ -75,6 +75,9 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
   String _shiftWorkEnd = _defaultGroupEnd;
   String? _configUuid;
   List<SchedulePatternItemApi> _loadedPatterns = const [];
+  String _employeeDisplayName = '';
+  String? _employeeSpecialization;
+  String? _employeePictureUrl;
 
   int? get _workerId => int.tryParse(widget.args.employeeId);
 
@@ -151,6 +154,24 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
             : _today);
     _shiftWorkStart = form.shiftWorkStart;
     _shiftWorkEnd = form.shiftWorkEnd;
+    _employeeDisplayName = form.employeeName;
+    _employeeSpecialization = form.employeeSpecialization;
+    _employeePictureUrl = form.employeePictureUrl;
+  }
+
+  String? get _headerEmployeePictureUrl {
+    final fromForm = _employeePictureUrl?.trim();
+    if (fromForm != null && fromForm.isNotEmpty) return fromForm;
+    final fromArgs = widget.args.pictureUrl?.trim();
+    if (fromArgs != null && fromArgs.isNotEmpty) return fromArgs;
+    return null;
+  }
+
+  String get _headerEmployeeName {
+    final fromForm = _employeeDisplayName.trim();
+    if (fromForm.isNotEmpty) return fromForm;
+    final fromArgs = widget.args.employeeName.trim();
+    return fromArgs.isNotEmpty ? fromArgs : 'Сотрудник';
   }
 
   void _applyGroupTimesToWeekdays() {
@@ -459,7 +480,9 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
         children: [
           _SpecialistScheduleHeader(
             onBack: () => context.pop(),
-            onMore: () {},
+            employeeName: _headerEmployeeName,
+            employeePosition: _employeeSpecialization,
+            employeePictureUrl: _headerEmployeePictureUrl,
             scheduleType: _scheduleType,
             scheduleTypes: _scheduleTypes,
             onScheduleTypeChanged: (value) => setState(() {
@@ -637,14 +660,18 @@ class _SpecialistScheduleDivider extends StatelessWidget {
 class _SpecialistScheduleHeader extends StatelessWidget {
   const _SpecialistScheduleHeader({
     required this.onBack,
-    required this.onMore,
+    required this.employeeName,
+    this.employeePosition,
+    this.employeePictureUrl,
     required this.scheduleType,
     required this.scheduleTypes,
     required this.onScheduleTypeChanged,
   });
 
   final VoidCallback onBack;
-  final VoidCallback onMore;
+  final String employeeName;
+  final String? employeePosition;
+  final String? employeePictureUrl;
   final String scheduleType;
   final List<String> scheduleTypes;
   final ValueChanged<String> onScheduleTypeChanged;
@@ -695,16 +722,13 @@ class _SpecialistScheduleHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              _HeaderIconButton(
-                color: circleColor,
-                onTap: onMore,
-                child: Icon(
-                  Icons.more_horiz_rounded,
-                  size: 22,
-                  color: AppColors.themeAccent(context),
-                ),
-              ),
             ],
+          ),
+          const Gap(12),
+          _SpecialistEmployeeInfo(
+            name: employeeName,
+            position: employeePosition,
+            pictureUrl: employeePictureUrl,
           ),
           const Gap(12),
           _ScheduleTypeRow(
@@ -716,6 +740,113 @@ class _SpecialistScheduleHeader extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _SpecialistEmployeeInfo extends StatelessWidget {
+  const _SpecialistEmployeeInfo({
+    required this.name,
+    this.position,
+    this.pictureUrl,
+  });
+
+  final String name;
+  final String? position;
+  final String? pictureUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final nameColor = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
+    final positionColor =
+        isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey;
+    final positionText = position?.trim();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _SpecialistEmployeeAvatar(name: name, pictureUrl: pictureUrl),
+        const Gap(12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                style: AppFonts.b1Medium.copyWith(color: nameColor),
+              ),
+              if (positionText != null && positionText.isNotEmpty) ...[
+                const Gap(4),
+                Text(
+                  positionText,
+                  style: AppFonts.b2Regular.copyWith(color: positionColor),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SpecialistEmployeeAvatar extends StatelessWidget {
+  const _SpecialistEmployeeAvatar({
+    required this.name,
+    this.pictureUrl,
+  });
+
+  final String name;
+  final String? pictureUrl;
+
+  static const _size = 48.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = pictureUrl?.trim();
+    if (url != null && url.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          url,
+          width: _size,
+          height: _size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _placeholder(context),
+        ),
+      );
+    }
+    return _placeholder(context);
+  }
+
+  Widget _placeholder(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: _size,
+      height: _size,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.secondaryDarkDark : AppColors.forthLight,
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        _initials(name),
+        style: AppFonts.b2Medium.copyWith(
+          color: AppColors.themeAccent(context),
+        ),
+      ),
+    );
+  }
+
+  String _initials(String fullName) {
+    final parts = fullName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '—';
+    final first = parts[0].substring(0, 1).toUpperCase();
+    if (parts.length == 1) return first;
+    return '$first${parts[1].substring(0, 1).toUpperCase()}';
   }
 }
 

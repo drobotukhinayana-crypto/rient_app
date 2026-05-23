@@ -41,7 +41,8 @@ class WorkScheduleMonthGrid extends StatefulWidget {
   final List<WorkScheduleEmployeeRow> employees;
   final DateTime selectedDate;
   final ScrollController horizontalScrollController;
-  final void Function(WorkScheduleEmployeeRow employee, DateTime date)? onCellTap;
+  final void Function(WorkScheduleEmployeeRow employee, DateTime date)?
+  onCellTap;
   final void Function(WorkScheduleEmployeeRow employee)? onEmployeeMoreTap;
 
   @override
@@ -60,52 +61,6 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
     super.initState();
     _employeeVerticalController.addListener(_onEmployeeVerticalScrolled);
     _gridVerticalController.addListener(_onGridVerticalScrolled);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollGridToSelectedDate();
-    });
-  }
-
-  @override
-  void didUpdateWidget(WorkScheduleMonthGrid oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.month != widget.month ||
-        oldWidget.selectedDate != widget.selectedDate) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollGridToSelectedDate();
-      });
-    }
-  }
-
-  void _scrollGridToSelectedDate({int attempt = 0}) {
-    if (!mounted || attempt > 20) return;
-
-    final index = workScheduleDayIndexInMonth(
-      widget.month,
-      widget.selectedDate,
-    );
-    if (index < 0) return;
-
-    final targetOffset = workScheduleHorizontalOffsetForDayIndex(index);
-    final controller = widget.horizontalScrollController;
-
-    if (!controller.hasClients) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _scrollGridToSelectedDate(attempt: attempt + 1),
-      );
-      return;
-    }
-
-    final position = controller.position;
-    final clamped = targetOffset.clamp(0.0, position.maxScrollExtent);
-    if ((position.pixels - clamped).abs() > 0.5) {
-      controller.jumpTo(clamped);
-    }
-
-    if (targetOffset > position.maxScrollExtent + 0.5) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _scrollGridToSelectedDate(attempt: attempt + 1),
-      );
-    }
   }
 
   @override
@@ -186,13 +141,14 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
                 child: _DayCell(
                   date: monthDays[j],
                   cell: widget.employees[rowIndex].monthCells[j],
-                  onTap: widget.onCellTap == null ||
+                  onTap:
+                      widget.onCellTap == null ||
                           widget.employees[rowIndex].isBranchRow
                       ? null
                       : () => widget.onCellTap!(
-                            widget.employees[rowIndex],
-                            monthDays[j],
-                          ),
+                          widget.employees[rowIndex],
+                          monthDays[j],
+                        ),
                 ),
               ),
             ],
@@ -281,10 +237,7 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
     return SizedBox(
       width: workScheduleEmployeeColumnWidth,
       height: height,
-      child: Container(
-        decoration: _sidebarDecoration(isDark),
-        child: clip,
-      ),
+      child: Container(decoration: _sidebarDecoration(isDark), child: clip),
     );
   }
 
@@ -292,7 +245,8 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final monthDays = _monthDays;
-    final tableWidth = monthDays.length * workScheduleDayColumnWidth +
+    final tableWidth =
+        monthDays.length * workScheduleDayColumnWidth +
         (monthDays.length - 1) * workScheduleDayCellGap;
     final bottomScrollPadding = _bottomScrollPadding(context);
 
@@ -301,13 +255,10 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final maxHeight = constraints.maxHeight;
-          final compactHeight =
-              _gridContentHeight(widget.employees.length);
+          final compactHeight = _gridContentHeight(widget.employees.length);
           final scrollVertically = compactHeight > maxHeight;
-          final gridHeight =
-              scrollVertically ? maxHeight : compactHeight;
-          final bottomInset =
-              scrollVertically ? bottomScrollPadding : 0.0;
+          final gridHeight = scrollVertically ? maxHeight : compactHeight;
+          final bottomInset = scrollVertically ? bottomScrollPadding : 0.0;
 
           return SizedBox(
             height: gridHeight,
@@ -428,11 +379,7 @@ class _EmployeeMoreButton extends StatelessWidget {
           color: isDark ? AppColors.secondaryDarkDark : AppColors.secondaryDark,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Icon(
-          Icons.more_horiz_rounded,
-          size: 16,
-          color: accent,
-        ),
+        child: Icon(Icons.more_horiz_rounded, size: 16, color: accent),
       ),
     );
   }
@@ -457,7 +404,9 @@ class _Avatar extends StatelessWidget {
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryDark,
+          color: isDark
+              ? AppColors.secondaryDarkLight
+              : AppColors.secondaryDark,
           shape: BoxShape.circle,
         ),
         alignment: Alignment.center,
@@ -520,7 +469,9 @@ Color _shiftBackground(WorkScheduleDayCell cell, bool isPast) {
         ? WorkScheduleCellColors.manualEditPast
         : WorkScheduleCellColors.manualEdit;
   }
-  return isPast ? WorkScheduleCellColors.shiftPast : WorkScheduleCellColors.shift;
+  return isPast
+      ? WorkScheduleCellColors.shiftPast
+      : WorkScheduleCellColors.shift;
 }
 
 Color _dayOffBackground(WorkScheduleDayCell cell, bool isPast) {
@@ -529,15 +480,13 @@ Color _dayOffBackground(WorkScheduleDayCell cell, bool isPast) {
         ? WorkScheduleCellColors.manualEditPast
         : WorkScheduleCellColors.manualEdit;
   }
-  return isPast ? WorkScheduleCellColors.dayOffPast : WorkScheduleCellColors.dayOff;
+  return isPast
+      ? WorkScheduleCellColors.dayOffPast
+      : WorkScheduleCellColors.dayOff;
 }
 
 class _DayCell extends StatelessWidget {
-  const _DayCell({
-    required this.date,
-    required this.cell,
-    this.onTap,
-  });
+  const _DayCell({required this.date, required this.cell, this.onTap});
 
   final DateTime date;
   final WorkScheduleDayCell cell;
@@ -556,7 +505,7 @@ class _DayCell extends StatelessWidget {
         accent: accent,
         backgroundColor: _dayOffBackground(cell, isPast),
         onTap: effectiveOnTap,
-        child: const Text('😴', style: TextStyle(fontSize: 16)),
+        child: const Center(child: Text('😴', style: TextStyle(fontSize: 16))),
       );
     }
 
@@ -565,17 +514,62 @@ class _DayCell extends StatelessWidget {
       accent: accent,
       backgroundColor: _shiftBackground(cell, isPast),
       onTap: effectiveOnTap,
-      child: Text(
-        '${cell.timeStart}\n${cell.timeEnd}',
-        style: AppFonts.c2Tabbar.copyWith(
-          color: Colors.white,
-          height: 1.1,
-          fontSize: 9,
-          fontWeight: FontWeight.w500,
+      child: _ShiftCellContent(cell: cell),
+    );
+  }
+}
+
+class _ShiftCellContent extends StatelessWidget {
+  const _ShiftCellContent({required this.cell});
+
+  final WorkScheduleDayCell cell;
+
+  @override
+  Widget build(BuildContext context) {
+    final timeStyle = AppFonts.c2Tabbar.copyWith(
+      color: Colors.white,
+      height: 1.1,
+      fontSize: 9,
+      fontWeight: FontWeight.w500,
+    );
+
+    if (!cell.hasBreak) {
+      return Center(
+        child: Text(
+          '${cell.timeStart}\n${cell.timeEnd}',
+          style: timeStyle,
+          textAlign: TextAlign.center,
+          maxLines: 2,
         ),
-        textAlign: TextAlign.center,
-        maxLines: 2,
-      ),
+      );
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              '${cell.timeStart}\n${cell.timeEnd}',
+              style: timeStyle,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 15),
+            child: Icon(
+              Icons.local_cafe_rounded,
+              size: 12,
+              color: Colors.white.withValues(alpha: 0.92),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -606,11 +600,14 @@ class _CellContainer extends StatelessWidget {
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(12),
-            border: isSelected
-                ? Border.all(color: accent, width: 2)
-                : null,
+            border: isSelected ? Border.all(color: accent, width: 2) : null,
           ),
-          child: Center(child: child),
+          child: SizedBox.expand(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+              child: child,
+            ),
+          ),
         ),
       ),
     );
