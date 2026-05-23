@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
@@ -333,6 +334,8 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     WorkScheduleEmployeeRow employee,
     DateTime date,
   ) async {
+    if (isPastWorkScheduleDate(date)) return;
+
     final cell = _cellForDate(employee, date);
     if (cell == null) return;
 
@@ -424,7 +427,10 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
             workScheduleDatesScrollController: _datesHeaderScroll,
           ),
           Expanded(
-            child: _employees.when(
+            child: AppRefreshable(
+              onRefresh: _reloadWorkSchedule,
+              hasScrollBody: true,
+              child: _employees.when(
               loading: () => const Center(child: LoadingWidget()),
               error: (error, _) => Center(
                 child: Padding(
@@ -457,6 +463,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
               },
             ),
           ),
+        ),
         ],
       ),
     );

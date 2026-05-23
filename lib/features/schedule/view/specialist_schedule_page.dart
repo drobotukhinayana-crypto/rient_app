@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/change_time_picker_dialog.dart';
 import 'package:rient_app/core/widgets/custom_switch_widget.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
@@ -430,6 +431,21 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
     );
   }
 
+  Future<void> _onPullToRefresh() async {
+    final loadQuery = _loadQuery;
+    if (loadQuery == null) return;
+    ref.invalidate(specialistScheduleFormProvider(loadQuery));
+    try {
+      final form =
+          await ref.read(specialistScheduleFormProvider(loadQuery).future);
+      if (!mounted) return;
+      setState(() {
+        _applyLoadedForm(form);
+        _loadedPatterns = form.loadedPatterns;
+      });
+    } catch (_) {}
+  }
+
   Widget _buildForm(
     BuildContext context,
     bool isDark,
@@ -454,9 +470,12 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
             }),
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.only(top: 12, bottom: 16),
-              children: [
+            child: AppRefreshIndicator(
+              onRefresh: _onPullToRefresh,
+              child: ListView(
+                physics: AppRefreshIndicator.scrollPhysics,
+                padding: const EdgeInsets.only(top: 12, bottom: 16),
+                children: [
                 _SpecialistScheduleCard(
                   isDark: isDark,
                   child: Column(
@@ -535,6 +554,7 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
               ],
             ),
           ),
+        ),
           Container(
             decoration: BoxDecoration(
               color: isDark ? AppColors.primaryWhiteDark : Colors.white,

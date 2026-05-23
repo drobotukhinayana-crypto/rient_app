@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
 import 'package:rient_app/features/chat/view/providers/push_settings_provider.dart';
@@ -24,6 +25,13 @@ class SettingsPage extends ConsumerWidget {
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
 
+    Future<void> onRefresh() async {
+      invalidatePushSettings(ref);
+      try {
+        await ref.read(currentPushSettingsDeviceProvider.future);
+      } catch (_) {}
+    }
+
     return Scaffold(
       backgroundColor: screenBg,
       body: Column(
@@ -31,9 +39,12 @@ class SettingsPage extends ConsumerWidget {
         children: [
           _SettingsHeader(isDark: isDark, onBack: () => context.pop()),
           Expanded(
-            child: ListView(
-              padding: AppDecoration.padding16.copyWith(top: 12),
-              children: [
+            child: AppRefreshIndicator(
+              onRefresh: onRefresh,
+              child: ListView(
+                physics: AppRefreshIndicator.scrollPhysics,
+                padding: AppDecoration.padding16.copyWith(top: 12),
+                children: [
                 const _PushNotificationsTile(),
                 const Gap(12),
                 _SettingsTile(
@@ -56,6 +67,7 @@ class SettingsPage extends ConsumerWidget {
               ],
             ),
           ),
+        ),
         ],
       ),
     );

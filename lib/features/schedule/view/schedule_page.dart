@@ -9,6 +9,7 @@ import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
+import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
@@ -340,6 +341,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     setState(() {
       _refreshVersion++;
     });
+  }
+
+  Future<void> _onPullToRefresh() async {
+    _forceRefreshScheduleScreen();
+    try {
+      await ref.read(scheduleWorkersProvider.future);
+    } catch (_) {}
   }
 
   Future<void> _openAddEntryFromEmptySlot({
@@ -976,7 +984,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                 },
               ),
               Expanded(
-                child: workersAsync.when(
+                child: AppRefreshable(
+                  onRefresh: _onPullToRefresh,
+                  hasScrollBody: true,
+                  child: workersAsync.when(
                   loading: () => const SizedBox.shrink(),
                   error: (err, _) => Center(
                     child: Padding(
@@ -1308,6 +1319,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                         ),
                 ),
               ),
+            ),
             ],
           ),
           if (showGlobalLoader)

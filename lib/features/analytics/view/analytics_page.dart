@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/features/analytics/data/models/analytics_summary/analytics_summary.dart';
@@ -222,6 +223,14 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     );
     final statsAsync = ref.watch(analyticsSummaryProvider(analyticsQuery));
 
+    Future<void> onRefresh() async {
+      ref.invalidate(analyticsSummaryProvider(analyticsQuery));
+      ref.invalidate(scheduleWorkersProvider);
+      try {
+        await ref.read(analyticsSummaryProvider(analyticsQuery).future);
+      } catch (_) {}
+    }
+
     return Scaffold(
       backgroundColor: screenBg,
       body: Column(
@@ -259,35 +268,51 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 setState(() => _selectedSpecialist = selected),
           ),
           Expanded(
-            child: statsAsync.when(
-              loading: () => const Center(child: LoadingWidget()),
-              error: (_, __) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Не удалось загрузить аналитику',
-                        style: AppFonts.b1Medium.copyWith(
-                          color: isDark
-                              ? AppColors.primaryWhite
-                              : AppColors.primaryDark,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const Gap(12),
-                      TextButton(
-                        onPressed: () => ref.invalidate(
-                          analyticsSummaryProvider(analyticsQuery),
-                        ),
-                        child: const Text('Повторить'),
-                      ),
-                    ],
-                  ),
+            child: AppRefreshIndicator(
+              onRefresh: onRefresh,
+              child: statsAsync.when(
+                loading: () => ListView(
+                  physics: AppRefreshIndicator.scrollPhysics,
+                  children: [
+                    SizedBox(
+                      height: MediaQuery.sizeOf(context).height * 0.55,
+                      child: const Center(child: LoadingWidget()),
+                    ),
+                  ],
                 ),
-              ),
-              data: (summary) => _AnalyticsContent(
+                error: (_, __) => ListView(
+                  physics: AppRefreshIndicator.scrollPhysics,
+                  children: [
+                    SizedBox(
+                      height: MediaQuery.sizeOf(context).height * 0.55,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Не удалось загрузить аналитику',
+                                style: AppFonts.b1Medium.copyWith(
+                                  color: isDark
+                                      ? AppColors.primaryWhite
+                                      : AppColors.primaryDark,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const Gap(12),
+                              TextButton(
+                                onPressed: onRefresh,
+                                child: const Text('Повторить'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                data: (summary) => _AnalyticsContent(
                 isDark: isDark,
                 data: _AnalyticsViewData.fromAnalyticsSummary(
                   summary,
@@ -312,6 +337,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
               ),
             ),
           ),
+        ),
         ],
       ),
     );
@@ -1131,6 +1157,7 @@ class _AnalyticsContent extends StatelessWidget {
         (showPeriodStrip ? 'Загруженность за период' : 'Загруженность на неделю');
 
     return SingleChildScrollView(
+      physics: AppRefreshIndicator.scrollPhysics,
       padding: AppDecoration.padding16.copyWith(top: 12, bottom: 24),
       child: Column(
         children: [

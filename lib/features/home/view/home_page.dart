@@ -4,6 +4,7 @@ import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
@@ -41,6 +42,18 @@ class _BodyWidget extends ConsumerWidget {
     final selectedDate = ref.watch(selectedDateProvider);
     final occupancyByDay =
         ref.watch(statisticsProvider).value?.occupancyByDay ?? [];
+
+    Future<void> onRefresh() async {
+      ref.invalidate(statisticsProvider);
+      ref.invalidate(todayRevenueMetricsProvider);
+      try {
+        await Future.wait([
+          ref.read(statisticsProvider.future),
+          ref.read(todayRevenueMetricsProvider.future),
+        ]);
+      } catch (_) {}
+    }
+
     return Column(
       children: [
         TopPanel(
@@ -52,19 +65,22 @@ class _BodyWidget extends ConsumerWidget {
               ref.read(selectedDateProvider.notifier).setDate(date),
         ),
 
-        // контент
         Expanded(
-          child: SingleChildScrollView(
-            padding: AppDecoration.padding16.copyWith(top: 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _StatisticsWidget(),
-                Gap(24),
-                Text('Услуги на сегодня', style: AppFonts.h4Medium),
-                Gap(12),
-                const ServicesTodayGridView(),
-              ],
+          child: AppRefreshIndicator(
+            onRefresh: onRefresh,
+            child: SingleChildScrollView(
+              physics: AppRefreshIndicator.scrollPhysics,
+              padding: AppDecoration.padding16.copyWith(top: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _StatisticsWidget(),
+                  Gap(24),
+                  Text('Услуги на сегодня', style: AppFonts.h4Medium),
+                  Gap(12),
+                  const ServicesTodayGridView(),
+                ],
+              ),
             ),
           ),
         ),

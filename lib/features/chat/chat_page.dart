@@ -8,6 +8,7 @@ import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/date_range_picker_dialog.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
@@ -267,75 +268,126 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
   }
 
+  Future<void> _onPullToRefresh() async {
+    invalidatePushHistory(ref);
+    await _loadFirstPage();
+    try {
+      await ref.read(pushHistoryCountProvider.future);
+    } catch (_) {}
+  }
+
   Widget _buildBody(bool isDark) {
-    if (_isLoading && _items.isEmpty) {
-      return const Center(child: LoadingWidget());
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minHeight = constraints.maxHeight;
 
-    if (_errorMessage != null && _items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              _errorMessage!,
-              style: AppFonts.b2Regular.copyWith(
-                color: isDark
-                    ? AppColors.tabbarGreyDark
-                    : AppColors.primaryDark,
-              ),
+        if (_isLoading && _items.isEmpty) {
+          return AppRefreshIndicator(
+            onRefresh: _onPullToRefresh,
+            child: ListView(
+              physics: AppRefreshIndicator.scrollPhysics,
+              children: [
+                SizedBox(
+                  height: minHeight,
+                  child: const Center(child: LoadingWidget()),
+                ),
+              ],
             ),
-            const Gap(12),
-            TextButton(
-              onPressed: _loadFirstPage,
-              child: const Text('Повторить'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(AppImages.empty),
-            const Gap(12),
-            Text(
-              'Сообщений пока нет',
-              style: AppFonts.b2Regular.copyWith(
-                color: isDark
-                    ? AppColors.tabbarGreyDark
-                    : AppColors.primaryDark,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.separated(
-      controller: _scrollController,
-      padding: AppDecoration.padding16.copyWith(top: 12),
-      itemCount: _items.length + (_isLoadingMore ? 1 : 0),
-      separatorBuilder: (_, __) => const Gap(10),
-      itemBuilder: (context, index) {
-        if (index >= _items.length) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(child: LoadingWidget(side: 24)),
           );
         }
-        final item = _items[index];
-        final appointmentId = item.appointmentId;
-        final isOpening = _openingNotificationId == item.id;
-        return MessageNotificationCard(
-          item: item,
-          isOpening: isOpening,
-          onOpenCard: appointmentId != null && !isOpening
-              ? () => _openAppointmentFromNotification(item)
-              : null,
+
+        if (_errorMessage != null && _items.isEmpty) {
+          return AppRefreshIndicator(
+            onRefresh: _onPullToRefresh,
+            child: ListView(
+              physics: AppRefreshIndicator.scrollPhysics,
+              children: [
+                SizedBox(
+                  height: minHeight,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _errorMessage!,
+                          style: AppFonts.b2Regular.copyWith(
+                            color: isDark
+                                ? AppColors.tabbarGreyDark
+                                : AppColors.primaryDark,
+                          ),
+                        ),
+                        const Gap(12),
+                        TextButton(
+                          onPressed: _loadFirstPage,
+                          child: const Text('Повторить'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        if (_items.isEmpty) {
+          return AppRefreshIndicator(
+            onRefresh: _onPullToRefresh,
+            child: ListView(
+              physics: AppRefreshIndicator.scrollPhysics,
+              children: [
+                SizedBox(
+                  height: minHeight,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset(AppImages.empty),
+                        const Gap(12),
+                        Text(
+                          'Сообщений пока нет',
+                          style: AppFonts.b2Regular.copyWith(
+                            color: isDark
+                                ? AppColors.tabbarGreyDark
+                                : AppColors.primaryDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return AppRefreshIndicator(
+          onRefresh: _onPullToRefresh,
+          child: ListView.separated(
+            controller: _scrollController,
+            physics: AppRefreshIndicator.scrollPhysics,
+            padding: AppDecoration.padding16.copyWith(top: 12),
+            itemCount: _items.length + (_isLoadingMore ? 1 : 0),
+            separatorBuilder: (_, __) => const Gap(10),
+            itemBuilder: (context, index) {
+              if (index >= _items.length) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(child: LoadingWidget(side: 24)),
+                );
+              }
+              final item = _items[index];
+              final appointmentId = item.appointmentId;
+              final isOpening = _openingNotificationId == item.id;
+              return MessageNotificationCard(
+                item: item,
+                isOpening: isOpening,
+                onOpenCard: appointmentId != null && !isOpening
+                    ? () => _openAppointmentFromNotification(item)
+                    : null,
+              );
+            },
+          ),
         );
       },
     );

@@ -487,12 +487,14 @@ class _DayCell extends StatelessWidget {
     final accent = AppColors.themeAccent(context);
     final isPast = isPastWorkScheduleDate(date);
 
+    final effectiveOnTap = isPast ? null : onTap;
+
     if (cell.kind == WorkScheduleCellKind.dayOff) {
       return _CellContainer(
         isSelected: false,
         accent: accent,
         backgroundColor: _dayOffBackground(cell, isPast),
-        onTap: onTap,
+        onTap: effectiveOnTap,
         child: const Text('😴', style: TextStyle(fontSize: 16)),
       );
     }
@@ -501,7 +503,7 @@ class _DayCell extends StatelessWidget {
       isSelected: cell.isSelected,
       accent: accent,
       backgroundColor: _shiftBackground(cell, isPast),
-      onTap: onTap,
+      onTap: effectiveOnTap,
       child: Text(
         '${cell.timeStart}\n${cell.timeEnd}',
         style: AppFonts.c2Tabbar.copyWith(
