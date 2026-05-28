@@ -1,6 +1,10 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_branch_api/update_branch_schedule_patterns_request.dart';
+import 'package:rient_app/features/schedule/service/appointments_service.dart';
 import 'package:rient_app/features/schedule/utils/schedule_day_key.dart';
+import 'package:rient_app/features/schedule/utils/work_schedule_appointment_conflict.dart';
 import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
 import 'package:rient_app/features/schedule/data/models/worker_schedule_config_api/update_worker_schedule_config_request.dart';
 import 'package:rient_app/features/schedule/data/models/worker_schedule_config_api/worker_schedule_config_api.dart';
@@ -315,4 +319,126 @@ UpdateBranchSchedulePatternsRequest buildWorkerPatternsBatchRequest({
     );
   }
   return UpdateBranchSchedulePatternsRequest(patterns: items);
+}
+
+bool specialistDayDraftScheduleChanged(
+  SpecialistDayDraft previous,
+  SpecialistDayDraft next,
+) {
+  if (previous.enabled != next.enabled) return true;
+  if (!next.enabled) return false;
+  if (previous.start != next.start || previous.end != next.end) return true;
+  final prevBreakStart = (previous.breakStart ?? '').trim();
+  final prevBreakEnd = (previous.breakEnd ?? '').trim();
+  final nextBreakStart = (next.breakStart ?? '').trim();
+  final nextBreakEnd = (next.breakEnd ?? '').trim();
+  return prevBreakStart != nextBreakStart || prevBreakEnd != nextBreakEnd;
+}
+
+WorkScheduleDayBounds _boundsFromSpecialistDayDraft(SpecialistDayDraft day) {
+  return WorkScheduleDayBounds(
+    isWorkingDay: day.enabled,
+    workStart: day.start,
+    workEnd: day.end,
+    breakStart: day.breakStart,
+    breakEnd: day.breakEnd,
+  );
+}
+
+const _patternValidationHorizonDays = 365;
+const _patternValidationMaxPages = 20;
+
+Future<List<AppointmentApi>> _fetchActiveAppointmentsInRange({
+  required WidgetRef ref,
+  required int branchId,
+  required int workerId,
+  required DateTime from,
+  required DateTime to,
+}) async {
+  final service = ref.read(appointmentsServiceProvider);
+  final results = <AppointmentApi>[];
+  var more = false;
+  for (var page = 0; page < _patternValidationMaxPages; page++) {
+    final response = await service.getAppointments(
+      branchId: branchId,
+      workerId: workerId,
+      dateTimeGte: from,
+      dateTimeLte: to,
+      more: more,
+    );
+    results.addAll(response.results.where((a) => a.isActive));
+    final nextUrl = response.next?.trim();
+    if (nextUrl == null || nextUrl.isEmpty) break;
+    more = true;
+  }
+  return results;
+}
+
+/// Проверка шаблона недели перед сохранением (как для одного дня в сетке графика).
+Future<String?> validateSpecialistWeekPatternAgainstAppointments({
+  required WidgetRef ref,
+  required int branchId,
+  required int workerId,
+  required List<SpecialistDayDraft> previousDays,
+  required List<SpecialistDayDraft> newDays,
+}) async {
+  if (branchId <= 0 || workerId <= 0) return null;
+
+  final previousByKey = {
+    for (final day in previousDays)
+      canonicalScheduleDayKey(day.dayKey): day,
+  };
+
+  final boundsByWeekday = <int, WorkScheduleDayBounds>{};
+  for (final day in newDays) {
+    final key = canonicalScheduleDayKey(day.dayKey);
+    final previous = previousByKey[key];
+    if (previous != null &&
+        !specialistDayDraftScheduleChanged(previous, day)) {
+      continue;
+    }
+    final weekday = scheduleDayKeyToWeekday(day.dayKey);
+    if (weekday == null) continue;
+    boundsByWeekday[weekday] = _boundsFromSpecialistDayDraft(day);
+  }
+
+  if (boundsByWeekday.isEmpty) return null;
+
+  final now = DateTime.now();
+  final rangeStart = DateTime(now.year, now.month, now.day);
+  final rangeEnd = rangeStart.add(
+    const Duration(days: _patternValidationHorizonDays),
+  ).subtract(const Duration(milliseconds: 1));
+
+  final appointments = await _fetchActiveAppointmentsInRange(
+    ref: ref,
+    branchId: branchId,
+    workerId: workerId,
+    from: rangeStart,
+    to: rangeEnd,
+  );
+
+  for (final appointment in appointments) {
+    final range = appointmentTimeRange(appointment, rangeStart);
+    final appointmentDay = DateTime(
+      range.start.year,
+      range.start.month,
+      range.start.day,
+    );
+    if (appointmentDay.isBefore(rangeStart)) continue;
+
+    final proposed = boundsByWeekday[range.start.weekday];
+    if (proposed == null) continue;
+
+    if (appointmentConflictsWithWorkScheduleChange(
+      day: appointmentDay,
+      appointmentStart: range.start,
+      appointmentEnd: range.end,
+      proposed: proposed,
+    )) {
+      return workScheduleAppointmentsConflictMessage;
+    }
+  }
+
+  return null;
 }

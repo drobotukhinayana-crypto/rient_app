@@ -40,6 +40,7 @@ import 'package:rient_app/features/schedule/view/providers/appointments_provider
 import 'package:rient_app/features/schedule/view/providers/schedule_cell_interval_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
 import 'package:rient_app/features/schedule/utils/schedule_branch_bounds.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 
@@ -1056,6 +1057,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           ref.read(restoredSpecialistSelectionProvider.notifier).state = true;
         }
       });
+    });
+    ref.listen<int>(workScheduleReloadTokenProvider, (previous, next) {
+      if (previous == null || previous == next) return;
+      _forceRefreshScheduleScreen();
     });
 
     return Scaffold(

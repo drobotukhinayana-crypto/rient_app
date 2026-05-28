@@ -374,6 +374,25 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
       return;
     }
 
+    if (_isWeekSchedule && _loadedPatterns.isNotEmpty) {
+      final appointmentsConflict =
+          await validateSpecialistWeekPatternAgainstAppointments(
+        ref: ref,
+        branchId: branchId,
+        workerId: workerId,
+        previousDays: [..._lastSavedWeekdays, ..._lastSavedWeekends],
+        newDays: [..._weekdays, ..._weekends],
+      );
+      if (appointmentsConflict != null) {
+        if (!mounted) return;
+        setState(_restoreSavedWeekSchedule);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(appointmentsConflict)),
+        );
+        return;
+      }
+    }
+
     setState(() => _isSaving = true);
     try {
       final workDaysText = _workDaysController.text.trim();

@@ -436,37 +436,14 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
             date.weekday,
           );
 
-          // Ручные правки дня — из schedules; auto — общий шаблон, берём patterns/config.
+          // Ручные правки дня — всегда из schedules; auto — общий шаблон (patterns/config).
           final WorkScheduleDayCell cell;
           if (daily != null && !daily.auto) {
-            if (daily.active) {
-              cell = workScheduleCellFromScheduleItem(
-                daily,
-                selected: selected,
-              );
-            } else if (!_isShiftSchedule(configMap)) {
-              final pattern = _patternForWeekday(
-                resolvedPatterns,
-                date.weekday,
-              );
-              if (pattern != null && pattern.active) {
-                cell = workScheduleCellFromPattern(
-                  pattern,
-                  selected: selected,
-                  daily: daily,
-                );
-              } else {
-                cell = workScheduleCellFromScheduleItem(
-                  daily,
-                  selected: selected,
-                );
-              }
-            } else {
-              cell = workScheduleCellFromScheduleItem(
-                daily,
-                selected: selected,
-              );
-            }
+            cell = workScheduleCellFromScheduleItem(
+              daily,
+              selected: selected,
+              isManuallyEdited: true,
+            );
           } else {
             cell = _cellFromTemplate(
               date: date,
