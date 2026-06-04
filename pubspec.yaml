@@ -36,6 +36,7 @@ dependencies:
   uuid: ^4.5.3
   flutter_timezone: ^5.0.2
   flutter_local_notifications: ^20.1.0
+  screen_protector: ^1.5.2
 
 dev_dependencies:
   flutter_test:

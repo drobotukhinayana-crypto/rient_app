@@ -7,12 +7,14 @@ import 'package:rient_app/core/app.dart';
 import 'package:rient_app/core/services/firebase_messaging_background.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/services/notification_service.dart';
+import 'package:rient_app/core/services/screenshot_protection_service.dart';
 import 'package:rient_app/firebase_options.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stack_trace/stack_trace.dart' as stack_trace;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ScreenshotProtectionService.enable();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(statusBarColor: Colors.white),
   );

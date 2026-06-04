@@ -36,7 +36,10 @@ class SelectBranchPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: _BodyWidget());
+    return const Scaffold(
+      bottomNavigationBar: BottomPanel(),
+      body: _BodyWidget(),
+    );
   }
 }
 
@@ -169,9 +172,6 @@ class _BodyWidget extends StatelessWidget {
               ),
             ),
           ),
-
-          // нижняя панель
-          const BottomPanel(),
         ],
       ),
     );

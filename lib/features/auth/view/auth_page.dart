@@ -31,7 +31,10 @@ class AuthPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: _BodyWidget());
+    return const Scaffold(
+      bottomNavigationBar: BottomPanel(),
+      body: _BodyWidget(),
+    );
   }
 }
 
@@ -81,75 +84,56 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
     return SafeArea(
       bottom: false,
-      child: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: AppDecoration.padding16.copyWith(top: 54),
-              child: Column(
-                children: [
-                  // логотип
-                  Image.asset(AppImages.logoBig),
-                  Gap(28),
+      child: SingleChildScrollView(
+        padding: AppDecoration.padding16.copyWith(top: 54, bottom: 16),
+        child: Column(
+          children: [
+            // логотип
+            Image.asset(AppImages.logoBig),
+            Gap(28),
 
-                  // заголовок
-                  Text('Rient', style: AppFonts.bold40),
-                  Gap(32),
+            // заголовок
+            Text('Rient', style: AppFonts.bold40),
+            Gap(32),
 
-                  // выбор страны
-                  const CountryDropdown(),
-                  Gap(16),
+            // выбор страны
+            const CountryDropdown(),
+            Gap(16),
 
-                  // поле для ввода почты
-                  MainTextField(
-                    label: 'Почта',
-                    controller: emailController,
-                    hasError: ref.watch(_emailErrorProvider).isNotEmpty,
-                    hintText: 'example@gmail.com',
+            // поле для ввода почты
+            MainTextField(
+              label: 'Почта',
+              controller: emailController,
+              hasError: ref.watch(_emailErrorProvider).isNotEmpty,
+              hintText: 'example@gmail.com',
+            ),
+            if (ref.watch(_emailErrorProvider).isNotEmpty)
+              ErrorLabel(ref.watch(_emailErrorProvider)),
+            Gap(24),
+
+            // кнопка продолжения
+            MainButton(
+              title: 'Продолжить',
+              isActive: ref.watch(_emailProvider).isEmail,
+              isLoading: ref.watch(getOtpControllerProvider).isLoading,
+              onTap: () async => ref.read(getOtpControllerProvider.notifier).getOtp(
+                    ref.read(_emailProvider),
+                    '0cAFcWeA5CVv...Hd4jjnjP6igECB-RndwLqpKbelHe8G',
                   ),
-                  if (ref.watch(_emailErrorProvider).isNotEmpty)
-                    ErrorLabel(ref.watch(_emailErrorProvider)),
-                  Gap(24),
-                ],
-              ),
             ),
-          ),
+            Gap(16),
 
-          // кнопка и соглашение
-          Padding(
-            padding: AppDecoration.padding16.copyWith(bottom: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // кнопка продолжения
-                MainButton(
-                  title: 'Продолжить',
-                  isActive: ref.watch(_emailProvider).isEmail,
-                  isLoading: ref.watch(getOtpControllerProvider).isLoading,
-                  onTap: () async => ref
-                      .read(getOtpControllerProvider.notifier)
-                      .getOtp(
-                        ref.read(_emailProvider),
-                        '0cAFcWeA5CVv...Hd4jjnjP6igECB-RndwLqpKbelHe8G',
-                      ),
-                ),
-                Gap(16),
-
-                // пользовательское соглашение
-                AuthTextButton(
-                  title: 'Пользовательское соглашение?',
-                  onTap: () async {
-                    final uri = Uri.parse('https://rient.ru/doc/agreement.pdf');
-                    launchUrl(uri, mode: LaunchMode.externalApplication);
-                  },
-                ),
-              ],
+            // пользовательское соглашение
+            AuthTextButton(
+              title: 'Пользовательское соглашение?',
+              onTap: () async {
+                final uri = Uri.parse('https://rient.ru/doc/agreement.pdf');
+                launchUrl(uri, mode: LaunchMode.externalApplication);
+              },
             ),
-          ),
-
-          // нижняя панель
-          const BottomPanel(),
-        ],
+            Gap(8),
+          ],
+        ),
       ),
     );
   }

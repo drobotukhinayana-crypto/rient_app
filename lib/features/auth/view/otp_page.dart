@@ -30,7 +30,10 @@ class OtpPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      child: Scaffold(body: _BodyWidget(email: email)),
+      child: Scaffold(
+        bottomNavigationBar: const BottomPanel(),
+        body: _BodyWidget(email: email),
+      ),
     );
   }
 }
@@ -147,13 +150,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         behavior: HitTestBehavior.opaque,
         child: Stack(
           children: [
-            Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: AppDecoration.padding16.copyWith(top: 16),
-                    child: Column(
-                      children: [
+            SingleChildScrollView(
+              padding: AppDecoration.padding16.copyWith(top: 16, bottom: 16),
+              child: Column(
+                children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -281,14 +281,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       ),
                     ),
                   ],
-                      ],
-                    ),
-                  ),
-                ),
-
-                // нижняя панель
-                const BottomPanel(),
-              ],
+                  Gap(8),
+                ],
+              ),
             ),
             if (_isVerifying) ...[
               Positioned.fill(

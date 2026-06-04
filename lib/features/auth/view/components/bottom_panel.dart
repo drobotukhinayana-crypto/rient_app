@@ -13,8 +13,11 @@ class BottomPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.only(top: 20, bottom: 30),
+    return SafeArea(
+      top: false,
+      minimum: EdgeInsets.zero,
+      child: Container(
+      padding: const EdgeInsets.only(top: 20, bottom: 16),
       decoration: BoxDecoration(
         boxShadow: [
           BoxShadow(
@@ -54,6 +57,7 @@ class BottomPanel extends ConsumerWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

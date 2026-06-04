@@ -86,44 +86,37 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
       );
     });
     return Scaffold(
+      bottomNavigationBar: const BottomPanel(),
       body: SafeArea(
         bottom: false,
         child: Stack(
           children: [
-            Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: AppDecoration.padding16.copyWith(top: 54),
-                    child: Column(
-                      children: [
-                    // логотип
-                    Image.asset(AppImages.logoBig),
-                    Gap(28),
+            SingleChildScrollView(
+              padding: AppDecoration.padding16.copyWith(top: 54, bottom: 16),
+              child: Column(
+                children: [
+                  // логотип
+                  Image.asset(AppImages.logoBig),
+                  Gap(28),
 
-                    // заголовок
-                    Text('Rient', style: AppFonts.bold40),
-                    Gap(32),
+                  // заголовок
+                  Text('Rient', style: AppFonts.bold40),
+                  Gap(32),
 
-                    // поле для ввода пароля
-                    MainTextField(
-                      label: 'Пароль',
-                      controller: passwordController,
-                      hintText: 'qwerty12345!',
-                      isPassword: true,
-                      hasError: ref.watch(_errorPasswordProvider).isNotEmpty,
-                    ),
-                    if (ref.watch(_errorPasswordProvider).isNotEmpty)
-                      ErrorLabel(ref.watch(_errorPasswordProvider)),
-                      ],
-                    ),
+                  // поле для ввода пароля
+                  MainTextField(
+                    label: 'Пароль',
+                    controller: passwordController,
+                    hintText: 'qwerty12345!',
+                    isPassword: true,
+                    hasError: ref.watch(_errorPasswordProvider).isNotEmpty,
                   ),
-                ),
+                  if (ref.watch(_errorPasswordProvider).isNotEmpty)
+                    ErrorLabel(ref.watch(_errorPasswordProvider)),
+                  Gap(24),
 
-                // кнопка
-                Padding(
-                  padding: AppDecoration.padding16.copyWith(bottom: 24),
-                  child: MainButton(
+                  // кнопка
+                  MainButton(
                     title: 'Продолжить',
                     isLoading: isTokenLoading,
                     onTap: () async {
@@ -186,11 +179,9 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
                       SelectBranchPage.navigate(this.context);
                     },
                   ),
-                ),
-
-                // нижняя панель
-                const BottomPanel(),
-              ],
+                  Gap(8),
+                ],
+              ),
             ),
             if (isTokenLoading)
               Positioned.fill(

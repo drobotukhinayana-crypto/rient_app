@@ -1254,7 +1254,10 @@ class _AnalyticsContent extends StatelessWidget {
 
     return SingleChildScrollView(
       physics: AppRefreshIndicator.scrollPhysics,
-      padding: AppDecoration.padding16.copyWith(top: 12, bottom: 24),
+      padding: AppDecoration.padding16.copyWith(
+        top: 12,
+        bottom: AppDecoration.scrollBottomPadding(context),
+      ),
       child: Column(
         children: [
           Gap(10),
