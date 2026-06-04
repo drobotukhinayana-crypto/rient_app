@@ -11,6 +11,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/models/worker_entity_labels.dart';
+import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
@@ -1796,6 +1798,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final workerLabels =
+        ref.watch(workerEntityLabelsProvider).value ??
+        WorkerEntityLabels.defaults;
     final permissions = ref.watch(workerPermissionsProvider).maybeWhen(
           data: (v) => v,
           orElse: () => null,
@@ -2419,9 +2424,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Специалист и услуги', style: AppFonts.b1Medium),
+                Text(workerLabels.sectionAndServices, style: AppFonts.b1Medium),
                 Gap(16),
-                Text('Специалист', style: AppFonts.c1Medium),
+                Text(workerLabels.name, style: AppFonts.c1Medium),
                 Gap(8),
                 if (useWorkerReadOnlySpecialistTile)
                   DefaultContainerWidget(
@@ -2441,7 +2446,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                           )
                         : workersAsync.isLoading
                         ? Text(
-                            'Загрузка специалистов...',
+                            workerLabels.loadingWorkers,
                             style: AppFonts.c1Regular.copyWith(
                               color: AppColors.grey,
                             ),
@@ -2469,11 +2474,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   style: AppFonts.c1Regular.copyWith(color: primaryText),
                   hint: Text(
                     workersAsync.isLoading
-                        ? 'Загрузка специалистов...'
+                        ? workerLabels.loadingWorkers
                         : (requiredCatalogServiceIds.isNotEmpty &&
                               eligibleSpecialistIdsAsync.isLoading)
-                        ? 'Подбор специалистов по услуге…'
-                        : 'Выберите специалиста',
+                        ? workerLabels.matchingWorkersByService
+                        : workerLabels.hintSelect,
                     style: AppFonts.c1Regular.copyWith(color: primaryText),
                   ),
                   decoration: InputDecoration(
@@ -2516,7 +2521,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     noResultsWidget: Padding(
                       padding: const EdgeInsets.all(8),
                       child: Text(
-                        'Специалист не найден',
+                        workerLabels.notFound,
                         style: AppFonts.c1Regular.copyWith(
                           color: AppColors.grey,
                         ),
@@ -2528,7 +2533,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                         controller: _specialistDropdownSearchController,
                         decoration: InputDecoration(
                           isDense: true,
-                          hintText: 'Поиск специалиста',
+                          hintText: workerLabels.searchByWorker,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: divider),
@@ -2654,7 +2659,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                           ),
                           hint: Text(
                             selectedSpecialistId == null
-                                ? 'Сначала выберите специалиста'
+                                ? workerLabels.selectWorkerFirst
                                 : (workerServicesAsync.isLoading
                                       ? 'Загрузка услуг...'
                                       : 'Название услуги'),
@@ -2832,7 +2837,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     const Gap(12),
                     if (selectedSpecialistId == null)
                       Text(
-                        'Сначала выберите специалиста',
+                        workerLabels.selectWorkerFirst,
                         style: AppFonts.c1Regular.copyWith(
                           color: AppColors.grey,
                         ),

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
+import 'package:rient_app/core/models/worker_entity_labels.dart';
+import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
@@ -20,7 +23,7 @@ class SpecialistItem {
   final String? pictureUrl;
 }
 
-class SpecialistSelectDialog extends StatefulWidget {
+class SpecialistSelectDialog extends ConsumerStatefulWidget {
   const SpecialistSelectDialog({
     super.key,
     required this.specialists,
@@ -50,10 +53,12 @@ class SpecialistSelectDialog extends StatefulWidget {
   }
 
   @override
-  State<SpecialistSelectDialog> createState() => _SpecialistSelectDialogState();
+  ConsumerState<SpecialistSelectDialog> createState() =>
+      _SpecialistSelectDialogState();
 }
 
-class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
+class _SpecialistSelectDialogState
+    extends ConsumerState<SpecialistSelectDialog> {
   late SpecialistItem _selected;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -85,6 +90,9 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final labels =
+        ref.watch(workerEntityLabelsProvider).value ??
+        WorkerEntityLabels.defaults;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? AppColors.primaryWhiteDark : Colors.white;
     final listSurface = isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight;
@@ -105,7 +113,7 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Выбрать специалиста',
+                  labels.titleSelect,
                   style: AppFonts.h4Medium.copyWith(color: primaryText),
                 ),
                 GestureDetector(
@@ -148,7 +156,7 @@ class _SpecialistSelectDialogState extends State<SpecialistSelectDialog> {
                 child: _filteredSpecialists.isEmpty
                     ? Center(
                         child: Text(
-                          'Специалист не найден',
+                          labels.notFound,
                           style: AppFonts.c1Regular.copyWith(
                             color: secondaryText,
                           ),

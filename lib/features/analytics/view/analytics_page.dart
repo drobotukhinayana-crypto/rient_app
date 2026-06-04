@@ -4,6 +4,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/models/worker_entity_labels.dart';
+import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
@@ -45,8 +47,8 @@ const _monthNominative = [
 
 enum _AnalyticsFilterMode { month, singleDay, dateRange }
 
-const _allSpecialistsItem = SpecialistItem(
-  name: 'Все специалисты',
+SpecialistItem _allSpecialistsItem(WorkerEntityLabels labels) => SpecialistItem(
+  name: labels.allWorkers,
   role: '',
 );
 
@@ -70,11 +72,12 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
   bool _workloadExpanded = true;
   bool _clientsExpanded = true;
   bool _topServicesExpanded = true;
-  SpecialistItem _selectedSpecialist = _allSpecialistsItem;
+  late SpecialistItem _selectedSpecialist;
 
   @override
   void initState() {
     super.initState();
+    _selectedSpecialist = _allSpecialistsItem(WorkerEntityLabels.defaults);
     final now = DateTime.now();
     _focusedMonth = DateTime(now.year, now.month, 1);
   }
@@ -205,18 +208,21 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     });
   }
 
-  static String _workerDisplayName(WorkerApi worker) {
+  static String _workerDisplayName(WorkerApi worker, WorkerEntityLabels labels) {
     final name =
         '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim();
-    return name.isEmpty ? 'Специалист' : name;
+    return labels.personDisplayName(name);
   }
 
-  static List<SpecialistItem> _specialistsFromWorkers(List<WorkerApi> workers) {
+  static List<SpecialistItem> _specialistsFromWorkers(
+    List<WorkerApi> workers,
+    WorkerEntityLabels labels,
+  ) {
     return [
-      _allSpecialistsItem,
+      _allSpecialistsItem(labels),
       for (final worker in workers)
         SpecialistItem(
-          name: _workerDisplayName(worker),
+          name: _workerDisplayName(worker, labels),
           role: worker.specialization ?? '',
           id: worker.id,
           pictureUrl: worker.pictureThumbnail ?? worker.picture,
@@ -236,10 +242,14 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     final branchName = branch?.name?.trim();
     final branchLabel =
         branchName != null && branchName.isNotEmpty ? 'Филиал $branchName' : '';
+    final workerLabels =
+        ref.watch(workerEntityLabelsProvider).value ??
+        WorkerEntityLabels.defaults;
     final workersAsync = ref.watch(scheduleWorkersProvider);
+    final allSpecialistsItem = _allSpecialistsItem(workerLabels);
     final specialists = workersAsync.maybeWhen(
-      data: (response) => _specialistsFromWorkers(response.results),
-      orElse: () => const [_allSpecialistsItem],
+      data: (response) => _specialistsFromWorkers(response.results, workerLabels),
+      orElse: () => [allSpecialistsItem],
     );
     final comparisonType = _filterMode == _AnalyticsFilterMode.month
         ? 'month'
@@ -288,6 +298,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
             onClearFilter: _clearDateFilter,
             showSpecialistSelector: !isWorkerRole,
             specialists: specialists,
+            allSpecialistsItem: allSpecialistsItem,
             selectedSpecialist: _selectedSpecialist.id != null
                 ? _selectedSpecialist
                 : SpecialistItem(
@@ -760,6 +771,7 @@ class _AnalyticsHeader extends StatelessWidget {
     required this.onClearFilter,
     required this.showSpecialistSelector,
     required this.specialists,
+    required this.allSpecialistsItem,
     required this.selectedSpecialist,
     required this.onSpecialistSelected,
   });
@@ -768,6 +780,7 @@ class _AnalyticsHeader extends StatelessWidget {
   final VoidCallback onBack;
   final bool showSpecialistSelector;
   final List<SpecialistItem> specialists;
+  final SpecialistItem allSpecialistsItem;
   final SpecialistItem selectedSpecialist;
   final ValueChanged<SpecialistItem> onSpecialistSelected;
   final _AnalyticsFilterMode filterMode;
@@ -968,7 +981,7 @@ class _AnalyticsHeader extends StatelessWidget {
                 title: selectedSpecialist.name,
                 subtitle: selectedSpecialist.role,
                 specialists: specialists,
-                selectedSpecialist: _allSpecialistsItem,
+                selectedSpecialist: allSpecialistsItem,
                 onSpecialistSelected: onSpecialistSelected,
               ),
           ],

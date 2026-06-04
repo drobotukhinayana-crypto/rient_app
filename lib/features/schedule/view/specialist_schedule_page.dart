@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/models/worker_entity_labels.dart';
+import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
@@ -562,6 +564,9 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
         children: [
           _SpecialistScheduleHeader(
             onBack: () => context.pop(),
+            scheduleTitle:
+                ref.watch(workerEntityLabelsProvider).value?.scheduleOfWorker ??
+                WorkerEntityLabels.defaults.scheduleOfWorker,
             employeeName: _headerEmployeeName,
             employeePosition: _employeeSpecialization,
             employeePictureUrl: _headerEmployeePictureUrl,
@@ -742,6 +747,7 @@ class _SpecialistScheduleDivider extends StatelessWidget {
 class _SpecialistScheduleHeader extends StatelessWidget {
   const _SpecialistScheduleHeader({
     required this.onBack,
+    required this.scheduleTitle,
     required this.employeeName,
     this.employeePosition,
     this.employeePictureUrl,
@@ -751,6 +757,7 @@ class _SpecialistScheduleHeader extends StatelessWidget {
   });
 
   final VoidCallback onBack;
+  final String scheduleTitle;
   final String employeeName;
   final String? employeePosition;
   final String? employeePictureUrl;
@@ -796,7 +803,7 @@ class _SpecialistScheduleHeader extends StatelessWidget {
               const Gap(12),
               Expanded(
                 child: Text(
-                  'График специалиста',
+                  scheduleTitle,
                   style: AppFonts.h3Medium.copyWith(
                     color: isDark
                         ? AppColors.primaryWhite

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/models/worker_entity_labels.dart';
+import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
@@ -173,6 +175,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   static List<SpecialistItem> _availableToSpecialists(
     List<AvailableWorkerShift> shifts,
     List<WorkerApi> allWorkers,
+    WorkerEntityLabels labels,
   ) {
     final workersById = {for (final w in allWorkers) w.id: w};
     final seen = <int>{};
@@ -185,7 +188,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       final name = '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim();
       specialists.add(
         SpecialistItem(
-          name: name.isEmpty ? 'Специалист' : name,
+          name: labels.personDisplayName(name),
           role: worker.specialization ?? '',
           id: worker.id,
           pictureUrl: fullWorker?.pictureThumbnail ?? fullWorker?.picture,
@@ -197,14 +200,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
 
   static List<SpecialistItem> _allWorkersToSpecialists(
     List<WorkerApi> allWorkers,
+    WorkerEntityLabels labels,
   ) {
     return [
       for (final worker in allWorkers)
         SpecialistItem(
-          name:
-              '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim().isEmpty
-              ? 'Специалист'
-              : '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim(),
+          name: labels.personDisplayName(
+            '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim(),
+          ),
           role: worker.specialization ?? '',
           id: worker.id,
           pictureUrl: worker.pictureThumbnail ?? worker.picture,
@@ -328,23 +331,28 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   List<SpecialistItem> _daySpecialistsFromProviders({
     required AsyncValue<List<AvailableWorkerShift>> availableWorkersAsync,
     required AsyncValue<WorkersApiResponse> workersAsync,
+    required WorkerEntityLabels labels,
   }) {
     final allWorkers = workersAsync.value?.results ?? const <WorkerApi>[];
     return availableWorkersAsync.when(
       data: (available) {
         if (available.isEmpty) {
-          return _allWorkersToSpecialists(allWorkers);
+          return _allWorkersToSpecialists(allWorkers, labels);
         }
-        return _availableToSpecialists(available, allWorkers);
+        return _availableToSpecialists(available, allWorkers, labels);
       },
       loading: () {
         if (_lastDaySpecialists.isNotEmpty) return _lastDaySpecialists;
-        if (allWorkers.isNotEmpty) return _allWorkersToSpecialists(allWorkers);
+        if (allWorkers.isNotEmpty) {
+          return _allWorkersToSpecialists(allWorkers, labels);
+        }
         return const <SpecialistItem>[];
       },
       error: (_, __) {
         if (_lastDaySpecialists.isNotEmpty) return _lastDaySpecialists;
-        if (allWorkers.isNotEmpty) return _allWorkersToSpecialists(allWorkers);
+        if (allWorkers.isNotEmpty) {
+          return _allWorkersToSpecialists(allWorkers, labels);
+        }
         return const <SpecialistItem>[];
       },
     );
@@ -816,10 +824,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       _viewMode == ViewMode.day ? selectedDate : _weekStart,
     );
     final monthKey = scheduleMonthKey(_monthStart);
+    final workerLabels =
+        ref.watch(workerEntityLabelsProvider).value ??
+        WorkerEntityLabels.defaults;
     // Для всех режимов показываем активных сотрудников на выбранную дату.
     final allSpecialists = _daySpecialistsFromProviders(
       availableWorkersAsync: availableWorkersAsync,
       workersAsync: workersAsync,
+      labels: workerLabels,
     );
     if (availableWorkersAsync.hasValue && allSpecialists.isNotEmpty) {
       _lastDaySpecialists = allSpecialists;
@@ -1186,7 +1198,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                     child: Padding(
                       padding: AppDecoration.padding16,
                       child: Text(
-                        'Не удалось загрузить список специалистов',
+                        workerLabels.failedLoadWorkersList,
                         style: TextStyle(color: AppColors.grey),
                       ),
                     ),

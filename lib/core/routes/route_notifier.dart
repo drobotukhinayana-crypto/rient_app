@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/models/worker_entity_labels.dart';
 import 'package:rient_app/features/analytics/view/analytics_page.dart';
 import 'package:rient_app/features/settings/view/settings_page.dart';
 import 'package:rient_app/features/auth/view/auth_page.dart';
@@ -127,9 +128,9 @@ final GoRoute _workScheduleRoute = GoRoute(
         final extra = state.extra;
         final args = extra is SpecialistSchedulePageArgs
             ? extra
-            : const SpecialistSchedulePageArgs(
+            : SpecialistSchedulePageArgs(
                 employeeId: '',
-                employeeName: 'Специалист',
+                employeeName: WorkerEntityLabels.defaults.name,
               );
         return MaterialPage(
           key: state.pageKey,
