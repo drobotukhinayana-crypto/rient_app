@@ -5,10 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/language_dropdown_pill.dart';
+import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/logout_confirm_dialog.dart';
 import 'package:rient_app/core/widgets/theme_switch_pill.dart';
 import 'package:rient_app/features/analytics/view/analytics_page.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/providers/account_profile_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/view/work_schedule_page.dart';
@@ -28,9 +30,11 @@ class AppDrawer extends ConsumerWidget {
     final onSurface = isDark
         ? AppColors.primaryDarkDark
         : AppColors.primaryDark;
-    final profile = ref
-        .watch(accountProfileProvider)
-        .maybeWhen(data: (v) => v, orElse: () => null);
+    final profileAsync = ref.watch(accountProfileProvider);
+    final profile = profileAsync.value;
+    final showProfileLoader =
+        profileAsync.isLoading || profileAsync.isRefreshing;
+    final roleId = ref.watch(roleProvider);
     final userEmail = (profile?.email ?? '').trim();
     final userName = userEmail.isNotEmpty ? userEmail : 'Пользователь';
     final nameJobLine = () {
@@ -42,10 +46,10 @@ class AppDrawer extends ConsumerWidget {
       return null;
     }();
     final branchName = (ref.watch(currentBranchProvider)?.name ?? '').trim();
-    final roleId = profile?.roleId ?? 0;
+    final displayRoleId = profile?.roleId ?? roleId;
     String roleTitle;
     try {
-      roleTitle = UserRole.fromInt(roleId).title;
+      roleTitle = UserRole.fromInt(displayRoleId).title;
     } catch (_) {
       roleTitle = 'Сотрудник';
     }
@@ -55,6 +59,7 @@ class AppDrawer extends ConsumerWidget {
     final showWorkSchedule =
         roleId == UserRole.owner.value || roleId == UserRole.worker.value;
     final showAnalytics = roleId != UserRole.administrator.value;
+    final showSettings = roleId != UserRole.worker.value;
     final avatarInitial = userName.isNotEmpty ? userName[0].toUpperCase() : 'U';
     final avatarUrl = (profile?.avatarThumbnail?.isNotEmpty ?? false)
         ? profile!.avatarThumbnail
@@ -120,66 +125,77 @@ class AppDrawer extends ConsumerWidget {
                               horizontal: 16,
                               vertical: 16,
                             ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                CircleAvatar(
-                                  radius: 25,
-                                  backgroundColor: AppColors.themeAccent(
-                                    context,
-                                  ).withValues(alpha: 0.2),
-                                  backgroundImage:
-                                      avatarUrl != null && avatarUrl.isNotEmpty
-                                      ? NetworkImage(avatarUrl)
-                                      : null,
-                                  child: avatarUrl == null || avatarUrl.isEmpty
-                                      ? Text(
-                                          avatarInitial,
-                                          style: AppFonts.b1Medium.copyWith(
-                                            color: AppColors.themeAccent(
-                                              context,
-                                            ),
-                                          ),
-                                        )
-                                      : null,
-                                ),
-                                const Gap(12),
-                                Expanded(
-                                  child: Column(
+                            child: showProfileLoader
+                                ? const SizedBox(
+                                    height: 72,
+                                    child: Center(
+                                      child: LoadingWidget(side: 28),
+                                    ),
+                                  )
+                                : Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        userName,
-                                        style: AppFonts.b1Medium.copyWith(
-                                          color: onSurface,
-                                        ),
+                                      CircleAvatar(
+                                        radius: 25,
+                                        backgroundColor: AppColors.themeAccent(
+                                          context,
+                                        ).withValues(alpha: 0.2),
+                                        backgroundImage: avatarUrl != null &&
+                                                avatarUrl.isNotEmpty
+                                            ? NetworkImage(avatarUrl)
+                                            : null,
+                                        child: avatarUrl == null ||
+                                                avatarUrl.isEmpty
+                                            ? Text(
+                                                avatarInitial,
+                                                style: AppFonts.b1Medium
+                                                    .copyWith(
+                                                  color: AppColors.themeAccent(
+                                                    context,
+                                                  ),
+                                                ),
+                                              )
+                                            : null,
                                       ),
-                                      if (nameJobLine != null) ...[
-                                        const Gap(4),
-                                        Text(
-                                          nameJobLine,
-                                          style: AppFonts.c1Regular.copyWith(
-                                            color: isDark
-                                                ? AppColors.grey
-                                                : AppColors.tabbarGrey,
-                                          ),
-                                        ),
-                                      ],
-                                      const Gap(4),
-                                      Text(
-                                        roleAndBranch,
-                                        style: AppFonts.c1Regular.copyWith(
-                                          color: isDark
-                                              ? AppColors.grey
-                                              : AppColors.tabbarGrey,
+                                      const Gap(12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              userName,
+                                              style: AppFonts.b1Medium.copyWith(
+                                                color: onSurface,
+                                              ),
+                                            ),
+                                            if (nameJobLine != null) ...[
+                                              const Gap(4),
+                                              Text(
+                                                nameJobLine,
+                                                style: AppFonts.c1Regular
+                                                    .copyWith(
+                                                  color: isDark
+                                                      ? AppColors.grey
+                                                      : AppColors.tabbarGrey,
+                                                ),
+                                              ),
+                                            ],
+                                            const Gap(4),
+                                            Text(
+                                              roleAndBranch,
+                                              style: AppFonts.c1Regular.copyWith(
+                                                color: isDark
+                                                    ? AppColors.grey
+                                                    : AppColors.tabbarGrey,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
                                   ),
-                                ),
-                              ],
-                            ),
                           ),
                           if (showWorkSchedule) ...[
                             const Gap(5),
@@ -201,14 +217,16 @@ class AppDrawer extends ConsumerWidget {
                               ),
                             ),
                           ],
-                          const Gap(5),
-                          _DrawerTile(
-                            icon: Icons.settings_outlined,
-                            label: 'Настройки',
-                            onTap: () => closeThen(
-                              () => context.pushNamed(SettingsPage.name),
+                          if (showSettings) ...[
+                            const Gap(5),
+                            _DrawerTile(
+                              icon: Icons.settings_outlined,
+                              label: 'Настройки',
+                              onTap: () => closeThen(
+                                () => context.pushNamed(SettingsPage.name),
+                              ),
                             ),
-                          ),
+                          ],
                           const Gap(5),
                           Padding(
                             padding: const EdgeInsets.symmetric(

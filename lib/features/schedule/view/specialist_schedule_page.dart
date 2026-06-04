@@ -288,6 +288,12 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
           onDayChanged(index, days[index].copyWith(breakEnd: v));
         });
       },
+      onClearBreak: (index) {
+        onDayChanged(
+          index,
+          days[index].copyWith(breakStart: null, breakEnd: null),
+        );
+      },
     );
   }
 
@@ -1239,6 +1245,7 @@ class _ScheduleDaysSection extends StatelessWidget {
     required this.onPickDayEnd,
     required this.onPickBreakStart,
     required this.onPickBreakEnd,
+    required this.onClearBreak,
   });
 
   final String groupTitle;
@@ -1254,6 +1261,7 @@ class _ScheduleDaysSection extends StatelessWidget {
   final void Function(int index) onPickDayEnd;
   final void Function(int index) onPickBreakStart;
   final void Function(int index) onPickBreakEnd;
+  final void Function(int index) onClearBreak;
 
   @override
   Widget build(BuildContext context) {
@@ -1312,11 +1320,18 @@ class _ScheduleDaysSection extends StatelessWidget {
               onPickEnd: () => onPickDayEnd(i),
               onPickBreakStart: () => onPickBreakStart(i),
               onPickBreakEnd: () => onPickBreakEnd(i),
+              onClearBreak: () => onClearBreak(i),
             ),
           ],
       ],
     );
   }
+}
+
+bool _specialistDayBreakIsSet(SpecialistDayDraft day) {
+  final start = day.breakStart?.trim() ?? '';
+  final end = day.breakEnd?.trim() ?? '';
+  return start.isNotEmpty || end.isNotEmpty;
 }
 
 class _DayScheduleContent extends StatelessWidget {
@@ -1327,6 +1342,7 @@ class _DayScheduleContent extends StatelessWidget {
     required this.onPickEnd,
     required this.onPickBreakStart,
     required this.onPickBreakEnd,
+    required this.onClearBreak,
   });
 
   final SpecialistDayDraft day;
@@ -1335,6 +1351,7 @@ class _DayScheduleContent extends StatelessWidget {
   final VoidCallback onPickEnd;
   final VoidCallback onPickBreakStart;
   final VoidCallback onPickBreakEnd;
+  final VoidCallback onClearBreak;
 
   @override
   Widget build(BuildContext context) {
@@ -1394,6 +1411,26 @@ class _DayScheduleContent extends StatelessWidget {
               ),
             ],
           ),
+          if (day.enabled && _specialistDayBreakIsSet(day)) ...[
+            const Gap(6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: onClearBreak,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'Сбросить перерыв',
+                  style: AppFonts.c1Medium.copyWith(
+                    color: AppColors.themeAccent(context),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -55,3 +55,6 @@ final selectedScheduleDateProvider = StateProvider<DateTime>((ref) {
   final now = DateTime.now();
   return DateTime(now.year, now.month, now.day);
 });
+
+/// Открыть расписание в режиме «День» на эту дату (например, из аналитики).
+final openScheduleOnDayProvider = StateProvider<DateTime?>((ref) => null);

@@ -10,12 +10,13 @@ import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dar
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
 
 /// При дублях `wed`/`wen` или branch/worker — активный шаблон и больший id.
-/// При дублях на одну дату: ручная запись (`auto: false`), затем больший `id` (свежее с API).
+/// При дублях на одну дату: ручная запись (`auto: false`), затем рабочий день, затем больший `id`.
 bool preferDailyScheduleItem(
   ScheduleItemApi candidate,
   ScheduleItemApi current,
 ) {
   if (candidate.auto != current.auto) return !candidate.auto;
+  if (candidate.active != current.active) return candidate.active;
   return candidate.id > current.id;
 }
 
@@ -155,8 +156,10 @@ WorkScheduleDayCell _clampCellToBranchPattern(
     branchEnd: branchEnd,
   );
   if (intersect == null) {
+    // Ручной рабочий день не схлопываем в выходной, если часы не попали в смену филиала.
+    if (cell.isManuallyEdited) return cell;
     return WorkScheduleDayCell.dayOff(
-      isManuallyEdited: cell.isManuallyEdited,
+      isManuallyEdited: false,
       scheduleId: cell.scheduleId,
       breakStart: cell.breakStart,
       breakEnd: cell.breakEnd,
@@ -300,7 +303,17 @@ WorkScheduleDayCell workScheduleCellFromPattern(
   ScheduleItemApi? daily,
 }) {
   if (pattern == null || !pattern.active) {
-    return _dayOffFromDaily(daily);
+    if (daily != null && daily.active) {
+      return workScheduleCellFromScheduleItem(
+        daily,
+        selected: selected,
+        isManuallyEdited: !daily.auto,
+      );
+    }
+    return _dayOffFromDaily(
+      daily,
+      isManuallyEdited: daily != null && !daily.auto,
+    );
   }
   final start = pattern.timeStartShort;
   final end = pattern.timeEndShort;
@@ -373,6 +386,13 @@ WorkScheduleDayCell _cellFromTemplate({
 }) {
   if (_isShiftSchedule(configMap)) {
     if (!isShiftWorkerWorkDay(date, configMap)) {
+      if (daily != null && daily.active) {
+        return workScheduleCellFromScheduleItem(
+          daily,
+          selected: selected,
+          isManuallyEdited: !daily.auto,
+        );
+      }
       return _dayOffFromDaily(daily);
     }
     final start = _shortTimeFromDynamic(configMap?['time_start']) ?? '09:00';
@@ -473,13 +493,22 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
           );
 
           // Запись на дату с active=false — выходной (в т.ч. правки с сайта с auto=true).
-          // Ручные правки (!auto) — из schedules; иначе шаблон недели/смены.
+          // Фиолетовый цвет: auto=false или день по шаблону был бы рабочим.
           final WorkScheduleDayCell cell;
           if (daily != null && !daily.active) {
+            final templateCell = _cellFromTemplate(
+              date: date,
+              patterns: resolvedPatterns,
+              workerRow: workerRow,
+              configMap: configMap,
+              daily: null,
+              selected: selected,
+            );
             cell = workScheduleCellFromScheduleItem(
               daily,
               selected: selected,
-              isManuallyEdited: !daily.auto,
+              isManuallyEdited: !daily.auto ||
+                  templateCell.kind == WorkScheduleCellKind.shift,
             );
           } else if (daily != null && !daily.auto) {
             cell = workScheduleCellFromScheduleItem(

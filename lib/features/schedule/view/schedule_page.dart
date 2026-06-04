@@ -1128,6 +1128,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       if (previous == null || previous == next) return;
       _forceRefreshScheduleScreen();
     });
+    ref.listen<DateTime?>(openScheduleOnDayProvider, (previous, next) {
+      if (next == null) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _switchToDayMode(next);
+        ref.read(openScheduleOnDayProvider.notifier).state = null;
+      });
+    });
     return Scaffold(
       backgroundColor: screenBackground,
       body: Stack(

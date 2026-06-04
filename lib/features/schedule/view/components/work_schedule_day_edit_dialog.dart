@@ -95,6 +95,9 @@ Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
 
       return StatefulBuilder(
         builder: (context, setDialogState) {
+          bool breakIsSet() =>
+              breakStart.trim().isNotEmpty || breakEnd.trim().isNotEmpty;
+
           Future<void> pickTime(
             String current,
             void Function(String) onPicked,
@@ -103,12 +106,19 @@ Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
               context,
               initialTime: current,
             );
-            if (picked != null) {
-              setDialogState(() {
-                onPicked(picked);
-                errorText = null;
-              });
-            }
+            if (picked == null) return;
+            setDialogState(() {
+              onPicked(picked);
+              errorText = null;
+            });
+          }
+
+          void clearBreak() {
+            setDialogState(() {
+              breakStart = '';
+              breakEnd = '';
+              errorText = null;
+            });
           }
 
           return Dialog(
@@ -216,6 +226,19 @@ Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
                         ),
                       ],
                     ),
+                    if (breakIsSet()) ...[
+                      const Gap(8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: clearBreak,
+                          child: Text(
+                            'Сбросить перерыв',
+                            style: AppFonts.b1Medium.copyWith(color: accent),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                   if (errorText != null) ...[
                     const Gap(12),

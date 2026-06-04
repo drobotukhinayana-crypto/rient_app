@@ -19,6 +19,9 @@ const _supportedLanguageCodes = [
   'uk',
   'uz',
 ];
+/// Временно отключён выбор языка (локализация в разработке).
+const kLanguageSelectionEnabled = false;
+
 const _languageNames = {
   'az': 'Azərbaycanca',
   'be': 'Беларуская',
@@ -49,7 +52,9 @@ class LanguageDropdownPill extends ConsumerWidget {
       color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight,
       borderRadius: BorderRadius.circular(300),
       child: InkWell(
-        onTap: () => _showMenu(context, ref, code),
+        onTap: kLanguageSelectionEnabled
+            ? () => _showMenu(context, ref, code)
+            : null,
         borderRadius: BorderRadius.circular(300),
         child: Padding(
           padding: const EdgeInsets.all(16),

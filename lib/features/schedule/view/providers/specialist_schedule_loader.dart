@@ -73,12 +73,14 @@ class SpecialistDayDraft {
   final String? breakStart;
   final String? breakEnd;
 
+  static const Object _copyWithUnset = Object();
+
   SpecialistDayDraft copyWith({
     bool? enabled,
     String? start,
     String? end,
-    String? breakStart,
-    String? breakEnd,
+    Object? breakStart = _copyWithUnset,
+    Object? breakEnd = _copyWithUnset,
   }) {
     return SpecialistDayDraft(
       label: label,
@@ -87,8 +89,12 @@ class SpecialistDayDraft {
       start: start ?? this.start,
       end: end ?? this.end,
       patternId: patternId,
-      breakStart: breakStart ?? this.breakStart,
-      breakEnd: breakEnd ?? this.breakEnd,
+      breakStart: identical(breakStart, _copyWithUnset)
+          ? this.breakStart
+          : breakStart as String?,
+      breakEnd: identical(breakEnd, _copyWithUnset)
+          ? this.breakEnd
+          : breakEnd as String?,
     );
   }
 }

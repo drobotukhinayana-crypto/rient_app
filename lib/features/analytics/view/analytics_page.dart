@@ -23,7 +23,9 @@ import 'package:rient_app/features/home/data/models/statistics/statistics.dart'
     show OccupancyByDay;
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
+import 'package:rient_app/features/schedule/view/schedule_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
 const _monthNominative = [
@@ -137,6 +139,23 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     return '${n < 0 ? '-' : ''}$formatted ₽';
   }
 
+  void _openScheduleForDay(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    ref.read(selectedScheduleDateProvider.notifier).state = day;
+    ref.read(openScheduleOnDayProvider.notifier).state = day;
+
+    final isWorkerRole = ref.read(roleProvider) == UserRole.worker.value;
+    final specialistId = _selectedSpecialist.id;
+    if (!isWorkerRole && specialistId != null && specialistId > 0) {
+      ref.read(selectedSpecialistIdProvider.notifier).state = specialistId;
+    }
+
+    if (context.canPop()) {
+      context.pop();
+    }
+    context.goNamed(SchedulePage.name);
+  }
+
   Future<void> _openCalendar() async {
     final range = await AppDateRangePickerDialog.show(
       context,
@@ -232,6 +251,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
       type: comparisonType,
     );
     final statsAsync = ref.watch(analyticsSummaryProvider(analyticsQuery));
+    final currentWorkerId = ref.watch(currentWorkerIdProvider).value;
 
     Future<void> onRefresh() async {
       ref.invalidate(analyticsSummaryProvider(analyticsQuery));
@@ -329,6 +349,9 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                   filterMode: _filterMode,
                   start: start,
                   end: end,
+                  filterWorkerId: isWorkerRole
+                      ? (summary.workerId ?? currentWorkerId)
+                      : _selectedSpecialist.id,
                 ),
                 generalExpanded: _generalExpanded,
                 workloadExpanded: _workloadExpanded,
@@ -344,6 +367,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 onTopServicesToggle: () => setState(
                   () => _topServicesExpanded = !_topServicesExpanded,
                 ),
+                onOpenScheduleDay: _openScheduleForDay,
               ),
             ),
           ),
@@ -358,6 +382,8 @@ class _AnalyticsViewData {
   const _AnalyticsViewData({
     required this.fillRatePercent,
     required this.productivityPercent,
+    required this.productivityAmount,
+    required this.productivityInRubles,
     required this.clientsServed,
     required this.income,
     required this.payDue,
@@ -384,6 +410,8 @@ class _AnalyticsViewData {
 
   final int fillRatePercent;
   final int productivityPercent;
+  final double productivityAmount;
+  final bool productivityInRubles;
   final int clientsServed;
   final double income;
   final double payDue;
@@ -481,11 +509,34 @@ class _AnalyticsViewData {
     return weekStart;
   }
 
+  static bool _isWorkerScoped(AnalyticsSummary summary, int? filterWorkerId) {
+    final id = filterWorkerId ?? summary.workerId;
+    return id != null && id > 0;
+  }
+
+  static int _clientsServedCount(
+    AnalyticsSummary summary, {
+    int? filterWorkerId,
+  }) {
+    final current = summary.comparison.current;
+    final appointments = summary.summary.appointments;
+    if (_isWorkerScoped(summary, filterWorkerId)) {
+      if (current.totalClients != null) return current.totalClients!;
+      final globalTotal = summary.global.clients.total;
+      if (globalTotal > 0) return globalTotal;
+      return 0;
+    }
+    return current.totalClients ??
+        current.completedAppointments ??
+        appointments.total;
+  }
+
   factory _AnalyticsViewData.fromAnalyticsSummary(
     AnalyticsSummary summary, {
     required _AnalyticsFilterMode filterMode,
     required DateTime start,
     required DateTime end,
+    int? filterWorkerId,
   }) {
     final days = <DateTime>[];
     for (var d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) {
@@ -507,9 +558,8 @@ class _AnalyticsViewData {
             return total > 0 ? (completed / total * 100).round() : 0;
           }();
 
-    final served = current.totalClients ??
-        current.completedAppointments ??
-        appointments.total;
+    final served = _clientsServedCount(summary, filterWorkerId: filterWorkerId);
+    final workerScoped = _isWorkerScoped(summary, filterWorkerId);
 
     final showIncome = summary.meta.canSeeIncome;
     final showPayDue = summary.meta.canSeePayDue;
@@ -531,14 +581,25 @@ class _AnalyticsViewData {
     if (showIncome && income == 0 && current.totalIncome != null) {
       income = current.totalIncome!;
     }
+    if (showPayDue && payDue == 0 && current.totalIncome != null) {
+      payDue = current.totalIncome!;
+    }
+
+    var productivityAmount = payDue;
+    if (workerScoped && productivityAmount == 0) {
+      productivityAmount = current.averageTransactions ?? 0;
+    }
 
     final avgCheck = current.averageTransactions ??
         (served > 0 && showAverageCheck ? income / served : 0.0);
 
     final globalClients = summary.global.clients;
-    final totalClients = globalClients.total > 0
-        ? globalClients.total
-        : current.totalClients;
+    final totalClients = workerScoped
+        ? (current.totalClients ??
+            (globalClients.total > 0 ? globalClients.total : null))
+        : (globalClients.total > 0
+            ? globalClients.total
+            : current.totalClients);
     final existingClients = current.existingClients;
     final oneshotClients = current.oneshotClients;
     final averageAge = globalClients.averageAge;
@@ -616,6 +677,8 @@ class _AnalyticsViewData {
     return _AnalyticsViewData(
       fillRatePercent: fillRate.clamp(0, 100),
       productivityPercent: productivity.clamp(0, 100),
+      productivityAmount: productivityAmount,
+      productivityInRubles: workerScoped,
       clientsServed: served,
       income: income,
       payDue: payDue,
@@ -648,9 +711,13 @@ class _AnalyticsViewData {
 }
 
 class _AnalyticsPeriodLoadStrip extends StatelessWidget {
-  const _AnalyticsPeriodLoadStrip({required this.days});
+  const _AnalyticsPeriodLoadStrip({
+    required this.days,
+    required this.onDayTap,
+  });
 
   final List<({DateTime date, double occupancy})> days;
+  final ValueChanged<DateTime> onDayTap;
 
   @override
   Widget build(BuildContext context) {
@@ -663,9 +730,13 @@ class _AnalyticsPeriodLoadStrip extends StatelessWidget {
         itemBuilder: (context, index) {
           final day = days[index];
           final percent = day.occupancy.clamp(0.0, 100.0);
-          return ScheduleDayLoadCircle(
-            date: day.date,
-            occupancyPercent: percent,
+          return GestureDetector(
+            onTap: () => onDayTap(day.date),
+            behavior: HitTestBehavior.opaque,
+            child: ScheduleDayLoadCircle(
+              date: day.date,
+              occupancyPercent: percent,
+            ),
           );
         },
       ),
@@ -1138,10 +1209,12 @@ class _AnalyticsContent extends StatelessWidget {
     required this.onWorkloadToggle,
     required this.onClientsToggle,
     required this.onTopServicesToggle,
+    required this.onOpenScheduleDay,
   });
 
   final bool isDark;
   final _AnalyticsViewData data;
+  final ValueChanged<DateTime> onOpenScheduleDay;
   final bool generalExpanded;
   final bool workloadExpanded;
   final bool clientsExpanded;
@@ -1190,7 +1263,9 @@ class _AnalyticsContent extends StatelessWidget {
                 const Gap(10),
                 _MetricRowCard(
                   label: 'Производительность',
-                  value: '${data.productivityPercent}%',
+                  value: data.productivityInRubles
+                      ? formatMoney(data.productivityAmount)
+                      : '${data.productivityPercent}%',
                   cardColor: cardColor,
                   labelColor: labelColor,
                   accent: accent,
@@ -1218,7 +1293,7 @@ class _AnalyticsContent extends StatelessWidget {
                           ),
                         ),
                       if (data.showIncome && data.showPayDue) const Gap(10),
-                      if (data.showPayDue)
+                      if (data.showPayDue && !data.productivityInRubles)
                         Expanded(
                           child: _MetricCard(
                             title: 'К выплате',
@@ -1273,12 +1348,16 @@ class _AnalyticsContent extends StatelessWidget {
               labelColor: labelColor,
               onToggle: onWorkloadToggle,
               child: showPeriodStrip
-                  ? _AnalyticsPeriodLoadStrip(days: data.weekDays)
+                  ? _AnalyticsPeriodLoadStrip(
+                      days: data.weekDays,
+                      onDayTap: onOpenScheduleDay,
+                    )
                   : DateStrip(
                       visibleWeekStart: data.weekStart,
                       initialDate: data.stripSelectedDate,
                       selectedDate: data.stripSelectedDate,
                       occupancyByDay: data.occupancyByDay,
+                      onDateSelected: onOpenScheduleDay,
                       showFullDateLabel: false,
                       useGreyCircles: true,
                       useMonthCalendarCircleFill: true,
@@ -1308,12 +1387,12 @@ class _AnalyticsContent extends StatelessWidget {
                     title: 'Всего клиентов',
                     value: '${data.totalClients}',
                   ),
-                if (data.existingClients != null)
+                if (data.existingClients != null && !data.productivityInRubles)
                   _AnalyticsMetricItem(
                     title: 'Постоянные',
                     value: '${data.existingClients}',
                   ),
-                if (data.oneshotClients != null)
+                if (data.oneshotClients != null && !data.productivityInRubles)
                   _AnalyticsMetricItem(
                     title: 'Разовые',
                     value: '${data.oneshotClients}',
@@ -1326,7 +1405,11 @@ class _AnalyticsContent extends StatelessWidget {
                 if (data.maleClients != null && data.femaleClients != null)
                   _AnalyticsMetricItem(
                     title: 'Пол',
-                    value: 'М ${data.maleClients} · Ж ${data.femaleClients}',
+                    valueWidget: _GenderStatsValue(
+                      maleCount: data.maleClients!,
+                      femaleCount: data.femaleClients!,
+                      accent: accent,
+                    ),
                   ),
               ],
               cardColor: cardColor,
@@ -1528,23 +1611,62 @@ class _MetricRow extends StatelessWidget {
   }
 }
 
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.title,
-    required this.value,
-    required this.cardColor,
-    required this.labelColor,
+class _GenderStatsValue extends StatelessWidget {
+  const _GenderStatsValue({
+    required this.maleCount,
+    required this.femaleCount,
     required this.accent,
   });
 
+  final int maleCount;
+  final int femaleCount;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final valueStyle = AppFonts.h4Medium.copyWith(color: accent);
+    return Row(
+      children: [
+        Icon(Icons.boy_rounded, size: 28, color: accent),
+        const Gap(5),
+        Text('$maleCount', style: valueStyle),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text('·', style: valueStyle),
+        ),
+        Icon(Icons.girl_rounded, size: 28, color: accent),
+        const Gap(4),
+        Text('$femaleCount', style: valueStyle),
+      ],
+    );
+  }
+}
+
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
+    required this.title,
+    required this.cardColor,
+    required this.labelColor,
+    required this.accent,
+    this.value,
+    this.valueWidget,
+  });
+
   final String title;
-  final String value;
+  final String? value;
+  final Widget? valueWidget;
   final Color cardColor;
   final Color labelColor;
   final Color accent;
 
   @override
   Widget build(BuildContext context) {
+    final valueContent = valueWidget ??
+        Text(
+          value ?? '',
+          style: AppFonts.h4Medium.copyWith(color: accent),
+        );
+
     return DefaultContainerWidget(
       color: cardColor,
       hasShadow: false,
@@ -1556,7 +1678,7 @@ class _MetricCard extends StatelessWidget {
         children: [
           Text(title, style: AppFonts.b2Medium.copyWith(color: labelColor)),
           const Gap(8),
-          Text(value, style: AppFonts.h4Medium.copyWith(color: accent)),
+          valueContent,
         ],
       ),
     );
@@ -1564,10 +1686,18 @@ class _MetricCard extends StatelessWidget {
 }
 
 class _AnalyticsMetricItem {
-  const _AnalyticsMetricItem({required this.title, required this.value});
+  const _AnalyticsMetricItem({
+    required this.title,
+    this.value,
+    this.valueWidget,
+  }) : assert(
+          value != null || valueWidget != null,
+          'value or valueWidget required',
+        );
 
   final String title;
-  final String value;
+  final String? value;
+  final Widget? valueWidget;
 }
 
 class _AnalyticsMetricCardGrid extends StatelessWidget {
@@ -1614,6 +1744,7 @@ class _AnalyticsMetricCardGrid extends StatelessWidget {
           return _MetricCard(
             title: metric.title,
             value: metric.value,
+            valueWidget: metric.valueWidget,
             cardColor: cardColor,
             labelColor: labelColor,
             accent: accent,
