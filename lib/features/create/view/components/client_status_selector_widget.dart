@@ -130,32 +130,17 @@ class ClientStatusSelectorWidget extends StatefulWidget {
 
 class _ClientStatusSelectorWidgetState
     extends State<ClientStatusSelectorWidget> {
-  late int _selectedIndex;
   bool _isExpanded = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedIndex = widget.initialIndex.clamp(0, widget.options.length - 1);
-  }
-
-  @override
-  void didUpdateWidget(covariant ClientStatusSelectorWidget oldWidget) {
-    if (oldWidget.initialIndex != widget.initialIndex) {
-      _selectedIndex = widget.initialIndex.clamp(0, widget.options.length - 1);
-    }
-    super.didUpdateWidget(oldWidget);
-  }
+  int get _selectedIndex =>
+      widget.initialIndex.clamp(0, widget.options.length - 1);
 
   void _toggleExpanded() {
     setState(() => _isExpanded = !_isExpanded);
   }
 
   void _select(int index) {
-    setState(() {
-      _selectedIndex = index;
-      _isExpanded = false;
-    });
+    setState(() => _isExpanded = false);
     widget.onSelected?.call(
       index,
       _resolvedStatusOptions(

@@ -87,4 +87,68 @@ class WidgetLinksService {
       throw CustomException(causedError: e);
     }
   }
+
+  /// Ссылка на виджет оплаты записи (type=3 на бэкенде).
+  Future<String> getAppointmentPaymentWidgetUrl({
+    required int appointmentId,
+  }) async {
+    final organizationId = ref.read(organizationIdProvider);
+    if (organizationId <= 0) {
+      throw CustomException(
+        causedError: Exception('Organization id is missing'),
+      );
+    }
+
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      throw CustomException(causedError: Exception('Token is missing'));
+    }
+
+    if (appointmentId <= 0) {
+      throw CustomException(
+        causedError: Exception('Appointment id is missing'),
+      );
+    }
+
+    try {
+      final url = ApiConsts().createUrl(
+        'forms/scripts/appointments/widget_links/',
+      );
+
+      final response = await Dio().get<Map<String, dynamic>>(
+        url,
+        queryParameters: <String, dynamic>{
+          'organization': organizationId,
+          'appointment': appointmentId,
+          'type': 3,
+        },
+        options: Options(headers: {'Authorization': 'JWT $token'}),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final parsed = WidgetLinksApiResponse.fromJson(response.data!);
+        if (parsed.results.isEmpty) {
+          throw CustomException(
+            causedError: Exception('Payment widget link is not available'),
+          );
+        }
+        final widgetUrl = parsed.results.first.widgetUrl.trim();
+        if (widgetUrl.isEmpty) {
+          throw CustomException(
+            causedError: Exception('Payment widget link is empty'),
+          );
+        }
+        return widgetUrl;
+      }
+
+      throw CustomException(
+        causedError: Exception(
+          'Failed to load payment widget link: ${response.statusCode}',
+        ),
+      );
+    } catch (e) {
+      await handleUnauthorizedIfNeeded(ref, e);
+      throw CustomException(causedError: e);
+    }
+  }
 }

@@ -22,7 +22,9 @@ import 'package:rient_app/core/widgets/main_text_field.dart';
 import 'package:rient_app/features/create/data/models/clients_api.dart';
 import 'package:rient_app/features/create/data/models/worker_services_api.dart';
 import 'package:rient_app/features/create/service/clients_service.dart';
+import 'package:rient_app/features/create/view/components/client_arrived_payment_confirm_dialog.dart';
 import 'package:rient_app/features/create/view/components/client_status_selector_widget.dart';
+import 'package:rient_app/features/link/service/widget_links_service.dart';
 import 'package:rient_app/features/create/view/providers/clients_provider.dart';
 import 'package:rient_app/features/create/view/providers/worker_services_provider.dart';
 import 'package:rient_app/features/create/view/providers/workers_offering_catalog_services_provider.dart';
@@ -32,6 +34,7 @@ import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
@@ -583,6 +586,18 @@ class _BodyWidget extends ConsumerStatefulWidget {
   ConsumerState<_BodyWidget> createState() => _BodyWidgetState();
 }
 
+class _EntryDatePickerPredicateCache {
+  const _EntryDatePickerPredicateCache({
+    required this.specialistId,
+    required this.branchId,
+    required this.predicate,
+  });
+
+  final int specialistId;
+  final int branchId;
+  final bool Function(DateTime day) predicate;
+}
+
 class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   bool _isCommentVisitExpanded = false;
   bool _isCommentClientExpanded = false;
@@ -601,6 +616,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   int _selectedStatusIndex = 0;
   DateTime _selectedDate = DateTime.now();
   String? _rememberedClientPhone;
+  bool _datePickerInFlight = false;
+  _EntryDatePickerPredicateCache? _datePickerPredicateCache;
+  Future<void>? _datePickerPredicatePrefetch;
 
   @override
   void initState() {
@@ -608,6 +626,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     _applyInitialAppointment();
     _applyInitialDataForNewEntry();
     unawaited(_applyRememberedClientForNewEntry());
+    final specialistId = _selectedSpecialistId;
+    if (specialistId != null) {
+      _prefetchDatePickerPredicate(specialistId);
+    }
   }
 
   String _effectiveClientPhoneForSubmit(bool canSeeContactData) {
@@ -823,6 +845,106 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         }
       }
     });
+    _resetDatePickerPredicateCache();
+    _prefetchDatePickerPredicate(workerId);
+  }
+
+  void _resetDatePickerPredicateCache() {
+    _datePickerPredicateCache = null;
+    _datePickerPredicatePrefetch = null;
+  }
+
+  void _prefetchDatePickerPredicate(int specialistId) {
+    final branchId = ref.read(currentBranchIdProvider);
+    if (branchId == 0) return;
+    _datePickerPredicatePrefetch = _buildDateSelectablePredicate(
+      specialistId: specialistId,
+      branchId: branchId,
+    ).then((predicate) {
+      if (predicate == null || !mounted) return;
+      _datePickerPredicateCache = _EntryDatePickerPredicateCache(
+        specialistId: specialistId,
+        branchId: branchId,
+        predicate: predicate,
+      );
+    });
+  }
+
+  void _onSpecialistChanged(int? value) {
+    setState(() {
+      _selectedSpecialistId = value;
+      for (final service in _services) {
+        service.selectedServiceId = null;
+        service.durationMinutes = 10;
+        service.addDurationMinutes = 0;
+        service.selectedTime = null;
+      }
+    });
+    _resetDatePickerPredicateCache();
+    if (value != null) {
+      _prefetchDatePickerPredicate(value);
+    }
+  }
+
+  /// `null` — не открывать календарь (ошибка или уже показали сообщение).
+  Future<bool Function(DateTime day)?> _buildDateSelectablePredicate({
+    required int specialistId,
+    required int branchId,
+  }) async {
+    try {
+      final workerRow = await ref
+          .read(workersServiceProvider)
+          .getWorkerRow(workerId: specialistId, branchId: branchId);
+      final scheduleConfig = workerScheduleConfigForBranch(
+        workerRow,
+        branchId,
+      );
+      if (isShiftWorkerScheduleConfig(scheduleConfig)) {
+        return (day) => isShiftWorkerWorkDay(
+          _dateOnly(day),
+          scheduleConfig,
+        );
+      }
+
+      final allowedWeekdays = await _loadSpecialistWorkingWeekdays(
+        specialistId: specialistId,
+        branchId: branchId,
+      );
+      if (allowedWeekdays.isEmpty) {
+        if (mounted) {
+          showAppServiceMessage(
+            context,
+            message: 'У выбранного мастера нет рабочих дней',
+            variant: AppServiceMessageVariant.info,
+          );
+        }
+        return null;
+      }
+
+      final from = _dateOnly(_selectedDate).subtract(const Duration(days: 60));
+      final to = _dateOnly(_selectedDate).add(const Duration(days: 400));
+      final schedulesResponse = await ref
+          .read(schedulesServiceProvider)
+          .getWorkerSchedules(
+            workerId: specialistId,
+            dateGte: from,
+            dateLte: to,
+          );
+      final schedulesByDate = indexDailySchedulesByDate(
+        schedulesResponse.results,
+      );
+      return (day) {
+        final normalized = _dateOnly(day);
+        return isWorkerWorkingOnDate(
+          date: normalized,
+          workingWeekdays: allowedWeekdays,
+          daily: schedulesByDate[SchedulesService.dateToApi(normalized)],
+          shiftConfig: scheduleConfig,
+        );
+      };
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _clearRememberedClientIfChanged(String nextPhone) async {
@@ -865,6 +987,66 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (status < 0) return 1;
     if (status > 4) return 4;
     return status;
+  }
+
+  Future<void> _onClientStatusSelected(int index) async {
+    if (index == kClientArrivedStatusIndex &&
+        _selectedStatusIndex != kClientArrivedStatusIndex) {
+      final appointmentId = widget.initialAppointment?.id;
+      if (appointmentId != null && appointmentId > 0) {
+        final result = await showClientArrivedPaymentConfirmDialog(
+          context: context,
+          appointmentId: appointmentId,
+        );
+        if (!mounted) return;
+        switch (result) {
+          case ClientArrivedPaymentDialogResult.pay:
+            setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
+            await _openAppointmentPayment(appointmentId);
+          case ClientArrivedPaymentDialogResult.saveOnly:
+            setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
+          case ClientArrivedPaymentDialogResult.dismiss:
+          case null:
+            break;
+        }
+        return;
+      }
+    }
+    setState(() => _selectedStatusIndex = index);
+  }
+
+  Future<void> _openAppointmentPayment(int appointmentId) async {
+    try {
+      final url = await ref
+          .read(widgetLinksServiceProvider)
+          .getAppointmentPaymentWidgetUrl(appointmentId: appointmentId);
+      final uri = Uri.tryParse(url);
+      if (uri == null) {
+        if (!mounted) return;
+        showAppServiceMessage(
+          context,
+          message: 'Не удалось открыть оплату',
+          variant: AppServiceMessageVariant.error,
+        );
+        return;
+      }
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else if (mounted) {
+        showAppServiceMessage(
+          context,
+          message: 'Не удалось открыть оплату',
+          variant: AppServiceMessageVariant.error,
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      showAppServiceMessage(
+        context,
+        message: 'Не удалось загрузить ссылку на оплату',
+        variant: AppServiceMessageVariant.error,
+      );
+    }
   }
 
   _ServiceBlockState _createInitialServiceBlock(AppointmentServiceApi service) {
@@ -1280,86 +1462,65 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }
 
   Future<void> _pickDate() async {
-    final specialistId = _selectedSpecialistId;
-    final branchId = ref.read(currentBranchIdProvider);
+    if (_datePickerInFlight) return;
+    _datePickerInFlight = true;
 
-    bool Function(DateTime day)? isSelectableDay;
-    if (specialistId != null && branchId != 0) {
-      try {
-        final workerRow = await ref
-            .read(workersServiceProvider)
-            .getWorkerRow(workerId: specialistId, branchId: branchId);
-        final scheduleConfig = workerScheduleConfigForBranch(
-          workerRow,
-          branchId,
-        );
-        if (isShiftWorkerScheduleConfig(scheduleConfig)) {
-          isSelectableDay = (day) => isShiftWorkerWorkDay(
-            _dateOnly(day),
-            scheduleConfig,
-          );
+    try {
+      final specialistId = _selectedSpecialistId;
+      final branchId = ref.read(currentBranchIdProvider);
+
+      bool Function(DateTime day)? isSelectableDay;
+      if (specialistId != null && branchId != 0) {
+        final prefetch = _datePickerPredicatePrefetch;
+        if (prefetch != null) {
+          await prefetch;
+        }
+        final cached = _datePickerPredicateCache;
+        if (cached != null &&
+            cached.specialistId == specialistId &&
+            cached.branchId == branchId) {
+          isSelectableDay = cached.predicate;
         } else {
-          final allowedWeekdays = await _loadSpecialistWorkingWeekdays(
+          isSelectableDay = await _buildDateSelectablePredicate(
             specialistId: specialistId,
             branchId: branchId,
           );
-          if (allowedWeekdays.isEmpty) {
-            if (!mounted) return;
-            showAppServiceMessage(
-              context,
-              message: 'У выбранного мастера нет рабочих дней',
-              variant: AppServiceMessageVariant.info,
-            );
-            return;
-          }
-          final from = _dateOnly(_selectedDate).subtract(const Duration(days: 60));
-          final to = _dateOnly(_selectedDate).add(const Duration(days: 400));
-          final schedulesResponse = await ref
-              .read(schedulesServiceProvider)
-              .getWorkerSchedules(
-                workerId: specialistId,
-                dateGte: from,
-                dateLte: to,
-              );
-          final schedulesByDate = indexDailySchedulesByDate(
-            schedulesResponse.results,
+          if (isSelectableDay == null) return;
+          _datePickerPredicateCache = _EntryDatePickerPredicateCache(
+            specialistId: specialistId,
+            branchId: branchId,
+            predicate: isSelectableDay,
           );
-          isSelectableDay = (day) {
-            final normalized = _dateOnly(day);
-            return isWorkerWorkingOnDate(
-              date: normalized,
-              workingWeekdays: allowedWeekdays,
-              daily: schedulesByDate[SchedulesService.dateToApi(normalized)],
-              shiftConfig: scheduleConfig,
-            );
-          };
         }
-      } catch (_) {
-        isSelectableDay = null;
       }
+      if (!mounted) return;
+
+      final anchor = _dateOnly(_selectedDate);
+      final initialDate = isSelectableDay == null
+          ? anchor
+          : (isSelectableDay(anchor)
+              ? anchor
+              : resolveNextWorkerWorkDate(
+                  from: anchor,
+                  isWorkDay: (d) => isSelectableDay!(_dateOnly(d)),
+                ));
+
+      final picked = await showDatePicker(
+        context: context,
+        initialDate: initialDate,
+        firstDate: DateTime(2000),
+        lastDate: DateTime(2100),
+        locale: const Locale('ru'),
+        selectableDayPredicate: (day) {
+          if (isSelectableDay == null) return true;
+          return isSelectableDay(_dateOnly(day));
+        },
+      );
+      if (picked == null || !mounted) return;
+      setState(() => _selectedDate = _dateOnly(picked));
+    } finally {
+      _datePickerInFlight = false;
     }
-    if (!mounted) return;
-
-    final initialDate = isSelectableDay == null
-        ? _selectedDate
-        : resolveNextWorkerWorkDate(
-            from: _selectedDate,
-            isWorkDay: (d) => isSelectableDay!(_dateOnly(d)),
-          );
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-      locale: const Locale('ru'),
-      selectableDayPredicate: (day) {
-        if (isSelectableDay == null) return true;
-        return isSelectableDay(_dateOnly(day));
-      },
-    );
-    if (picked == null) return;
-    setState(() => _selectedDate = picked);
   }
 
   Widget _buildTimeChip(
@@ -1919,9 +2080,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       initialIndex: _selectedStatusIndex,
                       onSelected: canChangeStatus
                           ? (index, _) {
-                              setState(() {
-                                _selectedStatusIndex = index;
-                              });
+                              unawaited(_onClientStatusSelected(index));
                             }
                           : null,
                     ),
@@ -2406,17 +2565,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   onChanged: ((!canChangeWorker && !workerCanPickTransferTarget) ||
                           specialists.isEmpty)
                       ? null
-                      : (value) {
-                          setState(() {
-                            _selectedSpecialistId = value;
-                            for (final service in _services) {
-                              service.selectedServiceId = null;
-                              service.durationMinutes = 10;
-                              service.addDurationMinutes = 0;
-                              service.selectedTime = null;
-                            }
-                          });
-                        },
+                      : _onSpecialistChanged,
                 ),
                 Gap(16),
                 Row(
@@ -2424,9 +2573,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   children: [
                     Text('Дата', style: AppFonts.c1Medium),
                     GestureDetector(
-                      onTap: (selectedSpecialistId == null || !canTransferSchedule)
+                      onTap: (selectedSpecialistId == null ||
+                              !canTransferSchedule ||
+                              _datePickerInFlight)
                           ? null
-                          : _pickDate,
+                          : () => unawaited(_pickDate()),
                       behavior: HitTestBehavior.opaque,
                       child: SizedBox(
                         width: 120,
