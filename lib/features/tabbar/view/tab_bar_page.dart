@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
@@ -11,7 +12,9 @@ import 'package:rient_app/core/widgets/app_drawer.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
+import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/features/chat/chat_page.dart';
+import 'package:rient_app/features/chat/service/notifications_websocket_service.dart';
 import 'package:rient_app/features/chat/service/push_registration_service.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/create/view/add_new_entry_page.dart'
@@ -61,6 +64,7 @@ class TabBarPage extends ConsumerStatefulWidget {
 class _TabBarPageState extends ConsumerState<TabBarPage>
     with WidgetsBindingObserver {
   DateTime? _lastResumeRefreshAt;
+  StreamSubscription<RemoteMessage>? _fcmForegroundSubscription;
 
   bool _showCreateTab() {
     final roleId = ref.watch(roleProvider);
@@ -80,12 +84,21 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
       unawaited(
         ref.read(pushRegistrationServiceProvider).registerCurrentDevice(),
       );
+      unawaited(
+        ref.read(notificationsWebSocketControllerProvider).ensureConnected(),
+      );
+    });
+    _fcmForegroundSubscription =
+        FirebaseMessaging.onMessage.listen((_) {
+      refreshPushHistoryFromRealtime(ref);
     });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_fcmForegroundSubscription?.cancel());
+    _fcmForegroundSubscription = null;
     super.dispose();
   }
 
@@ -106,6 +119,10 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     await refreshTokenSilentlyIfPossible(ref as Ref);
     if (!mounted) return;
     await ref.read(pushRegistrationServiceProvider).registerCurrentDevice();
+    unawaited(
+      ref.read(notificationsWebSocketControllerProvider).ensureConnected(),
+    );
+    refreshPushHistoryFromRealtime(ref);
   }
 
   int _linkNavbarIndex(bool showCreateTab) => showCreateTab ? 4 : 3;
@@ -153,7 +170,22 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
         unawaited(
           ref.read(pushRegistrationServiceProvider).registerCurrentDevice(),
         );
+        unawaited(
+          ref.read(notificationsWebSocketControllerProvider).ensureConnected(),
+        );
       }
+    });
+    ref.listen<String?>(tokenProvider, (previous, next) {
+      if (previous == next) return;
+      if (next == null || next.isEmpty) {
+        unawaited(
+          ref.read(notificationsWebSocketControllerProvider).disconnect(),
+        );
+        return;
+      }
+      unawaited(
+        ref.read(notificationsWebSocketControllerProvider).ensureConnected(),
+      );
     });
     ref.listen<int>(currentBranchIdProvider, (previous, next) {
       if (next > 0 && previous != next) {

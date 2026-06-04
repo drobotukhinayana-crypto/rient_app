@@ -22,4 +22,20 @@ class MessageNotificationItem {
 
   final int? appointmentId;
   final String? type;
+
+  MessageNotificationItem copyWith({
+    bool? isUnread,
+    bool? showAccent,
+  }) {
+    return MessageNotificationItem(
+      id: id,
+      title: title,
+      description: description,
+      timestamp: timestamp,
+      isUnread: isUnread ?? this.isUnread,
+      showAccent: showAccent ?? this.showAccent,
+      appointmentId: appointmentId,
+      type: type,
+    );
+  }
 }

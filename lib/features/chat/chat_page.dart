@@ -17,6 +17,7 @@ import 'package:rient_app/features/chat/service/mobile_push_service.dart';
 import 'package:rient_app/features/chat/view/components/message_notification_card.dart';
 import 'package:rient_app/features/chat/view/components/message_notification_item.dart';
 import 'package:rient_app/features/chat/view/components/messages_filter_segment.dart';
+import 'package:rient_app/features/chat/service/notifications_websocket_service.dart';
 import 'package:rient_app/features/chat/view/providers/push_history_provider.dart';
 import 'package:rient_app/features/chat/view/push_history_mapper.dart';
 import 'package:rient_app/features/create/view/add_new_entry_page.dart';
@@ -139,6 +140,34 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
   }
 
+  Future<void> _markNotificationRead(MessageNotificationItem item) async {
+    if (!item.isUnread) return;
+    try {
+      await ref
+          .read(mobilePushServiceProvider)
+          .markAsRead(id: item.id, isRead: true);
+      if (!mounted) return;
+      setState(() {
+        if (_filter == MessagesFilter.unread) {
+          _items.removeWhere((e) => e.id == item.id);
+        } else {
+          final index = _items.indexWhere((e) => e.id == item.id);
+          if (index >= 0) {
+            _items[index] = item.copyWith(isUnread: false, showAccent: false);
+          }
+        }
+      });
+      invalidatePushHistory(ref);
+    } catch (_) {
+      if (!mounted) return;
+      showAppServiceMessage(
+        context,
+        message: 'Не удалось отметить сообщение прочитанным',
+        variant: AppServiceMessageVariant.error,
+      );
+    }
+  }
+
   Future<void> _markAllRead() async {
     try {
       await ref
@@ -179,6 +208,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     setState(() => _openingNotificationId = item.id);
     try {
+      await _markNotificationRead(item);
+      if (!mounted) return;
+
       final appointment = await ref
           .read(appointmentsServiceProvider)
           .getAppointmentById(appointmentId);
@@ -192,8 +224,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         return;
       }
       await context.pushNamed<bool>(AddNewEntryPage.name, extra: appointment);
-      if (!mounted) return;
-      await _loadFirstPage();
     } catch (_) {
       if (!mounted) return;
       showAppServiceMessage(
@@ -235,6 +265,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
     final accent = AppColors.themeAccent(context);
+    ref.listen<int>(pushHistoryRefreshTokenProvider, (previous, next) {
+      if (previous == null || previous == next) return;
+      unawaited(_loadFirstPage());
+    });
+
     final countsAsync = ref.watch(pushHistoryCountProvider);
 
     final unreadCount = countsAsync.maybeWhen(
@@ -389,8 +424,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               return MessageNotificationCard(
                 item: item,
                 isOpening: isOpening,
+                onView: item.isUnread && !isOpening
+                    ? () => unawaited(_markNotificationRead(item))
+                    : null,
                 onOpenCard: appointmentId != null && !isOpening
-                    ? () => _openAppointmentFromNotification(item)
+                    ? () => unawaited(_openAppointmentFromNotification(item))
                     : null,
               );
             },

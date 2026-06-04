@@ -671,6 +671,33 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     showAppServiceMessage(context, message: 'Клиент запомнен');
   }
 
+  /// Дата записи для формы: по услугам (как в календаре), не только `appointment.datetime`.
+  DateTime? _appointmentCalendarDate(AppointmentApi appointment) {
+    for (final service in appointment.services) {
+      final parsed = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+      if (parsed != null) {
+        return DateTime(parsed.year, parsed.month, parsed.day);
+      }
+    }
+    final parsed = DateTime.tryParse(appointment.datetime)?.toLocal();
+    if (parsed == null) return null;
+    return DateTime(parsed.year, parsed.month, parsed.day);
+  }
+
+  bool _isInitialServiceTime(
+    AppointmentApi appointment,
+    int serviceIndex,
+    String selectedTime,
+  ) {
+    if (serviceIndex < 0 || serviceIndex >= appointment.services.length) {
+      return false;
+    }
+    final service = appointment.services[serviceIndex];
+    final serviceDateTime = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+    if (serviceDateTime == null) return false;
+    return _formatSlot(serviceDateTime) == selectedTime;
+  }
+
   void _applyInitialAppointment() {
     final appointment = widget.initialAppointment;
     if (appointment == null) return;
@@ -703,9 +730,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       unawaited(_loadSelectedClientDetails(initialClient.id));
     }
 
-    final parsedDate = DateTime.tryParse(appointment.datetime);
-    if (parsedDate != null) {
-      _selectedDate = parsedDate.toLocal();
+    final calendarDate = _appointmentCalendarDate(appointment);
+    if (calendarDate != null) {
+      _selectedDate = calendarDate;
     }
 
     _services
@@ -919,12 +946,19 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return '$h:$m';
   }
 
+  int _slotGridStepMinutes(int durationMinutes) {
+    if (durationMinutes <= 0) return 10;
+    if (durationMinutes <= 10) return durationMinutes;
+    return 10;
+  }
+
   List<_DateTimeRange> _busyRangesFromAppointments(
     List<AppointmentApi> appointments, {
     int? ignoreAppointmentId,
   }) {
     final result = <_DateTimeRange>[];
     for (final appointment in appointments) {
+      if (!appointment.isActive) continue;
       if (ignoreAppointmentId != null &&
           appointment.id == ignoreAppointmentId) {
         continue;
@@ -973,7 +1007,20 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     required List<AppointmentApi> appointments,
     required int currentServiceIndex,
   }) {
-    if (shift == null || durationMinutes <= 0) return const <String>[];
+    final editingAppointment = widget.initialAppointment;
+    final currentTime = currentServiceIndex >= 0 &&
+            currentServiceIndex < _services.length
+        ? _services[currentServiceIndex].selectedTime
+        : null;
+
+    if (shift == null || durationMinutes <= 0) {
+      if (editingAppointment != null &&
+          currentTime != null &&
+          currentTime.isNotEmpty) {
+        return [currentTime];
+      }
+      return const <String>[];
+    }
     final shiftStart = _dateTimeFromTimeOfDayString(
       date: date,
       value: shift.timeStart,
@@ -1029,7 +1076,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final now = DateTime.now();
     final isToday = _dateOnly(date) == _dateOnly(now);
     var cursor = shiftStart;
-    final slotStepMinutes = durationMinutes;
+    final slotStepMinutes = _slotGridStepMinutes(durationMinutes);
     while (!cursor.add(Duration(minutes: durationMinutes)).isAfter(shiftEnd)) {
       final slotEnd = cursor.add(Duration(minutes: durationMinutes));
       if (isToday && cursor.isBefore(now)) {
@@ -1041,6 +1088,33 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       }
       cursor = cursor.add(Duration(minutes: slotStepMinutes));
     }
+
+    if (editingAppointment != null &&
+        currentTime != null &&
+        currentTime.isNotEmpty &&
+        !slots.contains(currentTime)) {
+      final ownStart = _dateTimeFromTimeOfDayString(
+        date: date,
+        value: currentTime,
+      );
+      if (ownStart != null) {
+        final ownEnd = ownStart.add(Duration(minutes: durationMinutes));
+        if (!ownStart.isBefore(shiftStart) &&
+            !ownEnd.isAfter(shiftEnd) &&
+            _isRangeFree(start: ownStart, end: ownEnd, busyRanges: busyRanges)) {
+          slots.add(currentTime);
+          slots.sort((a, b) {
+            final ah = int.tryParse(a.split(':').first) ?? 0;
+            final am = int.tryParse(a.split(':').last) ?? 0;
+            final bh = int.tryParse(b.split(':').first) ?? 0;
+            final bm = int.tryParse(b.split(':').last) ?? 0;
+            if (ah != bh) return ah.compareTo(bh);
+            return am.compareTo(bm);
+          });
+        }
+      }
+    }
+
     return slots;
   }
 
@@ -2630,9 +2704,19 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                           );
 
                           final selectedTime = _services[index].selectedTime;
+                          final initialAppointment = widget.initialAppointment;
+                          final preserveEditTime =
+                              initialAppointment != null &&
+                              selectedTime != null &&
+                              _isInitialServiceTime(
+                                initialAppointment,
+                                index,
+                                selectedTime,
+                              );
                           if (hasSelectedService &&
                               selectedTime != null &&
-                              !availableSlots.contains(selectedTime)) {
+                              !availableSlots.contains(selectedTime) &&
+                              !preserveEditTime) {
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (!mounted) return;
                               if (index >= _services.length) return;

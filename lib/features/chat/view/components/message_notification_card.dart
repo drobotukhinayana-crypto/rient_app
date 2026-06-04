@@ -10,11 +10,13 @@ class MessageNotificationCard extends StatelessWidget {
     super.key,
     required this.item,
     this.onOpenCard,
+    this.onView,
     this.isOpening = false,
   });
 
   final MessageNotificationItem item;
   final VoidCallback? onOpenCard;
+  final VoidCallback? onView;
   final bool isOpening;
 
   @override
@@ -25,7 +27,7 @@ class MessageNotificationCard extends StatelessWidget {
     final bodyColor = AppColors.tabbarGrey;
     final accent = AppColors.themeAccent(context);
 
-    return Material(
+    final content = Material(
       color: cardColor,
       borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
@@ -83,6 +85,16 @@ class MessageNotificationCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+
+    if (onView == null) return content;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onView,
+        borderRadius: BorderRadius.circular(16),
+        child: content,
       ),
     );
   }

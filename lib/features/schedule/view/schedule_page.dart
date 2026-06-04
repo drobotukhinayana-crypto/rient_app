@@ -1,19 +1,15 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/services/local_storage.dart';
-import 'package:rient_app/core/services/token_storage.dart';
-import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
-import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/create/view/add_new_entry_page.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
@@ -44,7 +40,6 @@ import 'package:rient_app/features/schedule/view/providers/schedules_provider.da
 import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/worker_schedules_range_provider.dart';
 import 'package:rient_app/features/schedule/utils/schedule_branch_bounds.dart';
-import 'package:rient_app/features/schedule/utils/schedule_ws_notification.dart';
 import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 
@@ -58,8 +53,7 @@ class SchedulePage extends ConsumerStatefulWidget {
   ConsumerState<SchedulePage> createState() => _SchedulePageState();
 }
 
-class _SchedulePageState extends ConsumerState<SchedulePage>
-    with WidgetsBindingObserver {
+class _SchedulePageState extends ConsumerState<SchedulePage> {
   ViewMode _viewMode = ViewMode.day;
   late DateTime _weekStart;
   late DateTime _monthStart;
@@ -68,11 +62,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage>
   final ScrollController _daySpecialistsScrollController = ScrollController();
   final ScrollController _dayCalendarScrollController = ScrollController();
   bool _syncingDayHorizontalScroll = false;
-  WebSocket? _notificationsSocket;
-  Timer? _wsReconnectTimer;
-  Timer? _wsDebounceRefreshTimer;
-  bool _wsEnabled = true;
-
   /// Пока перезагружается доступность на дату, не сбрасываем колонки календаря.
   List<SpecialistItem> _lastDaySpecialists = const [];
 
@@ -81,28 +70,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _syncToNow();
     _daySpecialistsScrollController.addListener(_onSpecialistsScrolled);
     _dayCalendarScrollController.addListener(_onCalendarScrolled);
-    unawaited(_connectNotificationsSocket());
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      unawaited(_connectNotificationsSocket());
-    }
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _wsEnabled = false;
-    _wsDebounceRefreshTimer?.cancel();
-    _wsReconnectTimer?.cancel();
-    unawaited(_notificationsSocket?.close());
-    _notificationsSocket = null;
     _daySpecialistsScrollController.removeListener(_onSpecialistsScrolled);
     _dayCalendarScrollController.removeListener(_onCalendarScrolled);
     _daySpecialistsScrollController.dispose();
@@ -125,56 +99,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage>
         _forceRefreshScheduleScreen();
       });
     }
-  }
-
-  Future<void> _connectNotificationsSocket() async {
-    if (!_wsEnabled) return;
-    _wsReconnectTimer?.cancel();
-    final organizationId = ref.read(organizationIdProvider);
-    final token = ref.read(tokenProvider);
-    if (organizationId <= 0 || token == null || token.isEmpty) return;
-
-    try {
-      await _notificationsSocket?.close();
-      final socket = await WebSocket.connect(
-        ApiConsts().createNotificationsWebSocketUrl(
-          organizationId: organizationId,
-          token: token,
-        ),
-      ).timeout(const Duration(seconds: 8));
-      if (!mounted) {
-        await socket.close();
-        return;
-      }
-      _notificationsSocket = socket;
-      socket.listen(
-        _onSocketMessage,
-        onError: (_) => _scheduleWsReconnect(),
-        onDone: _scheduleWsReconnect,
-        cancelOnError: true,
-      );
-    } catch (_) {
-      _scheduleWsReconnect();
-    }
-  }
-
-  void _scheduleWsReconnect() {
-    if (!mounted || !_wsEnabled) return;
-    _wsReconnectTimer?.cancel();
-    _wsReconnectTimer = Timer(const Duration(seconds: 3), () {
-      if (!mounted) return;
-      unawaited(_connectNotificationsSocket());
-    });
-  }
-
-  void _onSocketMessage(dynamic raw) {
-    if (!_wsEnabled) return;
-    if (!isScheduleAppointmentWsMessage(raw)) return;
-    _wsDebounceRefreshTimer?.cancel();
-    _wsDebounceRefreshTimer = Timer(const Duration(milliseconds: 700), () {
-      if (!mounted) return;
-      unawaited(_onPullToRefresh());
-    });
   }
 
   void _onSpecialistsScrolled() {
@@ -714,6 +638,45 @@ class _SchedulePageState extends ConsumerState<SchedulePage>
     return (startHour: minStart, endHour: maxEnd);
   }
 
+  /// Перерывы по дням недели из дневного графика (не дублировать на все 7 дней).
+  static Map<DateTime, ({String? breakStart, String? breakEnd})> _breaksByDayForWeek({
+    required DateTime weekStart,
+    required WorkerSchedulesRangeData? schedules,
+    DateTime? selectedDate,
+    ({String? breakStart, String? breakEnd})? selectedDayBreak,
+  }) {
+    final normalizedWeekStart = _toDateOnly(weekStart);
+    final selectedDay =
+        selectedDate == null ? null : _toDateOnly(selectedDate);
+    final result = <DateTime, ({String? breakStart, String? breakEnd})>{};
+
+    for (var i = 0; i < 7; i++) {
+      final day = normalizedWeekStart.add(Duration(days: i));
+      final daily = schedules?.scheduleOn(day);
+      if (daily != null && daily.active) {
+        final bs = daily.breakStart;
+        final be = daily.breakEnd;
+        if (bs != null &&
+            bs.isNotEmpty &&
+            be != null &&
+            be.isNotEmpty) {
+          result[day] = (breakStart: bs, breakEnd: be);
+          continue;
+        }
+      }
+      if (selectedDay != null &&
+          day == selectedDay &&
+          selectedDayBreak != null &&
+          selectedDayBreak.breakStart != null &&
+          selectedDayBreak.breakStart!.isNotEmpty &&
+          selectedDayBreak.breakEnd != null &&
+          selectedDayBreak.breakEnd!.isNotEmpty) {
+        result[day] = selectedDayBreak;
+      }
+    }
+    return result;
+  }
+
   static ({String? breakStart, String? breakEnd}) _breakForSpecialist(
     List<AvailableWorkerShift> shifts,
     int? specialistId,
@@ -964,6 +927,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage>
       availableWorkersAsync.value ?? const [],
       specialistIdForData,
     );
+    final weekBreaksByDay = _breaksByDayForWeek(
+      weekStart: _weekStart,
+      schedules: workerSchedulesData,
+      selectedDate: selectedDate,
+      selectedDayBreak: selectedBreak,
+    );
     final selectedWorkerHours = specialistIdForData != null
         ? (() {
             final hasWorkerInBranch = workerWeekdaysById.containsKey(
@@ -1159,20 +1128,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage>
       if (previous == null || previous == next) return;
       _forceRefreshScheduleScreen();
     });
-    ref.listen<int>(organizationIdProvider, (previous, next) {
-      if (previous == null || previous == next || next <= 0) return;
-      unawaited(_connectNotificationsSocket());
-    });
-    ref.listen<String?>(tokenProvider, (previous, next) {
-      if (previous == next) return;
-      if (next == null || next.isEmpty) {
-        unawaited(_notificationsSocket?.close());
-        _notificationsSocket = null;
-        return;
-      }
-      unawaited(_connectNotificationsSocket());
-    });
-
     return Scaffold(
       backgroundColor: screenBackground,
       body: Stack(
@@ -1511,8 +1466,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage>
                                             specialistIdForData != null
                                             ? resolveWorkerNonWorkingDay
                                             : null,
-                                        breakStart: selectedBreak.breakStart,
-                                        breakEnd: selectedBreak.breakEnd,
+                                        breaksByDay: weekBreaksByDay,
                                         onAppointmentTap: (item) async {
                                           final appointment = item.source;
                                           if (appointment == null) return;

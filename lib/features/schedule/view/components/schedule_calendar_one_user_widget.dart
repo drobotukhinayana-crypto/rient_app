@@ -43,6 +43,7 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
     this.weekWorkHoursByWeekday,
     this.breakStart,
     this.breakEnd,
+    this.breaksByDay,
     this.workerStartHour,
     this.workerEndHour,
     this.workingWeekdays,
@@ -65,6 +66,9 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
   final Map<int, ({double startHour, double endHour})>? weekWorkHoursByWeekday;
   final String? breakStart;
   final String? breakEnd;
+
+  /// Перерывы по датам (только для [ViewMode.week], без повторения на всю неделю).
+  final Map<DateTime, ({String? breakStart, String? breakEnd})>? breaksByDay;
 
   /// Окно смены мастера в дне: штриховка до/после относительно [startHour]/[endHour] филиала.
   final double? workerStartHour;
@@ -121,21 +125,30 @@ class _ScheduleCalendarOneUserWidgetState
     }
 
     final regions = <TimeRegion>[];
-    final breakStartHour = parseTimeToHour(widget.breakStart);
-    final breakEndHour = parseTimeToHour(widget.breakEnd);
-    if (breakStartHour != null &&
-        breakEndHour != null &&
-        breakEndHour > breakStartHour) {
+
+    void addBreakRegion(DateTime day, String? breakStart, String? breakEnd) {
+      final breakStartHour = parseTimeToHour(breakStart);
+      final breakEndHour = parseTimeToHour(breakEnd);
+      if (breakStartHour == null ||
+          breakEndHour == null ||
+          breakEndHour <= breakStartHour) {
+        return;
+      }
       regions.add(
         TimeRegion(
-          startTime: at(widget.date, breakStartHour),
-          endTime: at(widget.date, breakEndHour),
+          startTime: at(day, breakStartHour),
+          endTime: at(day, breakEndHour),
           enablePointerInteraction: false,
-          recurrenceRule: widget.viewMode == ViewMode.week
-              ? 'FREQ=DAILY;INTERVAL=1'
-              : null,
         ),
       );
+    }
+
+    if (widget.viewMode == ViewMode.week && widget.breaksByDay != null) {
+      for (final entry in widget.breaksByDay!.entries) {
+        addBreakRegion(entry.key, entry.value.breakStart, entry.value.breakEnd);
+      }
+    } else {
+      addBreakRegion(widget.date, widget.breakStart, widget.breakEnd);
     }
 
     if (widget.viewMode == ViewMode.day) {
