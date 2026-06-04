@@ -8,6 +8,7 @@ import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
+import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
@@ -15,8 +16,11 @@ import 'package:rient_app/features/schedule/data/models/schedules_api/create_wor
 import 'package:rient_app/features/schedule/view/components/work_schedule_day_edit_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_month_grid.dart';
+import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
+import 'package:rient_app/features/schedule/utils/schedule_date_utils.dart';
 import 'package:rient_app/features/schedule/utils/work_schedule_appointment_conflict.dart'
     show humanizeScheduleApiError, validateWorkScheduleDayAgainstAppointments, WorkScheduleDayBounds;
 import 'package:rient_app/features/schedule/view/specialist_schedule_page.dart';
@@ -31,15 +35,19 @@ class WorkSchedulePage extends ConsumerStatefulWidget {
   ConsumerState<WorkSchedulePage> createState() => _WorkSchedulePageState();
 }
 
-class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
+class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
+    with WidgetsBindingObserver {
   late DateTime _monthStart;
   late ScrollController _datesHeaderScroll;
   late ScrollController _gridHorizontalScroll;
   bool _syncingHorizontalScroll = false;
   bool _pendingHorizontalScrollToSelectedDate = true;
+  int? _pendingScrollForLoadEpoch;
   int _loadEpoch = 0;
   int _gridVersion = 0;
   int _fetchGeneration = 0;
+  String? _savingEmployeeId;
+  DateTime? _savingDate;
   AsyncValue<List<WorkScheduleEmployeeRow>> _employees =
       const AsyncValue.loading();
 
@@ -51,6 +59,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _datesHeaderScroll = ScrollController();
     _gridHorizontalScroll = ScrollController();
     _datesHeaderScroll.addListener(_onDatesHeaderScrolled);
@@ -68,7 +77,15 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_reloadWorkSchedule());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _datesHeaderScroll.removeListener(_onDatesHeaderScrolled);
     _gridHorizontalScroll.removeListener(_onGridHorizontalScrolled);
     _datesHeaderScroll.dispose();
@@ -121,12 +138,16 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
       monthStart: _monthStart,
       loadEpoch: nextEpoch,
     );
+    final keepGridVisible = _employees.hasValue;
 
     setState(() {
       _loadEpoch = nextEpoch;
       _gridVersion++;
-      _employees = const AsyncValue.loading();
+      if (!keepGridVisible) {
+        _employees = const AsyncValue.loading();
+      }
       _pendingHorizontalScrollToSelectedDate = true;
+      _pendingScrollForLoadEpoch = nextEpoch;
     });
 
     try {
@@ -151,6 +172,46 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     });
   }
 
+  double? _readHorizontalScrollOffset() {
+    if (_gridHorizontalScroll.hasClients) return _gridHorizontalScroll.offset;
+    if (_datesHeaderScroll.hasClients) return _datesHeaderScroll.offset;
+    return null;
+  }
+
+  void _restoreHorizontalScrollOffset(double? offset, {int attempt = 0}) {
+    if (offset == null || attempt > 8) return;
+
+    if (!_datesHeaderScroll.hasClients || !_gridHorizontalScroll.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _restoreHorizontalScrollOffset(offset, attempt: attempt + 1);
+        }
+      });
+      return;
+    }
+
+    _syncingHorizontalScroll = true;
+    try {
+      for (final controller in [_datesHeaderScroll, _gridHorizontalScroll]) {
+        final clamped = offset.clamp(
+          controller.position.minScrollExtent,
+          controller.position.maxScrollExtent,
+        );
+        if ((controller.offset - clamped).abs() > 0.5) {
+          controller.jumpTo(clamped);
+        }
+      }
+    } finally {
+      _syncingHorizontalScroll = false;
+    }
+  }
+
+  void _setEmployeesPreservingScroll(List<WorkScheduleEmployeeRow> rows) {
+    final offset = _readHorizontalScrollOffset();
+    setState(() => _employees = AsyncValue.data(rows));
+    _restoreHorizontalScrollOffset(offset);
+  }
+
   DateTime _scrollTargetDateInMonth() {
     if (_today.year == _monthStart.year && _today.month == _monthStart.month) {
       return _today;
@@ -158,9 +219,41 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     return DateTime(_monthStart.year, _monthStart.month, 1);
   }
 
-  void _requestScrollToSelectedDate() {
-    _pendingHorizontalScrollToSelectedDate = true;
-    _scheduleHorizontalScrollSync();
+  void _jumpHorizontalScrollToTarget() {
+    final offset = _horizontalOffsetForSelectedDate();
+    if (offset == null) return;
+
+    void apply() {
+      _syncingHorizontalScroll = true;
+      try {
+        for (final controller in [_datesHeaderScroll, _gridHorizontalScroll]) {
+          if (!controller.hasClients) continue;
+          final clamped = offset.clamp(
+            controller.position.minScrollExtent,
+            controller.position.maxScrollExtent,
+          );
+          if ((controller.offset - clamped).abs() > 0.5) {
+            controller.jumpTo(clamped);
+          }
+        }
+      } finally {
+        _syncingHorizontalScroll = false;
+      }
+    }
+
+    apply();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) apply();
+    });
+  }
+
+  void _completePendingHorizontalScrollIfReady() {
+    if (_pendingScrollForLoadEpoch != null &&
+        _pendingScrollForLoadEpoch != _loadEpoch) {
+      return;
+    }
+    _pendingHorizontalScrollToSelectedDate = false;
+    _pendingScrollForLoadEpoch = null;
   }
 
   double? _horizontalOffsetForSelectedDate() {
@@ -237,8 +330,8 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
   void _scrollToSelectedDate({int attempt = 0}) {
     if (!_pendingHorizontalScrollToSelectedDate) return;
     if (attempt > 20) {
-      _pendingHorizontalScrollToSelectedDate = false;
-      _alignHorizontalScrolls();
+      _jumpHorizontalScrollToTarget();
+      _completePendingHorizontalScrollIfReady();
       return;
     }
 
@@ -269,7 +362,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     }
 
     if (_areHorizontalScrollsAligned(offset)) {
-      _pendingHorizontalScrollToSelectedDate = false;
+      _completePendingHorizontalScrollIfReady();
       return;
     }
 
@@ -281,9 +374,10 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
   void _onMonthStartChanged(DateTime monthStart) {
     setState(() {
       _monthStart = DateTime(monthStart.year, monthStart.month, 1);
+      _pendingHorizontalScrollToSelectedDate = true;
     });
+    _jumpHorizontalScrollToTarget();
     unawaited(_reloadWorkSchedule());
-    _requestScrollToSelectedDate();
   }
 
   WorkScheduleDayCell? _cellForDate(
@@ -345,6 +439,9 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
         lower.contains('key, date, branch');
   }
 
+  bool _scheduleKeysMatch(String apiKey, String expectedKey) =>
+      apiKey.toLowerCase() == expectedKey.toLowerCase();
+
   Future<int?> _findScheduleIdForDate({
     required int workerId,
     required DateTime date,
@@ -356,19 +453,23 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
       dateGte: date,
       dateLte: date,
     );
-    final dateKey = SchedulesService.dateToApi(date);
     final key = CreateWorkerScheduleRequest.workerScheduleKey(workerId);
+
+    int? fallbackId;
     for (final item in response.results) {
-      if (item.date == dateKey &&
-          item.branch == branchId &&
-          item.key == key) {
+      if (!isSameScheduleApiDate(item.date, date) ||
+          !_scheduleKeysMatch(item.key, key)) {
+        continue;
+      }
+      if (item.branch == branchId) {
         return item.id;
       }
+      fallbackId ??= item.id;
     }
-    return null;
+    return fallbackId;
   }
 
-  Future<void> _saveWorkerScheduleDay({
+  Future<ScheduleItemApi> _saveWorkerScheduleDay({
     required int workerId,
     required int? scheduleId,
     required DateTime date,
@@ -376,31 +477,99 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
     required CreateWorkerScheduleRequest body,
   }) async {
     final service = ref.read(schedulesServiceProvider);
-    if (scheduleId != null) {
-      await service.updateWorkerSchedule(
+    final existingId = await _findScheduleIdForDate(
+      workerId: workerId,
+      date: date,
+      branchId: branchId,
+    );
+    final resolvedScheduleId = existingId ?? scheduleId;
+
+    if (resolvedScheduleId != null) {
+      return service.updateWorkerSchedule(
         workerId: workerId,
-        scheduleId: scheduleId,
+        scheduleId: resolvedScheduleId,
         body: body,
       );
-      return;
     }
 
     try {
-      await service.createWorkerSchedule(workerId: workerId, body: body);
+      return await service.createWorkerSchedule(workerId: workerId, body: body);
     } catch (e) {
       if (!_isDuplicateScheduleDayError(e)) rethrow;
-      final existingId = await _findScheduleIdForDate(
+      final duplicateId = await _findScheduleIdForDate(
         workerId: workerId,
         date: date,
         branchId: branchId,
       );
-      if (existingId == null) rethrow;
-      await service.updateWorkerSchedule(
+      if (duplicateId == null) rethrow;
+      return service.updateWorkerSchedule(
         workerId: workerId,
-        scheduleId: existingId,
+        scheduleId: duplicateId,
         body: body,
       );
     }
+  }
+
+  void _applySavedDayLocally({
+    required String employeeId,
+    required DateTime date,
+    required WorkScheduleDayCell cell,
+  }) {
+    final employees = _employees.value;
+    if (employees == null) return;
+
+    final dayIndex = workScheduleDayIndexInMonth(_monthStart, date);
+    if (dayIndex < 0) return;
+
+    final updatedRows = [
+      for (final row in employees)
+        if (row.isBranchRow || row.id != employeeId)
+          row
+        else
+          WorkScheduleEmployeeRow(
+            id: row.id,
+            name: row.name,
+            pictureUrl: row.pictureUrl,
+            monthCells: [
+              for (var i = 0; i < row.monthCells.length; i++)
+                if (i != dayIndex) row.monthCells[i] else cell,
+            ],
+          ),
+    ];
+
+    final offset = _readHorizontalScrollOffset();
+    setState(() {
+      _employees = AsyncValue.data(updatedRows);
+    });
+    _restoreHorizontalScrollOffset(offset);
+  }
+
+  WorkScheduleDayCell _cellFromEditResult({
+    required WorkScheduleDayEditResult result,
+    required WorkScheduleDayCell previous,
+    int? scheduleId,
+  }) {
+    if (!result.isWorkingDay) {
+      return WorkScheduleDayCell.dayOff(
+        isManuallyEdited: true,
+        scheduleId: scheduleId ?? previous.scheduleId,
+      );
+    }
+
+    final startH = int.tryParse(result.workStart.split(':').first) ?? 9;
+    final endH = int.tryParse(result.workEnd.split(':').first) ?? 20;
+    return WorkScheduleDayCell.shift(
+      timeStart: result.workStart,
+      timeEnd: result.workEnd,
+      tone: (endH - startH) >= 10
+          ? WorkScheduleShiftTone.full
+          : WorkScheduleShiftTone.short,
+      isSelected: previous.isSelected,
+      isManuallyEdited: true,
+      scheduleId: scheduleId ?? previous.scheduleId,
+      breakStart: result.breakStart,
+      breakEnd: result.breakEnd,
+    );
   }
 
   Future<void> _onDayCellTap(
@@ -450,8 +619,25 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
       auto: false,
     );
 
+    final snapshot = _employees.value;
+    final optimisticCell = _cellFromEditResult(
+      result: result,
+      previous: cell,
+    );
+    final scrollOffsetBeforeSave = _readHorizontalScrollOffset();
+
+    setState(() {
+      _savingEmployeeId = employee.id;
+      _savingDate = normalizedDate;
+    });
+    _applySavedDayLocally(
+      employeeId: employee.id,
+      date: normalizedDate,
+      cell: optimisticCell,
+    );
+
     try {
-      await _saveWorkerScheduleDay(
+      final saved = await _saveWorkerScheduleDay(
         workerId: workerId,
         scheduleId: cell.scheduleId,
         date: normalizedDate,
@@ -459,19 +645,42 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
         body: body,
       );
       if (!mounted) return;
-      await _reloadWorkSchedule(employeeId: employee.id);
+      _applySavedDayLocally(
+        employeeId: employee.id,
+        date: normalizedDate,
+        cell: _cellFromEditResult(
+          result: result,
+          previous: cell,
+          scheduleId: saved.id,
+        ),
+      );
+      bumpWorkScheduleReloadToken(ref);
+      ref.invalidate(availableWorkersForDateProvider(normalizedDate));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_saveDayErrorMessage(e))),
+      if (snapshot != null) {
+        _setEmployeesPreservingScroll(snapshot);
+      }
+      showAppServiceMessage(
+        context,
+        message: _saveDayErrorMessage(e),
+        variant: AppServiceMessageVariant.error,
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _savingEmployeeId = null;
+          _savingDate = null;
+        });
+        _restoreHorizontalScrollOffset(scrollOffsetBeforeSave);
+      }
     }
   }
 
   Future<void> _onEmployeeMoreTap(WorkScheduleEmployeeRow employee) async {
     if (employee.isBranchRow) return;
     try {
-      await context.pushNamed<bool>(
+      final saved = await context.pushNamed<bool>(
         SpecialistSchedulePage.name,
         extra: SpecialistSchedulePageArgs(
           employeeId: employee.id,
@@ -479,6 +688,13 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
           pictureUrl: employee.pictureUrl,
         ),
       );
+      if (!mounted) return;
+      if (saved == true) {
+        showAppServiceMessage(
+          context,
+          message: 'График работы филиала обновлен',
+        );
+      }
     } finally {
       if (mounted) {
         _scheduleReloadAfterReturn(employeeId: employee.id);
@@ -541,6 +757,8 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage> {
                     employees: employees,
                     selectedDate: _today,
                     horizontalScrollController: _gridHorizontalScroll,
+                    savingEmployeeId: _savingEmployeeId,
+                    savingDate: _savingDate,
                     onEmployeeMoreTap: _onEmployeeMoreTap,
                     onCellTap: _onDayCellTap,
                   ),

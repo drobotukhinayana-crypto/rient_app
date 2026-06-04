@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -7,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
+import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
@@ -22,6 +22,7 @@ import 'package:rient_app/features/home/view/providers/worker_permissions_provid
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
+import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/view/components/date_strip.dart';
 import 'package:rient_app/features/schedule/view/components/month_calendar.dart';
@@ -41,7 +42,10 @@ import 'package:rient_app/features/schedule/view/providers/schedule_cell_interva
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/worker_schedules_range_provider.dart';
 import 'package:rient_app/features/schedule/utils/schedule_branch_bounds.dart';
+import 'package:rient_app/features/schedule/utils/schedule_ws_notification.dart';
+import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 
 class SchedulePage extends ConsumerStatefulWidget {
@@ -54,7 +58,8 @@ class SchedulePage extends ConsumerStatefulWidget {
   ConsumerState<SchedulePage> createState() => _SchedulePageState();
 }
 
-class _SchedulePageState extends ConsumerState<SchedulePage> {
+class _SchedulePageState extends ConsumerState<SchedulePage>
+    with WidgetsBindingObserver {
   ViewMode _viewMode = ViewMode.day;
   late DateTime _weekStart;
   late DateTime _monthStart;
@@ -76,6 +81,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _syncToNow();
     _daySpecialistsScrollController.addListener(_onSpecialistsScrolled);
     _dayCalendarScrollController.addListener(_onCalendarScrolled);
@@ -83,7 +89,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_connectNotificationsSocket());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _wsEnabled = false;
     _wsDebounceRefreshTimer?.cancel();
     _wsReconnectTimer?.cancel();
@@ -123,7 +137,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     try {
       await _notificationsSocket?.close();
       final socket = await WebSocket.connect(
-        'wss://apitest.triobot.ru/ws/notifications/$organizationId/?token=$token',
+        ApiConsts().createNotificationsWebSocketUrl(
+          organizationId: organizationId,
+          token: token,
+        ),
       ).timeout(const Duration(seconds: 8));
       if (!mounted) {
         await socket.close();
@@ -152,48 +169,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
 
   void _onSocketMessage(dynamic raw) {
     if (!_wsEnabled) return;
-    if (!_isAppointmentNotification(raw)) return;
+    if (!isScheduleAppointmentWsMessage(raw)) return;
     _wsDebounceRefreshTimer?.cancel();
     _wsDebounceRefreshTimer = Timer(const Duration(milliseconds: 700), () {
       if (!mounted) return;
-      _forceRefreshScheduleScreen();
+      unawaited(_onPullToRefresh());
     });
-  }
-
-  bool _isAppointmentNotification(dynamic raw) {
-    dynamic payload = raw;
-    if (raw is String) {
-      try {
-        payload = jsonDecode(raw);
-      } catch (_) {
-        final normalized = raw.toLowerCase();
-        return normalized.contains('appointment');
-      }
-    }
-
-    bool hasAppointmentTopic(Map<dynamic, dynamic> map) {
-      const topicKeys = {'topic', 'theme', 'type', 'channel', 'event'};
-      for (final entry in map.entries) {
-        final key = entry.key.toString().toLowerCase();
-        final value = entry.value?.toString().toLowerCase() ?? '';
-        if (topicKeys.contains(key) && value == 'appointment') {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    if (payload is Map) {
-      if (hasAppointmentTopic(payload)) return true;
-      final normalized = payload.toString().toLowerCase();
-      return normalized.contains('appointment');
-    }
-    if (payload is List) {
-      for (final item in payload) {
-        if (_isAppointmentNotification(item)) return true;
-      }
-    }
-    return false;
   }
 
   void _onSpecialistsScrolled() {
@@ -361,6 +342,24 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   static DateTime _toDateOnly(DateTime value) =>
       DateTime(value.year, value.month, value.day);
 
+  static ({DateTime start, DateTime end}) _scheduleRangeBounds({
+    required ViewMode viewMode,
+    required DateTime selectedDate,
+    required DateTime weekStart,
+    required DateTime monthStart,
+  }) {
+    if (viewMode == ViewMode.month) {
+      final start = DateTime(monthStart.year, monthStart.month, 1);
+      final end = DateTime(monthStart.year, monthStart.month + 1, 0);
+      return (start: start, end: end);
+    }
+    final anchor = _toDateOnly(
+      viewMode == ViewMode.day ? selectedDate : weekStart,
+    );
+    final monday = anchor.subtract(Duration(days: anchor.weekday - 1));
+    return (start: monday, end: monday.add(const Duration(days: 6)));
+  }
+
   void _bumpScheduleUiVersion() {
     if (!mounted) return;
     setState(() => _refreshVersion++);
@@ -394,6 +393,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     ref.invalidate(scheduleStatisticsForWeekProvider);
     ref.invalidate(scheduleStatisticsForMonthProvider);
     ref.invalidate(scheduleWorkersProvider);
+    ref.invalidate(workerWeekdaysByIdProvider);
+    ref.invalidate(workerSchedulesRangeProvider);
+    ref.invalidate(scheduleForDateProvider);
 
     _bumpScheduleUiVersion();
     _scheduleDayHorizontalScrollAlign();
@@ -426,9 +428,69 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
 
   Future<void> _onPullToRefresh() async {
     _forceRefreshScheduleScreen();
+    final selectedDate = ref.read(selectedScheduleDateProvider);
+    final normalizedDate = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
+    final specialistId = ref.read(selectedSpecialistIdProvider);
+    final range = _scheduleRangeBounds(
+      viewMode: _viewMode,
+      selectedDate: normalizedDate,
+      weekStart: _weekStart,
+      monthStart: _monthStart,
+    );
+
+    final reloads = <Future<Object?>>[
+      ref.read(scheduleWorkersProvider.future),
+      ref.read(availableWorkersForDateProvider(normalizedDate).future),
+      ref.read(scheduleForDateProvider(scheduleDateKey(normalizedDate)).future),
+      ref.read(
+        scheduleStatisticsForWeekProvider(
+          ScheduleStatisticsQuery(periodKey: scheduleWeekKey(normalizedDate)),
+        ).future,
+      ),
+    ];
+
+    if (specialistId != null && specialistId > 0) {
+      reloads.add(
+        ref.read(
+          workerSchedulesRangeProvider(
+            WorkerSchedulesRangeQuery(
+              workerId: specialistId,
+              rangeStart: range.start,
+              rangeEnd: range.end,
+            ),
+          ).future,
+        ),
+      );
+    }
+
+    if (_viewMode == ViewMode.day) {
+      final dayStart = normalizedDate;
+      final dayEnd = dayStart
+          .add(const Duration(days: 1))
+          .subtract(const Duration(milliseconds: 1));
+      if (specialistId != null && specialistId > 0) {
+        reloads.add(
+          ref.read(
+            scheduleAppointmentsProvider(
+              AppointmentsQuery(
+                workerId: specialistId,
+                dateTimeGte: dayStart,
+                dateTimeLte: dayEnd,
+              ),
+            ).future,
+          ),
+        );
+      }
+    }
+
     try {
-      await ref.read(scheduleWorkersProvider.future);
+      await Future.wait(reloads);
     } catch (_) {}
+    if (mounted) _bumpScheduleUiVersion();
   }
 
   Future<void> _openAddEntryFromEmptySlot({
@@ -862,6 +924,42 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       monthAppointmentsByDay,
       _monthStart,
     );
+    final scheduleRangeBounds = _scheduleRangeBounds(
+      viewMode: _viewMode,
+      selectedDate: selectedDate,
+      weekStart: _weekStart,
+      monthStart: _monthStart,
+    );
+    final workerSchedulesAsync = specialistIdForData != null &&
+            specialistIdForData > 0
+        ? ref.watch(
+            workerSchedulesRangeProvider(
+              WorkerSchedulesRangeQuery(
+                workerId: specialistIdForData,
+                rangeStart: scheduleRangeBounds.start,
+                rangeEnd: scheduleRangeBounds.end,
+              ),
+            ),
+          )
+        : null;
+    final workerSchedulesData = workerSchedulesAsync?.value;
+    final dayBranchSchedules =
+        ref.watch(scheduleForDateProvider(scheduleDateKey(selectedDate))).value
+            ?.results ??
+        const <ScheduleItemApi>[];
+    final workerWeekdaysForSpecialist = specialistIdForData != null
+        ? (workerWeekdaysById[specialistIdForData] ?? const <int>{})
+        : const <int>{};
+    bool resolveWorkerNonWorkingDay(DateTime date) {
+      if (specialistIdForData == null) return false;
+      return isWorkerNonWorkingOnDate(
+        date: date,
+        workingWeekdays: workerWeekdaysForSpecialist,
+        daily: workerSchedulesData?.scheduleOn(date),
+        shiftConfig: workerSchedulesData?.shiftConfig,
+      );
+    }
+
     final selectedBreak = _breakForSpecialist(
       availableWorkersAsync.value ?? const [],
       specialistIdForData,
@@ -880,15 +978,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
               branchHours: dayWorkHours,
             );
             if (byShift.start != null && byShift.end != null) return byShift;
-            final weekdays = workerWeekdaysById[specialistIdForData] ?? const <int>{};
-            final isWorkingWeekday = weekdays.contains(selectedDate.weekday);
-            if (isWorkingWeekday) {
-              return (
-                start: dayWorkHours.startHour,
-                end: dayWorkHours.endHour,
-              );
-            }
-            return (start: null, end: null);
+            return workerShiftHoursForDate(
+              date: selectedDate,
+              workingWeekdays: workerWeekdaysForSpecialist,
+              daily: workerSchedulesData?.scheduleOn(selectedDate),
+              shiftConfig: workerSchedulesData?.shiftConfig,
+              branchStartHour: dayWorkHours.startHour,
+              branchEndHour: dayWorkHours.endHour,
+            );
           })()
         : (start: null, end: null);
     final weekWorkHours = _workHoursForWeek(
@@ -1062,6 +1159,19 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       if (previous == null || previous == next) return;
       _forceRefreshScheduleScreen();
     });
+    ref.listen<int>(organizationIdProvider, (previous, next) {
+      if (previous == null || previous == next || next <= 0) return;
+      unawaited(_connectNotificationsSocket());
+    });
+    ref.listen<String?>(tokenProvider, (previous, next) {
+      if (previous == next) return;
+      if (next == null || next.isEmpty) {
+        unawaited(_notificationsSocket?.close());
+        _notificationsSocket = null;
+        return;
+      }
+      unawaited(_connectNotificationsSocket());
+    });
 
     return Scaffold(
       backgroundColor: screenBackground,
@@ -1090,6 +1200,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                       },
                 scheduleSelectedDate: selectedDate,
                 occupancyByDay: dayOccupancyByDay,
+                resolveScheduleNonWorkingDay: specialistIdForData != null
+                    ? resolveWorkerNonWorkingDay
+                    : null,
                 onScheduleDateSelected: (date) {
                   ref.read(selectedScheduleDateProvider.notifier).state =
                       DateTime(date.year, date.month, date.day);
@@ -1203,17 +1316,30 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                   final weekdays =
                                                       workerWeekdaysById[workerId] ??
                                                       const <int>{};
+                                                  final dailyForWorker =
+                                                      pickPreferredDailySchedule(
+                                                    dayBranchSchedules.where(
+                                                      (s) =>
+                                                          s.workerId ==
+                                                          workerId,
+                                                    ),
+                                                    selectedDate,
+                                                  );
                                                   final byWeekday =
-                                                      weekdays.contains(
-                                                        selectedDate.weekday,
-                                                      )
-                                                      ? (
-                                                          start:
-                                                              dayWorkHours.startHour,
-                                                          end:
-                                                              dayWorkHours.endHour,
-                                                        )
-                                                      : (start: null, end: null);
+                                                      workerShiftHoursForDate(
+                                                    date: selectedDate,
+                                                    workingWeekdays: weekdays,
+                                                    daily: dailyForWorker,
+                                                    shiftConfig: workerId ==
+                                                            specialistIdForData
+                                                        ? workerSchedulesData
+                                                            ?.shiftConfig
+                                                        : null,
+                                                    branchStartHour:
+                                                        dayWorkHours.startHour,
+                                                    branchEndHour:
+                                                        dayWorkHours.endHour,
+                                                  );
                                                   final effectiveHours =
                                                       (byShift.start != null &&
                                                           byShift.end != null)
@@ -1355,6 +1481,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         occupancyByDay: weekOccupancyByDay,
                                         workingWeekdays:
                                             workingWeekdaysForWeekCalendar,
+                                        resolveNonWorkingDay:
+                                            specialistIdForData != null
+                                            ? resolveWorkerNonWorkingDay
+                                            : null,
                                       ),
                                     ),
                                     Expanded(
@@ -1377,6 +1507,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                             weekWorkHoursByWeekday,
                                         workingWeekdays:
                                             workingWeekdaysForWeekCalendar,
+                                        resolveNonWorkingDay:
+                                            specialistIdForData != null
+                                            ? resolveWorkerNonWorkingDay
+                                            : null,
                                         breakStart: selectedBreak.breakStart,
                                         breakEnd: selectedBreak.breakEnd,
                                         onAppointmentTap: (item) async {
@@ -1434,6 +1568,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       occupancyByDay: monthOccupancyByDay,
                                       workingWeekdays:
                                           workingWeekdaysForWeekCalendar,
+                                      resolveNonWorkingDay:
+                                          specialistIdForData != null
+                                          ? resolveWorkerNonWorkingDay
+                                          : null,
                                       onDayTap: _switchToDayMode,
                                     ),
                                   ),

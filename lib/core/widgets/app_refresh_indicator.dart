@@ -8,15 +8,29 @@ class AppRefreshIndicator extends StatelessWidget {
     required this.onRefresh,
     required this.child,
     this.displacement = 52,
+    this.notificationPredicate,
   });
 
   final Future<void> Function() onRefresh;
   final Widget child;
   final double displacement;
+  final ScrollNotificationPredicate? notificationPredicate;
 
   static const scrollPhysics = AlwaysScrollableScrollPhysics(
     parent: BouncingScrollPhysics(),
   );
+
+  /// Для вложенного вертикального скролла (Syncfusion-календарь, ListView внутри
+  /// [SliverFillRemaining]). Стандартный `depth == 0` их не видит.
+  static bool nestedVerticalScrollNotificationPredicate(
+    ScrollNotification notification,
+  ) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    if (notification.depth == 0) {
+      return notification.metrics.maxScrollExtent <= 0;
+    }
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +41,8 @@ class AppRefreshIndicator extends StatelessWidget {
       displacement: displacement,
       strokeWidth: 2.5,
       onRefresh: onRefresh,
+      notificationPredicate:
+          notificationPredicate ?? defaultScrollNotificationPredicate,
       child: child,
     );
   }
@@ -55,6 +71,9 @@ class AppRefreshable extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppRefreshIndicator(
       onRefresh: onRefresh,
+      notificationPredicate: hasScrollBody
+          ? AppRefreshIndicator.nestedVerticalScrollNotificationPredicate
+          : null,
       child: CustomScrollView(
         controller: controller,
         physics: AppRefreshIndicator.scrollPhysics,

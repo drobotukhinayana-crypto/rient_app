@@ -52,6 +52,7 @@ class DateStrip extends StatefulWidget {
     this.useMonthCalendarCircleFill = false,
     /// Дни недели (1=пн … 7=вс), когда у мастера смена; иначе кружок штрихуется.
     this.workingWeekdays,
+    this.resolveNonWorkingDay,
     /// График работы: все дни #ECEEF2, невыбранные — светлый текст, выбранный — тёмный.
     this.workScheduleWeekDates = false,
     /// Отступ слева, чтобы дни совпали с колонками сетки (колонка сотрудников).
@@ -88,6 +89,9 @@ class DateStrip extends StatefulWidget {
   /// См. [DateStrip.workingWeekdays].
   final Set<int>? workingWeekdays;
 
+  /// Точечные выходные (ручные дни в графике). Если задано — имеет приоритет над [workingWeekdays].
+  final bool Function(DateTime date)? resolveNonWorkingDay;
+
   final bool workScheduleWeekDates;
 
   final double leadingInset;
@@ -114,7 +118,8 @@ class _DateStripState extends State<DateStrip> {
     if (oldWidget.initialDate != widget.initialDate ||
         oldWidget.selectedDate != widget.selectedDate ||
         oldWidget.visibleWeekStart != widget.visibleWeekStart ||
-        oldWidget.workingWeekdays != widget.workingWeekdays) {
+        oldWidget.workingWeekdays != widget.workingWeekdays ||
+        oldWidget.resolveNonWorkingDay != widget.resolveNonWorkingDay) {
       _buildDates();
     }
     super.didUpdateWidget(oldWidget);
@@ -135,6 +140,8 @@ class _DateStripState extends State<DateStrip> {
   }
 
   bool _isNonWorkingDay(DateTime d) {
+    final resolve = widget.resolveNonWorkingDay;
+    if (resolve != null) return resolve(d);
     final w = widget.workingWeekdays;
     if (w == null) return false;
     return !w.contains(d.weekday);

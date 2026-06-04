@@ -35,6 +35,7 @@ class TopPanel extends StatefulWidget {
     this.initialSelectedSpecialist,
     this.onSpecialistSelected,
     this.scheduleSelectedDate,
+    this.resolveScheduleNonWorkingDay,
     this.onScheduleDateSelected,
     this.scheduleCellIntervalMinutes,
     this.onScheduleCellIntervalChanged,
@@ -77,6 +78,9 @@ class TopPanel extends StatefulWidget {
 
   /// Выбранная дата в режиме «День» (для полоски дат и фильтра специалистов).
   final DateTime? scheduleSelectedDate;
+
+  /// Выходные по ручному графику (штриховка в полоске дат).
+  final bool Function(DateTime date)? resolveScheduleNonWorkingDay;
 
   /// Callback при выборе даты в полоске в режиме «День».
   final ValueChanged<DateTime>? onScheduleDateSelected;
@@ -255,6 +259,7 @@ class _TopPanelState extends State<TopPanel> {
       useGreyCircles: true,
       occupancyByDay: widget.occupancyByDay,
       showFullDateLabel: widget.showFullDateLabel,
+      resolveNonWorkingDay: widget.resolveScheduleNonWorkingDay,
     );
   }
 

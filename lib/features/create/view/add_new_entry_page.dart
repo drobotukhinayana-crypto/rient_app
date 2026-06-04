@@ -15,6 +15,7 @@ import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
+import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
@@ -33,7 +34,9 @@ import 'package:rient_app/features/home/view/providers/worker_permissions_provid
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
+import 'package:rient_app/features/schedule/service/schedules_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
+import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
@@ -428,8 +431,9 @@ class AddNewEntryPage extends ConsumerWidget {
                             },
                           ),
                         );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Запись удалена')),
+                        showAppServiceMessage(
+                          context,
+                          message: 'Запись удалена',
                         );
                         context.pop(true);
                       }
@@ -438,10 +442,10 @@ class AddNewEntryPage extends ConsumerWidget {
                         Navigator.of(dialogContext).pop();
                       }
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Не удалось удалить запись'),
-                          ),
+                        showAppServiceMessage(
+                          context,
+                          message: 'Не удалось удалить запись',
+                          variant: AppServiceMessageVariant.error,
                         );
                       }
                     } finally {
@@ -644,10 +648,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     if (phone.isEmpty || firstName.isEmpty || lastName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Заполните телефон, имя и фамилию клиента'),
-        ),
+      showAppServiceMessage(
+        context,
+        message: 'Заполните телефон, имя и фамилию клиента',
+        variant: AppServiceMessageVariant.info,
       );
       return;
     }
@@ -664,9 +668,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         .read(localStorageProvider)
         .saveString(_rememberedClientStorageKey, jsonEncode(payload));
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Клиент запомнен')));
+    showAppServiceMessage(context, message: 'Клиент запомнен');
   }
 
   void _applyInitialAppointment() {
@@ -1229,14 +1231,34 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           );
           if (allowedWeekdays.isEmpty) {
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('У выбранного мастера нет рабочих дней'),
-              ),
+            showAppServiceMessage(
+              context,
+              message: 'У выбранного мастера нет рабочих дней',
+              variant: AppServiceMessageVariant.info,
             );
             return;
           }
-          isSelectableDay = (day) => allowedWeekdays.contains(day.weekday);
+          final from = _dateOnly(_selectedDate).subtract(const Duration(days: 60));
+          final to = _dateOnly(_selectedDate).add(const Duration(days: 400));
+          final schedulesResponse = await ref
+              .read(schedulesServiceProvider)
+              .getWorkerSchedules(
+                workerId: specialistId,
+                dateGte: from,
+                dateLte: to,
+              );
+          final schedulesByDate = indexDailySchedulesByDate(
+            schedulesResponse.results,
+          );
+          isSelectableDay = (day) {
+            final normalized = _dateOnly(day);
+            return isWorkerWorkingOnDate(
+              date: normalized,
+              workingWeekdays: allowedWeekdays,
+              daily: schedulesByDate[SchedulesService.dateToApi(normalized)],
+              shiftConfig: scheduleConfig,
+            );
+          };
         }
       } catch (_) {
         isSelectableDay = null;
@@ -2625,13 +2647,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                 final messenger = ScaffoldMessenger.maybeOf(
                                   this.context,
                                 );
-                                messenger?.hideCurrentSnackBar();
-                                messenger?.showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
+                                showAppServiceMessage(
+                                  this.context,
+                                  message:
                                       'Временной слот не подходит. Выберите другой',
-                                    ),
-                                  ),
+                                  variant: AppServiceMessageVariant.info,
+                                  messenger: messenger,
                                 );
                               }
                             });
@@ -3020,14 +3041,11 @@ class _BottomActionsBar extends ConsumerWidget {
           }));
         }
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isEditMode
-                  ? 'Запись успешно обновлена'
-                  : 'Запись успешно создана',
-            ),
-          ),
+        showAppServiceMessage(
+          context,
+          message: isEditMode
+              ? 'Запись успешно обновлена'
+              : 'Запись успешно создана',
         );
         if (closeAfterSave) {
           context.pop(true);
@@ -3064,14 +3082,12 @@ class _BottomActionsBar extends ConsumerWidget {
         }
       } catch (e) {
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isEditMode
-                  ? 'Не удалось обновить запись: ${_extractErrorMessage(e)}'
-                  : 'Не удалось создать запись: ${_extractErrorMessage(e)}',
-            ),
-          ),
+        showAppServiceMessage(
+          context,
+          message: isEditMode
+              ? 'Не удалось обновить запись: ${_extractErrorMessage(e)}'
+              : 'Не удалось создать запись: ${_extractErrorMessage(e)}',
+          variant: AppServiceMessageVariant.error,
         );
       } finally {
         ref.read(createEntrySavingProvider.notifier).state = false;

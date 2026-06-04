@@ -30,6 +30,7 @@ class SchedulesService {
     required DateTime dateGte,
     required DateTime dateLte,
     int pageSize = 500,
+    bool bustCache = false,
   }) async {
     final organizationId = ref.read(organizationIdProvider);
     final token = ref.read(tokenProvider);
@@ -46,13 +47,19 @@ class SchedulesService {
       'date__lte': dateToApi(dateLte),
       'page_size': pageSize,
       'branch': branchId,
+      if (bustCache) '_': DateTime.now().millisecondsSinceEpoch,
     };
 
     try {
       final response = await Dio().get<Map<String, dynamic>>(
         url,
         queryParameters: queryParams,
-        options: Options(headers: {'Authorization': 'JWT $token'}),
+        options: Options(
+          headers: {
+            'Authorization': 'JWT $token',
+            if (bustCache) 'Cache-Control': 'no-cache',
+          },
+        ),
       );
 
       if (response.statusCode == 200 && response.data != null) {
@@ -76,6 +83,7 @@ class SchedulesService {
     required DateTime dateGte,
     required DateTime dateLte,
     int pageSize = 500,
+    bool bustCache = false,
   }) async {
     final organizationId = ref.read(organizationIdProvider);
     final token = ref.read(tokenProvider);
@@ -91,13 +99,19 @@ class SchedulesService {
       'date__gte': dateToApi(dateGte),
       'date__lte': dateToApi(dateLte),
       'page_size': pageSize,
+      if (bustCache) '_': DateTime.now().millisecondsSinceEpoch,
     };
 
     try {
       final response = await Dio().get<Map<String, dynamic>>(
         url,
         queryParameters: queryParams,
-        options: Options(headers: {'Authorization': 'JWT $token'}),
+        options: Options(
+          headers: {
+            'Authorization': 'JWT $token',
+            if (bustCache) 'Cache-Control': 'no-cache',
+          },
+        ),
       );
 
       if (response.statusCode == 200 && response.data != null) {

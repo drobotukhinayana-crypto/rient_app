@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/features/link/view/providers/widget_link_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -14,8 +15,10 @@ class WidgetLinkShare {
       await shareUrl(context, url);
     } catch (_) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось получить ссылку')),
+      showAppServiceMessage(
+        context,
+        message: 'Не удалось получить ссылку',
+        variant: AppServiceMessageVariant.error,
       );
     }
   }
@@ -24,9 +27,7 @@ class WidgetLinkShare {
     await Clipboard.setData(ClipboardData(text: url));
     if (!context.mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Ссылка скопирована')),
-    );
+    showAppServiceMessage(context, message: 'Ссылка скопирована');
 
     try {
       final box = context.findRenderObject() as RenderBox?;
@@ -50,12 +51,11 @@ class WidgetLinkShare {
 
   static void _showShareUnavailable(BuildContext context) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
+    showAppServiceMessage(
+      context,
+      message:
           'Меню «Поделиться» недоступно. Ссылка уже в буфере — вставьте вручную.',
-        ),
-      ),
+      variant: AppServiceMessageVariant.info,
     );
   }
 }

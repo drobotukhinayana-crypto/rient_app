@@ -10,12 +10,46 @@ import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dar
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
 
 /// При дублях `wed`/`wen` или branch/worker — активный шаблон и больший id.
-bool _preferDailyScheduleItem(
+/// При дублях на одну дату: ручная запись (`auto: false`), затем больший `id` (свежее с API).
+bool preferDailyScheduleItem(
   ScheduleItemApi candidate,
   ScheduleItemApi current,
 ) {
   if (candidate.auto != current.auto) return !candidate.auto;
   return candidate.id > current.id;
+}
+
+/// Слияние `workers/{id}/schedules/` и `schedules/?branch=` (правки с веба).
+///
+/// Записи `workers/{id}/schedules/` имеют приоритет на дату — там правки с сайта/мобилки.
+List<ScheduleItemApi> mergeWorkerScheduleSources({
+  required List<ScheduleItemApi> fromWorkerEndpoint,
+  required List<ScheduleItemApi> fromBranchEndpoint,
+  required int workerId,
+  required int branchId,
+}) {
+  final byDate = <String, ScheduleItemApi>{};
+
+  for (final item in fromBranchEndpoint) {
+    if (item.branch != branchId) continue;
+    final itemWorkerId = item.workerId;
+    if (itemWorkerId != null && itemWorkerId != workerId) continue;
+    final dateKey = item.canonicalDate;
+    byDate.putIfAbsent(dateKey, () => item);
+  }
+
+  for (final item in fromWorkerEndpoint) {
+    if (item.branch != branchId) continue;
+    final itemWorkerId = item.workerId;
+    if (itemWorkerId != null && itemWorkerId != workerId) continue;
+    final dateKey = item.canonicalDate;
+    final existing = byDate[dateKey];
+    if (existing == null || preferDailyScheduleItem(item, existing)) {
+      byDate[dateKey] = item;
+    }
+  }
+
+  return byDate.values.toList();
 }
 
 bool preferSchedulePattern(
@@ -400,11 +434,13 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
 
   final byDate = <String, ScheduleItemApi>{};
   for (final item in schedules) {
+    if (item.branch != branchId) continue;
     final itemWorkerId = item.workerId;
     if (itemWorkerId != null && itemWorkerId != worker.id) continue;
-    final existing = byDate[item.date];
-    if (existing == null || _preferDailyScheduleItem(item, existing)) {
-      byDate[item.date] = item;
+    final dateKey = item.canonicalDate;
+    final existing = byDate[dateKey];
+    if (existing == null || preferDailyScheduleItem(item, existing)) {
+      byDate[dateKey] = item;
     }
   }
 
@@ -436,9 +472,16 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
             date.weekday,
           );
 
-          // Ручные правки дня — всегда из schedules; auto — общий шаблон (patterns/config).
+          // Запись на дату с active=false — выходной (в т.ч. правки с сайта с auto=true).
+          // Ручные правки (!auto) — из schedules; иначе шаблон недели/смены.
           final WorkScheduleDayCell cell;
-          if (daily != null && !daily.auto) {
+          if (daily != null && !daily.active) {
+            cell = workScheduleCellFromScheduleItem(
+              daily,
+              selected: selected,
+              isManuallyEdited: !daily.auto,
+            );
+          } else if (daily != null && !daily.auto) {
             cell = workScheduleCellFromScheduleItem(
               daily,
               selected: selected,

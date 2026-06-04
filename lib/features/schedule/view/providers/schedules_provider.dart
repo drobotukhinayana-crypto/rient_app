@@ -35,6 +35,7 @@ final scheduleForDateProvider =
         dateGte: date,
         dateLte: date,
         pageSize: 500,
+        bustCache: true,
       );
     });
 

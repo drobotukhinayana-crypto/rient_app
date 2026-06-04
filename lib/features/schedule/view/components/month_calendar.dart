@@ -19,6 +19,7 @@ class MonthCalendar extends StatelessWidget {
     /// Дни недели (1=пн … 7=вс), когда у мастера есть смена. Если задано —
     /// остальные дни **текущего месяца** визуально помечаются как выходные.
     this.workingWeekdays,
+    this.resolveNonWorkingDay,
     this.onDayTap,
   });
 
@@ -34,14 +35,20 @@ class MonthCalendar extends StatelessWidget {
   /// См. [MonthCalendar.workingWeekdays].
   final Set<int>? workingWeekdays;
 
+  /// Ручные выходные и точечные правки графика (приоритет над [workingWeekdays]).
+  final bool Function(DateTime date)? resolveNonWorkingDay;
+
   final ValueChanged<DateTime>? onDayTap;
 
   static bool _isNonWorkingDay(
     DateTime date,
     bool isCurrentMonth,
     Set<int>? workingWeekdays,
+    bool Function(DateTime date)? resolveNonWorkingDay,
   ) {
-    if (workingWeekdays == null || !isCurrentMonth) return false;
+    if (!isCurrentMonth) return false;
+    if (resolveNonWorkingDay != null) return resolveNonWorkingDay(date);
+    if (workingWeekdays == null) return false;
     return !workingWeekdays.contains(date.weekday);
   }
 
@@ -127,6 +134,7 @@ class MonthCalendar extends StatelessWidget {
                         date,
                         false,
                         workingWeekdays,
+                        resolveNonWorkingDay,
                       ),
                       onTap: onDayTap != null ? () => onDayTap!(date) : null,
                     );
@@ -152,6 +160,7 @@ class MonthCalendar extends StatelessWidget {
                         date,
                         false,
                         workingWeekdays,
+                        resolveNonWorkingDay,
                       ),
                       onTap: onDayTap != null ? () => onDayTap!(date) : null,
                     );
@@ -178,6 +187,7 @@ class MonthCalendar extends StatelessWidget {
                       date,
                       true,
                       workingWeekdays,
+                      resolveNonWorkingDay,
                     ),
                     onTap: onDayTap != null ? () => onDayTap!(date) : null,
                   );

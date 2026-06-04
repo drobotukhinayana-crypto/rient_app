@@ -48,6 +48,7 @@ class AppImages {
   static const String radiobuttonDarkUnactive =
       'assets/images/radiobutton_dark_unactive.png';
   static const String solidFull = 'assets/images/solid_full.png';
+  static const String successFilled = 'assets/images/success_filled.png';
   static const String sunFill = 'assets/images/sun_fill.png';
   static const String telegram = 'assets/images/telegram.png';
   static const String telegramBurger = 'assets/images/telegram_burger.png';

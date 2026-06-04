@@ -4,6 +4,7 @@ import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/features/auth/service/get_auth_company.dart';
@@ -100,10 +101,10 @@ class _BodyWidget extends StatelessWidget {
                   final selectedMember =
                       ref.read(selectedOrganizationMemberProvider);
                   if (selectedMember == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Сначала выберите компанию'),
-                      ),
+                    showAppServiceMessage(
+                      context,
+                      message: 'Сначала выберите компанию',
+                      variant: AppServiceMessageVariant.info,
                     );
                     return;
                   }

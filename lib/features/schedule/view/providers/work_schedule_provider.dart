@@ -13,6 +13,8 @@ import 'package:rient_app/features/schedule/view/components/work_schedule_mapper
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_patterns_branch_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_patterns_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/worker_schedules_range_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 
 class WorkScheduleMonthQuery {
@@ -57,29 +59,31 @@ void bumpWorkScheduleReloadToken(WidgetRef ref) {
   ref.read(workScheduleReloadTokenProvider.notifier).update((v) => v + 1);
 }
 
-final workScheduleMonthProvider =
-    FutureProvider.family<List<WorkScheduleEmployeeRow>, WorkScheduleMonthQuery>((
-  ref,
-  query,
-) async {
-  ref.watch(workScheduleReloadTokenProvider);
-  final branchId = ref.watch(currentBranchIdProvider);
+Future<List<WorkScheduleEmployeeRow>> _loadWorkScheduleMonthRows(
+  ProviderContainer container,
+  WorkScheduleMonthQuery query, {
+  bool bustCache = false,
+}) async {
+  final branchId = container.read(currentBranchIdProvider);
   if (branchId == 0) throw Exception('No valid branch selected');
 
-  final workersResponse = await ref.watch(scheduleWorkersProvider.future);
-  final schedulesService = ref.read(schedulesServiceProvider);
-  final workersService = ref.read(workersServiceProvider);
+  // Всегда свежий список сотрудников с API (не кэш .future после invalidate).
+  final workersResponse =
+      await container.refresh(scheduleWorkersProvider.future);
 
-  final workers = await _workersForWorkSchedule(ref, workersResponse.results);
-  final branch = ref.read(currentBranchProvider);
+  final schedulesService = container.read(schedulesServiceProvider);
+  final workersService = container.read(workersServiceProvider);
+
+  final workers =
+      await _workersForWorkSchedule(container, workersResponse.results);
+  final branch = container.read(currentBranchProvider);
   final branchName = branch?.name?.trim() ?? 'Филиал';
 
-  final patternsService = ref.read(schedulePatternsServiceProvider);
+  final patternsService = container.read(schedulePatternsServiceProvider);
   Map<String, SchedulePatternBranchItemApi> branchPatternsByDay;
   try {
-    final branchPatternsResponse = await patternsService.getBranchSchedulePatterns(
-      branchId: branchId,
-    );
+    final branchPatternsResponse =
+        await patternsService.getBranchSchedulePatterns(branchId: branchId);
     branchPatternsByDay = branchSchedulePatternsByDay(branchPatternsResponse);
   } catch (_) {
     branchPatternsByDay = const {};
@@ -91,11 +95,18 @@ final workScheduleMonthProvider =
     );
   }
 
-  final patternsResponse = await ref
+  final patternsResponse = await container
       .read(schedulePatternsServiceProvider)
       .getSchedulePatterns(branchId: branchId);
   final patternsByWorker =
       groupSchedulePatternsByWorker(patternsResponse.results);
+
+  final branchSchedulesResponse = await schedulesService.getSchedules(
+    branchId: branchId,
+    dateGte: query.monthStart,
+    dateLte: query.monthEnd,
+    bustCache: bustCache,
+  );
 
   final workerRows = await Future.wait(
     workers.map(
@@ -113,13 +124,20 @@ final workScheduleMonthProvider =
       workerId: worker.id,
       dateGte: query.monthStart,
       dateLte: query.monthEnd,
+      bustCache: bustCache,
+    );
+    final mergedSchedules = mergeWorkerScheduleSources(
+      fromWorkerEndpoint: schedules.results,
+      fromBranchEndpoint: branchSchedulesResponse.results,
+      workerId: worker.id,
+      branchId: branchId,
     );
     rows.add(
       workScheduleEmployeeRow(
         worker: worker,
         monthStart: query.monthStart,
         branchId: branchId,
-        schedules: schedules.results,
+        schedules: mergedSchedules,
         patterns: mergeSchedulePatternsForWorker(
           fromBranchApi: patternsByWorker[worker.id] ?? const [],
           workerRow: workerRows[i],
@@ -137,19 +155,29 @@ final workScheduleMonthProvider =
     patternsByDay: branchPatternsByDay,
   );
   return [branchRow, ...rows];
+}
+
+final workScheduleMonthProvider =
+    FutureProvider.family<List<WorkScheduleEmployeeRow>, WorkScheduleMonthQuery>((
+  ref,
+  query,
+) async {
+  ref.watch(workScheduleReloadTokenProvider);
+  ref.watch(currentBranchIdProvider);
+  return _loadWorkScheduleMonthRows(ref.container, query);
 });
 
 /// Сотрудник видит только свой график; владелец/менеджер — всех в филиале.
 Future<List<WorkerApi>> _workersForWorkSchedule(
-  Ref ref,
+  ProviderContainer container,
   List<WorkerApi> branchWorkers,
 ) async {
-  final roleId = ref.watch(roleProvider);
+  final roleId = container.read(roleProvider);
   if (roleId != UserRole.worker.value) {
     return branchWorkers;
   }
 
-  final selfId = await ref.watch(currentWorkerIdProvider.future);
+  final selfId = await container.read(currentWorkerIdProvider.future);
   if (selfId == null || selfId <= 0) {
     throw Exception('Worker profile not found');
   }
@@ -177,6 +205,8 @@ void invalidateWorkScheduleCaches(
     );
   }
   ref.invalidate(workScheduleMonthProvider);
+  ref.invalidate(workerSchedulesRangeProvider);
+  ref.invalidate(scheduleForDateProvider);
   bumpWorkScheduleReloadToken(ref);
 }
 
@@ -186,8 +216,12 @@ Future<List<WorkScheduleEmployeeRow>> reloadWorkScheduleMonth(
   int? branchId,
   int? workerId,
 }) async {
+  final container = ProviderScope.containerOf(ref.context, listen: false);
+  final rows = await _loadWorkScheduleMonthRows(
+    container,
+    query,
+    bustCache: true,
+  );
   invalidateWorkScheduleCaches(ref, branchId: branchId, workerId: workerId);
-  // ignore: unused_result
-  ref.refresh(workScheduleMonthProvider(query));
-  return ref.read(workScheduleMonthProvider(query).future);
+  return rows;
 }

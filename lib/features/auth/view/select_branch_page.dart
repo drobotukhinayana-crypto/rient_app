@@ -11,6 +11,7 @@ import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/features/auth/service/get_auth_branches.dart';
@@ -115,8 +116,10 @@ class _BodyWidget extends StatelessWidget {
                 onTap: () async {
                   final selectedBranchId = ref.read(branchesIdProvider);
                   if (selectedBranchId <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Сначала выберите филиал')),
+                    showAppServiceMessage(
+                      context,
+                      message: 'Сначала выберите филиал',
+                      variant: AppServiceMessageVariant.info,
                     );
                     return;
                   }
@@ -152,12 +155,11 @@ class _BodyWidget extends StatelessWidget {
                     }
                   } catch (_) {
                     if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
+                    showAppServiceMessage(
+                      context,
+                      message:
                           'Не удалось применить выбранный филиал, попробуйте снова',
-                        ),
-                      ),
+                      variant: AppServiceMessageVariant.error,
                     );
                     return;
                   }

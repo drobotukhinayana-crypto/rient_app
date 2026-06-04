@@ -4,6 +4,7 @@ import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/app_radio.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
@@ -158,7 +159,7 @@ class _SettingsWorkerPickerSheetState
   }
 
   void _showMessage(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    showAppServiceMessage(context, message: text);
   }
 
   @override

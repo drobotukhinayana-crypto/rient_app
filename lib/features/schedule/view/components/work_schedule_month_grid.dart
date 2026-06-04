@@ -32,7 +32,9 @@ class WorkScheduleMonthGrid extends StatefulWidget {
     required this.month,
     required this.employees,
     required this.selectedDate,
-    required this.horizontalScrollController,
+    required     this.horizontalScrollController,
+    this.savingEmployeeId,
+    this.savingDate,
     this.onCellTap,
     this.onEmployeeMoreTap,
   });
@@ -41,6 +43,8 @@ class WorkScheduleMonthGrid extends StatefulWidget {
   final List<WorkScheduleEmployeeRow> employees;
   final DateTime selectedDate;
   final ScrollController horizontalScrollController;
+  final String? savingEmployeeId;
+  final DateTime? savingDate;
   final void Function(WorkScheduleEmployeeRow employee, DateTime date)?
   onCellTap;
   final void Function(WorkScheduleEmployeeRow employee)? onEmployeeMoreTap;
@@ -124,6 +128,7 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
   }
 
   Widget _scheduleRow(int rowIndex, List<DateTime> monthDays) {
+    final employee = widget.employees[rowIndex];
     return Padding(
       padding: EdgeInsets.only(
         bottom: rowIndex < widget.employees.length - 1
@@ -140,15 +145,12 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
                 width: workScheduleDayColumnWidth,
                 child: _DayCell(
                   date: monthDays[j],
-                  cell: widget.employees[rowIndex].monthCells[j],
+                  cell: employee.monthCells[j],
+                  isSaving: _isSavingCell(employee.id, monthDays[j]),
                   onTap:
-                      widget.onCellTap == null ||
-                          widget.employees[rowIndex].isBranchRow
+                      widget.onCellTap == null || employee.isBranchRow
                       ? null
-                      : () => widget.onCellTap!(
-                          widget.employees[rowIndex],
-                          monthDays[j],
-                        ),
+                      : () => widget.onCellTap!(employee, monthDays[j]),
                 ),
               ),
             ],
@@ -156,6 +158,16 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
         ),
       ),
     );
+  }
+
+  bool _isSavingCell(String employeeId, DateTime date) {
+    final savingDate = widget.savingDate;
+    if (widget.savingEmployeeId != employeeId || savingDate == null) {
+      return false;
+    }
+    return savingDate.year == date.year &&
+        savingDate.month == date.month &&
+        savingDate.day == date.day;
   }
 
   Widget _scheduleTable(
@@ -486,10 +498,16 @@ Color _dayOffBackground(WorkScheduleDayCell cell, bool isPast) {
 }
 
 class _DayCell extends StatelessWidget {
-  const _DayCell({required this.date, required this.cell, this.onTap});
+  const _DayCell({
+    required this.date,
+    required this.cell,
+    this.isSaving = false,
+    this.onTap,
+  });
 
   final DateTime date;
   final WorkScheduleDayCell cell;
+  final bool isSaving;
   final VoidCallback? onTap;
 
   @override
@@ -497,24 +515,52 @@ class _DayCell extends StatelessWidget {
     final accent = AppColors.themeAccent(context);
     final isPast = isPastWorkScheduleDate(date);
 
-    final effectiveOnTap = isPast ? null : onTap;
+    final effectiveOnTap = isPast || isSaving ? null : onTap;
 
+    Widget cellContent;
     if (cell.kind == WorkScheduleCellKind.dayOff) {
-      return _CellContainer(
+      cellContent = _CellContainer(
         isSelected: false,
         accent: accent,
         backgroundColor: _dayOffBackground(cell, isPast),
         onTap: effectiveOnTap,
         child: const Center(child: Text('😴', style: TextStyle(fontSize: 16))),
       );
+    } else {
+      cellContent = _CellContainer(
+        isSelected: cell.isSelected,
+        accent: accent,
+        backgroundColor: _shiftBackground(cell, isPast),
+        onTap: effectiveOnTap,
+        child: _ShiftCellContent(cell: cell),
+      );
     }
 
-    return _CellContainer(
-      isSelected: cell.isSelected,
-      accent: accent,
-      backgroundColor: _shiftBackground(cell, isPast),
-      onTap: effectiveOnTap,
-      child: _ShiftCellContent(cell: cell),
+    if (!isSaving) return cellContent;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        cellContent,
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.28),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

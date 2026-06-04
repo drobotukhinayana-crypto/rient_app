@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/change_time_picker_dialog.dart';
 import 'package:rient_app/core/widgets/custom_switch_widget.dart';
@@ -368,8 +369,10 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
 
     final validationError = _saveValidationError();
     if (validationError != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(validationError)),
+      showAppServiceMessage(
+        context,
+        message: validationError,
+        variant: AppServiceMessageVariant.info,
       );
       return;
     }
@@ -386,8 +389,10 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
       if (appointmentsConflict != null) {
         if (!mounted) return;
         setState(_restoreSavedWeekSchedule);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(appointmentsConflict)),
+        showAppServiceMessage(
+          context,
+          message: appointmentsConflict,
+          variant: AppServiceMessageVariant.info,
         );
         return;
       }
@@ -457,8 +462,10 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
       if (isScheduleAppointmentConflictError(e)) {
         setState(_restoreSavedWeekSchedule);
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_saveErrorMessage(e))),
+      showAppServiceMessage(
+        context,
+        message: _saveErrorMessage(e),
+        variant: AppServiceMessageVariant.error,
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);

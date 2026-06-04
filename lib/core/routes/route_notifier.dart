@@ -60,6 +60,7 @@ class RouterNotifier extends ChangeNotifier {
         ),
       ],
     ),
+    _workScheduleRoute,
     _addNewEntryRoute,
   ];
 }
@@ -103,38 +104,40 @@ final GoRoute _homeTab = GoRoute(
 final GoRoute _scheduleTab = GoRoute(
   name: SchedulePage.name,
   path: SchedulePage.path,
-  routes: [
-    GoRoute(
-      name: WorkSchedulePage.name,
-      path: WorkSchedulePage.path,
-      pageBuilder: (_, state) => MaterialPage(
-        key: state.pageKey,
-        child: const WorkSchedulePage(),
-      ),
-      routes: [
-        GoRoute(
-          name: SpecialistSchedulePage.name,
-          path: SpecialistSchedulePage.path,
-          parentNavigatorKey: rootNavigatorKey,
-          pageBuilder: (_, state) {
-            final extra = state.extra;
-            final args = extra is SpecialistSchedulePageArgs
-                ? extra
-                : const SpecialistSchedulePageArgs(
-                    employeeId: '',
-                    employeeName: 'Специалист',
-                  );
-            return MaterialPage(
-              key: state.pageKey,
-              child: SpecialistSchedulePage(args: args),
-            );
-          },
-        ),
-      ],
-    ),
-  ],
+  routes: const [],
   pageBuilder: (_, state) =>
       MaterialPage(key: state.pageKey, child: const SchedulePage()),
+);
+
+/// График работы — с корневого navigator, чтобы открывался из меню с любой вкладки.
+final GoRoute _workScheduleRoute = GoRoute(
+  name: WorkSchedulePage.name,
+  path: '/${WorkSchedulePage.path}',
+  parentNavigatorKey: rootNavigatorKey,
+  pageBuilder: (_, state) => MaterialPage(
+    key: state.pageKey,
+    child: const WorkSchedulePage(),
+  ),
+  routes: [
+    GoRoute(
+      name: SpecialistSchedulePage.name,
+      path: SpecialistSchedulePage.path,
+      parentNavigatorKey: rootNavigatorKey,
+      pageBuilder: (_, state) {
+        final extra = state.extra;
+        final args = extra is SpecialistSchedulePageArgs
+            ? extra
+            : const SpecialistSchedulePageArgs(
+                employeeId: '',
+                employeeName: 'Специалист',
+              );
+        return MaterialPage(
+          key: state.pageKey,
+          child: SpecialistSchedulePage(args: args),
+        );
+      },
+    ),
+  ],
 );
 
 final GoRoute _chatTab = GoRoute(

@@ -1,6 +1,7 @@
 // ignore_for_file: invalid_annotation_target
 
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:rient_app/features/schedule/utils/schedule_date_utils.dart';
 
 part 'schedules_api.freezed.dart';
 part 'schedules_api.g.dart';
@@ -59,13 +60,7 @@ extension ScheduleItemApiX on ScheduleItemApi {
     return value.length >= 5 ? value.substring(0, 5) : value;
   }
 
-  DateTime? get dateParsed {
-    final parts = date.split('-');
-    if (parts.length != 3) return null;
-    final year = int.tryParse(parts[0]);
-    final month = int.tryParse(parts[1]);
-    final day = int.tryParse(parts[2]);
-    if (year == null || month == null || day == null) return null;
-    return DateTime(year, month, day);
-  }
+  DateTime? get dateParsed => parseScheduleApiDate(date);
+
+  String get canonicalDate => canonicalScheduleDateKey(date);
 }

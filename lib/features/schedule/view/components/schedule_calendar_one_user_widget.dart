@@ -46,6 +46,7 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
     this.workerStartHour,
     this.workerEndHour,
     this.workingWeekdays,
+    this.resolveNonWorkingDay,
     this.timeRulerSize = kDefaultTimeRulerSize,
     this.timeIntervalMinutes = 10,
     this.onScrollPositionReady,
@@ -72,6 +73,8 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
   /// Для недели: дни недели (1=пн … 7=вс), когда у мастера есть смена по графику филиала.
   /// Если задано и день не входит в множество — колонка целиком штрихуется (выходной).
   final Set<int>? workingWeekdays;
+
+  final bool Function(DateTime date)? resolveNonWorkingDay;
 
   /// Ширина шкалы времени (0 — только у первой колонки в мультидне).
   final double timeRulerSize;
@@ -187,8 +190,11 @@ class _ScheduleCalendarOneUserWidgetState
       );
       for (var i = 0; i < 7; i++) {
         final day = weekStart.add(Duration(days: i));
-        final workerDays = widget.workingWeekdays;
-        if (workerDays != null && !workerDays.contains(day.weekday)) {
+        final isOff = widget.resolveNonWorkingDay != null
+            ? widget.resolveNonWorkingDay!(day)
+            : (widget.workingWeekdays != null &&
+                !widget.workingWeekdays!.contains(day.weekday));
+        if (isOff) {
           regions.add(
             TimeRegion(
               startTime: at(day, widget.startHour),

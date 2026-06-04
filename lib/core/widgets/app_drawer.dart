@@ -106,173 +106,218 @@ class AppDrawer extends ConsumerWidget {
                   ? AppColors.secondaryDarkDark
                   : AppColors.secondaryDark,
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  CircleAvatar(
-                    radius: 25,
-                    backgroundColor: AppColors.themeAccent(
-                      context,
-                    ).withValues(alpha: 0.2),
-                    backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                        ? NetworkImage(avatarUrl)
-                        : null,
-                    child: avatarUrl == null || avatarUrl.isEmpty
-                        ? Text(
-                            avatarInitial,
-                            style: AppFonts.b1Medium.copyWith(
-                              color: AppColors.themeAccent(context),
-                            ),
-                          )
-                        : null,
-                  ),
-                  const Gap(12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          userName,
-                          style: AppFonts.b1Medium.copyWith(color: onSurface),
-                        ),
-                        if (nameJobLine != null) ...[
-                          const Gap(4),
-                          Text(
-                            nameJobLine,
-                            style: AppFonts.c1Regular.copyWith(
-                              color: isDark
-                                  ? AppColors.grey
-                                  : AppColors.tabbarGrey,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 25,
+                                  backgroundColor: AppColors.themeAccent(
+                                    context,
+                                  ).withValues(alpha: 0.2),
+                                  backgroundImage:
+                                      avatarUrl != null && avatarUrl.isNotEmpty
+                                      ? NetworkImage(avatarUrl)
+                                      : null,
+                                  child: avatarUrl == null || avatarUrl.isEmpty
+                                      ? Text(
+                                          avatarInitial,
+                                          style: AppFonts.b1Medium.copyWith(
+                                            color: AppColors.themeAccent(
+                                              context,
+                                            ),
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                                const Gap(12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        userName,
+                                        style: AppFonts.b1Medium.copyWith(
+                                          color: onSurface,
+                                        ),
+                                      ),
+                                      if (nameJobLine != null) ...[
+                                        const Gap(4),
+                                        Text(
+                                          nameJobLine,
+                                          style: AppFonts.c1Regular.copyWith(
+                                            color: isDark
+                                                ? AppColors.grey
+                                                : AppColors.tabbarGrey,
+                                          ),
+                                        ),
+                                      ],
+                                      const Gap(4),
+                                      Text(
+                                        roleAndBranch,
+                                        style: AppFonts.c1Regular.copyWith(
+                                          color: isDark
+                                              ? AppColors.grey
+                                              : AppColors.tabbarGrey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (showWorkSchedule) ...[
+                            const Gap(5),
+                            _DrawerTile(
+                              iconAsset: AppImages.timeBurger,
+                              label: 'График работы',
+                              onTap: () => closeThen(
+                                () => context.pushNamed(WorkSchedulePage.name),
+                              ),
+                            ),
+                          ],
+                          if (showAnalytics) ...[
+                            const Gap(5),
+                            _DrawerTile(
+                              iconAsset: AppImages.chartBurger,
+                              label: 'Аналитика',
+                              onTap: () => closeThen(
+                                () => context.pushNamed(AnalyticsPage.name),
+                              ),
+                            ),
+                          ],
+                          const Gap(5),
+                          _DrawerTile(
+                            icon: Icons.settings_outlined,
+                            label: 'Настройки',
+                            onTap: () => closeThen(
+                              () => context.pushNamed(SettingsPage.name),
+                            ),
+                          ),
+                          const Gap(5),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                Image.asset(
+                                  AppImages.themeBurger,
+                                  width: 24,
+                                  height: 24,
+                                ),
+                                const Gap(6),
+                                Text(
+                                  'Тема',
+                                  style: AppFonts.b2Medium.copyWith(
+                                    color: onSurface,
+                                  ),
+                                ),
+                                const Spacer(),
+                                const ThemeSwitchPill(),
+                              ],
+                            ),
+                          ),
+                          const Gap(5),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Image.asset(
+                                  AppImages.languageBurger,
+                                  width: 24,
+                                  height: 24,
+                                ),
+                                const Gap(6),
+                                Text(
+                                  'Локализация',
+                                  style: AppFonts.b2Medium.copyWith(
+                                    color: onSurface,
+                                  ),
+                                ),
+                                const Spacer(),
+                                const LanguageDropdownPill(
+                                  showLeadingIcon: false,
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                        const Gap(4),
-                        Text(
-                          roleAndBranch,
-                          style: AppFonts.c1Regular.copyWith(
-                            color: isDark
-                                ? AppColors.grey
-                                : AppColors.tabbarGrey,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _DrawerSocialPill(
+                            iconAsset: AppImages.whatsappIconBurger,
+                            uri: Uri.parse('https://wa.me/79854230137'),
+                          ),
+                        ),
+                        const Gap(12),
+                        Expanded(
+                          child: _DrawerSocialPill(
+                            iconAsset: AppImages.telegramBurger,
+                            uri: Uri.parse('https://t.me/rientSupport'),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
-            if (showWorkSchedule) ...[
-              Gap(5),
-              _DrawerTile(
-                iconAsset: AppImages.timeBurger,
-                label: 'График работы',
-                onTap: () =>
-                    closeThen(() => context.pushNamed(WorkSchedulePage.name)),
-              ),
-            ],
-            if (showAnalytics) ...[
-              Gap(5),
-              _DrawerTile(
-                iconAsset: AppImages.chartBurger,
-                label: 'Аналитика',
-                onTap: () =>
-                    closeThen(() => context.pushNamed(AnalyticsPage.name)),
-              ),
-            ],
-            Gap(5),
-            _DrawerTile(
-              icon: Icons.settings_outlined,
-
-              label: 'Настройки',
-              onTap: () =>
-                  closeThen(() => context.pushNamed(SettingsPage.name)),
-            ),
-            Gap(5),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  Image.asset(AppImages.themeBurger, width: 24, height: 24),
-                  const Gap(6),
-                  Text(
-                    'Тема',
-                    style: AppFonts.b2Medium.copyWith(color: onSurface),
+                  const Gap(8),
+                  _DrawerTile(
+                    iconAsset: AppImages.personBurger,
+                    label: 'Пользовательское соглашение',
+                    labelStyle: AppFonts.c1Regular.copyWith(
+                      color: isDark
+                          ? AppColors.mainAccentDark
+                          : AppColors.mainAccent,
+                    ),
+                    onTap: () {},
                   ),
-                  const Spacer(),
-                  const ThemeSwitchPill(),
-                ],
-              ),
-            ),
-            Gap(5),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Image.asset(AppImages.languageBurger, width: 24, height: 24),
-                  const Gap(6),
-                  Text(
-                    'Локализация',
-                    style: AppFonts.b2Medium.copyWith(color: onSurface),
+                  _DrawerTile(
+                    iconAsset: AppImages.logoutBurger,
+                    label: 'Выйти из аккаунта',
+                    labelStyle: AppFonts.c1Regular.copyWith(
+                      color: Colors.red,
+                    ),
+                    onTap: () => showLogoutConfirmDialog(context, ref),
                   ),
-                  const Spacer(),
-                  const LanguageDropdownPill(showLeadingIcon: false),
-                ],
-              ),
-            ),
-
-            Spacer(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _DrawerSocialPill(
-                      iconAsset: AppImages.whatsappIconBurger,
-                      uri: Uri.parse('https://wa.me/79854230137'),
+                  const Gap(8),
+                  Center(
+                    child: Text(
+                      'v1.0',
+                      style: AppFonts.c1Regular.copyWith(color: AppColors.grey),
                     ),
                   ),
-                  const Gap(12),
-                  Expanded(
-                    child: _DrawerSocialPill(
-                      iconAsset: AppImages.telegramBurger,
-                      uri: Uri.parse('https://t.me/rientSupport'),
+                  const Gap(4),
+                  Center(
+                    child: Text(
+                      'Copyright Rient, 2025',
+                      style: AppFonts.c1Regular.copyWith(color: AppColors.grey),
                     ),
                   ),
+                  const Gap(8),
                 ],
-              ),
-            ),
-            Gap(16),
-
-            _DrawerTile(
-              iconAsset: AppImages.personBurger,
-              label: 'Пользовательское соглашение',
-              labelStyle: AppFonts.c1Regular.copyWith(
-                color: isDark ? AppColors.mainAccentDark : AppColors.mainAccent,
-              ),
-              onTap: () {},
-            ),
-            _DrawerTile(
-              iconAsset: AppImages.logoutBurger,
-              label: 'Выйти из аккаунта',
-              labelStyle: AppFonts.c1Regular.copyWith(color: Colors.red),
-              onTap: () => showLogoutConfirmDialog(context, ref),
-            ),
-            Gap(12),
-            Center(
-              child: Text(
-                'v1.0',
-                style: AppFonts.c1Regular.copyWith(color: AppColors.grey),
-              ),
-            ),
-            Gap(12),
-            Center(
-              child: Text(
-                'Copyright Rient, 2025',
-                style: AppFonts.c1Regular.copyWith(color: AppColors.grey),
               ),
             ),
           ],

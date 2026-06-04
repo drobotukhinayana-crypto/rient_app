@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
@@ -117,10 +118,10 @@ class _PushNotificationsTileState extends ConsumerState<_PushNotificationsTile> 
                   await setPushEnabled(ref, value);
                 } catch (_) {
                   if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Не удалось изменить настройку'),
-                    ),
+                  showAppServiceMessage(
+                    context,
+                    message: 'Не удалось изменить настройку',
+                    variant: AppServiceMessageVariant.error,
                   );
                 } finally {
                   if (mounted) setState(() => _isUpdating = false);

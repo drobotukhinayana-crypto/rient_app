@@ -8,6 +8,7 @@ import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/date_range_picker_dialog.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
@@ -161,10 +162,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       await _loadFirstPage();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Не удалось отметить все как прочитанные'),
-        ),
+      showAppServiceMessage(
+        context,
+        message: 'Не удалось отметить все как прочитанные',
+        variant: AppServiceMessageVariant.error,
       );
     }
   }
@@ -183,9 +184,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           .getAppointmentById(appointmentId);
       if (!mounted) return;
       if (appointment == null) {
-        ScaffoldMessenger.of(
+        showAppServiceMessage(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Запись не найдена')));
+          message: 'Запись не найдена',
+          variant: AppServiceMessageVariant.info,
+        );
         return;
       }
       await context.pushNamed<bool>(AddNewEntryPage.name, extra: appointment);
@@ -193,8 +196,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       await _loadFirstPage();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось открыть запись')),
+      showAppServiceMessage(
+        context,
+        message: 'Не удалось открыть запись',
+        variant: AppServiceMessageVariant.error,
       );
     } finally {
       if (mounted) {
