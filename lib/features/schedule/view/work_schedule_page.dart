@@ -4,6 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/models/worker_entity_labels.dart';
+import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
+import 'package:rient_app/core/routes/route_notifier.dart' show rootNavigatorKey;
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
@@ -11,7 +14,10 @@ import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
+import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/data/models/schedules_api/create_worker_schedule_request.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_day_edit_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
@@ -22,7 +28,12 @@ import 'package:rient_app/features/schedule/view/providers/workers_provider.dart
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
 import 'package:rient_app/features/schedule/utils/schedule_date_utils.dart';
 import 'package:rient_app/features/schedule/utils/work_schedule_appointment_conflict.dart'
-    show humanizeScheduleApiError, validateWorkScheduleDayAgainstAppointments, WorkScheduleDayBounds;
+    show
+        humanizeScheduleApiError,
+        isWorkSchedulePermissionError,
+        validateWorkScheduleDayAgainstAppointments,
+        WorkScheduleDayBounds,
+        workScheduleNoPermissionMessage;
 import 'package:rient_app/features/schedule/view/specialist_schedule_page.dart';
 
 class WorkSchedulePage extends ConsumerStatefulWidget {
@@ -37,6 +48,7 @@ class WorkSchedulePage extends ConsumerStatefulWidget {
 
 class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     with WidgetsBindingObserver {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late DateTime _monthStart;
   late ScrollController _datesHeaderScroll;
   late ScrollController _gridHorizontalScroll;
@@ -67,6 +79,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     _syncToNow();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_reloadWorkSchedule());
+      unawaited(ref.read(canChangeWorkScheduleProvider.future));
     });
   }
 
@@ -572,10 +585,35 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     );
   }
 
+  Future<bool> _canChangeWorkSchedule() async {
+    if (ref.read(workScheduleEditBlockedProvider)) return false;
+    return ref.read(canChangeWorkScheduleProvider.future);
+  }
+
+  void _showWorkScheduleNoPermissionMessage() {
+    if (!mounted) return;
+    final hostContext = _scaffoldKey.currentContext ?? context;
+    if (!hostContext.mounted) return;
+    showAppServiceMessage(
+      hostContext,
+      message: workScheduleNoPermissionMessage,
+      variant: AppServiceMessageVariant.error,
+    );
+  }
+
+  void _handleWorkSchedulePermissionDenied() {
+    markWorkScheduleEditBlocked(ref);
+    _showWorkScheduleNoPermissionMessage();
+  }
+
   Future<void> _onDayCellTap(
     WorkScheduleEmployeeRow employee,
     DateTime date,
   ) async {
+    if (!await _canChangeWorkSchedule()) {
+      _showWorkScheduleNoPermissionMessage();
+      return;
+    }
     if (employee.isBranchRow || isPastWorkScheduleDate(date)) return;
 
     final cell = _cellForDate(employee, date);
@@ -588,7 +626,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     final normalizedDate = DateTime(date.year, date.month, date.day);
 
     final result = await showWorkScheduleDayEditDialog(
-      context,
+      rootNavigatorKey.currentContext ?? context,
       cell: cell,
       validateBeforeSave: (draft) => validateWorkScheduleDayAgainstAppointments(
         ref: ref,
@@ -661,8 +699,12 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
       if (snapshot != null) {
         _setEmployeesPreservingScroll(snapshot);
       }
+      if (isWorkSchedulePermissionError(e)) {
+        _handleWorkSchedulePermissionDenied();
+        return;
+      }
       showAppServiceMessage(
-        context,
+        _scaffoldKey.currentContext ?? context,
         message: _saveDayErrorMessage(e),
         variant: AppServiceMessageVariant.error,
       );
@@ -678,9 +720,15 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
   }
 
   Future<void> _onEmployeeMoreTap(WorkScheduleEmployeeRow employee) async {
+    if (!await _canChangeWorkSchedule()) {
+      _showWorkScheduleNoPermissionMessage();
+      return;
+    }
     if (employee.isBranchRow) return;
+    final hostContext = rootNavigatorKey.currentContext ?? context;
+    if (!hostContext.mounted) return;
     try {
-      final saved = await context.pushNamed<bool>(
+      final saved = await hostContext.pushNamed<bool>(
         SpecialistSchedulePage.name,
         extra: SpecialistSchedulePageArgs(
           employeeId: employee.id,
@@ -715,13 +763,18 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     final screenBackground = isDark
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
+    final isWorkerRole = ref.watch(roleProvider) == UserRole.worker.value;
+    final workerLabels =
+        ref.watch(workerEntityLabelsProvider).value ??
+        WorkerEntityLabels.defaults;
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: screenBackground,
       body: Column(
         children: [
           TopPanel(
-            title: 'График работы',
+            title: workerLabels.workScheduleTitle(isWorkerRole: isWorkerRole),
             showBackButton: true,
             scheduleMonthHeaderOnly: true,
             monthStart: _monthStart,

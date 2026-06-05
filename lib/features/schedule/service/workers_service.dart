@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
+import 'package:rient_app/core/network/app_dio.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
@@ -44,7 +45,7 @@ class WorkersService {
     };
 
     try {
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         queryParameters: queryParams,
         options: Options(headers: {'Authorization': 'JWT $token'}),
@@ -129,7 +130,7 @@ class WorkersService {
 
     final url = ApiConsts().createUrl('organizations/$organizationId/workers/');
     try {
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         queryParameters: {
           'branches__id__in': branchId,
@@ -165,7 +166,7 @@ class WorkersService {
 
     final url = ApiConsts().createUrl('organizations/$organizationId/workers/');
     try {
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         queryParameters: {
           'branches__id__in': branchId,
@@ -259,7 +260,7 @@ class WorkersService {
     final dateQuery = normalizedDate.toUtc().toIso8601String();
 
     try {
-      final response = await Dio().get<List<dynamic>>(
+      final response = await createAppDio().get<List<dynamic>>(
         url,
         queryParameters: {'date': dateQuery},
         options: Options(headers: {'Authorization': 'JWT $token'}),

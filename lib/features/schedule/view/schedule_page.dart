@@ -9,7 +9,11 @@ import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
+import 'package:rient_app/core/widgets/schedule_offline_banner.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
+import 'package:rient_app/features/schedule/service/schedule_offline_sync_service.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_invalidation.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/create/view/add_new_entry_page.dart';
@@ -68,6 +72,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   List<SpecialistItem> _lastDaySpecialists = const [];
 
   bool _pendingDayHorizontalScrollAlign = false;
+  bool _initialOfflineSyncScheduled = false;
 
   @override
   void initState() {
@@ -304,6 +309,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
 
   void _forceRefreshScheduleScreen() {
     final selectedDate = ref.read(selectedScheduleDateProvider);
+    ref.invalidate(workerEntityLabelsProvider);
     ref.invalidate(scheduleAppointmentsProvider);
     final weekAnchor = _toDateOnly(
       _viewMode == ViewMode.day ? selectedDate : _weekStart,
@@ -359,6 +365,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   }
 
   Future<void> _onPullToRefresh() async {
+    if (ref.read(scheduleOfflineModeProvider)) return;
+    await ref.read(scheduleOfflineSyncServiceProvider).syncIfOnline();
     _forceRefreshScheduleScreen();
     final selectedDate = ref.read(selectedScheduleDateProvider);
     final normalizedDate = DateTime(
@@ -803,6 +811,17 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           orElse: () => null,
         );
     final canCreateSchedule = workerPermissions?.createSchedule ?? true;
+    final isScheduleOffline = ref.watch(scheduleOfflineModeProvider);
+    ref.watch(scheduleServerUnreachableListenerProvider);
+    final scheduleReadOnly = isScheduleOffline;
+
+    if (!_initialOfflineSyncScheduled) {
+      _initialOfflineSyncScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(ref.read(scheduleOfflineSyncServiceProvider).syncIfOnline());
+      });
+    }
     final currentWorkerIdAsync = ref.watch(currentWorkerIdProvider);
     final currentWorkerId = currentWorkerIdAsync.value;
     final currentBranch = ref.watch(currentBranchProvider);
@@ -810,8 +829,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       scheduleCellIntervalMinutesProvider,
     );
     final selectedDate = ref.watch(selectedScheduleDateProvider);
-    final workerIdMissing =
-        isWorkerRole && !currentWorkerIdAsync.isLoading && currentWorkerId == null;
     final workerWeekdaysAsync = ref.watch(workerWeekdaysByIdProvider);
     final workerWeekdaysById = workerWeekdaysAsync.hasValue
         ? workerWeekdaysAsync.requireValue
@@ -836,10 +853,19 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     if (availableWorkersAsync.hasValue && allSpecialists.isNotEmpty) {
       _lastDaySpecialists = allSpecialists;
     }
-    final specialists = isWorkerRole
+    var specialists = isWorkerRole
         ? allSpecialists.where((s) => s.id == currentWorkerId).toList()
         : allSpecialists;
     final savedSelectedId = ref.watch(selectedSpecialistIdProvider);
+    if (isScheduleOffline && specialists.isEmpty) {
+      final fromCache = ref.watch(scheduleOfflineSpecialistsProvider).value;
+      if (fromCache != null && fromCache.isNotEmpty) {
+        final workerFilterId = currentWorkerId ?? savedSelectedId;
+        specialists = isWorkerRole && workerFilterId != null
+            ? fromCache.where((s) => s.id == workerFilterId).toList()
+            : fromCache;
+      }
+    }
     SpecialistItem? initialSelected;
     if (specialists.isNotEmpty) {
       if (savedSelectedId != null) {
@@ -859,9 +885,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final selectedSpecialistId = initialSelected?.id;
     /// Пока нет списка доступных на дату, у воркера всё равно известен id из профиля.
     final specialistIdForData = selectedSpecialistId ??
+        (savedSelectedId != null && savedSelectedId > 0 ? savedSelectedId : null) ??
         (isWorkerRole && currentWorkerId != null && currentWorkerId > 0
             ? currentWorkerId
             : null);
+    final workerIdMissing = !isScheduleOffline &&
+        isWorkerRole &&
+        !currentWorkerIdAsync.isLoading &&
+        specialistIdForData == null;
     final statisticsWorkerId =
         specialistIdForData != null && specialistIdForData > 0
             ? specialistIdForData
@@ -1039,9 +1070,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       weekStartDate,
       weekEndDate,
     );
-    final dayAppointmentsLoading = multiDayColumns
-        ? dayAppsBySpecialistIndex.any((a) => a.isLoading)
-        : dayAppointmentsSingleAsync.isLoading;
+    final dayAppointmentsLoading = !isScheduleOffline &&
+        (multiDayColumns
+            ? dayAppsBySpecialistIndex.any((a) => a.isLoading)
+            : dayAppointmentsSingleAsync.isLoading);
     final Set<int>? workingWeekdaysForWeekCalendar =
         specialistIdForData == null
         ? null
@@ -1049,13 +1081,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
               ? null
               : (workerWeekdaysById[specialistIdForData] ?? const <int>{}));
 
-    final showGlobalLoader =
-        (isWorkerRole && currentWorkerIdAsync.isLoading) ||
-        availableWorkersLoading ||
-        (_viewMode == ViewMode.day && dayAppointmentsLoading) ||
-        (_viewMode == ViewMode.week && weekAppointmentsAsync.isLoading) ||
-        (_viewMode == ViewMode.week && weekStatisticsLoading) ||
-        (_viewMode == ViewMode.month && monthStatisticsLoading);
+    final showScheduleBodyLoader = !isScheduleOffline &&
+        ((isWorkerRole && currentWorkerIdAsync.isLoading) ||
+            availableWorkersLoading ||
+            (_viewMode == ViewMode.day && dayAppointmentsLoading) ||
+            (_viewMode == ViewMode.week &&
+                weekAppointmentsAsync.isLoading) ||
+            (_viewMode == ViewMode.week && weekStatisticsLoading) ||
+            (_viewMode == ViewMode.month && monthStatisticsLoading));
 
     if (_pendingDayHorizontalScrollAlign &&
         _viewMode == ViewMode.day &&
@@ -1148,6 +1181,25 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         ref.read(openScheduleOnDayProvider.notifier).state = null;
       });
     });
+    ref.listen<bool>(scheduleOfflineModeProvider, (previous, next) {
+      if (next == true && previous != true) {
+        invalidateScheduleNetworkProviders(ref);
+        unawaited(() async {
+          final storage = ref.read(localStorageProvider);
+          final idStr = await storage.getString(selectedSpecialistIdStorageKey);
+          final id = int.tryParse(idStr ?? '');
+          if (id != null && id > 0) {
+            ref.read(selectedSpecialistIdProvider.notifier).state = id;
+          }
+        }());
+      }
+      if (previous == true && next == false) {
+        ref.read(scheduleServerReachableProvider.notifier).state = true;
+        unawaited(ref.read(scheduleOfflineSyncServiceProvider).syncIfOnline());
+        ref.invalidate(scheduleAppointmentsProvider);
+        _forceRefreshScheduleScreen();
+      }
+    });
     return Scaffold(
       backgroundColor: screenBackground,
       body: Stack(
@@ -1162,7 +1214,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                 onScheduleStateChanged: _onScheduleStateChanged,
                 specialists: specialists,
                 initialSelectedSpecialist: initialSelected,
-                onSpecialistSelected: isWorkerRole
+                onSpecialistSelected: isWorkerRole || scheduleReadOnly
                     ? null
                     : (s) async {
                         ref.read(selectedSpecialistIdProvider.notifier).state =
@@ -1183,27 +1235,34 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                       DateTime(date.year, date.month, date.day);
                 },
                 scheduleCellIntervalMinutes: scheduleCellIntervalMinutes,
-                onScheduleCellIntervalChanged: (value) {
-                  ref.read(scheduleCellIntervalMinutesProvider.notifier).state =
-                      value;
-                },
+                onScheduleCellIntervalChanged: scheduleReadOnly
+                    ? null
+                    : (value) {
+                        ref.read(
+                          scheduleCellIntervalMinutesProvider.notifier,
+                        ).state = value;
+                      },
               ),
+              if (isScheduleOffline) const ScheduleOfflineBanner(),
               Expanded(
-                child: AppRefreshable(
-                  onRefresh: _onPullToRefresh,
+                child: Stack(
+                  children: [
+                    AppRefreshable(
+                  onRefresh: scheduleReadOnly ? () async {} : _onPullToRefresh,
                   hasScrollBody: true,
-                  child: workersAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (err, _) => Center(
-                    child: Padding(
-                      padding: AppDecoration.padding16,
-                      child: Text(
-                        workerLabels.failedLoadWorkersList,
-                        style: TextStyle(color: AppColors.grey),
-                      ),
-                    ),
-                  ),
-                  data: (_) => _viewMode == ViewMode.day
+                  child: (!isScheduleOffline && workersAsync.isLoading)
+                      ? const SizedBox.shrink()
+                      : (!isScheduleOffline && workersAsync.hasError)
+                      ? Center(
+                          child: Padding(
+                            padding: AppDecoration.padding16,
+                            child: Text(
+                              workerLabels.failedLoadWorkersList,
+                              style: TextStyle(color: AppColors.grey),
+                            ),
+                          ),
+                        )
+                      : _viewMode == ViewMode.day
                       ? (workerIdMissing
                           ? Center(
                               child: Padding(
@@ -1363,7 +1422,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                             _refreshScheduleAppointmentsOnly();
                                           },
                                           onEmptySlotTap: (workerId, dateTime) {
-                                            if (!canCreateSchedule) return;
+                                            if (scheduleReadOnly ||
+                                                !canCreateSchedule) {
+                                              return;
+                                            }
                                             unawaited(
                                               _openAddEntryFromEmptySlot(
                                                 extra: AddNewEntryInitialData(
@@ -1407,7 +1469,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                             _refreshScheduleAppointmentsOnly();
                                           },
                                           onEmptySlotTap: (dateTime) {
-                                            if (!canCreateSchedule) return;
+                                            if (scheduleReadOnly ||
+                                                !canCreateSchedule) {
+                                              return;
+                                            }
                                             if (specialistIdForData == null) {
                                               return;
                                             }
@@ -1504,7 +1569,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                           _refreshScheduleAppointmentsOnly();
                                         },
                                         onEmptySlotTap: (dateTime) {
-                                          if (!canCreateSchedule) return;
+                                          if (scheduleReadOnly ||
+                                              !canCreateSchedule) {
+                                            return;
+                                          }
                                           if (specialistIdForData == null) {
                                             return;
                                           }
@@ -1553,18 +1621,21 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                               ),
                           ],
                         ),
+                    ),
+                    if (showScheduleBodyLoader)
+                      Positioned.fill(
+                        child: Container(
+                          color: screenBackground.withValues(alpha: 0.35),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ),
             ],
           ),
-          if (showGlobalLoader)
-            Positioned.fill(
-              child: Container(
-                color: screenBackground.withValues(alpha: 0.35),
-                child: const Center(child: CircularProgressIndicator()),
-              ),
-            ),
         ],
       ),
     );

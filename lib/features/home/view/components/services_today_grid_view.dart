@@ -1,11 +1,15 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/network/app_offline.dart'
+    show shouldShowNoConnectionMessage;
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/core/widgets/offline_message.dart';
 import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
+import 'package:rient_app/core/network/app_connectivity_provider.dart';
 
 class ServicesTodayGridView extends ConsumerWidget {
   const ServicesTodayGridView({super.key});
@@ -13,8 +17,13 @@ class ServicesTodayGridView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isOffline = ref.watch(appNoConnectionProvider);
     final statisticsAsync = ref.watch(statisticsProvider);
     final selectedDate = ref.watch(selectedDateProvider);
+
+    if (isOffline) {
+      return const OfflineMessage();
+    }
     final selectedDateStr =
         '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
 
@@ -75,21 +84,25 @@ class ServicesTodayGridView extends ConsumerWidget {
           },
         );
       },
-      loading: () => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32.0),
-          child: CircularProgressIndicator(),
-        ),
-      ),
-      error: (error, stack) => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'Ошибка загрузки статистики',
-            style: TextStyle(color: Colors.red),
-          ),
-        ),
-      ),
+      loading: () => isOffline
+          ? const OfflineMessage()
+          : const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32.0),
+                child: CircularProgressIndicator(),
+              ),
+            ),
+      error: (error, stack) => shouldShowNoConnectionMessage(error)
+          ? const OfflineMessage()
+          : const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'Ошибка загрузки статистики',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
+import 'package:rient_app/core/network/app_dio.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
@@ -24,7 +25,7 @@ class AppointmentsService {
     final url = ApiConsts().createUrl('appointments/$appointmentId/');
 
     try {
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         options: Options(headers: {'Authorization': 'JWT $token'}),
       );
@@ -63,7 +64,7 @@ class AppointmentsService {
     };
 
     try {
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         queryParameters: queryParams,
         options: Options(headers: {'Authorization': 'JWT $token'}),
@@ -95,7 +96,7 @@ class AppointmentsService {
     final url = ApiConsts().createUrl('appointments/$appointmentId/');
 
     try {
-      final response = await Dio().delete<void>(
+      final response = await createAppDio().delete<void>(
         url,
         queryParameters: {'captcha': captcha},
         options: Options(headers: {'Authorization': 'JWT $token'}),
@@ -125,7 +126,7 @@ class AppointmentsService {
     final url = ApiConsts().createUrl('appointments/');
 
     try {
-      final response = await Dio().post<dynamic>(
+      final response = await createAppDio().post<dynamic>(
         url,
         data: payload,
         options: Options(
@@ -172,7 +173,7 @@ class AppointmentsService {
     final url = ApiConsts().createUrl('appointments/$appointmentId/');
 
     try {
-      final response = await Dio().patch<Map<String, dynamic>>(
+      final response = await createAppDio().patch<Map<String, dynamic>>(
         url,
         data: payload,
         options: Options(

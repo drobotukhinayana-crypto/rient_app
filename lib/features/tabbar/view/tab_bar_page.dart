@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -7,8 +8,12 @@ import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
+import 'package:rient_app/core/utils/app_exit_handler.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/widgets/app_drawer.dart';
+import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
+import 'package:rient_app/core/widgets/logout_confirm_dialog.dart';
+import 'package:rient_app/features/auth/logout_request_provider.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
@@ -23,6 +28,9 @@ import 'package:rient_app/features/home/view/components/restore_selected_branch.
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/link/view/widget_link_share.dart';
+import 'package:rient_app/core/network/app_offline.dart';
+import 'package:rient_app/core/network/connectivity_recovery_listener.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -50,11 +58,49 @@ class TabBarPage extends ConsumerStatefulWidget {
   }
 
   static void openLinkShare(BuildContext context, WidgetRef ref) {
+    if (_isOfflineExceptSchedule(ref)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(appNoConnectionMessage)),
+      );
+      return;
+    }
     unawaited(WidgetLinkShare.open(context, ref));
   }
 
-  static void openCreatePage(BuildContext context) {
+  static bool _isOfflineExceptSchedule(WidgetRef ref) {
+    return ref.read(appNoConnectionProvider) ||
+        ref.read(scheduleOfflineModeProvider);
+  }
+
+  static void openCreatePage(BuildContext context, WidgetRef ref) {
+    if (_isOfflineExceptSchedule(ref)) {
+      showOfflineSnackBar(context);
+      return;
+    }
     context.pushNamed(AddNewEntryPage.name);
+  }
+
+  static void goToScheduleTab(BuildContext context) {
+    context.goNamed(SchedulePage.name);
+  }
+
+  static int chatTabIndex({required bool showCreateTab}) =>
+      showCreateTab ? 3 : 2;
+
+  static int linkTabIndex({required bool showCreateTab}) =>
+      showCreateTab ? 4 : 3;
+
+  static bool tabRequiresNetwork(int index, {required bool showCreateTab}) {
+    return index == 0 ||
+        index == chatTabIndex(showCreateTab: showCreateTab) ||
+        index == linkTabIndex(showCreateTab: showCreateTab) ||
+        (showCreateTab && index == 2);
+  }
+
+  static void showOfflineSnackBar(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(appNoConnectionMessage)),
+    );
   }
 
   @override
@@ -80,6 +126,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      resetScheduleNetworkStateForSession(ref);
       ref.read(pushMessagingBootstrapProvider);
       unawaited(
         ref.read(pushRegistrationServiceProvider).registerCurrentDevice(),
@@ -87,6 +134,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
       unawaited(
         ref.read(notificationsWebSocketControllerProvider).ensureConnected(),
       );
+      _redirectToScheduleIfOffline();
     });
     _fcmForegroundSubscription =
         FirebaseMessaging.onMessage.listen((_) {
@@ -110,6 +158,11 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
 
   Future<void> _handleAppResumed() async {
     if (!mounted) return;
+    ref.invalidate(workerEntityLabelsProvider);
+    if (ref.read(appHasNetworkProvider)) {
+      resetScheduleNetworkStateForSession(ref);
+      invalidateScheduleNetworkProviders(ref);
+    }
     final now = DateTime.now();
     final lastAt = _lastResumeRefreshAt;
     if (lastAt != null && now.difference(lastAt) < const Duration(seconds: 30)) {
@@ -134,9 +187,40 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
         : widget.navigationShell.currentIndex + 1;
   }
 
+  void _redirectToScheduleIfOffline() {
+    if (!mounted) return;
+    final offline = ref.read(appNoConnectionProvider) ||
+        ref.read(scheduleOfflineModeProvider);
+    if (!offline) return;
+
+    final router = GoRouter.of(context);
+    final onScheduleShell =
+        widget.navigationShell.currentIndex == 1 &&
+        router.state.name != AddNewEntryPage.name;
+    if (onScheduleShell) return;
+
+    TabBarPage.goToScheduleTab(context);
+  }
+
   void navigateOnTabIndexed(int index, {required bool showCreateTab}) {
+    final offline = ref.read(appNoConnectionProvider) ||
+        ref.read(scheduleOfflineModeProvider);
+    if (offline && index != 1) {
+      if (showCreateTab && index == 2) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Нет интернета. Создание записи недоступно в оффлайн режиме',
+            ),
+          ),
+        );
+      } else {
+        TabBarPage.showOfflineSnackBar(context);
+      }
+      return;
+    }
     if (showCreateTab && index == 2) {
-      TabBarPage.openCreatePage(context);
+      TabBarPage.openCreatePage(context, ref);
       return;
     }
     if (index == _linkNavbarIndex(showCreateTab)) {
@@ -164,9 +248,30 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final showCreateTab = _showCreateTab();
+    final noConnection = ref.watch(appNoConnectionProvider);
+    final scheduleOffline = ref.watch(scheduleOfflineModeProvider);
+    final offlineExceptSchedule = noConnection || scheduleOffline;
+
+    ref.watch(connectivityRecoveryListenerProvider);
+    ref.watch(scheduleServerUnreachableListenerProvider);
+
+    ref.listen<bool>(appNoConnectionProvider, (previous, next) {
+      _redirectToScheduleIfOffline();
+    });
+    ref.listen<bool>(scheduleOfflineModeProvider, (previous, next) {
+      _redirectToScheduleIfOffline();
+    });
+
+    ref.listen<int>(logoutRequestProvider, (previous, next) {
+      if (next <= 0 || next == previous) return;
+      final hostContext = appShellScaffoldKey.currentContext;
+      if (hostContext == null || !hostContext.mounted) return;
+      unawaited(showLogoutConfirmDialog(hostContext, ref));
+    });
 
     ref.listen<int>(organizationIdProvider, (previous, next) {
       if (next > 0 && previous != next) {
+        ref.invalidate(workerEntityLabelsProvider);
         unawaited(
           ref.read(pushRegistrationServiceProvider).registerCurrentDevice(),
         );
@@ -195,7 +300,20 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
       }
     });
 
-    return RestoreSelectedBranch(
+    if (offlineExceptSchedule) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _redirectToScheduleIfOffline();
+      });
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (!Platform.isAndroid) return;
+        unawaited(handleAndroidBackButton(context));
+      },
+      child: RestoreSelectedBranch(
       child: Scaffold(
         key: appShellScaffoldKey,
         backgroundColor: isDark
@@ -204,12 +322,16 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
         drawer: const AppDrawer(),
         body: widget.navigationShell,
         bottomNavigationBar: _NavbarWidget(
-          currentIndex: _navbarIndexFromShell(showCreateTab),
+          currentIndex: offlineExceptSchedule
+              ? 1
+              : _navbarIndexFromShell(showCreateTab),
           showCreateTab: showCreateTab,
+          offlineExceptSchedule: offlineExceptSchedule,
           onTabTapped: (idx) =>
               navigateOnTabIndexed(idx, showCreateTab: showCreateTab),
         ),
       ),
+    ),
     );
   }
 }
@@ -219,16 +341,19 @@ class _NavbarWidget extends StatelessWidget {
     required this.currentIndex,
     required this.onTabTapped,
     required this.showCreateTab,
+    required this.offlineExceptSchedule,
   });
   final int currentIndex;
   final void Function(int) onTabTapped;
   final bool showCreateTab;
+  final bool offlineExceptSchedule;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final safeArea = MediaQuery.of(context).viewPadding.bottom;
     final barColor = isDark ? AppColors.primaryWhiteDark : Colors.white;
+    final tabsEnabled = !offlineExceptSchedule;
 
     return ColoredBox(
       color: barColor,
@@ -243,6 +368,7 @@ class _NavbarWidget extends StatelessWidget {
                   isActive: currentIndex == 0,
                   imageAsset: AppImages.homeTab,
                   title: 'Главная',
+                  enabled: tabsEnabled,
                   onTap: () => onTabTapped(0),
                 ),
               ),
@@ -261,15 +387,17 @@ class _NavbarWidget extends StatelessWidget {
                     isActive: currentIndex == 2,
                     imageAsset: AppImages.addTab,
                     title: 'Создать',
+                    enabled: tabsEnabled,
                     onTap: () => onTabTapped(2),
                   ),
                 ),
               Expanded(
                 child: _NavbarIcon(
-                  isActive: currentIndex == (showCreateTab ? 3 : 2),
+                  isActive: currentIndex == TabBarPage.chatTabIndex(showCreateTab: showCreateTab),
                   imageAsset: AppImages.chatTab,
                   title: 'Сообщения',
-                  onTap: () => onTabTapped(showCreateTab ? 3 : 2),
+                  enabled: tabsEnabled,
+                  onTap: () => onTabTapped(TabBarPage.chatTabIndex(showCreateTab: showCreateTab)),
                 ),
               ),
               Expanded(
@@ -277,7 +405,8 @@ class _NavbarWidget extends StatelessWidget {
                   isActive: false,
                   imageAsset: AppImages.linkTab,
                   title: 'Ссылка',
-                  onTap: () => onTabTapped(showCreateTab ? 4 : 3),
+                  enabled: tabsEnabled,
+                  onTap: () => onTabTapped(TabBarPage.linkTabIndex(showCreateTab: showCreateTab)),
                 ),
               ),
             ],
@@ -296,25 +425,30 @@ class _NavbarIcon extends StatelessWidget {
     required this.imageAsset,
     required this.title,
     this.hasCartCountLabel = false,
+    this.enabled = true,
   });
   final bool isActive;
   final String imageAsset;
   final String title;
   final VoidCallback onTap;
   final bool hasCartCountLabel;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = AppColors.themeAccent(context);
-    final iconColor = isActive
+    final iconColor = !enabled
+        ? (isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey)
+            .withValues(alpha: 0.45)
+        : isActive
         ? accent
         : isDark
         ? AppColors.tabbarGreyDark
         : AppColors.tabbarGrey;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       child: SizedBox(
         height: 56,
         width: double.infinity,

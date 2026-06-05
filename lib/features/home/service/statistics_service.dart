@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/network/app_dio.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
@@ -127,7 +128,7 @@ class StatisticsService {
       final endDateStr =
           '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}T23:59:00+03:00';
 
-      final response = await Dio().get<dynamic>(
+      final response = await createAppDio().get<dynamic>(
         url,
         queryParameters: {
           'datetime__gte': startDateStr,

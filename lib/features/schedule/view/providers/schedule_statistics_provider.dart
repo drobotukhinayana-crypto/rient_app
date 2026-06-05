@@ -1,8 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
+import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 import 'package:rient_app/features/home/service/statistics_service.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/core/network/app_connectivity_provider.dart'
+    show onScheduleNetworkFailure;
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_invalidation.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
 /// Ключ недели: YYYY-MM-DD понедельника (для кэша по неделям).
 String scheduleWeekKey(DateTime date) {
@@ -50,6 +56,9 @@ class ScheduleStatisticsQuery {
 /// [query.periodKey] — ключ в формате YYYY-MM (см. [scheduleMonthKey]).
 final scheduleStatisticsForMonthProvider =
     FutureProvider.family<Statistics, ScheduleStatisticsQuery>((ref, query) async {
+  if (ref.watch(scheduleOfflineModeProvider)) {
+    return scheduleOfflineEmptyStatistics();
+  }
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0) {
     throw Exception('No valid branch selected');
@@ -63,6 +72,7 @@ final scheduleStatisticsForMonthProvider =
   final monthStart = DateTime(y, m, 1);
   final monthEnd = DateTime(y, m + 1, 0);
 
+  try {
   final service = ref.watch(statisticsServiceProvider);
   final workerId = query.workerId;
   final mergedOccupancyByDay = <DateTime, OccupancyByDay>{};
@@ -119,6 +129,11 @@ final scheduleStatisticsForMonthProvider =
     occupancyByDay: sortedOccupancy,
     appointmentsByDay: sortedAppointmentsByDay,
   );
+  } catch (e) {
+    final caused = e is CustomException ? e.causedError : e;
+    onScheduleNetworkFailure(ref, caused ?? e);
+    return scheduleOfflineEmptyStatistics();
+  }
 });
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -127,6 +142,9 @@ DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 /// [query.periodKey] — ключ понедельника в формате YYYY-MM-DD (см. [scheduleWeekKey]).
 final scheduleStatisticsForWeekProvider =
     FutureProvider.family<Statistics, ScheduleStatisticsQuery>((ref, query) async {
+  if (ref.watch(scheduleOfflineModeProvider)) {
+    return scheduleOfflineEmptyStatistics();
+  }
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0) {
     throw Exception('No valid branch selected');
@@ -143,10 +161,16 @@ final scheduleStatisticsForWeekProvider =
   final weekStart = DateTime(y, m, d);
   final weekEnd = weekStart.add(const Duration(days: 6));
   final service = ref.watch(statisticsServiceProvider);
-  return service.getStatistics(
-    startDate: weekStart,
-    endDate: weekEnd,
-    branchId: branchId,
-    workerId: query.workerId,
-  );
+  try {
+    return await service.getStatistics(
+      startDate: weekStart,
+      endDate: weekEnd,
+      branchId: branchId,
+      workerId: query.workerId,
+    );
+  } catch (e) {
+    final caused = e is CustomException ? e.causedError : e;
+    onScheduleNetworkFailure(ref, caused ?? e);
+    return scheduleOfflineEmptyStatistics();
+  }
 });

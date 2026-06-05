@@ -83,6 +83,7 @@ Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
 
   return showDialog<WorkScheduleDayEditResult>(
     context: context,
+    useRootNavigator: true,
     barrierDismissible: true,
     barrierColor: Colors.black.withValues(alpha: 0.35),
     builder: (dialogContext) {

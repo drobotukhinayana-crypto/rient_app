@@ -76,11 +76,18 @@ class WorkerEntityLabels {
 
   String get matchingWorkersByService => 'Подбор $name7 по услуге…';
 
-  String get searchByWorker => 'Поиск $name1';
+  String get searchByWorker => 'Поиск по $name7';
 
   String get selectWorkerFirst => 'Сначала выберите $name1';
 
   String get scheduleOfWorker => 'График $name1';
+
+  String workScheduleTitle({required bool isWorkerRole}) =>
+      'График ${isWorkerRole ? name1 : name7}';
+
+  /// Подпись поля в карточке записи: у воркера — ед.ч., у остальных — мн.ч.
+  String workerFieldLabel({required bool isWorkerRole}) =>
+      isWorkerRole ? name : name4;
 
   String get failedLoadWorkersList => 'Не удалось загрузить список $name7';
 

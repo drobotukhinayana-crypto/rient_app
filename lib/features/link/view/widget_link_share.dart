@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/network/app_connectivity_provider.dart';
+import 'package:rient_app/core/network/app_offline.dart';
 import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/features/link/view/providers/widget_link_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -8,6 +10,12 @@ import 'package:share_plus/share_plus.dart';
 class WidgetLinkShare {
   static Future<void> open(BuildContext context, WidgetRef ref) async {
     if (!context.mounted) return;
+    if (ref.read(appNoConnectionProvider)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(appNoConnectionMessage)),
+      );
+      return;
+    }
 
     try {
       final url = await ref.read(widgetLinkUrlProvider.future);

@@ -70,17 +70,20 @@ final analyticsSummaryProvider =
 
   if (workerId == null || workerId <= 0) return summary;
 
-  final withWorkerServices = await _summaryWithWorkerTopServices(
-    ref,
-    summary: summary,
-    workerId: workerId,
-    start: query.start,
-    end: query.end,
-  );
+  var result = summary;
+  if (roleId != UserRole.worker.value) {
+    result = await _summaryWithWorkerTopServices(
+      ref,
+      summary: summary,
+      workerId: workerId,
+      start: query.start,
+      end: query.end,
+    );
+  }
 
   return _summaryWithWorkerOccupancy(
     ref,
-    summary: withWorkerServices,
+    summary: result,
     workerId: workerId,
     start: query.start,
     end: query.end,

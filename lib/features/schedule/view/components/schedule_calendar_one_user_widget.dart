@@ -269,6 +269,7 @@ class _ScheduleCalendarOneUserWidgetState
     final appointments = widget.items
         .map(
           (e) => Appointment(
+            id: e.id,
             startTime: e.startTime,
             endTime: e.endTime,
             subject: e.subject,
@@ -282,6 +283,9 @@ class _ScheduleCalendarOneUserWidgetState
 
   ScheduleAppointmentItem? _findItem(Appointment a) {
     for (final e in widget.items) {
+      if (a.id != 0 && e.id == a.id) {
+        return e;
+      }
       if (e.startTime == a.startTime &&
           e.endTime == a.endTime &&
           e.subject == a.subject) {

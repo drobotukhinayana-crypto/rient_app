@@ -1,8 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/network/app_dio.dart';
+import 'package:rient_app/core/network/app_offline.dart';
+import 'package:rient_app/core/network/ensure_network_for_request.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
+import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 
@@ -21,28 +25,33 @@ class TodayRevenueMetrics {
 final todayRevenueMetricsProvider = FutureProvider<TodayRevenueMetrics>((
   ref,
 ) async {
-  final token = ref.watch(tokenProvider);
-  final organizationId = ref.watch(organizationIdProvider);
-  final branchId = ref.watch(currentBranchIdProvider);
-  if (token == null || token.isEmpty || organizationId <= 0 || branchId == 0) {
-    return const TodayRevenueMetrics(
-      projectedIncomeToday: 0,
-      factualIncomeNow: 0,
-      averageCheckToday: 0,
-    );
-  }
-
-  final now = DateTime.now();
-  final dayStart =
-      '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}T00:00:00+03:00';
-  final dayEnd =
-      '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}T23:59:00+03:00';
-
-  final url = ApiConsts().createUrl(
-    'organizations/$organizationId/branches/$branchId/statistics_one/',
-  );
   try {
-    final response = await Dio().get<dynamic>(
+    await ensureNetworkForRequest(ref);
+
+    final token = ref.watch(tokenProvider);
+    final organizationId = ref.watch(organizationIdProvider);
+    final branchId = ref.watch(currentBranchIdProvider);
+    if (token == null ||
+        token.isEmpty ||
+        organizationId <= 0 ||
+        branchId == 0) {
+      return const TodayRevenueMetrics(
+        projectedIncomeToday: 0,
+        factualIncomeNow: 0,
+        averageCheckToday: 0,
+      );
+    }
+
+    final now = DateTime.now();
+    final dayStart =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}T00:00:00+03:00';
+    final dayEnd =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}T23:59:00+03:00';
+
+    final url = ApiConsts().createUrl(
+      'organizations/$organizationId/branches/$branchId/statistics_one/',
+    );
+    final response = await createAppDio().get<dynamic>(
       url,
       queryParameters: {
         'datetime__gte': dayStart,
@@ -65,8 +74,12 @@ final todayRevenueMetricsProvider = FutureProvider<TodayRevenueMetrics>((
       averageCheckToday:
           ((payload['average_check_today'] as num?) ?? 0).toDouble(),
     );
+  } on AppOfflineException {
+    rethrow;
   } catch (e) {
     await handleUnauthorizedIfNeeded(ref, e);
+    final caused = e is CustomException ? e.causedError : e;
+    rethrowAsOfflineIfNetworkFailure(ref, caused ?? e);
     rethrow;
   }
 });

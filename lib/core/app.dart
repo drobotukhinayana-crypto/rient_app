@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:rient_app/core/providers/locale_provider.dart';
 import 'package:rient_app/core/providers/theme_mode_provider.dart';
 import 'package:rient_app/core/routes/router_provider.dart';
+import 'package:rient_app/core/widgets/screenshot_protection_listener.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
@@ -50,33 +51,36 @@ class App extends ConsumerWidget {
           isDark ? Brightness.light : Brightness.dark,
     );
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: overlayStyle,
-      child: MaterialApp.router(
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: _supportedLocales,
-        locale: locale,
-        themeMode: themeMode,
-        theme: ThemeData(
-          scaffoldBackgroundColor: AppColors.primaryWhite,
-          colorScheme: ColorScheme.fromSeed(seedColor: AppColors.mainAccent),
-        ),
-        darkTheme: ThemeData(
-          scaffoldBackgroundColor: AppColors.primaryWhiteDark,
-          colorScheme: ColorScheme.dark(
-            primary: AppColors.mainAccentDark,
-            surface: AppColors.secondaryLightDark,
+    return ScreenshotProtectionListener(
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: overlayStyle,
+        child: MaterialApp.router(
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: _supportedLocales,
+          locale: locale,
+          themeMode: themeMode,
+          theme: ThemeData(
+            scaffoldBackgroundColor: AppColors.primaryWhite,
+            colorScheme:
+                ColorScheme.fromSeed(seedColor: AppColors.mainAccent),
           ),
+          darkTheme: ThemeData(
+            scaffoldBackgroundColor: AppColors.primaryWhiteDark,
+            colorScheme: ColorScheme.dark(
+              primary: AppColors.mainAccentDark,
+              surface: AppColors.secondaryLightDark,
+            ),
+          ),
+          debugShowCheckedModeBanner: false,
+          key: navigatorKey,
+          routeInformationParser: router.routeInformationParser,
+          routerDelegate: router.routerDelegate,
+          routeInformationProvider: router.routeInformationProvider,
         ),
-        debugShowCheckedModeBanner: false,
-        key: navigatorKey,
-        routeInformationParser: router.routeInformationParser,
-        routerDelegate: router.routerDelegate,
-        routeInformationProvider: router.routeInformationProvider,
       ),
     );
   }

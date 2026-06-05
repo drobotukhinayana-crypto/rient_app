@@ -6,6 +6,7 @@ import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
 import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mapper.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
 
 class WorkerSchedulesRangeQuery {
@@ -53,6 +54,9 @@ final workerSchedulesRangeProvider =
   ref,
   query,
 ) async {
+  if (ref.watch(scheduleOfflineModeProvider)) {
+    return const WorkerSchedulesRangeData(schedulesByDate: {});
+  }
   ref.watch(workScheduleReloadTokenProvider);
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0 || query.workerId <= 0) {

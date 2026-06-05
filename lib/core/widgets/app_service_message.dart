@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:rient_app/core/routes/route_notifier.dart' show rootNavigatorKey;
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/resources/resources.dart';
@@ -128,6 +129,22 @@ void _dismissActiveAppServiceMessage() {
   _activeAppServiceMessageEntry = null;
 }
 
+BuildContext? _resolveServiceMessageContext(BuildContext context) {
+  if (context.mounted) {
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay != null) return context;
+  }
+
+  final rootContext = rootNavigatorKey.currentContext;
+  if (rootContext != null &&
+      rootContext.mounted &&
+      Overlay.maybeOf(rootContext, rootOverlay: true) != null) {
+    return rootContext;
+  }
+
+  return null;
+}
+
 /// Показывает сервисное сообщение сверху (как в Figma), не снизу как SnackBar.
 void showAppServiceMessage(
   BuildContext context, {
@@ -137,16 +154,19 @@ void showAppServiceMessage(
   double topInset = kAppServiceMessageTopInset,
   ScaffoldMessengerState? messenger,
 }) {
+  final hostContext = _resolveServiceMessageContext(context);
+  if (hostContext == null) return;
+
   if (messenger != null) {
     messenger.hideCurrentSnackBar();
   } else {
-    ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+    ScaffoldMessenger.maybeOf(hostContext)?.hideCurrentSnackBar();
   }
 
   _dismissActiveAppServiceMessage();
 
-  final overlay = Overlay.of(context, rootOverlay: true);
-  final top = MediaQuery.paddingOf(context).top + topInset;
+  final overlay = Overlay.of(hostContext, rootOverlay: true);
+  final top = MediaQuery.paddingOf(hostContext).top + topInset;
 
   late OverlayEntry entry;
   void dismiss() {

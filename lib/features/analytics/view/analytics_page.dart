@@ -378,6 +378,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 onTopServicesToggle: () => setState(
                   () => _topServicesExpanded = !_topServicesExpanded,
                 ),
+                showTopServices: !isWorkerRole,
                 onOpenScheduleDay: _openScheduleForDay,
               ),
             ),
@@ -1222,6 +1223,7 @@ class _AnalyticsContent extends StatelessWidget {
     required this.onWorkloadToggle,
     required this.onClientsToggle,
     required this.onTopServicesToggle,
+    required this.showTopServices,
     required this.onOpenScheduleDay,
   });
 
@@ -1232,6 +1234,7 @@ class _AnalyticsContent extends StatelessWidget {
   final bool workloadExpanded;
   final bool clientsExpanded;
   final bool topServicesExpanded;
+  final bool showTopServices;
   final String Function(double) formatMoney;
   final VoidCallback onGeneralToggle;
   final VoidCallback onWorkloadToggle;
@@ -1433,33 +1436,35 @@ class _AnalyticsContent extends StatelessWidget {
               accent: accent,
             ),
           ),
-          const Gap(16),
-          _AnalyticsSection(
-            title: 'Топ 10 услуг',
-            expanded: topServicesExpanded,
-            accent: accent,
-            labelColor: labelColor,
-            onToggle: onTopServicesToggle,
-            child: data.topServices.isEmpty
-                ? Text(
-                    'Нет данных об услугах',
-                    style: AppFonts.b2Medium.copyWith(color: labelColor),
-                  )
-                : Column(
-                    children: [
-                      for (var i = 0; i < data.topServices.length; i++) ...[
-                        if (i > 0) const Gap(10),
-                        _TopServiceRowCard(
-                          rank: i + 1,
-                          name: data.topServices[i].name,
-                          cardColor: cardColor,
-                          labelColor: labelColor,
-                          accent: accent,
-                        ),
+          if (showTopServices) ...[
+            const Gap(16),
+            _AnalyticsSection(
+              title: 'Топ 10 услуг',
+              expanded: topServicesExpanded,
+              accent: accent,
+              labelColor: labelColor,
+              onToggle: onTopServicesToggle,
+              child: data.topServices.isEmpty
+                  ? Text(
+                      'Нет данных об услугах',
+                      style: AppFonts.b2Medium.copyWith(color: labelColor),
+                    )
+                  : Column(
+                      children: [
+                        for (var i = 0; i < data.topServices.length; i++) ...[
+                          if (i > 0) const Gap(10),
+                          _TopServiceRowCard(
+                            rank: i + 1,
+                            name: data.topServices[i].name,
+                            cardColor: cardColor,
+                            labelColor: labelColor,
+                            accent: accent,
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-          ),
+                    ),
+            ),
+          ],
         ],
       ),
     );

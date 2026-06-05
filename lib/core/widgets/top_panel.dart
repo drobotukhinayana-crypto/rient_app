@@ -302,7 +302,15 @@ class _TopPanelState extends State<TopPanel> {
               GestureDetector(
                 onTap: () {
                   if (widget.showBackButton) {
-                    context.pop();
+                    final router = GoRouter.maybeOf(context);
+                    if (router != null && router.canPop()) {
+                      router.pop();
+                      return;
+                    }
+                    final rootNav = Navigator.of(context, rootNavigator: true);
+                    if (rootNav.canPop()) {
+                      rootNav.pop();
+                    }
                   } else {
                     appShellScaffoldKey.currentState?.openDrawer();
                   }

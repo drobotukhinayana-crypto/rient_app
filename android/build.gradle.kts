@@ -1,3 +1,5 @@
+apply(from = "jvm_compatibility.gradle")
+
 allprojects {
     repositories {
         google()

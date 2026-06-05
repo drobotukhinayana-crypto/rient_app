@@ -4,9 +4,17 @@ import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/network/app_offline.dart'
+    show appNoConnectionMessage, shouldShowNoConnectionMessage;
+import 'package:rient_app/core/network/app_connectivity_provider.dart'
+    show markScheduleServerReachable;
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/core/widgets/offline_message.dart';
+import 'package:rient_app/core/widgets/schedule_offline_banner.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
+import 'package:rient_app/core/network/app_connectivity_provider.dart';
+import 'package:rient_app/core/network/connectivity_recovery_listener.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/components/services_today_grid_view.dart';
@@ -43,7 +51,13 @@ class _BodyWidget extends ConsumerWidget {
     final occupancyByDay =
         ref.watch(statisticsProvider).value?.occupancyByDay ?? [];
 
+    ref.watch(connectivityRecoveryListenerProvider);
+
+    final isOffline = ref.watch(appNoConnectionProvider);
+
     Future<void> onRefresh() async {
+      markScheduleServerReachable(ref);
+      ref.invalidate(connectivityCheckProvider);
       ref.invalidate(statisticsProvider);
       ref.invalidate(todayRevenueMetricsProvider);
       try {
@@ -64,10 +78,12 @@ class _BodyWidget extends ConsumerWidget {
           onDateSelected: (date) =>
               ref.read(selectedDateProvider.notifier).setDate(date),
         ),
+        if (isOffline)
+          const ScheduleOfflineBanner(message: appNoConnectionMessage),
 
         Expanded(
           child: AppRefreshIndicator(
-            onRefresh: onRefresh,
+            onRefresh: isOffline ? () async {} : onRefresh,
             child: SingleChildScrollView(
               physics: AppRefreshIndicator.scrollPhysics,
               padding: AppDecoration.padding16.copyWith(top: 18),
@@ -112,6 +128,31 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
     final isOwnerOrManager =
         roleId == UserRole.owner.value || roleId == UserRole.manager.value;
     final todayRevenueAsync = ref.watch(todayRevenueMetricsProvider);
+    final isOffline = ref.watch(appNoConnectionProvider);
+
+    if (isOffline) {
+      return Column(
+        children: [
+          GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Статистика', style: AppFonts.h4Medium),
+                Image.asset(
+                  _expanded
+                      ? AppImages.arrowOutlinedTop
+                      : AppImages.arrowOutlinedDown,
+                  color: AppColors.themeAccent(context),
+                ),
+              ],
+            ),
+          ),
+          if (_expanded) const OfflineMessage(),
+        ],
+      );
+    }
 
     return Column(
       children: [
@@ -385,27 +426,33 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                         padding: EdgeInsets.all(12),
                         child: Center(child: CircularProgressIndicator()),
                       ),
-                      error: (_, __) => const SizedBox.shrink(),
+                      error: (error, _) => shouldShowNoConnectionMessage(error)
+                          ? const OfflineMessage(padding: EdgeInsets.all(12))
+                          : const SizedBox.shrink(),
                     ),
                   ],
                 ],
               );
             },
-            loading: () => const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32.0),
-                child: CircularProgressIndicator(),
-              ),
-            ),
-            error: (error, stack) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Ошибка загрузки статистики',
-                  style: AppFonts.b2Medium.copyWith(color: AppColors.red),
-                ),
-              ),
-            ),
+            loading: () => isOffline
+                ? const OfflineMessage()
+                : const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+            error: (error, stack) => shouldShowNoConnectionMessage(error)
+                ? const OfflineMessage()
+                : Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        'Ошибка загрузки статистики',
+                        style: AppFonts.b2Medium.copyWith(color: AppColors.red),
+                      ),
+                    ),
+                  ),
           ),
         ],
       ],

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
+import 'package:rient_app/core/network/app_dio.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
@@ -51,7 +52,7 @@ class SchedulesService {
     };
 
     try {
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         queryParameters: queryParams,
         options: Options(
@@ -103,7 +104,7 @@ class SchedulesService {
     };
 
     try {
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         queryParameters: queryParams,
         options: Options(
@@ -146,7 +147,7 @@ class SchedulesService {
     );
 
     try {
-      final response = await Dio().post<Map<String, dynamic>>(
+      final response = await createAppDio().post<Map<String, dynamic>>(
         url,
         data: body.toJson(),
         options: Options(
@@ -190,7 +191,7 @@ class SchedulesService {
     );
 
     try {
-      final response = await Dio().patch<Map<String, dynamic>>(
+      final response = await createAppDio().patch<Map<String, dynamic>>(
         url,
         data: body.toJson(),
         options: Options(

@@ -536,9 +536,8 @@ class _DayCell extends StatelessWidget {
       );
     }
 
-    if (!isSaving) return cellContent;
-
-    return Stack(
+    if (isSaving) {
+      return Stack(
       fit: StackFit.expand,
       children: [
         cellContent,
@@ -562,6 +561,9 @@ class _DayCell extends StatelessWidget {
         ),
       ],
     );
+    }
+
+    return cellContent;
   }
 }
 

@@ -17,10 +17,15 @@ import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
+import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
 import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
 import 'package:rient_app/features/schedule/utils/work_schedule_appointment_conflict.dart'
-    show humanizeScheduleApiError, isScheduleAppointmentConflictError;
+    show
+        humanizeScheduleApiError,
+        isScheduleAppointmentConflictError,
+        isWorkSchedulePermissionError,
+        workScheduleNoPermissionMessage;
 import 'package:rient_app/features/schedule/service/worker_schedule_configs_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
@@ -375,6 +380,18 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
     final branchId = ref.read(currentBranchIdProvider);
     if (workerId == null || workerId <= 0 || branchId == 0) return;
 
+    final canChange = await ref.read(canChangeWorkScheduleProvider.future);
+    if (!canChange) {
+      markWorkScheduleEditBlocked(ref);
+      if (!mounted) return;
+      showAppServiceMessage(
+        context,
+        message: workScheduleNoPermissionMessage,
+        variant: AppServiceMessageVariant.error,
+      );
+      return;
+    }
+
     final validationError = _saveValidationError();
     if (validationError != null) {
       showAppServiceMessage(
@@ -469,6 +486,9 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
       if (!mounted) return;
       if (isScheduleAppointmentConflictError(e)) {
         setState(_restoreSavedWeekSchedule);
+      }
+      if (isWorkSchedulePermissionError(e)) {
+        markWorkScheduleEditBlocked(ref);
       }
       showAppServiceMessage(
         context,

@@ -36,6 +36,9 @@ import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
+import 'package:rient_app/features/schedule/view/schedule_page.dart';
+import 'package:rient_app/core/network/app_connectivity_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
@@ -495,6 +498,22 @@ class AddNewEntryPage extends ConsumerWidget {
           orElse: () => null,
         );
     final canDeleteSchedule = permissions?.deleteSchedule ?? true;
+    final isScheduleOffline = ref.watch(scheduleOfflineModeProvider);
+    final noConnection = ref.watch(appNoConnectionProvider);
+    final viewOnly = isScheduleOffline && initialAppointment != null;
+    final offlineNewEntryBlocked =
+        initialAppointment == null && (noConnection || isScheduleOffline);
+    if (offlineNewEntryBlocked) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          context.goNamed(SchedulePage.name);
+        }
+      });
+      return Scaffold(
+        backgroundColor: _entryScaffoldBg(context),
+        body: const SizedBox.shrink(),
+      );
+    }
     return Scaffold(
       backgroundColor: _entryScaffoldBg(context),
       appBar: AppBar(
@@ -519,68 +538,83 @@ class AddNewEntryPage extends ConsumerWidget {
               ),
             ),
             Text(
-              isEditMode || initialAppointment != null
+              viewOnly
+                  ? 'Просмотр записи'
+                  : isEditMode || initialAppointment != null
                   ? 'Редактирование записи'
                   : 'Новая запись',
               style: AppFonts.h4Medium.copyWith(
                 color: _entryPrimaryText(context),
               ),
             ),
-            PopupMenuButton<String>(
-              color: cardSurface,
-              elevation: 4,
-              offset: const Offset(0, 40),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              onSelected: (value) {
-                if (value == 'remember') {
-                  unawaited(_rememberClientFromBody(bodyKey));
-                }
-                if (value == 'delete' &&
-                    canDeleteSchedule &&
-                    (isEditMode || initialAppointment != null)) {
-                  _showDeleteDialog(context);
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem<String>(
-                  value: 'remember',
-                  padding: EdgeInsets.only(left: 10),
-                  child: Text('Запомнить клиента', style: AppFonts.b2Medium),
+            if (!viewOnly)
+              PopupMenuButton<String>(
+                color: cardSurface,
+                elevation: 4,
+                offset: const Offset(0, 40),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                if (canDeleteSchedule && (isEditMode || initialAppointment != null))
+                onSelected: (value) {
+                  if (value == 'remember') {
+                    unawaited(_rememberClientFromBody(bodyKey));
+                  }
+                  if (value == 'delete' &&
+                      canDeleteSchedule &&
+                      (isEditMode || initialAppointment != null)) {
+                    _showDeleteDialog(context);
+                  }
+                },
+                itemBuilder: (context) => [
                   PopupMenuItem<String>(
-                    value: 'delete',
+                    value: 'remember',
                     padding: EdgeInsets.only(left: 10),
-                    child: Text(
-                      'Удалить',
-                      style: AppFonts.b2Medium.copyWith(color: AppColors.red),
-                    ),
+                    child: Text('Запомнить клиента', style: AppFonts.b2Medium),
                   ),
-              ],
-              child: Image.asset(isDark ? AppImages.moreDark : AppImages.more),
-            ),
+                  if (canDeleteSchedule &&
+                      (isEditMode || initialAppointment != null))
+                    PopupMenuItem<String>(
+                      value: 'delete',
+                      padding: EdgeInsets.only(left: 10),
+                      child: Text(
+                        'Удалить',
+                        style: AppFonts.b2Medium.copyWith(color: AppColors.red),
+                      ),
+                    ),
+                ],
+                child: Image.asset(isDark ? AppImages.moreDark : AppImages.more),
+              )
+            else
+              const SizedBox(width: 40),
           ],
         ),
       ),
       body: _BodyWidget(
-        key: bodyKey,
-        initialAppointment: initialAppointment,
-        initialData: initialData,
-      ),
-      bottomNavigationBar: _BottomActionsBar(
-        isEditMode: isEditMode || initialAppointment != null,
-        initialAppointmentId: initialAppointment?.id,
-        initialAppointmentDatetime: initialAppointment?.datetime,
-      ),
+          key: bodyKey,
+          viewOnly: viewOnly,
+          initialAppointment: initialAppointment,
+          initialData: initialData,
+        ),
+      bottomNavigationBar: viewOnly
+          ? null
+          : _BottomActionsBar(
+              isEditMode: isEditMode || initialAppointment != null,
+              initialAppointmentId: initialAppointment?.id,
+              initialAppointmentDatetime: initialAppointment?.datetime,
+            ),
     );
   }
 }
 
 class _BodyWidget extends ConsumerStatefulWidget {
-  const _BodyWidget({super.key, this.initialAppointment, this.initialData});
+  const _BodyWidget({
+    super.key,
+    this.viewOnly = false,
+    this.initialAppointment,
+    this.initialData,
+  });
 
+  final bool viewOnly;
   final AppointmentApi? initialAppointment;
   final AddNewEntryInitialData? initialData;
 
@@ -751,7 +785,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         transactionsSum: 0,
         commentText: null,
       );
-      unawaited(_loadSelectedClientDetails(initialClient.id));
+      if (!widget.viewOnly) {
+        unawaited(_loadSelectedClientDetails(initialClient.id));
+      }
     }
 
     final calendarDate = _appointmentCalendarDate(appointment);
@@ -1061,6 +1097,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (serviceName.isNotEmpty) {
       block.initialServiceName = serviceName;
     }
+    block.isTimeExpanded = true;
     block.appointmentServiceId = service.id;
     if (service.serviceId != null) {
       block.selectedServiceId = service.serviceId;
@@ -1104,6 +1141,82 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final month = date.month.toString().padLeft(2, '0');
     final year = date.year.toString();
     return '$day.$month.$year';
+  }
+
+  List<Widget> _viewOnlyMasterServicesChildren({
+    required Color mutedFill,
+    required Color divider,
+    required Color primaryText,
+    required Color accent,
+    required WorkerEntityLabels workerLabels,
+    required bool isWorkerRole,
+  }) {
+    final worker = widget.initialAppointment?.worker;
+    final workerName = worker == null
+        ? '—'
+        : '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim();
+
+    return [
+      Text(workerLabels.sectionAndServices, style: AppFonts.b1Medium),
+      const Gap(16),
+      Text(
+        workerLabels.workerFieldLabel(isWorkerRole: isWorkerRole),
+        style: AppFonts.c1Medium,
+      ),
+      const Gap(8),
+      DefaultContainerWidget(
+        color: mutedFill,
+        borderRadius: BorderRadius.circular(300),
+        hasShadow: false,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Text(
+          workerName.isEmpty ? '—' : workerName,
+          style: AppFonts.c1Regular.copyWith(color: primaryText),
+        ),
+      ),
+      const Gap(16),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('Дата', style: AppFonts.c1Medium),
+          Text(
+            _formatDate(_selectedDate),
+            style: AppFonts.c1Regular.copyWith(color: primaryText),
+          ),
+        ],
+      ),
+      for (var index = 0; index < _services.length; index++) ...[
+        Divider(height: 32, color: divider),
+        Text('Услуга ${index + 1}', style: AppFonts.c1Medium),
+        const Gap(12),
+        DefaultContainerWidget(
+          color: mutedFill,
+          borderRadius: BorderRadius.circular(16),
+          hasShadow: false,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Text(
+            (_services[index].initialServiceName ?? '').trim().isNotEmpty
+                ? _services[index].initialServiceName!.trim()
+                : 'Услуга',
+            style: AppFonts.c1Regular.copyWith(color: primaryText),
+          ),
+        ),
+        if ((_services[index].selectedTime ?? '').isNotEmpty) ...[
+          const Gap(8),
+          Text(
+            'Время: ${_services[index].selectedTime}',
+            style: AppFonts.c1Regular.copyWith(color: accent),
+          ),
+        ],
+        if (_services[index].totalDurationMinutes > 0) ...[
+          const Gap(4),
+          Text(
+            'Длительность: ${_services[index].totalDurationMinutes} мин',
+            style: AppFonts.c2Tabbar.copyWith(color: AppColors.grey),
+          ),
+        ],
+      ],
+    ];
   }
 
   String _formatMoney(double value) => '${value.round()}₽';
@@ -2025,7 +2138,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
         children: [
-          // заголовок
           DefaultContainerWidget(
             borderRadius: const BorderRadius.only(
               bottomLeft: Radius.circular(24),
@@ -2073,14 +2185,15 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     maxLines: 3,
                     isMultiline: true,
                     borderRadius: BorderRadius.circular(16),
+                    canEdit: !widget.viewOnly,
                     onChanged: (_) => setState(() {}),
                   ),
                 ],
                 Gap(16),
                 IgnorePointer(
-                  ignoring: !canChangeStatus,
+                  ignoring: !canChangeStatus || widget.viewOnly,
                   child: Opacity(
-                    opacity: canChangeStatus ? 1 : 0.6,
+                    opacity: canChangeStatus && !widget.viewOnly ? 1 : 0.6,
                     child: ClientStatusSelectorWidget(
                       initialIndex: _selectedStatusIndex,
                       onSelected: canChangeStatus
@@ -2096,7 +2209,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   controller: _phoneController,
                   label: 'Телефон',
                   hintText: 'Телефон',
-                  canEdit: true,
+                  canEdit: !widget.viewOnly,
                   keyboardType: TextInputType.number,
                   inputFormatters: canSeeContactData || _selectedClient == null
                       ? <TextInputFormatter>[_phoneMaskFormatter]
@@ -2126,7 +2239,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     });
                   },
                 ),
-                if (_showClientSuggestions) ...[
+                if (!widget.viewOnly && _showClientSuggestions) ...[
                     const Gap(8),
                     DefaultContainerWidget(
                       color: mutedFill,
@@ -2215,6 +2328,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                         controller: _firstNameController,
                         label: 'Имя',
                         hintText: 'Иван',
+                        canEdit: !widget.viewOnly,
                         onChanged: (_) {
                           if (_selectedClient != null) {
                             setState(() {
@@ -2230,6 +2344,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                         controller: _lastNameController,
                         label: 'Фамилия',
                         hintText: 'Иванов',
+                        canEdit: !widget.viewOnly,
                         onChanged: (_) {
                           if (_selectedClient != null) {
                             setState(() {
@@ -2271,6 +2386,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       maxLines: 3,
                       isMultiline: true,
                       borderRadius: BorderRadius.circular(16),
+                      canEdit: !widget.viewOnly,
                     ),
                   ],
                   Gap(16),
@@ -2424,9 +2540,22 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (widget.viewOnly)
+                  ..._viewOnlyMasterServicesChildren(
+                    mutedFill: mutedFill,
+                    divider: divider,
+                    primaryText: primaryText,
+                    accent: accent,
+                    workerLabels: workerLabels,
+                    isWorkerRole: isWorkerRole,
+                  )
+                else ...[
                 Text(workerLabels.sectionAndServices, style: AppFonts.b1Medium),
                 Gap(16),
-                Text(workerLabels.name, style: AppFonts.c1Medium),
+                Text(
+                  workerLabels.workerFieldLabel(isWorkerRole: isWorkerRole),
+                  style: AppFonts.c1Medium,
+                ),
                 Gap(8),
                 if (useWorkerReadOnlySpecialistTile)
                   DefaultContainerWidget(
@@ -3081,6 +3210,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     ),
                   ],
                 ),
+                ],
               ],
             ),
           ),

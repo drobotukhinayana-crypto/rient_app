@@ -12,7 +12,12 @@ import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/date_range_picker_dialog.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/core/network/app_connectivity_provider.dart';
+import 'package:rient_app/core/network/app_offline.dart';
+import 'package:rient_app/core/network/connectivity_recovery_listener.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
+import 'package:rient_app/core/widgets/offline_message.dart';
+import 'package:rient_app/core/widgets/schedule_offline_banner.dart';
 import 'package:rient_app/features/chat/service/mobile_push_service.dart';
 import 'package:rient_app/features/chat/view/components/message_notification_card.dart';
 import 'package:rient_app/features/chat/view/components/message_notification_item.dart';
@@ -53,6 +58,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     super.initState();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ref.read(appNoConnectionProvider)) return;
       unawaited(_loadFirstPage());
     });
   }
@@ -90,6 +96,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Future<void> _loadFirstPage() async {
+    if (ref.read(appNoConnectionProvider)) return;
+
     setState(() {
       _page = 1;
       _hasMore = true;
@@ -265,8 +273,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
     final accent = AppColors.themeAccent(context);
+    final noConnection = ref.watch(appNoConnectionProvider);
+
+    ref.watch(connectivityRecoveryListenerProvider);
+
+    ref.listen<bool>(appNoConnectionProvider, (previous, next) {
+      if (previous == true && next == false) {
+        unawaited(_loadFirstPage());
+      }
+    });
+
     ref.listen<int>(pushHistoryRefreshTokenProvider, (previous, next) {
       if (previous == null || previous == next) return;
+      if (ref.read(appNoConnectionProvider)) return;
       unawaited(_loadFirstPage());
     });
 
@@ -287,14 +306,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         children: [
           _MessagesHeader(
             isDark: isDark,
-            onCalendarTap: _openDateRangeDialog,
+            onCalendarTap: noConnection ? null : _openDateRangeDialog,
             filter: _filter,
             unreadCount: unreadCount,
             readCount: readCount,
-            onFilterChanged: _onFilterChanged,
+            onFilterChanged: noConnection ? null : _onFilterChanged,
           ),
-          Expanded(child: _buildBody(isDark)),
-          if (_filter == MessagesFilter.unread &&
+          if (noConnection) const ScheduleOfflineBanner(message: appNoConnectionMessage),
+          Expanded(
+            child: noConnection
+                ? const OfflineMessage()
+                : _buildBody(isDark),
+          ),
+          if (!noConnection &&
+              _filter == MessagesFilter.unread &&
               _items.isNotEmpty &&
               !_isLoading)
             Padding(
@@ -450,11 +475,11 @@ class _MessagesHeader extends StatelessWidget {
   });
 
   final bool isDark;
-  final VoidCallback onCalendarTap;
+  final VoidCallback? onCalendarTap;
   final MessagesFilter filter;
   final int unreadCount;
   final int readCount;
-  final ValueChanged<MessagesFilter> onFilterChanged;
+  final ValueChanged<MessagesFilter>? onFilterChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -492,31 +517,40 @@ class _MessagesHeader extends StatelessWidget {
               GestureDetector(
                 onTap: onCalendarTap,
                 behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isDark
-                        ? AppColors.secondaryDarkLight
-                        : AppColors.secondaryLight,
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.calendar_today_outlined,
-                    size: 18,
-                    color: accent,
+                child: Opacity(
+                  opacity: onCalendarTap == null ? 0.45 : 1,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isDark
+                          ? AppColors.secondaryDarkLight
+                          : AppColors.secondaryLight,
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.calendar_today_outlined,
+                      size: 18,
+                      color: accent,
+                    ),
                   ),
                 ),
               ),
             ],
           ),
           const Gap(12),
-          MessagesFilterSegment(
-            value: filter,
-            unreadCount: unreadCount,
-            readCount: readCount,
-            onChanged: onFilterChanged,
+          IgnorePointer(
+            ignoring: onFilterChanged == null,
+            child: Opacity(
+              opacity: onFilterChanged == null ? 0.45 : 1,
+              child: MessagesFilterSegment(
+                value: filter,
+                unreadCount: unreadCount,
+                readCount: readCount,
+                onChanged: onFilterChanged ?? (_) {},
+              ),
+            ),
           ),
         ],
       ),

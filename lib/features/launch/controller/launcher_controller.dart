@@ -6,6 +6,8 @@ import 'package:rient_app/core/services/email_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/session_data/view/controller/session_data_controller.dart';
 import 'package:rient_app/features/launch/controller/launch_state.dart';
+import 'package:rient_app/core/network/app_connectivity_provider.dart'
+    show resetScheduleNetworkStateForSession;
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_storage_provider.dart';
 
@@ -33,6 +35,7 @@ class LaunchController extends StateNotifier<LaunchState> {
           .init();
 
       if (isLoggedIn) {
+        resetScheduleNetworkStateForSession(ref);
         state = const LaunchState.loggedIn();
       } else {
         state = const LaunchState.notLoggedIn();

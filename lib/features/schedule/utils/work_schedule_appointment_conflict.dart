@@ -9,6 +9,9 @@ const workScheduleAppointmentsConflictMessage =
     'установленный интервал. Либо удалите ненужные записи, либо установите '
     'другое рабочее время';
 
+const workScheduleNoPermissionMessage =
+    'У вас недостаточно прав для выполнения данного действия.';
+
 bool isScheduleAppointmentConflictApiMessage(String? raw) {
   if (raw == null) return false;
   return raw.contains('AppointmentExistsBeyondGivenInterval');
@@ -38,13 +41,54 @@ bool isScheduleAppointmentConflictError(Object error) {
   return _apiDataContainsAppointmentConflict(caused.response?.data);
 }
 
+bool isWorkSchedulePermissionError(Object error) {
+  if (error is! CustomException) return false;
+  final caused = error.causedError;
+  if (caused is! DioException) return false;
+  if (caused.response?.statusCode == 403) return true;
+
+  final data = caused.response?.data;
+  if (data == null) return false;
+
+  bool containsPermissionText(String? raw) {
+    if (raw == null) return false;
+    var text = raw.trim().toLowerCase();
+    if (text.startsWith('detail:')) {
+      text = text.substring('detail:'.length).trim();
+    }
+    return text.contains('недостаточно прав') ||
+        text.contains('no rights') ||
+        text.contains('change the schedule');
+  }
+
+  if (data is String) return containsPermissionText(data);
+  if (data is Map) {
+    for (final value in data.values) {
+      if (value is String && containsPermissionText(value)) return true;
+      if (value is List) {
+        for (final item in value) {
+          if (item is String && containsPermissionText(item)) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 /// Технические коды ошибок бэкенда → текст для пользователя.
 String? humanizeScheduleApiError(String? raw) {
   if (raw == null) return null;
-  final trimmed = raw.trim();
+  var trimmed = raw.trim();
   if (trimmed.isEmpty) return null;
+  if (trimmed.toLowerCase().startsWith('detail:')) {
+    trimmed = trimmed.substring('detail:'.length).trim();
+  }
   if (isScheduleAppointmentConflictApiMessage(trimmed)) {
     return workScheduleAppointmentsConflictMessage;
+  }
+  final lower = trimmed.toLowerCase();
+  if (lower.contains('no rights') || lower.contains('недостаточно прав')) {
+    return workScheduleNoPermissionMessage;
   }
   return trimmed;
 }

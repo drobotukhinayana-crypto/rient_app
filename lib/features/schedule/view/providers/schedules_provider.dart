@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
 /// Строка даты DD.MM.YYYY для ключа кэша и API.
 String scheduleDateKey(DateTime date) {
@@ -25,6 +26,9 @@ DateTime? _parseDateKey(String dateKey) {
 /// Расписания на одну дату по текущему филиалу.
 final scheduleForDateProvider =
     FutureProvider.family<SchedulesApiResponse, String>((ref, dateKey) async {
+      if (ref.watch(scheduleOfflineModeProvider)) {
+        return scheduleOfflineEmptySchedules;
+      }
       final date = _parseDateKey(dateKey);
       if (date == null) throw Exception('Invalid date key: $dateKey');
       final branchId = ref.watch(currentBranchIdProvider);
