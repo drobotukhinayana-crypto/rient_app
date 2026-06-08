@@ -40,6 +40,7 @@ import 'package:rient_app/features/schedule/data/models/appointments_api/appoint
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
 import 'package:rient_app/core/network/app_connectivity_provider.dart';
+import 'package:rient_app/core/network/network_failure.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
@@ -317,7 +318,7 @@ class AddNewEntryInitialData {
   final int? workerId;
 }
 
-class AddNewEntryPage extends ConsumerWidget {
+class AddNewEntryPage extends ConsumerStatefulWidget {
   const AddNewEntryPage({
     super.key,
     this.initialAppointment,
@@ -330,6 +331,13 @@ class AddNewEntryPage extends ConsumerWidget {
   final AppointmentApi? initialAppointment;
   final bool isEditMode;
   final AddNewEntryInitialData? initialData;
+
+  @override
+  ConsumerState<AddNewEntryPage> createState() => _AddNewEntryPageState();
+}
+
+class _AddNewEntryPageState extends ConsumerState<AddNewEntryPage> {
+  final _bodyKey = GlobalKey<_BodyWidgetState>();
 
   void _invalidateScheduleCaches(BuildContext context) {
     final container = ProviderScope.containerOf(context, listen: false);
@@ -372,7 +380,7 @@ class AddNewEntryPage extends ConsumerWidget {
                   isActive: !isDeleting,
                   onTap: () async {
                     if (isDeleting) return;
-                    final appointmentId = initialAppointment?.id;
+                    final appointmentId = widget.initialAppointment?.id;
                     if (appointmentId == null) {
                       Navigator.of(dialogContext).pop();
                       return;
@@ -444,8 +452,7 @@ class AddNewEntryPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bodyKey = GlobalKey<_BodyWidgetState>();
+  Widget build(BuildContext context) {
     final appBarSurface = _entryAppBarSurface(context);
     final cardSurface = _entryCardSurface(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -456,10 +463,10 @@ class AddNewEntryPage extends ConsumerWidget {
     final canDeleteSchedule = permissions?.deleteSchedule ?? true;
     final isScheduleOffline = ref.watch(scheduleOfflineModeProvider);
     final noConnection = ref.watch(appNoConnectionProvider);
-    final viewOnly = initialAppointment != null &&
+    final viewOnly = widget.initialAppointment != null &&
         (isScheduleOffline || noConnection);
     final offlineNewEntryBlocked =
-        initialAppointment == null && (noConnection || isScheduleOffline);
+        widget.initialAppointment == null && (noConnection || isScheduleOffline);
     if (offlineNewEntryBlocked) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) {
@@ -497,7 +504,7 @@ class AddNewEntryPage extends ConsumerWidget {
             Text(
               viewOnly
                   ? 'Просмотр записи'
-                  : isEditMode || initialAppointment != null
+                  : widget.isEditMode || widget.initialAppointment != null
                   ? 'Редактирование записи'
                   : 'Новая запись',
               style: AppFonts.h4Medium.copyWith(
@@ -514,11 +521,11 @@ class AddNewEntryPage extends ConsumerWidget {
                 ),
                 onSelected: (value) {
                   if (value == 'remember') {
-                    unawaited(_rememberClientFromBody(bodyKey));
+                    unawaited(_rememberClientFromBody(_bodyKey));
                   }
                   if (value == 'delete' &&
                       canDeleteSchedule &&
-                      (isEditMode || initialAppointment != null)) {
+                      (widget.isEditMode || widget.initialAppointment != null)) {
                     _showDeleteDialog(context);
                   }
                 },
@@ -529,7 +536,7 @@ class AddNewEntryPage extends ConsumerWidget {
                     child: Text('Запомнить клиента', style: AppFonts.b2Medium),
                   ),
                   if (canDeleteSchedule &&
-                      (isEditMode || initialAppointment != null))
+                      (widget.isEditMode || widget.initialAppointment != null))
                     PopupMenuItem<String>(
                       value: 'delete',
                       padding: EdgeInsets.only(left: 10),
@@ -547,17 +554,17 @@ class AddNewEntryPage extends ConsumerWidget {
         ),
       ),
       body: _BodyWidget(
-          key: bodyKey,
+          key: _bodyKey,
           viewOnly: viewOnly,
-          initialAppointment: initialAppointment,
-          initialData: initialData,
+          initialAppointment: widget.initialAppointment,
+          initialData: widget.initialData,
         ),
       bottomNavigationBar: viewOnly
           ? null
           : _BottomActionsBar(
-              isEditMode: isEditMode || initialAppointment != null,
-              initialAppointmentId: initialAppointment?.id,
-              initialAppointmentDatetime: initialAppointment?.datetime,
+              isEditMode: widget.isEditMode || widget.initialAppointment != null,
+              initialAppointmentId: widget.initialAppointment?.id,
+              initialAppointmentDatetime: widget.initialAppointment?.datetime,
             ),
     );
   }
@@ -612,12 +619,45 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   bool _datePickerInFlight = false;
   _EntryDatePickerPredicateCache? _datePickerPredicateCache;
   Future<void>? _datePickerPredicatePrefetch;
+  bool _permissionsRefreshed = false;
+
+  bool _canSeeContactData(WorkerPermissions? permissions) {
+    final blocked = ref.read(seeContactDataBlockedProvider);
+    return !blocked && (permissions?.seeContactData ?? true);
+  }
+
+  void _refreshPermissionsOnce() {
+    if (_permissionsRefreshed) return;
+    _permissionsRefreshed = true;
+    refreshWorkerPermissions(ref);
+  }
 
   @override
   void initState() {
     super.initState();
     _applyInitialAppointment();
     _applyInitialDataForNewEntry();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _refreshPermissionsOnce();
+    });
+    ref.listenManual<AsyncValue<WorkerPermissions>>(
+      workerPermissionsProvider,
+      (previous, next) {
+        if (!mounted) return;
+        final prevSee = _canSeeContactData(previous?.value);
+        final nextSee = _canSeeContactData(next.value);
+        if (prevSee != nextSee) {
+          _syncPhoneFieldForSelectedClientPrivacy(nextSee);
+        }
+      },
+    );
+    ref.listenManual<bool>(seeContactDataBlockedProvider, (previous, next) {
+      if (!mounted || previous == next) return;
+      _syncPhoneFieldForSelectedClientPrivacy(
+        _canSeeContactData(ref.read(workerPermissionsProvider).value),
+      );
+    });
     if (!widget.viewOnly) {
       unawaited(_applyRememberedClientForNewEntry());
       final specialistId = _selectedSpecialistId;
@@ -625,6 +665,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         _prefetchDatePickerPredicate(specialistId);
       }
     }
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _permissionsRefreshed = false;
+    _refreshPermissionsOnce();
   }
 
   String _effectiveClientPhoneForSubmit(bool canSeeContactData) {
@@ -657,10 +704,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }
 
   Future<void> rememberClient() async {
-    final canSeeContactData = ref.read(workerPermissionsProvider).maybeWhen(
-          data: (v) => v.seeContactData,
-          orElse: () => true,
-        );
+    final canSeeContactData = _canSeeContactData(
+      ref.read(workerPermissionsProvider).value,
+    );
     final phone = _effectiveClientPhoneForSubmit(canSeeContactData);
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
@@ -975,7 +1021,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           _isCommentClientExpanded = true;
         }
       });
-    } catch (_) {
+    } catch (e) {
+      final caused = e is CustomException ? e.causedError : e;
+      if (isPermissionDenied(caused ?? e)) {
+        markSeeContactDataBlocked(ref);
+      }
       // Игнорируем ошибку подгрузки деталей: форма редактирования должна оставаться рабочей.
     }
   }
@@ -2072,7 +2122,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           data: (v) => v,
           orElse: () => null,
         );
-    final canSeeContactData = permissions?.seeContactData ?? true;
+    ref.watch(seeContactDataBlockedProvider);
+    final canSeeContactData = _canSeeContactData(permissions);
     final canChangeStatus = permissions?.changeStatus ?? true;
     final canChangeWorker = permissions?.changeWorker ?? true;
     final canTransferSchedule = permissions?.transferSchedule ?? true;
@@ -2096,8 +2147,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         _ensureSpecialistLockedToCurrentWorker(wid);
       });
     }
-
-    _syncPhoneFieldForSelectedClientPrivacy(canSeeContactData);
 
     final workersAsync = ref.watch(scheduleWorkersProvider);
     final branchId = ref.watch(currentBranchIdProvider);

@@ -208,7 +208,7 @@ class _SpecialistSelectDialogState
             ),
             const Gap(20),
             MainButton(
-              title: 'Сохранить',
+              title: 'Выбрать',
               onTap: () {
                 widget.onSave(_selected);
                 Navigator.of(context).pop();

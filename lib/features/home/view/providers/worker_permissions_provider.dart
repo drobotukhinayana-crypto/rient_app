@@ -147,12 +147,67 @@ void markWorkScheduleEditBlocked(dynamic ref) {
   ref.read(workScheduleEditBlockedProvider.notifier).state = true;
 }
 
+/// Запрет показа телефона после 403 от API клиентов (если accounts/ не отдал флаг).
+final seeContactDataBlockedProvider = StateProvider<bool>((ref) => false);
+
+void markSeeContactDataBlocked(dynamic ref) {
+  ref.read(seeContactDataBlockedProvider.notifier).state = true;
+}
+
+bool? _resolveSeeContactDataFromAccount(Map<String, dynamic> data) {
+  final worker = _asStringKeyMap(data['worker']);
+  if (worker != null && worker.containsKey('see_contact_data')) {
+    return _boolFrom(worker['see_contact_data'], fallback: true);
+  }
+  if (data.containsKey('see_contact_data')) {
+    return _boolFrom(data['see_contact_data'], fallback: true);
+  }
+  final deep = _deepFindKey(data, 'see_contact_data');
+  if (deep != null) return _boolFrom(deep, fallback: true);
+  return null;
+}
+
 /// Сбрасывает кэш прав воркера и повторно запрашивает `accounts/`.
 void refreshWorkerPermissions(dynamic ref) {
   ref.read(workScheduleEditBlockedProvider.notifier).state = false;
+  ref.read(seeContactDataBlockedProvider.notifier).state = false;
   ref.invalidate(workerPermissionsProvider);
   ref.invalidate(canChangeWorkScheduleProvider);
+  ref.invalidate(canSeeContactDataProvider);
 }
+
+final canSeeContactDataProvider = FutureProvider<bool>((ref) async {
+  if (ref.watch(seeContactDataBlockedProvider)) return false;
+
+  final roleId = ref.watch(roleProvider);
+  final token = ref.watch(tokenProvider);
+  if (token == null || token.isEmpty) return true;
+
+  final url = ApiConsts().createUrl('accounts/');
+  try {
+    final response = await Dio().get<Map<String, dynamic>>(
+      url,
+      options: Options(headers: {'Authorization': 'JWT $token'}),
+    );
+    final data = response.data;
+    if (response.statusCode != 200 || data == null) return true;
+
+    final worker = _asStringKeyMap(data['worker']);
+    if (roleId == UserRole.worker.value && worker != null) {
+      if (worker.containsKey('see_contact_data')) {
+        return _boolFrom(worker['see_contact_data'], fallback: true);
+      }
+    }
+
+    final resolved = _resolveSeeContactDataFromAccount(data);
+    if (resolved != null) return resolved;
+
+    return true;
+  } catch (e) {
+    await handleUnauthorizedIfNeeded(ref, e);
+    return true;
+  }
+});
 
 final canChangeWorkScheduleProvider = FutureProvider<bool>((ref) async {
   if (ref.watch(workScheduleEditBlockedProvider)) return false;
