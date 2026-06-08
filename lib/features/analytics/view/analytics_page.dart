@@ -142,6 +142,22 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     return '${n < 0 ? '-' : ''}$formatted ₽';
   }
 
+  String _formatDecimalMoney(double value) {
+    final negative = value < 0;
+    final fixed = value.abs().toStringAsFixed(2);
+    final dotIndex = fixed.indexOf('.');
+    final intPart = fixed.substring(0, dotIndex);
+    final fracPart = fixed.substring(dotIndex + 1);
+    final chars = intPart.split('').reversed.toList();
+    final buf = StringBuffer();
+    for (var i = 0; i < chars.length; i++) {
+      if (i > 0 && i % 3 == 0) buf.write(' ');
+      buf.write(chars[i]);
+    }
+    final formattedInt = buf.toString().split('').reversed.join();
+    return '${negative ? '-' : ''}$formattedInt.$fracPart ₽';
+  }
+
   void _openScheduleForDay(DateTime date) {
     final day = DateTime(date.year, date.month, date.day);
     ref.read(selectedScheduleDateProvider.notifier).state = day;
@@ -369,6 +385,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 clientsExpanded: _clientsExpanded,
                 topServicesExpanded: _topServicesExpanded,
                 formatMoney: _formatMoney,
+                formatProductivity: _formatDecimalMoney,
                 onGeneralToggle: () =>
                     setState(() => _generalExpanded = !_generalExpanded),
                 onWorkloadToggle: () =>
@@ -379,6 +396,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                   () => _topServicesExpanded = !_topServicesExpanded,
                 ),
                 showTopServices: !isWorkerRole,
+                isWorkerRole: isWorkerRole,
                 onOpenScheduleDay: _openScheduleForDay,
               ),
             ),
@@ -420,7 +438,7 @@ class _AnalyticsViewData {
     required this.topServices,
   });
 
-  final int fillRatePercent;
+  final double fillRatePercent;
   final int productivityPercent;
   final double productivityAmount;
   final bool productivityInRubles;
@@ -559,16 +577,15 @@ class _AnalyticsViewData {
     final appointments = summary.summary.appointments;
     final current = summary.comparison.current;
 
-    final fillRate = _percentFromApi(summary.summary.occupancy);
-    final productivity = current.occupancy != null
-        ? _percentFromApi(current.occupancy!)
-        : () {
-            final total = current.totalAppointments ?? appointments.total;
-            final completed = current.completedAppointments ??
-                (appointments.total - appointments.cancelled)
-                    .clamp(0, appointments.total);
-            return total > 0 ? (completed / total * 100).round() : 0;
-          }();
+    final fillRate = _occupancyPercent(summary.summary.occupancy);
+    final totalAppointments =
+        current.totalAppointments ?? appointments.total;
+    final completedAppointments = current.completedAppointments ??
+        (appointments.total - appointments.cancelled)
+            .clamp(0, appointments.total);
+    final productivity = totalAppointments > 0
+        ? (completedAppointments / totalAppointments * 100).round()
+        : 0;
 
     final served = _clientsServedCount(summary, filterWorkerId: filterWorkerId);
     final workerScoped = _isWorkerScoped(summary, filterWorkerId);
@@ -593,14 +610,13 @@ class _AnalyticsViewData {
     if (showIncome && income == 0 && current.totalIncome != null) {
       income = current.totalIncome!;
     }
-    if (showPayDue && payDue == 0 && current.totalIncome != null) {
-      payDue = current.totalIncome!;
+    if (showPayDue && payDue == 0 && current.incomeByDay.isNotEmpty) {
+      for (final item in current.incomeByDay) {
+        payDue += item.payDueValue;
+      }
     }
 
-    var productivityAmount = payDue;
-    if (workerScoped && productivityAmount == 0) {
-      productivityAmount = current.averageTransactions ?? 0;
-    }
+    final productivityAmount = current.averageTransactions ?? 0.0;
 
     final avgCheck = current.averageTransactions ??
         (served > 0 && showAverageCheck ? income / served : 0.0);
@@ -687,10 +703,11 @@ class _AnalyticsViewData {
         : null;
 
     return _AnalyticsViewData(
-      fillRatePercent: fillRate.clamp(0, 100),
+      fillRatePercent: fillRate.clamp(0, 100).toDouble(),
       productivityPercent: productivity.clamp(0, 100),
       productivityAmount: productivityAmount,
-      productivityInRubles: workerScoped,
+      productivityInRubles:
+          workerScoped || current.averageTransactions != null,
       clientsServed: served,
       income: income,
       payDue: payDue,
@@ -1219,11 +1236,13 @@ class _AnalyticsContent extends StatelessWidget {
     required this.clientsExpanded,
     required this.topServicesExpanded,
     required this.formatMoney,
+    required this.formatProductivity,
     required this.onGeneralToggle,
     required this.onWorkloadToggle,
     required this.onClientsToggle,
     required this.onTopServicesToggle,
     required this.showTopServices,
+    required this.isWorkerRole,
     required this.onOpenScheduleDay,
   });
 
@@ -1235,7 +1254,9 @@ class _AnalyticsContent extends StatelessWidget {
   final bool clientsExpanded;
   final bool topServicesExpanded;
   final bool showTopServices;
+  final bool isWorkerRole;
   final String Function(double) formatMoney;
+  final String Function(double) formatProductivity;
   final VoidCallback onGeneralToggle;
   final VoidCallback onWorkloadToggle;
   final VoidCallback onClientsToggle;
@@ -1274,7 +1295,7 @@ class _AnalyticsContent extends StatelessWidget {
               children: [
                 _MetricRowCard(
                   label: 'Заполняемость',
-                  value: '${data.fillRatePercent}%',
+                  value: '${data.fillRatePercent.toStringAsFixed(2)}%',
                   cardColor: cardColor,
                   labelColor: labelColor,
                   accent: accent,
@@ -1283,7 +1304,7 @@ class _AnalyticsContent extends StatelessWidget {
                 _MetricRowCard(
                   label: 'Производительность',
                   value: data.productivityInRubles
-                      ? formatMoney(data.productivityAmount)
+                      ? formatProductivity(data.productivityAmount)
                       : '${data.productivityPercent}%',
                   cardColor: cardColor,
                   labelColor: labelColor,
@@ -1312,7 +1333,7 @@ class _AnalyticsContent extends StatelessWidget {
                           ),
                         ),
                       if (data.showIncome && data.showPayDue) const Gap(10),
-                      if (data.showPayDue && !data.productivityInRubles)
+                      if (data.showPayDue)
                         Expanded(
                           child: _MetricCard(
                             title: 'К выплате',
@@ -1401,7 +1422,7 @@ class _AnalyticsContent extends StatelessWidget {
                     title: 'Средний чек',
                     value: formatMoney(data.averageCheck),
                   ),
-                if (data.totalClients != null)
+                if (!isWorkerRole && data.totalClients != null)
                   _AnalyticsMetricItem(
                     title: 'Всего клиентов',
                     value: '${data.totalClients}',
@@ -1416,12 +1437,14 @@ class _AnalyticsContent extends StatelessWidget {
                     title: 'Разовые',
                     value: '${data.oneshotClients}',
                   ),
-                if (data.averageAge != null)
+                if (!isWorkerRole && data.averageAge != null)
                   _AnalyticsMetricItem(
                     title: 'Средний возраст',
                     value: '${data.averageAge!.round()} лет',
                   ),
-                if (data.maleClients != null && data.femaleClients != null)
+                if (!isWorkerRole &&
+                    data.maleClients != null &&
+                    data.femaleClients != null)
                   _AnalyticsMetricItem(
                     title: 'Пол',
                     valueWidget: _GenderStatsValue(
