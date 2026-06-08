@@ -11,6 +11,8 @@ class UpdateBranchSchedulePatternItem {
     required this.timeEnd,
     required this.active,
     this.worker,
+    this.breakStart,
+    this.breakEnd,
   });
 
   final int id;
@@ -20,6 +22,8 @@ class UpdateBranchSchedulePatternItem {
   final String timeEnd;
   final bool active;
   final int? worker;
+  final String? breakStart;
+  final String? breakEnd;
 
   factory UpdateBranchSchedulePatternItem.fromBranchPattern(
     SchedulePatternBranchItemApi pattern, {
@@ -43,6 +47,8 @@ class UpdateBranchSchedulePatternItem {
     String? timeStart,
     String? timeEnd,
     bool? active,
+    String? breakStart,
+    String? breakEnd,
   }) {
     return UpdateBranchSchedulePatternItem(
       id: pattern.id,
@@ -52,7 +58,16 @@ class UpdateBranchSchedulePatternItem {
       timeEnd: timeToApi(timeEnd ?? pattern.timeEnd ?? '20:00:00'),
       active: active ?? pattern.active,
       worker: pattern.worker,
+      breakStart: breakTimeToApi(breakStart),
+      breakEnd: breakTimeToApi(breakEnd),
     );
+  }
+
+  static String? breakTimeToApi(String? time) {
+    if (time == null) return null;
+    final trimmed = time.trim();
+    if (trimmed.isEmpty) return null;
+    return timeToApi(trimmed);
   }
 
   static String timeToApi(String time) {
@@ -72,6 +87,8 @@ class UpdateBranchSchedulePatternItem {
         'time_end': timeEnd,
         'active': active,
         if (worker != null) 'worker': worker,
+        'break_start': breakStart,
+        'break_end': breakEnd,
       };
 }
 

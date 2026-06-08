@@ -74,9 +74,7 @@ Future<void> clearUserSession(dynamic ref) async {
   ref.invalidate(statisticsProvider);
   ref.invalidate(todayRevenueMetricsProvider);
   ref.invalidate(currentWorkerIdProvider);
-  ref.invalidate(workerPermissionsProvider);
-  ref.invalidate(canChangeWorkScheduleProvider);
-  ref.read(workScheduleEditBlockedProvider.notifier).state = false;
+  refreshWorkerPermissions(ref);
   ref.invalidate(pushHistoryCountProvider);
   ref.invalidate(pushHistoryListProvider);
   ref.invalidate(getAuthOrganiztionsProvider);

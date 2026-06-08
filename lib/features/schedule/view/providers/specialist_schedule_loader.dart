@@ -321,6 +321,8 @@ UpdateBranchSchedulePatternsRequest buildWorkerPatternsBatchRequest({
         timeStart: day.start,
         timeEnd: day.end,
         active: day.enabled,
+        breakStart: day.breakStart,
+        breakEnd: day.breakEnd,
       ),
     );
   }

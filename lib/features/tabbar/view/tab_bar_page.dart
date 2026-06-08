@@ -162,6 +162,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     if (ref.read(appHasNetworkProvider)) {
       resetScheduleNetworkStateForSession(ref);
       invalidateScheduleNetworkProviders(ref);
+      refreshWorkerPermissions(ref);
     }
     final now = DateTime.now();
     final lastAt = _lastResumeRefreshAt;

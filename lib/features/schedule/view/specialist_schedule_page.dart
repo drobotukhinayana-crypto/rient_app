@@ -111,6 +111,9 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      refreshWorkerPermissions(ref);
+    });
     _weekdayGroupStart = _defaultGroupStart;
     _weekdayGroupEnd = _defaultGroupEnd;
     _weekdays = const [];
@@ -380,6 +383,7 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
     final branchId = ref.read(currentBranchIdProvider);
     if (workerId == null || workerId <= 0 || branchId == 0) return;
 
+    refreshWorkerPermissions(ref);
     final canChange = await ref.read(canChangeWorkScheduleProvider.future);
     if (!canChange) {
       markWorkScheduleEditBlocked(ref);

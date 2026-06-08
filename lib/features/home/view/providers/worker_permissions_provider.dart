@@ -147,6 +147,13 @@ void markWorkScheduleEditBlocked(dynamic ref) {
   ref.read(workScheduleEditBlockedProvider.notifier).state = true;
 }
 
+/// Сбрасывает кэш прав воркера и повторно запрашивает `accounts/`.
+void refreshWorkerPermissions(dynamic ref) {
+  ref.read(workScheduleEditBlockedProvider.notifier).state = false;
+  ref.invalidate(workerPermissionsProvider);
+  ref.invalidate(canChangeWorkScheduleProvider);
+}
+
 final canChangeWorkScheduleProvider = FutureProvider<bool>((ref) async {
   if (ref.watch(workScheduleEditBlockedProvider)) return false;
 

@@ -87,8 +87,8 @@ class CreateWorkerScheduleRequest {
       'subject_pk': subjectPk,
       'branch': branch,
       'auto': auto,
-      if (breakStart != null) 'break_start': breakStart,
-      if (breakEnd != null) 'break_end': breakEnd,
+      'break_start': breakStart,
+      'break_end': breakEnd,
       'captcha': captcha ?? 'dummy',
     };
   }

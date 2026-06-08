@@ -3,6 +3,7 @@ import 'package:rient_app/core/network/app_connectivity_provider.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
 import 'package:rient_app/features/home/view/providers/today_revenue_metrics_provider.dart';
+import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 
 /// При восстановлении сети перезагружает главную.
 final connectivityRecoveryListenerProvider = Provider<void>((ref) {
@@ -11,6 +12,7 @@ final connectivityRecoveryListenerProvider = Provider<void>((ref) {
     ref.invalidate(workerEntityLabelsProvider);
     ref.invalidate(statisticsProvider);
     ref.invalidate(todayRevenueMetricsProvider);
+    refreshWorkerPermissions(ref);
     ref.invalidate(connectivityCheckProvider);
   }
 

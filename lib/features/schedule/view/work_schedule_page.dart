@@ -78,20 +78,22 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     _gridHorizontalScroll.addListener(_onGridHorizontalScrolled);
     _syncToNow();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      refreshWorkerPermissions(ref);
       unawaited(_reloadWorkSchedule());
-      unawaited(ref.read(canChangeWorkScheduleProvider.future));
     });
   }
 
   @override
   void activate() {
     super.activate();
+    refreshWorkerPermissions(ref);
     _scheduleHorizontalScrollSync();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      refreshWorkerPermissions(ref);
       unawaited(_reloadWorkSchedule());
     }
   }
@@ -142,6 +144,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
   }
 
   Future<void> _reloadWorkSchedule({String? employeeId}) async {
+    refreshWorkerPermissions(ref);
     final generation = ++_fetchGeneration;
     final branchId = ref.read(currentBranchIdProvider);
     final workerId =
@@ -557,14 +560,32 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     _restoreHorizontalScrollOffset(offset);
   }
 
+  bool _workScheduleDayEditChangedSchedule({
+    required WorkScheduleDayEditResult result,
+    required WorkScheduleDayCell previous,
+  }) {
+    final wasWorking = previous.kind == WorkScheduleCellKind.shift;
+    if (result.isWorkingDay != wasWorking) return true;
+    if (!result.isWorkingDay) return false;
+    return result.workStart != (previous.timeStart ?? '09:00') ||
+        result.workEnd != (previous.timeEnd ?? '20:00');
+  }
+
   WorkScheduleDayCell _cellFromEditResult({
     required WorkScheduleDayEditResult result,
     required WorkScheduleDayCell previous,
     int? scheduleId,
   }) {
+    final isManuallyEdited = _workScheduleDayEditChangedSchedule(
+      result: result,
+      previous: previous,
+    )
+        ? true
+        : previous.isManuallyEdited;
+
     if (!result.isWorkingDay) {
       return WorkScheduleDayCell.dayOff(
-        isManuallyEdited: true,
+        isManuallyEdited: isManuallyEdited,
         scheduleId: scheduleId ?? previous.scheduleId,
       );
     }
@@ -578,7 +599,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
           ? WorkScheduleShiftTone.full
           : WorkScheduleShiftTone.short,
       isSelected: previous.isSelected,
-      isManuallyEdited: true,
+      isManuallyEdited: isManuallyEdited,
       scheduleId: scheduleId ?? previous.scheduleId,
       breakStart: result.breakStart,
       breakEnd: result.breakEnd,
@@ -586,7 +607,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
   }
 
   Future<bool> _canChangeWorkSchedule() async {
-    if (ref.read(workScheduleEditBlockedProvider)) return false;
+    refreshWorkerPermissions(ref);
     return ref.read(canChangeWorkScheduleProvider.future);
   }
 

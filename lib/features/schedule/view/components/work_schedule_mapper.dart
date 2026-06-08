@@ -7,6 +7,7 @@ import 'package:rient_app/features/schedule/service/schedules_service.dart';
 import 'package:rient_app/features/schedule/utils/schedule_branch_bounds.dart';
 import 'package:rient_app/features/schedule/utils/schedule_day_key.dart';
 import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
+import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
 
 /// При дублях `wed`/`wen` или branch/worker — активный шаблон и больший id.
@@ -120,6 +121,28 @@ Map<int, List<SchedulePatternItemApi>> groupSchedulePatternsByWorker(
   };
 }
 
+/// Фиолетовый цвет — только если вручную изменили рабочий/выходной день или часы.
+/// Правка одного перерыва (в т.ч. через «…») не считается ручной правкой графика.
+bool resolveManualWorkScheduleEdit({
+  required ScheduleItemApi daily,
+  required WorkScheduleDayCell templateCell,
+}) {
+  final templateIsWorking = templateCell.kind == WorkScheduleCellKind.shift;
+  final dailyIsWorking = daily.active;
+
+  if (templateIsWorking != dailyIsWorking) return true;
+
+  if (!dailyIsWorking) return false;
+
+  final dailyStart = daily.timeStartShort ?? '';
+  final dailyEnd = daily.timeEndShort ?? '';
+  final templateStart = templateCell.timeStart ?? '';
+  final templateEnd = templateCell.timeEnd ?? '';
+  if (dailyStart != templateStart || dailyEnd != templateEnd) return true;
+
+  return false;
+}
+
 WorkScheduleShiftTone _toneForShiftHours(String start, String end) {
   final startH = int.tryParse(start.split(':').first) ?? 0;
   final endH = int.tryParse(end.split(':').first) ?? 0;
@@ -187,7 +210,7 @@ WorkScheduleDayCell workScheduleCellFromScheduleItem(
   bool selected = false,
   bool isManuallyEdited = false,
 }) {
-  final manual = isManuallyEdited || (item != null && !item.auto);
+  final manual = isManuallyEdited;
   if (item == null || !item.active) {
     return _dayOffFromDaily(
       item,
@@ -307,12 +330,20 @@ WorkScheduleDayCell workScheduleCellFromPattern(
       return workScheduleCellFromScheduleItem(
         daily,
         selected: selected,
-        isManuallyEdited: !daily.auto,
+        isManuallyEdited: resolveManualWorkScheduleEdit(
+          daily: daily,
+          templateCell: const WorkScheduleDayCell.dayOff(),
+        ),
       );
     }
     return _dayOffFromDaily(
       daily,
-      isManuallyEdited: daily != null && !daily.auto,
+      isManuallyEdited: daily != null
+          ? resolveManualWorkScheduleEdit(
+              daily: daily,
+              templateCell: const WorkScheduleDayCell.dayOff(),
+            )
+          : false,
     );
   }
   final start = pattern.timeStartShort;
@@ -328,14 +359,19 @@ WorkScheduleDayCell workScheduleCellFromPattern(
   final tone = hours >= 10
       ? WorkScheduleShiftTone.full
       : WorkScheduleShiftTone.short;
+  final resolvedBreak = resolveWorkerBreakForDate(
+    daily: daily,
+    fallbackBreakStart: pattern.breakStartShort,
+    fallbackBreakEnd: pattern.breakEndShort,
+  );
   return WorkScheduleDayCell.shift(
     timeStart: start,
     timeEnd: end,
     tone: tone,
     isSelected: selected,
     scheduleId: daily?.id,
-    breakStart: daily?.breakStartShort ?? pattern.breakStartShort,
-    breakEnd: daily?.breakEndShort ?? pattern.breakEndShort,
+    breakStart: resolvedBreak.breakStart,
+    breakEnd: resolvedBreak.breakEnd,
   );
 }
 
@@ -390,7 +426,10 @@ WorkScheduleDayCell _cellFromTemplate({
         return workScheduleCellFromScheduleItem(
           daily,
           selected: selected,
-          isManuallyEdited: !daily.auto,
+          isManuallyEdited: resolveManualWorkScheduleEdit(
+            daily: daily,
+            templateCell: const WorkScheduleDayCell.dayOff(),
+          ),
         );
       }
       return _dayOffFromDaily(daily);
@@ -492,29 +531,24 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
             date.weekday,
           );
 
-          // Запись на дату с active=false — выходной (в т.ч. правки с сайта с auto=true).
-          // Фиолетовый цвет: auto=false или день по шаблону был бы рабочим.
+          final templateCell = _cellFromTemplate(
+            date: date,
+            patterns: resolvedPatterns,
+            workerRow: workerRow,
+            configMap: configMap,
+            daily: null,
+            selected: selected,
+          );
+
           final WorkScheduleDayCell cell;
-          if (daily != null && !daily.active) {
-            final templateCell = _cellFromTemplate(
-              date: date,
-              patterns: resolvedPatterns,
-              workerRow: workerRow,
-              configMap: configMap,
-              daily: null,
-              selected: selected,
-            );
+          if (daily != null && (!daily.active || !daily.auto)) {
             cell = workScheduleCellFromScheduleItem(
               daily,
               selected: selected,
-              isManuallyEdited: !daily.auto ||
-                  templateCell.kind == WorkScheduleCellKind.shift,
-            );
-          } else if (daily != null && !daily.auto) {
-            cell = workScheduleCellFromScheduleItem(
-              daily,
-              selected: selected,
-              isManuallyEdited: true,
+              isManuallyEdited: resolveManualWorkScheduleEdit(
+                daily: daily,
+                templateCell: templateCell,
+              ),
             );
           } else {
             cell = _cellFromTemplate(
