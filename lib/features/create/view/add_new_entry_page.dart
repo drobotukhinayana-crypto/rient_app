@@ -34,6 +34,7 @@ import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_appointments_refresh.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
@@ -46,7 +47,6 @@ import 'package:rient_app/features/schedule/service/schedules_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
-import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
 import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/view/providers/worker_schedules_range_provider.dart';
@@ -56,18 +56,15 @@ import 'package:rient_app/resources/resources.dart';
 DateTime _dateOnlyForScheduleStats(DateTime d) =>
     DateTime(d.year, d.month, d.day);
 
-/// Инвалидация загруженности (статистика недели/месяца) для календарного дня.
 void _invalidateScheduleStatsForDayWidgetRef(WidgetRef ref, DateTime localDay) {
-  ref.invalidate(scheduleStatisticsForWeekProvider);
-  ref.invalidate(scheduleStatisticsForMonthProvider);
+  refreshAfterAppointmentMutation(ref);
 }
 
 void _invalidateScheduleStatsForDayContainer(
   ProviderContainer container,
   DateTime localDay,
 ) {
-  container.invalidate(scheduleStatisticsForWeekProvider);
-  container.invalidate(scheduleStatisticsForMonthProvider);
+  refreshAfterAppointmentMutation(container);
 }
 
 /// После переноса записи — обновить статистику для нового и (если отличается) старого дня.
@@ -347,10 +344,7 @@ class AddNewEntryPage extends ConsumerWidget {
       days.add(DateTime(s.year, s.month, s.day));
     }
 
-    container.invalidate(scheduleAppointmentsProvider);
-    for (final d in days) {
-      _invalidateScheduleStatsForDayContainer(container, d);
-    }
+    refreshAfterAppointmentMutation(container);
   }
 
   void _showDeleteDialog(BuildContext context) {
@@ -398,47 +392,11 @@ class AddNewEntryPage extends ConsumerWidget {
                           context,
                           listen: false,
                         );
-                        container.invalidate(scheduleAppointmentsProvider);
-                        DateTime? appointmentDay;
-                        final raw = initialAppointment?.datetime;
-                        if (raw != null && raw.trim().isNotEmpty) {
-                          final p = DateTime.tryParse(raw);
-                          if (p != null) {
-                            final loc = p.toLocal();
-                            appointmentDay = DateTime(
-                              loc.year,
-                              loc.month,
-                              loc.day,
-                            );
-                          }
-                        }
-                        final stripDate = container.read(
-                          selectedScheduleDateProvider,
-                        );
-                        final stripDay = DateTime(
-                          stripDate.year,
-                          stripDate.month,
-                          stripDate.day,
-                        );
-                        final daysToRefresh = <DateTime>{
-                          stripDay,
-                          if (appointmentDay != null) appointmentDay,
-                        };
-                        for (final d in daysToRefresh) {
-                          _invalidateScheduleStatsForDayContainer(container, d);
-                        }
-                        final daysToRetry = List<DateTime>.from(daysToRefresh);
+                        refreshAfterAppointmentMutation(container);
                         unawaited(
                           Future<void>.delayed(
                             const Duration(milliseconds: 550),
-                            () {
-                              for (final d in daysToRetry) {
-                                _invalidateScheduleStatsForDayContainer(
-                                  container,
-                                  d,
-                                );
-                              }
-                            },
+                            () => refreshAfterAppointmentMutation(container),
                           ),
                         );
                         showAppServiceMessage(
@@ -3367,7 +3325,6 @@ class _BottomActionsBar extends ConsumerWidget {
               ? (created.first['id'] as num?)?.toInt()
               : null;
         }
-        ref.invalidate(scheduleAppointmentsProvider);
         DateTime? oldDayLocal;
         if (isEditMode && initialAppointmentDatetime != null) {
           final raw = initialAppointmentDatetime!.trim();

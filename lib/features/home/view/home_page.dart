@@ -21,6 +21,7 @@ import 'package:rient_app/features/home/view/components/services_today_grid_view
 import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
 import 'package:rient_app/features/home/view/providers/today_revenue_metrics_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -60,6 +61,7 @@ class _BodyWidget extends ConsumerWidget {
       ref.invalidate(connectivityCheckProvider);
       ref.invalidate(statisticsProvider);
       ref.invalidate(todayRevenueMetricsProvider);
+      ref.invalidate(scheduleAppointmentsProvider);
       try {
         await Future.wait([
           ref.read(statisticsProvider.future),

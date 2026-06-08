@@ -30,6 +30,7 @@ import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/link/view/widget_link_share.dart';
 import 'package:rient_app/core/network/app_offline.dart';
 import 'package:rient_app/core/network/connectivity_recovery_listener.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_appointments_refresh.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
 import 'package:rient_app/resources/resources.dart';
@@ -234,6 +235,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     if (alreadyHere) {
       switch (shellIndex) {
         case 0:
+          refreshAfterAppointmentMutation(ref);
           context.goNamed(HomePage.name);
         case 1:
           context.goNamed(SchedulePage.name);
@@ -241,6 +243,9 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
           context.goNamed(ChatPage.name);
       }
     } else {
+      if (shellIndex == 0) {
+        refreshAfterAppointmentMutation(ref);
+      }
       widget.navigationShell.goBranch(shellIndex);
     }
   }
