@@ -197,9 +197,7 @@ class ScheduleAppointmentsCache {
     final list = snapshot.byWorker[workerId] ?? const [];
     return list.where((a) {
       if (!a.isActive) return false;
-      final dt = DateTime.tryParse(a.datetime)?.toLocal();
-      if (dt == null) return false;
-      return !dt.isBefore(dateTimeGte) && !dt.isAfter(dateTimeLte);
+      return a.overlapsScheduleInstantRange(dateTimeGte, dateTimeLte);
     }).toList();
   }
 }

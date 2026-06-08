@@ -70,6 +70,49 @@ bool isWorkerWorkingOnDate({
   return workingWeekdays.contains(day.weekday);
 }
 
+bool _hasBreakRange(String? start, String? end) {
+  final bs = start?.trim() ?? '';
+  final be = end?.trim() ?? '';
+  return bs.isNotEmpty && be.isNotEmpty;
+}
+
+/// Перерыв на дату: запись в `schedules` важнее шаблона `available_workers`.
+/// Если на дату есть активный дневной график без перерыва — шаблонный не подставляем.
+({String? breakStart, String? breakEnd}) resolveWorkerBreakForDate({
+  required ScheduleItemApi? daily,
+  String? fallbackBreakStart,
+  String? fallbackBreakEnd,
+}) {
+  if (daily != null && daily.active) {
+    final bs = daily.breakStartShort;
+    final be = daily.breakEndShort;
+    if (_hasBreakRange(bs, be)) {
+      return (breakStart: bs, breakEnd: be);
+    }
+    return (breakStart: null, breakEnd: null);
+  }
+  return (breakStart: fallbackBreakStart, breakEnd: fallbackBreakEnd);
+}
+
+/// Границы смены (HH:mm) для слотов: дневной график, иначе смена из available_workers.
+({String timeStart, String timeEnd}) resolveWorkerShiftBoundsForDate({
+  required ScheduleItemApi? daily,
+  required String fallbackTimeStart,
+  required String fallbackTimeEnd,
+}) {
+  if (daily != null && daily.active) {
+    final start = daily.timeStartShort;
+    final end = daily.timeEndShort;
+    if (start != null &&
+        start.isNotEmpty &&
+        end != null &&
+        end.isNotEmpty) {
+      return (timeStart: start, timeEnd: end);
+    }
+  }
+  return (timeStart: fallbackTimeStart, timeEnd: fallbackTimeEnd);
+}
+
 bool isWorkerNonWorkingOnDate({
   required DateTime date,
   required Set<int> workingWeekdays,

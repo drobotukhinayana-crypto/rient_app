@@ -488,65 +488,34 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     }
   }
 
+  static String _appointmentNotes(AppointmentApi appointment) {
+    return appointment.client?.fullName.isNotEmpty == true
+        ? appointment.client!.fullName
+        : '${appointment.worker?.firstName ?? ''} ${appointment.worker?.lastName ?? ''}'
+              .trim();
+  }
+
   static ScheduleAppointmentItem _mapAppointmentToItem(
     AppointmentApi appointment,
   ) {
-    final fallbackStart = _safeParseToLocal(
-      appointment.datetime,
-      DateTime.now(),
-    );
-    var start = fallbackStart;
-    var end = start.add(const Duration(minutes: 30));
-
-    if (appointment.services.isNotEmpty) {
-      final first = appointment.services.first;
-      start = _safeParseToLocal(first.datetime, fallbackStart);
-      var maxEnd = start.add(
-        Duration(
-          minutes: first.totalDurationMinutes <= 0
-              ? 30
-              : first.totalDurationMinutes,
-        ),
-      );
-      for (final service in appointment.services) {
-        final serviceStart = _safeParseToLocal(service.datetime, start);
-        final serviceEnd = serviceStart.add(
-          Duration(
-            minutes: service.totalDurationMinutes <= 0
-                ? 30
-                : service.totalDurationMinutes,
-          ),
-        );
-        if (serviceEnd.isAfter(maxEnd)) {
-          maxEnd = serviceEnd;
-        }
-      }
-      end = maxEnd;
-    }
-
+    final range = appointment.mergedScheduleRangeLocal();
     final serviceNames = appointment.services
         .map((s) => (s.name ?? '').trim())
         .where((name) => name.isNotEmpty)
         .toList();
-
     final subject = serviceNames.isEmpty ? 'Услуга' : serviceNames.join(', ');
-    final notes = appointment.client?.fullName.isNotEmpty == true
-        ? appointment.client!.fullName
-        : '${appointment.worker?.firstName ?? ''} ${appointment.worker?.lastName ?? ''}'
-              .trim();
-    final hasComment = appointment.hasComment;
     final colors = _colorsForAppointmentStatus(appointment.status);
 
     return ScheduleAppointmentItem(
       id: appointment.id,
       source: appointment,
-      startTime: start,
-      endTime: end,
+      startTime: range.start,
+      endTime: range.end,
       subject: subject,
-      notes: notes,
+      notes: _appointmentNotes(appointment),
       backgroundColor: colors.backgroundColor,
       accentColor: colors.accentColor,
-      hasComment: hasComment,
+      hasComment: appointment.hasComment,
     );
   }
 
@@ -559,9 +528,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final endDate = _toDateOnly(end);
     final mapped = <ScheduleAppointmentItem>[];
     for (final appointment in appointments) {
-      final date = _safeParseToLocal(appointment.datetime, startDate);
-      final dateOnly = _toDateOnly(date);
-      if (dateOnly.isBefore(startDate) || dateOnly.isAfter(endDate)) continue;
+      if (!appointment.overlapsScheduleDateRange(startDate, endDate)) continue;
       mapped.add(_mapAppointmentToItem(appointment));
     }
     mapped.sort((a, b) => a.startTime.compareTo(b.startTime));
@@ -669,15 +636,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       final day = normalizedWeekStart.add(Duration(days: i));
       final daily = schedules?.scheduleOn(day);
       if (daily != null && daily.active) {
-        final bs = daily.breakStart;
-        final be = daily.breakEnd;
-        if (bs != null &&
-            bs.isNotEmpty &&
-            be != null &&
-            be.isNotEmpty) {
-          result[day] = (breakStart: bs, breakEnd: be);
-          continue;
-        }
+        result[day] = resolveWorkerBreakForDate(
+          daily: daily,
+          fallbackBreakStart: null,
+          fallbackBreakEnd: null,
+        );
+        continue;
       }
       if (selectedDay != null &&
           day == selectedDay &&
@@ -711,6 +675,19 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       }
     }
     return (breakStart: shift?.breakStart, breakEnd: shift?.breakEnd);
+  }
+
+  static ({String? breakStart, String? breakEnd}) _breakForDate({
+    required ScheduleItemApi? daily,
+    required List<AvailableWorkerShift> shifts,
+    int? specialistId,
+  }) {
+    final fallback = _breakForSpecialist(shifts, specialistId);
+    return resolveWorkerBreakForDate(
+      daily: daily,
+      fallbackBreakStart: fallback.breakStart,
+      fallbackBreakEnd: fallback.breakEnd,
+    );
   }
 
   static ({double? start, double? end}) _workerShiftHoursForId(
@@ -790,8 +767,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final monthNum = month.month;
     for (final appointment in appointments) {
       if (!appointment.isActive) continue;
+      final primary = appointment.schedulePrimaryDateTimeLocal;
       final dateOnly = _toDateOnly(
-        _safeParseToLocal(appointment.datetime, month),
+        primary ?? _safeParseToLocal(appointment.datetime, month),
       );
       if (dateOnly.year != year || dateOnly.month != monthNum) continue;
       if (isNonWorkingDay != null && isNonWorkingDay(dateOnly)) continue;
@@ -995,9 +973,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           : null,
     );
 
-    final selectedBreak = _breakForSpecialist(
-      availableWorkersAsync.value ?? const [],
-      specialistIdForData,
+    final selectedBreak = _breakForDate(
+      daily: workerSchedulesData?.scheduleOn(selectedDate),
+      shifts: availableWorkersAsync.value ?? const [],
+      specialistId: specialistIdForData,
     );
     final weekBreaksByDay = _breaksByDayForWeek(
       weekStart: _weekStart,

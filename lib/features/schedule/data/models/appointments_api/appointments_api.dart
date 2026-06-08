@@ -1,3 +1,33 @@
+/// Расширяет диапазон запроса до границ месяцев: API фильтрует по
+/// `appointment.datetime`, а календарь — по `services[].datetime`.
+({DateTime gte, DateTime lte}) expandAppointmentsFetchRange(
+  DateTime dateTimeGte,
+  DateTime dateTimeLte,
+) {
+  final gte = DateTime(dateTimeGte.year, dateTimeGte.month, 1);
+  final lte = DateTime(
+    dateTimeLte.year,
+    dateTimeLte.month + 1,
+    0,
+    23,
+    59,
+    59,
+    999,
+  );
+  return (gte: gte, lte: lte);
+}
+
+List<AppointmentApi> filterActiveAppointmentsForVisibleRange(
+  Iterable<AppointmentApi> appointments,
+  DateTime dateTimeGte,
+  DateTime dateTimeLte,
+) {
+  return appointments
+      .where((a) => a.isActive)
+      .where((a) => a.overlapsScheduleInstantRange(dateTimeGte, dateTimeLte))
+      .toList();
+}
+
 class AppointmentsApiResponse {
   const AppointmentsApiResponse({
     required this.count,
@@ -51,6 +81,133 @@ class AppointmentApi {
 
   /// Показывать иконку комментария только при непустом `comment.text`.
   bool get hasComment => (commentText?.trim().isNotEmpty ?? false);
+
+  /// Время для календаря: сначала по услугам, иначе корневой `datetime`.
+  DateTime? get schedulePrimaryDateTimeLocal {
+    for (final service in services) {
+      final parsed = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+      if (parsed != null) return parsed;
+    }
+    return DateTime.tryParse(datetime)?.toLocal();
+  }
+
+  /// Календарный день записи по услугам (не дата создания).
+  DateTime appointmentCalendarDayLocal() {
+    DateTime? earliestDay;
+    for (final service in services) {
+      final parsed = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+      if (parsed == null) continue;
+      final day = DateTime(parsed.year, parsed.month, parsed.day);
+      if (earliestDay == null || day.isBefore(earliestDay)) {
+        earliestDay = day;
+      }
+    }
+    if (earliestDay != null) return earliestDay;
+    final primary = schedulePrimaryDateTimeLocal;
+    if (primary != null) {
+      return DateTime(primary.year, primary.month, primary.day);
+    }
+    final root = DateTime.tryParse(datetime)?.toLocal() ?? DateTime.now();
+    return DateTime(root.year, root.month, root.day);
+  }
+
+  /// Начало услуги: `services[].datetime`, иначе время на [appointmentCalendarDayLocal].
+  DateTime resolveServiceStartLocal(AppointmentServiceApi service) {
+    final parsed = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+    if (parsed != null) return parsed;
+
+    final calendarDay = appointmentCalendarDayLocal();
+    final raw = service.datetime?.trim();
+    if (raw != null &&
+        raw.isNotEmpty &&
+        !raw.contains('T') &&
+        !raw.contains('-')) {
+      final parts = raw.split(':');
+      if (parts.length >= 2) {
+        final h = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        if (h != null && m != null) {
+          return DateTime(
+            calendarDay.year,
+            calendarDay.month,
+            calendarDay.day,
+            h,
+            m,
+          );
+        }
+      }
+    }
+
+    final root = DateTime.tryParse(datetime)?.toLocal();
+    if (root != null) {
+      return DateTime(
+        calendarDay.year,
+        calendarDay.month,
+        calendarDay.day,
+        root.hour,
+        root.minute,
+        root.second,
+      );
+    }
+    return calendarDay;
+  }
+
+  DateTime resolveServiceEndLocal(AppointmentServiceApi service) {
+    final start = resolveServiceStartLocal(service);
+    final duration =
+        service.totalDurationMinutes <= 0 ? 30 : service.totalDurationMinutes;
+    return start.add(Duration(minutes: duration));
+  }
+
+  /// Общий интервал записи: от начала первой до конца последней услуги.
+  ({DateTime start, DateTime end}) mergedScheduleRangeLocal() {
+    if (services.isEmpty) {
+      final start = DateTime.tryParse(datetime)?.toLocal() ?? DateTime.now();
+      return (start: start, end: start.add(const Duration(minutes: 30)));
+    }
+    var minStart = resolveServiceStartLocal(services.first);
+    var maxEnd = resolveServiceEndLocal(services.first);
+    for (final service in services.skip(1)) {
+      final start = resolveServiceStartLocal(service);
+      final end = resolveServiceEndLocal(service);
+      if (start.isBefore(minStart)) minStart = start;
+      if (end.isAfter(maxEnd)) maxEnd = end;
+    }
+    return (start: minStart, end: maxEnd);
+  }
+
+  /// Попадает ли запись в диапазон календарных дней [rangeStart, rangeEnd].
+  bool overlapsScheduleDateRange(DateTime rangeStart, DateTime rangeEnd) {
+    final startDay = DateTime(
+      rangeStart.year,
+      rangeStart.month,
+      rangeStart.day,
+    );
+    final endDay = DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day);
+    for (final service in services) {
+      final parsed = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+      if (parsed == null) continue;
+      final day = DateTime(parsed.year, parsed.month, parsed.day);
+      if (!day.isBefore(startDay) && !day.isAfter(endDay)) return true;
+    }
+    final primary = schedulePrimaryDateTimeLocal;
+    if (primary == null) return false;
+    final day = DateTime(primary.year, primary.month, primary.day);
+    return !day.isBefore(startDay) && !day.isAfter(endDay);
+  }
+
+  /// Попадает ли запись в интервал моментов времени [gte, lte].
+  bool overlapsScheduleInstantRange(DateTime gte, DateTime lte) {
+    for (final service in services) {
+      final parsed = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+      if (parsed != null && !parsed.isBefore(gte) && !parsed.isAfter(lte)) {
+        return true;
+      }
+    }
+    final primary = schedulePrimaryDateTimeLocal;
+    if (primary == null) return false;
+    return !primary.isBefore(gte) && !primary.isAfter(lte);
+  }
 
   factory AppointmentApi.fromJson(Map<String, dynamic> json) {
     final comment = json['comment'] as Map<String, dynamic>?;

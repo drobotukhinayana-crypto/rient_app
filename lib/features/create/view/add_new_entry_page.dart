@@ -48,6 +48,8 @@ import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
+import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
+import 'package:rient_app/features/schedule/view/providers/worker_schedules_range_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -1261,25 +1263,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         continue;
       }
       if (appointment.services.isEmpty) continue;
-      DateTime? start;
-      DateTime? end;
       for (final service in appointment.services) {
-        final serviceStartRaw = DateTime.tryParse(service.datetime ?? '');
-        if (serviceStartRaw == null) continue;
-        final serviceStart = serviceStartRaw.toLocal();
-        final duration = service.totalDurationMinutes <= 0
-            ? 30
-            : service.totalDurationMinutes;
-        final serviceEnd = serviceStart.add(Duration(minutes: duration));
-        if (start == null || serviceStart.isBefore(start)) {
-          start = serviceStart;
+        final serviceStart = appointment.resolveServiceStartLocal(service);
+        final serviceEnd = appointment.resolveServiceEndLocal(service);
+        if (serviceEnd.isAfter(serviceStart)) {
+          result.add(_DateTimeRange(start: serviceStart, end: serviceEnd));
         }
-        if (end == null || serviceEnd.isAfter(end)) {
-          end = serviceEnd;
-        }
-      }
-      if (start != null && end != null && end.isAfter(start)) {
-        result.add(_DateTimeRange(start: start, end: end));
       }
     }
     return result;
@@ -1301,6 +1290,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     required DateTime date,
     required int durationMinutes,
     required AvailableWorkerShift? shift,
+    ScheduleItemApi? daily,
     required List<AppointmentApi> appointments,
     required int currentServiceIndex,
   }) {
@@ -1318,13 +1308,18 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       }
       return const <String>[];
     }
+    final shiftBounds = resolveWorkerShiftBoundsForDate(
+      daily: daily,
+      fallbackTimeStart: shift.timeStart,
+      fallbackTimeEnd: shift.timeEnd,
+    );
     final shiftStart = _dateTimeFromTimeOfDayString(
       date: date,
-      value: shift.timeStart,
+      value: shiftBounds.timeStart,
     );
     final shiftEnd = _dateTimeFromTimeOfDayString(
       date: date,
-      value: shift.timeEnd,
+      value: shiftBounds.timeEnd,
     );
     if (shiftStart == null ||
         shiftEnd == null ||
@@ -1338,19 +1333,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         ignoreAppointmentId: widget.initialAppointment?.id,
       ),
     ];
-    final breakStart = _dateTimeFromTimeOfDayString(
-      date: date,
-      value: shift.breakStart,
-    );
-    final breakEnd = _dateTimeFromTimeOfDayString(
-      date: date,
-      value: shift.breakEnd,
-    );
-    if (breakStart != null &&
-        breakEnd != null &&
-        breakEnd.isAfter(breakStart)) {
-      busyRanges.add(_DateTimeRange(start: breakStart, end: breakEnd));
-    }
+    // Перерыв в календаре только визуальный (ячейки под ним кликабельны).
+    // Слоты блокируем записями и другими услугами в этой форме, не break_start/end.
     for (var i = 0; i < _services.length; i++) {
       if (i == currentServiceIndex) continue;
       final block = _services[i];
@@ -1386,8 +1370,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       cursor = cursor.add(Duration(minutes: slotStepMinutes));
     }
 
-    if (editingAppointment != null &&
-        currentTime != null &&
+    if (currentTime != null &&
         currentTime.isNotEmpty &&
         !slots.contains(currentTime)) {
       final ownStart = _dateTimeFromTimeOfDayString(
@@ -2064,6 +2047,19 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           );
     final specialistAppointments =
         specialistAppointmentsAsync.value ?? const <AppointmentApi>[];
+    final workerDailyScheduleAsync = selectedSpecialistId == null
+        ? null
+        : ref.watch(
+            workerSchedulesRangeProvider(
+              WorkerSchedulesRangeQuery(
+                workerId: selectedSpecialistId,
+                rangeStart: selectedDateOnly,
+                rangeEnd: selectedDateOnly,
+              ),
+            ),
+          );
+    final workerDailySchedule =
+        workerDailyScheduleAsync?.value?.scheduleOn(selectedDateOnly);
     final workerServices =
         workerServicesAsync.value ?? const <WorkerServiceItem>[];
     if (selectedSpecialistId != null && workerServices.isNotEmpty) {
@@ -2984,6 +2980,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                             durationMinutes:
                                 _services[index].totalDurationMinutes,
                             shift: selectedShift,
+                            daily: workerDailySchedule,
                             appointments: specialistAppointments,
                             currentServiceIndex: index,
                           );

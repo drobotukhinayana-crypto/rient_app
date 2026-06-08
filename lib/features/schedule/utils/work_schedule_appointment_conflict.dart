@@ -116,49 +116,11 @@ int timeStringToMinutes(String time) {
   return h * 60 + m;
 }
 
-DateTime _parseAppointmentLocal(String? raw, DateTime fallback) {
-  if (raw == null || raw.isEmpty) return fallback;
-  final parsed = DateTime.tryParse(raw);
-  if (parsed == null) return fallback;
-  return parsed.toLocal();
-}
-
 ({DateTime start, DateTime end}) appointmentTimeRange(
   AppointmentApi appointment,
   DateTime day,
 ) {
-  final dayStart = DateTime(day.year, day.month, day.day);
-  final fallbackStart = _parseAppointmentLocal(appointment.datetime, dayStart);
-  var start = fallbackStart;
-  var end = start.add(const Duration(minutes: 30));
-
-  if (appointment.services.isNotEmpty) {
-    final first = appointment.services.first;
-    start = _parseAppointmentLocal(first.datetime, fallbackStart);
-    var maxEnd = start.add(
-      Duration(
-        minutes: first.totalDurationMinutes <= 0
-            ? 30
-            : first.totalDurationMinutes,
-      ),
-    );
-    for (final service in appointment.services) {
-      final serviceStart = _parseAppointmentLocal(service.datetime, start);
-      final serviceEnd = serviceStart.add(
-        Duration(
-          minutes: service.totalDurationMinutes <= 0
-              ? 30
-              : service.totalDurationMinutes,
-        ),
-      );
-      if (serviceEnd.isAfter(maxEnd)) {
-        maxEnd = serviceEnd;
-      }
-    }
-    end = maxEnd;
-  }
-
-  return (start: start, end: end);
+  return appointment.mergedScheduleRangeLocal();
 }
 
 DateTime _timeOnDay(DateTime day, String time) {

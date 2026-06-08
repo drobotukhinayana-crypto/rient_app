@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
-import 'package:rient_app/features/schedule/data/schedule_appointments_cache.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
 import 'package:rient_app/features/schedule/service/schedule_offline_sync_service.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
@@ -46,16 +45,14 @@ final scheduleAppointmentsProvider =
 
       List<AppointmentApi> fromCache() {
         if (snapshot == null) return const [];
-        final anchor = DateTime.now();
-        final inRange = ScheduleAppointmentsCache.isDateInOfflineRange(
-              query.dateTimeGte,
-              anchor,
-            ) ||
-            ScheduleAppointmentsCache.isDateInOfflineRange(
-              query.dateTimeLte,
-              anchor,
-            );
-        if (!inRange) return const [];
+        final fetchRange = expandAppointmentsFetchRange(
+          query.dateTimeGte,
+          query.dateTimeLte,
+        );
+        if (fetchRange.lte.isBefore(snapshot.rangeFrom) ||
+            fetchRange.gte.isAfter(snapshot.rangeTo)) {
+          return const [];
+        }
         return cache.appointmentsForQuery(
           snapshot: snapshot,
           branchId: branchId,
@@ -74,15 +71,23 @@ final scheduleAppointmentsProvider =
       }
 
       final service = ref.watch(appointmentsServiceProvider);
+      final fetchRange = expandAppointmentsFetchRange(
+        query.dateTimeGte,
+        query.dateTimeLte,
+      );
       try {
         final response = await service.getAppointments(
           branchId: branchId,
           workerId: workerId,
-          dateTimeGte: query.dateTimeGte,
-          dateTimeLte: query.dateTimeLte,
+          dateTimeGte: fetchRange.gte,
+          dateTimeLte: fetchRange.lte,
         );
         ref.read(scheduleServerReachableProvider.notifier).state = true;
-        return response.results.where((a) => a.isActive).toList();
+        return filterActiveAppointmentsForVisibleRange(
+          response.results,
+          query.dateTimeGte,
+          query.dateTimeLte,
+        );
       } catch (e) {
         if (isNetworkFailure(e)) {
           onScheduleNetworkFailure(ref, e);

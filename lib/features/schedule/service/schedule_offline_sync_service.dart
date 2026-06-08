@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/schedule_appointments_cache.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
 import 'package:rient_app/core/network/network_failure.dart';
@@ -34,8 +35,11 @@ class ScheduleOfflineSyncService {
     if (workerIds.isEmpty) return;
 
     final anchor = DateTime.now();
-    final rangeFrom = ScheduleAppointmentsCache.offlineRangeStart(anchor);
-    final rangeTo = ScheduleAppointmentsCache.offlineRangeEnd(anchor);
+    final offlineFrom = ScheduleAppointmentsCache.offlineRangeStart(anchor);
+    final offlineTo = ScheduleAppointmentsCache.offlineRangeEnd(anchor);
+    final fetchRange = expandAppointmentsFetchRange(offlineFrom, offlineTo);
+    final rangeFrom = fetchRange.gte;
+    final rangeTo = fetchRange.lte;
     final service = ref.read(appointmentsServiceProvider);
     final cache = ref.read(scheduleAppointmentsCacheProvider);
     final byWorker = <int, List<dynamic>>{};
