@@ -3,6 +3,7 @@ import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/features/schedule/view/components/schedule_calendar_day_multi_column.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/core/widgets/worker_avatar_image.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 
 class SpecialistListView extends StatelessWidget {
@@ -110,18 +111,12 @@ class _SpecialistAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (pictureUrl != null && pictureUrl!.isNotEmpty) {
-      return ClipOval(
-        child: Image.network(
-          pictureUrl!,
-          width: 40,
-          height: 40,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _placeholder(context),
-        ),
-      );
-    }
-    return _placeholder(context);
+    return WorkerAvatarImage(
+      pictureUrl: pictureUrl,
+      name: name,
+      size: 40,
+      placeholder: _placeholder(context),
+    );
   }
 
   Widget _placeholder(BuildContext context) {

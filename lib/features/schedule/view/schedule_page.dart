@@ -1227,7 +1227,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                 onScheduleStateChanged: _onScheduleStateChanged,
                 specialists: specialists,
                 initialSelectedSpecialist: initialSelected,
-                onSpecialistSelected: isWorkerRole || scheduleReadOnly
+                onSpecialistSelected: isWorkerRole
                     ? null
                     : (s) async {
                         ref.read(selectedSpecialistIdProvider.notifier).state =
@@ -1451,7 +1451,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         )
                                       : ScheduleCalendarOneUserWidget(
                                           key: ValueKey(
-                                            'schedule_day_${scheduleDateKey(selectedDate)}_$_refreshVersion',
+                                            'schedule_day_${scheduleDateKey(selectedDate)}_'
+                                            '${specialistIdForData ?? 0}_$_refreshVersion',
                                           ),
                                           date: selectedDate,
                                           items: dayItems,

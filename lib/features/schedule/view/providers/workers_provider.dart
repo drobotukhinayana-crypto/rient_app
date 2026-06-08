@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
@@ -5,6 +7,7 @@ import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
+import 'package:rient_app/features/schedule/service/schedule_offline_sync_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/core/network/app_connectivity_provider.dart'
     show
@@ -15,17 +18,33 @@ import 'package:rient_app/features/schedule/view/providers/schedule_offline_prov
 
 /// Список рабочих (специалистов) для текущего филиала на странице расписания.
 final scheduleWorkersProvider = FutureProvider<WorkersApiResponse>((ref) async {
-  if (ref.watch(appNoConnectionProvider) ||
-      !ref.watch(scheduleServerReachableProvider)) {
-    return scheduleOfflineEmptyWorkers;
-  }
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0) {
     return scheduleOfflineEmptyWorkers;
   }
+
+  final workersCache = ref.read(scheduleWorkersCacheProvider);
+  if (ref.watch(appNoConnectionProvider) ||
+      !ref.watch(scheduleServerReachableProvider)) {
+    final cached = await workersCache.readForBranch(branchId);
+    if (cached != null && cached.workers.isNotEmpty) {
+      return cached.toWorkersApiResponse();
+    }
+    return scheduleOfflineEmptyWorkers;
+  }
+
   final service = ref.watch(workersServiceProvider);
   try {
-    return await service.getWorkers(branchId: branchId);
+    final response = await service.getWorkers(branchId: branchId);
+    if (response.results.isNotEmpty) {
+      unawaited(
+        workersCache.saveForBranch(
+          branchId: branchId,
+          workers: response.results,
+        ),
+      );
+    }
+    return response;
   } catch (e) {
     final caused = e is CustomException ? e.causedError : e;
     if (isPermissionDenied(caused ?? e)) {
@@ -33,6 +52,10 @@ final scheduleWorkersProvider = FutureProvider<WorkersApiResponse>((ref) async {
     }
     if (isNetworkFailure(caused ?? e)) {
       onScheduleNetworkFailure(ref, caused ?? e);
+    }
+    final cached = await workersCache.readForBranch(branchId);
+    if (cached != null && cached.workers.isNotEmpty) {
+      return cached.toWorkersApiResponse();
     }
     return scheduleOfflineEmptyWorkers;
   }

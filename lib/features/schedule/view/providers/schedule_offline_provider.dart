@@ -9,6 +9,7 @@ import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/data/schedule_appointments_cache.dart';
 import 'package:rient_app/features/schedule/service/schedule_offline_sync_service.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 
 export 'package:rient_app/features/schedule/view/providers/schedule_offline_invalidation.dart'
@@ -60,13 +61,21 @@ final scheduleOfflineModeProvider = Provider<bool>((ref) {
   return !ref.watch(scheduleServerReachableProvider);
 });
 
-/// Специалисты из кэша записей, если сеть недоступна и список с API не загрузился.
+/// Специалисты из локального кэша, если сеть недоступна.
 final scheduleOfflineSpecialistsProvider =
     FutureProvider<List<SpecialistItem>>((ref) async {
   if (!ref.watch(scheduleOfflineModeProvider)) return const [];
   final labels =
       ref.watch(workerEntityLabelsProvider).value ??
       WorkerEntityLabels.defaults;
+  final branchId = ref.watch(currentBranchIdProvider);
+  if (branchId > 0) {
+    final workersSnapshot =
+        await ref.read(scheduleWorkersCacheProvider).readForBranch(branchId);
+    if (workersSnapshot != null && workersSnapshot.workers.isNotEmpty) {
+      return workersSnapshot.toSpecialistItems(labels);
+    }
+  }
   final snapshot = await ref.read(scheduleAppointmentsCacheProvider).read();
   return ScheduleAppointmentsCache.specialistsFromSnapshot(snapshot, labels);
 });

@@ -3,6 +3,7 @@ import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/schedule_appointments_cache.dart';
+import 'package:rient_app/features/schedule/data/schedule_workers_cache.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
 import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
@@ -10,6 +11,10 @@ import 'package:rient_app/features/schedule/view/providers/workers_provider.dart
 
 final scheduleAppointmentsCacheProvider = Provider<ScheduleAppointmentsCache>(
   (ref) => ScheduleAppointmentsCache(ref.watch(localStorageProvider)),
+);
+
+final scheduleWorkersCacheProvider = Provider<ScheduleWorkersCache>(
+  (ref) => ScheduleWorkersCache(ref.watch(localStorageProvider)),
 );
 
 final scheduleOfflineSyncServiceProvider = Provider<ScheduleOfflineSyncService>(
@@ -28,10 +33,14 @@ class ScheduleOfflineSyncService {
     if (branchId <= 0) return;
 
     final workersResponse = await ref.read(scheduleWorkersProvider.future);
-    final workerIds = workersResponse.results
-        .map((w) => w.id)
-        .where((id) => id > 0)
-        .toList();
+    final workers = workersResponse.results;
+    if (workers.isNotEmpty) {
+      await ref.read(scheduleWorkersCacheProvider).saveForBranch(
+            branchId: branchId,
+            workers: workers,
+          );
+    }
+    final workerIds = workers.map((w) => w.id).where((id) => id > 0).toList();
     if (workerIds.isEmpty) return;
 
     final anchor = DateTime.now();

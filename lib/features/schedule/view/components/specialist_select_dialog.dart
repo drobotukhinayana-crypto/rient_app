@@ -8,6 +8,7 @@ import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/app_radio.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
+import 'package:rient_app/core/widgets/worker_avatar_image.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class SpecialistItem {
@@ -228,18 +229,12 @@ class _SpecialistAvatarSmall extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (pictureUrl != null && pictureUrl!.isNotEmpty) {
-      return ClipOval(
-        child: Image.network(
-          pictureUrl!,
-          width: 30,
-          height: 30,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _placeholder(context),
-        ),
-      );
-    }
-    return _placeholder(context);
+    return WorkerAvatarImage(
+      pictureUrl: pictureUrl,
+      name: name,
+      size: 30,
+      placeholder: _placeholder(context),
+    );
   }
 
   Widget _placeholder(BuildContext context) {
