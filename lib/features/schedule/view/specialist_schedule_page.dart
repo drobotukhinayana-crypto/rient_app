@@ -833,6 +833,8 @@ class _SpecialistScheduleHeader extends StatelessWidget {
                         ? AppColors.primaryWhite
                         : AppColors.primaryDark,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -887,12 +889,16 @@ class _SpecialistEmployeeInfo extends StatelessWidget {
               Text(
                 name,
                 style: AppFonts.b1Medium.copyWith(color: nameColor),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               if (positionText != null && positionText.isNotEmpty) ...[
                 const Gap(4),
                 Text(
                   positionText,
                   style: AppFonts.b2Regular.copyWith(color: positionColor),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ],

@@ -13,7 +13,10 @@ import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 
 export 'package:rient_app/features/schedule/view/providers/schedule_offline_invalidation.dart'
-    show invalidateScheduleNetworkProviders, scheduleServerUnreachableListenerProvider;
+    show
+        invalidateScheduleNetworkProviders,
+        invalidateScheduleNetworkProvidersDeferred,
+        scheduleServerUnreachableListenerProvider;
 export 'package:rient_app/core/network/app_connectivity_provider.dart'
     show
         appHasNetworkProvider,

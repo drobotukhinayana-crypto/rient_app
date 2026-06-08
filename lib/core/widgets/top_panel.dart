@@ -328,8 +328,14 @@ class _TopPanelState extends State<TopPanel> {
                       ),
               ),
               Gap(12),
-              Text(widget.title, style: AppFonts.h3Medium),
-              const Spacer(),
+              Expanded(
+                child: Text(
+                  widget.title,
+                  style: AppFonts.h3Medium,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               const ProfileSelectorPill(),
             ],
           ),

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/services/push_notification_navigation.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/app_exit_handler.dart';
@@ -135,6 +136,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
       unawaited(
         ref.read(notificationsWebSocketControllerProvider).ensureConnected(),
       );
+      PushNotificationNavigation.tryOpenMessagesTabNow();
       _redirectToScheduleIfOffline();
     });
     _fcmForegroundSubscription =
@@ -162,7 +164,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     ref.invalidate(workerEntityLabelsProvider);
     if (ref.read(appHasNetworkProvider)) {
       resetScheduleNetworkStateForSession(ref);
-      invalidateScheduleNetworkProviders(ref);
+      invalidateScheduleNetworkProvidersDeferred(ref);
       refreshWorkerPermissions(ref);
     }
     final now = DateTime.now();

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:rient_app/core/services/push_notification_navigation.dart';
 
 /// Id канала Android — должен совпадать с AndroidManifest meta-data.
 const kHighImportanceChannelId = 'high_importance_channel';
@@ -73,21 +74,23 @@ class NotificationService {
 
   Future<void> _initForegroundHandlers() async {
     final initial = await _messaging.getInitialMessage();
-    _logOpenedMessage(initial);
+    _handleOpenedMessage(initial);
 
-    FirebaseMessaging.onMessageOpenedApp.listen(_logOpenedMessage);
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedMessage);
     FirebaseMessaging.onMessage.listen(_showForegroundNotification);
   }
 
   void _onNotificationTap(NotificationResponse response) {
     debugPrint('Notification tap: ${response.payload}');
+    PushNotificationNavigation.openMessagesTab();
   }
 
-  void _logOpenedMessage(RemoteMessage? message) {
+  void _handleOpenedMessage(RemoteMessage? message) {
     if (message == null) return;
     debugPrint(
       'FCM opened: ${message.notification?.title} ${message.notification?.body}',
     );
+    PushNotificationNavigation.openMessagesTab();
   }
 
   void _showForegroundNotification(RemoteMessage message) {

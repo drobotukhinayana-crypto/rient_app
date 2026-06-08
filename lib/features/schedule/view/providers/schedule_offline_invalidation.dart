@@ -44,7 +44,7 @@ final scheduleServerUnreachableListenerProvider = Provider<void>((ref) {
     final hasToken = next != null && next.isNotEmpty;
     if (!hadToken && hasToken) {
       resetScheduleNetworkStateForSession(ref);
-      invalidateScheduleNetworkProviders(ref);
+      invalidateScheduleNetworkProvidersDeferred(ref);
       ref.invalidate(workerEntityLabelsProvider);
     }
     if (hadToken && !hasToken) {
@@ -52,15 +52,8 @@ final scheduleServerUnreachableListenerProvider = Provider<void>((ref) {
     }
   });
 
-  ref.listen<bool>(appNoConnectionProvider, (previous, next) {
-    if (next && previous != true) {
-      invalidateScheduleNetworkProvidersDeferred(ref);
-    }
-  });
-
   ref.listen<bool>(scheduleServerReachableProvider, (previous, next) {
     if (previous != false && next == false) {
-      invalidateScheduleNetworkProvidersDeferred(ref);
       if (ref.read(appHasNetworkProvider)) {
         Future<void>.delayed(const Duration(seconds: 2), () {
           if (!ref.mounted) return;
@@ -77,7 +70,6 @@ final scheduleServerUnreachableListenerProvider = Provider<void>((ref) {
     if (!next) return;
     if (!ref.read(scheduleServerReachableProvider)) {
       resetScheduleNetworkStateForSession(ref);
-      invalidateScheduleNetworkProvidersDeferred(ref);
     }
   });
 });

@@ -15,6 +15,7 @@ import 'package:rient_app/core/models/worker_entity_labels.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
+import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/widgets/app_service_message.dart';
@@ -1913,7 +1914,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         ((_selectedClient?.commentText ?? '').trim().isNotEmpty);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: EdgeInsets.only(
+        bottom: AppDecoration.scrollBottomPadding(context, extra: 40),
+      ),
       child: Column(
         children: [
           DefaultContainerWidget(
@@ -3661,8 +3664,15 @@ class _BottomActionsBar extends ConsumerWidget {
       }
     }
 
+    final bottomInset = AppDecoration.systemBottomInset(context);
+
     return DefaultContainerWidget(
-      padding: const EdgeInsets.only(left: 25, right: 25, bottom: 38, top: 20),
+      padding: EdgeInsets.only(
+        left: 25,
+        right: 25,
+        bottom: 56 + bottomInset,
+        top: 20,
+      ),
       borderRadius: BorderRadius.circular(24),
       hasShadow: false,
       color: cardSurface,

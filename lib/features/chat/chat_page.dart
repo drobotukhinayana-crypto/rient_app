@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
+import 'package:rient_app/core/utils/app_exit_handler.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
@@ -300,7 +301,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       orElse: () => 0,
     );
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        unawaited(handleAndroidBackButton(context));
+      },
+      child: Scaffold(
       backgroundColor: screenBackground,
       body: Column(
         children: [
@@ -332,6 +339,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             ),
         ],
       ),
+    ),
     );
   }
 

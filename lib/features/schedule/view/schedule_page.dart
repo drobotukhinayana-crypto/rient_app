@@ -7,6 +7,7 @@ import 'package:rient_app/core/models/worker_entity_labels.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
+import 'package:rient_app/core/utils/app_exit_handler.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/schedule_offline_banner.dart';
@@ -303,6 +304,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     _pendingDayHorizontalScrollAlign = true;
     _bumpScheduleUiVersion();
     _scheduleDayHorizontalScrollAlign();
+  }
+
+  void _deferForceRefreshScheduleScreen() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _forceRefreshScheduleScreen();
+    });
   }
 
   void _forceRefreshScheduleScreen() {
@@ -721,6 +729,41 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       return (start: start, end: end);
     }
     return (start: null, end: null);
+  }
+
+  /// Выходной только при явном графике; без данных — рабочий (мастер в списке дня).
+  static bool _isWorkerExplicitlyOffOnDate({
+    required DateTime date,
+    required Set<int> workingWeekdays,
+    ScheduleItemApi? daily,
+  }) {
+    if (daily != null) {
+      final parsed = daily.dateParsed;
+      if (parsed != null && isSameCalendarDay(parsed, dateOnly(date))) {
+        return !daily.active;
+      }
+    }
+    if (workingWeekdays.isNotEmpty) {
+      return !workingWeekdays.contains(date.weekday);
+    }
+    return false;
+  }
+
+  /// День «все мастера»: часы филиала, без штриховки до/после узкой смены.
+  static ({double? start, double? end}) _adminMultiColumnWorkerHours({
+    required DateTime date,
+    required Set<int> workingWeekdays,
+    ScheduleItemApi? daily,
+    required ({double startHour, double endHour}) branchHours,
+  }) {
+    if (_isWorkerExplicitlyOffOnDate(
+      date: date,
+      workingWeekdays: workingWeekdays,
+      daily: daily,
+    )) {
+      return (start: null, end: null);
+    }
+    return (start: branchHours.startHour, end: branchHours.endHour);
   }
 
   static int? _weekdayFromPatternDay(String? day) {
@@ -1185,7 +1228,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     });
     ref.listen<int>(workScheduleReloadTokenProvider, (previous, next) {
       if (previous == null || previous == next) return;
-      _forceRefreshScheduleScreen();
+      _deferForceRefreshScheduleScreen();
     });
     ref.listen<DateTime?>(openScheduleOnDayProvider, (previous, next) {
       if (next == null) return;
@@ -1209,11 +1252,20 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       if (previous == true && next == false) {
         ref.read(scheduleServerReachableProvider.notifier).state = true;
         unawaited(ref.read(scheduleOfflineSyncServiceProvider).syncIfOnline());
-        ref.invalidate(scheduleAppointmentsProvider);
-        _forceRefreshScheduleScreen();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.invalidate(scheduleAppointmentsProvider);
+          _forceRefreshScheduleScreen();
+        });
       }
     });
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        unawaited(handleAndroidBackButton(context));
+      },
+      child: Scaffold(
       backgroundColor: screenBackground,
       body: Stack(
         children: [
@@ -1240,7 +1292,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                       },
                 scheduleSelectedDate: selectedDate,
                 occupancyByDay: dayOccupancyByDay,
-                resolveScheduleNonWorkingDay: specialistIdForData != null
+                resolveScheduleNonWorkingDay:
+                    !multiDayColumns && specialistIdForData != null
                     ? resolveWorkerNonWorkingDay
                     : null,
                 onScheduleDateSelected: (date) {
@@ -1332,34 +1385,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                 () {
                                                   final workerId =
                                                       specialists[i].id!;
-                                                  final hasWorkerInBranch =
-                                                      workerWeekdaysById.containsKey(
-                                                        workerId,
-                                                      );
-                                                  if (!hasWorkerInBranch) {
-                                                    return ScheduleCalendarDayColumn(
-                                                      workerId: workerId,
-                                                      name: specialists[i].name,
-                                                      items: _mapAppointmentsForRange(
-                                                        dayAppsBySpecialistIndex[i]
-                                                                .value ??
-                                                            const [],
-                                                        dayStart,
-                                                        dayEnd,
-                                                      ),
-                                                      breakStart: null,
-                                                      breakEnd: null,
-                                                      workerStartHour: null,
-                                                      workerEndHour: null,
-                                                    );
-                                                  }
-                                                  final byShift =
-                                                      _workerShiftHoursForId(
-                                                        shifts,
-                                                        workerId,
-                                                        branchHours:
-                                                            dayWorkHours,
-                                                      );
                                                   final weekdays =
                                                       workerWeekdaysById[workerId] ??
                                                       const <int>{};
@@ -1372,26 +1397,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                     ),
                                                     selectedDate,
                                                   );
-                                                  final byWeekday =
-                                                      workerShiftHoursForDate(
+                                                  final effectiveHours =
+                                                      _adminMultiColumnWorkerHours(
                                                     date: selectedDate,
                                                     workingWeekdays: weekdays,
                                                     daily: dailyForWorker,
-                                                    shiftConfig: workerId ==
-                                                            specialistIdForData
-                                                        ? workerSchedulesData
-                                                            ?.shiftConfig
-                                                        : null,
-                                                    branchStartHour:
-                                                        dayWorkHours.startHour,
-                                                    branchEndHour:
-                                                        dayWorkHours.endHour,
+                                                    branchHours: dayWorkHours,
                                                   );
-                                                  final effectiveHours =
-                                                      (byShift.start != null &&
-                                                          byShift.end != null)
-                                                      ? byShift
-                                                      : byWeekday;
 
                                                   return ScheduleCalendarDayColumn(
                                                     workerId: workerId,
@@ -1652,6 +1664,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           ),
         ],
       ),
+    ),
     );
   }
 }
