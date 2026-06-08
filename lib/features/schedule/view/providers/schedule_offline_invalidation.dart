@@ -1,3 +1,4 @@
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
@@ -24,6 +25,14 @@ void invalidateScheduleNetworkProviders(dynamic ref) {
   ref.invalidate(currentWorkerIdProvider);
 }
 
+/// Инвалидация на следующий кадр — не ломает провайдеры в том же build.
+void invalidateScheduleNetworkProvidersDeferred(dynamic ref) {
+  SchedulerBinding.instance.addPostFrameCallback((_) {
+    if (!ref.mounted) return;
+    invalidateScheduleNetworkProviders(ref);
+  });
+}
+
 /// Глобально: нет сети / сервер недоступен → сброс зависших запросов.
 final scheduleServerUnreachableListenerProvider = Provider<void>((ref) {
   ref.listen<String?>(tokenProvider, (previous, next) {
@@ -44,20 +53,21 @@ final scheduleServerUnreachableListenerProvider = Provider<void>((ref) {
       final wasReachable = ref.read(scheduleServerReachableProvider);
       markScheduleServerUnreachable(ref);
       if (wasReachable) {
-        invalidateScheduleNetworkProviders(ref);
+        invalidateScheduleNetworkProvidersDeferred(ref);
       }
     }
   });
 
   ref.listen<bool>(scheduleServerReachableProvider, (previous, next) {
     if (previous != false && next == false) {
-      invalidateScheduleNetworkProviders(ref);
+      invalidateScheduleNetworkProvidersDeferred(ref);
       if (ref.read(appHasNetworkProvider)) {
         Future<void>.delayed(const Duration(seconds: 2), () {
+          if (!ref.mounted) return;
           if (!ref.read(appHasNetworkProvider)) return;
           if (ref.read(scheduleServerReachableProvider)) return;
           markScheduleServerReachable(ref);
-          invalidateScheduleNetworkProviders(ref);
+          invalidateScheduleNetworkProvidersDeferred(ref);
         });
       }
     }
@@ -67,7 +77,7 @@ final scheduleServerUnreachableListenerProvider = Provider<void>((ref) {
     if (!next) return;
     if (!ref.read(scheduleServerReachableProvider)) {
       resetScheduleNetworkStateForSession(ref);
-      invalidateScheduleNetworkProviders(ref);
+      invalidateScheduleNetworkProvidersDeferred(ref);
     }
   });
 });

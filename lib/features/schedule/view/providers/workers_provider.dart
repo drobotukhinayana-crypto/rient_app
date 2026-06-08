@@ -8,7 +8,6 @@ import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.
 import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/core/network/app_connectivity_provider.dart'
     show onScheduleNetworkFailure;
-import 'package:rient_app/features/schedule/view/providers/schedule_offline_invalidation.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
 /// Список рабочих (специалистов) для текущего филиала на странице расписания.
@@ -25,8 +24,11 @@ final scheduleWorkersProvider = FutureProvider<WorkersApiResponse>((ref) async {
     return await service.getWorkers(branchId: branchId);
   } catch (e) {
     final caused = e is CustomException ? e.causedError : e;
+    if (isPermissionDenied(caused ?? e)) {
+      return scheduleOfflineEmptyWorkers;
+    }
     onScheduleNetworkFailure(ref, caused ?? e);
-    if (ref.read(scheduleOfflineModeProvider)) {
+    if (!ref.mounted || ref.read(scheduleOfflineModeProvider)) {
       return scheduleOfflineEmptyWorkers;
     }
     rethrow;
@@ -52,8 +54,11 @@ final availableWorkersForDateProvider =
         );
       } catch (e) {
         final caused = e is CustomException ? e.causedError : e;
+        if (isPermissionDenied(caused ?? e)) {
+          return const [];
+        }
         onScheduleNetworkFailure(ref, caused ?? e);
-        if (ref.read(scheduleOfflineModeProvider)) {
+        if (!ref.mounted || ref.read(scheduleOfflineModeProvider)) {
           return const [];
         }
         rethrow;

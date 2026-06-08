@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
@@ -13,11 +14,16 @@ class BottomPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bottomPadding = defaultTargetPlatform == TargetPlatform.iOS
+        ? 16.0 + MediaQuery.paddingOf(context).bottom
+        : 16.0;
+
     return SafeArea(
       top: false,
+      bottom: defaultTargetPlatform != TargetPlatform.iOS,
       minimum: EdgeInsets.zero,
       child: Container(
-      padding: const EdgeInsets.only(top: 20, bottom: 16),
+      padding: EdgeInsets.only(top: 20, bottom: bottomPadding),
       decoration: BoxDecoration(
         boxShadow: [
           BoxShadow(

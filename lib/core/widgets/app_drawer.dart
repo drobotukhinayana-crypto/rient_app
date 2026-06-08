@@ -63,7 +63,8 @@ class AppDrawer extends ConsumerWidget {
     final showWorkSchedule =
         roleId == UserRole.owner.value || roleId == UserRole.worker.value;
     final showAnalytics = roleId != UserRole.administrator.value;
-    final showSettings = roleId != UserRole.worker.value;
+    final showSettings = roleId != UserRole.worker.value &&
+        roleId != UserRole.administrator.value;
     final isWorkerRole = roleId == UserRole.worker.value;
     final workerLabels =
         ref.watch(workerEntityLabelsProvider).value ??

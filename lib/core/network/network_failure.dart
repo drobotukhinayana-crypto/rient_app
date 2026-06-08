@@ -31,3 +31,15 @@ bool isNetworkFailure(Object? error) {
       error is IOException ||
       error is TimeoutException;
 }
+
+/// 403 — аутентифицирован, но нет доступа к ресурсу (не сетевой сбой).
+bool isPermissionDenied(Object? error) {
+  if (error == null) return false;
+  if (error is CustomException) {
+    return isPermissionDenied(error.causedError);
+  }
+  if (error is DioException) {
+    return error.response?.statusCode == 403;
+  }
+  return false;
+}

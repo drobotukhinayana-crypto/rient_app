@@ -19,11 +19,18 @@ class AccountProfile {
   final String? avatar;
   final String? avatarThumbnail;
 
-  /// «Фамилия Имя» из [worker] в ответе accounts/, если есть.
+  /// «Фамилия Имя» из accounts/ (worker или корень профиля).
   final String? workerDisplayName;
 
   /// Должность (например specialization) из [worker].
   final String? workerSpecialization;
+}
+
+String? _displayNameFromMap(Map<String, dynamic> map) {
+  final last = (map['last_name'] ?? '').toString().trim();
+  final first = (map['first_name'] ?? '').toString().trim();
+  final combined = [last, first].where((s) => s.isNotEmpty).join(' ');
+  return combined.isEmpty ? null : combined;
 }
 
 final accountProfileProvider = FutureProvider<AccountProfile?>((ref) async {
@@ -50,13 +57,11 @@ final accountProfileProvider = FutureProvider<AccountProfile?>((ref) async {
     final workerRaw = data['worker'];
     if (workerRaw is Map) {
       final w = workerRaw.map((k, v) => MapEntry(k.toString(), v));
-      final last = (w['last_name'] ?? '').toString().trim();
-      final first = (w['first_name'] ?? '').toString().trim();
-      final combined = [last, first].where((s) => s.isNotEmpty).join(' ');
-      workerDisplayName = combined.isEmpty ? null : combined;
+      workerDisplayName = _displayNameFromMap(w);
       final spec = (w['specialization'] ?? '').toString().trim();
       workerSpecialization = spec.isEmpty ? null : spec;
     }
+    workerDisplayName ??= _displayNameFromMap(data);
 
     return AccountProfile(
       email: data['email']?.toString(),

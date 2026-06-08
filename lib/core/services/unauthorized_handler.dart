@@ -75,14 +75,14 @@ Future<bool> refreshTokenSilentlyIfPossible(Ref ref) async {
   }
 }
 
-/// При 401/просроченном токене очищает сессию и переводит на экран входа.
+/// При 401 (просроченный токен) очищает сессию и переводит на экран входа.
+/// 403 — нет прав на ресурс, сессию не сбрасываем.
 Future<void> handleUnauthorizedIfNeeded(Ref ref, Object error) async {
   if (_isUnauthorizedHandlingInProgress) return;
   if (error is! DioException) return;
 
   final code = error.response?.statusCode;
-  final isUnauthorized = code == 401 || code == 403;
-  if (!isUnauthorized) return;
+  if (code != 401) return;
 
   _isUnauthorizedHandlingInProgress = true;
   try {

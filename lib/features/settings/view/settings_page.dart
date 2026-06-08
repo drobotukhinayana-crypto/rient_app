@@ -23,7 +23,9 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (ref.watch(roleProvider) == UserRole.worker.value) {
+    final roleId = ref.watch(roleProvider);
+    if (roleId == UserRole.worker.value ||
+        roleId == UserRole.administrator.value) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) context.pop();
       });

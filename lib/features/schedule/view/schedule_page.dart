@@ -1197,7 +1197,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     });
     ref.listen<bool>(scheduleOfflineModeProvider, (previous, next) {
       if (next == true && previous != true) {
-        invalidateScheduleNetworkProviders(ref);
         unawaited(() async {
           final storage = ref.read(localStorageProvider);
           final idStr = await storage.getString(selectedSpecialistIdStorageKey);

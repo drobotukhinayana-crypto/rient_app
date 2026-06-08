@@ -82,6 +82,7 @@ final scheduleAppointmentsProvider =
           dateTimeGte: fetchRange.gte,
           dateTimeLte: fetchRange.lte,
         );
+        if (!ref.mounted) return fromCache();
         ref.read(scheduleServerReachableProvider.notifier).state = true;
         return filterActiveAppointmentsForVisibleRange(
           response.results,
@@ -89,6 +90,10 @@ final scheduleAppointmentsProvider =
           query.dateTimeLte,
         );
       } catch (e) {
+        if (!ref.mounted) return fromCache();
+        if (isPermissionDenied(e)) {
+          return const <AppointmentApi>[];
+        }
         if (isNetworkFailure(e)) {
           onScheduleNetworkFailure(ref, e);
         }
