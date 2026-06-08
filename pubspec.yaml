@@ -38,6 +38,7 @@ dependencies:
   flutter_local_notifications: ^20.1.0
   screen_protector: ^1.5.2
   connectivity_plus: ^7.1.1
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -52,6 +53,12 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/yandex_source.svg
+    - assets/2gis.png
+    - assets/vk_source.svg
+    - assets/sotrudnik.svg
+    - assets/prymai_silka.svg
+    - assets/vidget_na_sait.svg
     
 
 

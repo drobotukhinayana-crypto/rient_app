@@ -11,9 +11,9 @@ Future<void> ensureNetworkForRequest(dynamic ref) async {
   }
 }
 
+/// Ошибка сети для главной/аналитики — не переводит расписание в оффлайн.
 void rethrowAsOfflineIfNetworkFailure(dynamic ref, Object error) {
   if (isNetworkFailure(error)) {
-    markScheduleServerUnreachable(ref);
     throw const AppOfflineException();
   }
 }

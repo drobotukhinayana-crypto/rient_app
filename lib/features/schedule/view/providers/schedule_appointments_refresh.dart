@@ -8,6 +8,8 @@ import 'package:rient_app/features/schedule/view/providers/schedule_statistics_p
 Future<void> _prefetchHomeData(dynamic ref) async {
   try {
     await ref.read(statisticsProvider.future);
+  } catch (_) {}
+  try {
     await ref.read(todayRevenueMetricsProvider.future);
   } catch (_) {}
 }

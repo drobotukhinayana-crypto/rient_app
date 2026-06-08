@@ -16,11 +16,13 @@ bool isNetworkFailure(Object? error) {
     if (error.type == DioExceptionType.connectionError ||
         error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.sendTimeout ||
-        error.type == DioExceptionType.receiveTimeout ||
-        error.type == DioExceptionType.unknown) {
+        error.type == DioExceptionType.receiveTimeout) {
       return true;
     }
-    return isNetworkFailure(error.error);
+    if (error.type == DioExceptionType.unknown) {
+      return isNetworkFailure(error.error);
+    }
+    return false;
   }
 
   return error is SocketException ||

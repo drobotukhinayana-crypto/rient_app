@@ -52,6 +52,14 @@ final scheduleServerUnreachableListenerProvider = Provider<void>((ref) {
   ref.listen<bool>(scheduleServerReachableProvider, (previous, next) {
     if (previous != false && next == false) {
       invalidateScheduleNetworkProviders(ref);
+      if (ref.read(appHasNetworkProvider)) {
+        Future<void>.delayed(const Duration(seconds: 2), () {
+          if (!ref.read(appHasNetworkProvider)) return;
+          if (ref.read(scheduleServerReachableProvider)) return;
+          markScheduleServerReachable(ref);
+          invalidateScheduleNetworkProviders(ref);
+        });
+      }
     }
   });
 

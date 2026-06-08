@@ -362,6 +362,7 @@ class _DrawerFooter extends StatelessWidget {
         ),
         _DrawerTile(
           iconAsset: AppImages.logoutBurger,
+          iconColor: Colors.red,
           label: 'Выйти из аккаунта',
           labelStyle: AppFonts.c1Regular.copyWith(color: Colors.red),
           onTap: onLogout,
@@ -420,6 +421,7 @@ class _DrawerTile extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.labelStyle,
+    this.iconColor,
     this.enabled = true,
   }) : assert(iconAsset != null || icon != null);
 
@@ -428,6 +430,7 @@ class _DrawerTile extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final TextStyle? labelStyle;
+  final Color? iconColor;
   final bool enabled;
 
   @override
@@ -453,7 +456,9 @@ class _DrawerTile extends StatelessWidget {
               if (iconAsset != null)
                 ColorFiltered(
                   colorFilter: ColorFilter.mode(
-                    enabled ? drawerIconColor : contentColor,
+                    enabled
+                        ? (iconColor ?? drawerIconColor)
+                        : contentColor,
                     BlendMode.srcIn,
                   ),
                   child: Image.asset(iconAsset!, width: 24, height: 24),
@@ -462,7 +467,9 @@ class _DrawerTile extends StatelessWidget {
                 Icon(
                   icon,
                   size: 24,
-                  color: enabled ? AppColors.mainAccentDark : contentColor,
+                  color: enabled
+                      ? (iconColor ?? AppColors.mainAccentDark)
+                      : contentColor,
                 ),
               const Gap(6),
               Expanded(

@@ -51,6 +51,8 @@ import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dar
 import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/view/providers/worker_schedules_range_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
+import 'package:rient_app/core/widgets/appointment_source_icon.dart';
+import 'package:rient_app/features/schedule/utils/appointment_source.dart';
 import 'package:rient_app/resources/resources.dart';
 
 DateTime _dateOnlyForScheduleStats(DateTime d) =>
@@ -3163,43 +3165,47 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
               ],
             ),
           ),
-          const Gap(20),
-          DefaultContainerWidget(
-            borderRadius: BorderRadius.circular(24),
-            hasShadow: false,
-            color: cardSurface,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Источник', style: AppFonts.c1Medium),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+          if (appointmentSourceInfo(widget.initialAppointment?.source)
+              case final sourceInfo?) ...[
+            const Gap(20),
+            DefaultContainerWidget(
+              borderRadius: BorderRadius.circular(24),
+              hasShadow: false,
+              color: cardSurface,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Источник', style: AppFonts.c1Medium),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: mutedFill,
+                      borderRadius: BorderRadius.circular(300),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppointmentSourceIcon(
+                          source: widget.initialAppointment!.source,
+                          size: 16,
+                        ),
+                        const Gap(6),
+                        Text(
+                          sourceInfo.label,
+                          style: AppFonts.c1Regular.copyWith(
+                            color: primaryText,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  decoration: BoxDecoration(
-                    color: mutedFill,
-                    borderRadius: BorderRadius.circular(300),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (widget.initialAppointment?.source == 3)
-                        Icon(Icons.link, size: 16, color: primaryText)
-                      else
-                        Image.asset(AppImages.solidFull),
-                      const Gap(6),
-                      Text(
-                        widget.initialAppointment?.sourceDisplayLabel ??
-                            'Админ',
-                        style: AppFonts.c1Regular.copyWith(color: primaryText),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

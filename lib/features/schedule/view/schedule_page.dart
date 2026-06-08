@@ -12,7 +12,6 @@ import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/schedule_offline_banner.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/schedule/service/schedule_offline_sync_service.dart';
-import 'package:rient_app/features/schedule/view/providers/schedule_offline_invalidation.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
@@ -364,7 +363,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   }
 
   Future<void> _onPullToRefresh() async {
-    if (ref.read(scheduleOfflineModeProvider)) return;
+    if (!ref.read(appHasNetworkProvider)) return;
+
+    if (!ref.read(scheduleServerReachableProvider)) {
+      markScheduleServerReachable(ref);
+      invalidateScheduleNetworkProviders(ref);
+    }
+
     await ref.read(scheduleOfflineSyncServiceProvider).syncIfOnline();
     _forceRefreshScheduleScreen();
     final selectedDate = ref.read(selectedScheduleDateProvider);

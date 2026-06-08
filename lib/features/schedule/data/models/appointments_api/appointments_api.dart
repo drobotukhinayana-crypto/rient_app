@@ -1,3 +1,5 @@
+import 'package:rient_app/features/schedule/utils/appointment_source.dart';
+
 /// Расширяет диапазон запроса до границ месяцев: API фильтрует по
 /// `appointment.datetime`, а календарь — по `services[].datetime`.
 ({DateTime gte, DateTime lte}) expandAppointmentsFetchRange(
@@ -76,10 +78,12 @@ class AppointmentApi {
   final String? commentText;
   /// `comment.id`, если блок комментария есть в ответе.
   final int? commentId;
-  /// Источник записи из API (`3` — прямая ссылка / виджет).
+  /// Источник записи из API (0 — сотрудник, 1 — виджет, 3 — ссылка и т.д.).
   final int? source;
 
-  String get sourceDisplayLabel => source == 3 ? 'Ссылка' : 'Админ';
+  String? get sourceDisplayLabel => appointmentSourceInfo(source)?.label;
+
+  bool get hasKnownSource => appointmentSourceInfo(source) != null;
 
   /// Записи для отображения в расписании (все известные статусы 0–4).
   bool get isActive => status >= 0 && status <= 4;
