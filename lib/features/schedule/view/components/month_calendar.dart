@@ -167,12 +167,20 @@ class MonthCalendar extends StatelessWidget {
                   }
                   final dayNum = index - leadingEmpty + 1;
                   final date = DateTime(month.year, month.month, dayNum);
+                  final isNonWorkingDay = MonthCalendar._isNonWorkingDay(
+                    date,
+                    true,
+                    workingWeekdays,
+                    resolveNonWorkingDay,
+                  );
                   /// Только если API вернул день: иначе без подписи (не показываем +0 и не подставляем фиктивные числа).
-                  final slots = slotsByDay?[dayNum];
-                  final showArc = slotsByDay != null
-                      ? slotsByDay!.containsKey(dayNum)
-                      : true;
-                  final occupancy = occupancyByDay != null
+                  final rawSlots = slotsByDay?[dayNum];
+                  final slots = isNonWorkingDay ? null : rawSlots;
+                  final showArc = !isNonWorkingDay &&
+                      (slotsByDay != null
+                          ? slotsByDay!.containsKey(dayNum)
+                          : true);
+                  final occupancy = !isNonWorkingDay && occupancyByDay != null
                       ? _occupancyForDate(occupancyByDay!, date)
                       : 0.0;
                   return _DayCell(
@@ -180,15 +188,9 @@ class MonthCalendar extends StatelessWidget {
                     isCurrentMonth: true,
                     isDark: isDark,
                     slots: slots,
-                    showArc:
-                        showArc && (slots != null && slots > 0),
+                    showArc: showArc && (slots != null && slots > 0),
                     occupancyPercent: occupancy,
-                    isNonWorkingDay: MonthCalendar._isNonWorkingDay(
-                      date,
-                      true,
-                      workingWeekdays,
-                      resolveNonWorkingDay,
-                    ),
+                    isNonWorkingDay: isNonWorkingDay,
                     onTap: onDayTap != null ? () => onDayTap!(date) : null,
                   );
                 }),
@@ -260,7 +262,10 @@ class _DayCell extends StatelessWidget {
                 ),
               ),
             ),
-            if (isCurrentMonth && slots != null && slots! > 0) ...[
+            if (isCurrentMonth &&
+                !isNonWorkingDay &&
+                slots != null &&
+                slots! > 0) ...[
               const SizedBox(height: 2),
               Text(
                 '+$slots',
@@ -306,7 +311,9 @@ class _MonthDayCirclePainter extends CustomPainter {
     canvas.drawCircle(center, radius, bgPaint);
 
     // Дуга заполненности (как в полоске дат): обводка по кругу по проценту
-    if (isCurrentMonth && (showArc || occupancyPercent > 0)) {
+    if (isCurrentMonth &&
+        !isNonWorkingDay &&
+        (showArc || occupancyPercent > 0)) {
       final percent = occupancyPercent.clamp(0.0, 100.0);
       final sweepAngle = (2 * 3.1415926535) * (percent / 100.0);
       const startAngle = -3.1415926535 / 2;
