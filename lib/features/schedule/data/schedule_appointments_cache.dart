@@ -84,6 +84,7 @@ Map<String, dynamic> appointmentApiToCacheJson(AppointmentApi a) {
     'id': a.id,
     'datetime': a.datetime,
     'status': a.status,
+    if (a.source != null) 'source': a.source,
     'services': [
       for (final s in a.services)
         {

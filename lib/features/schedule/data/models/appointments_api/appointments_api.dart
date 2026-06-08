@@ -63,6 +63,7 @@ class AppointmentApi {
     required this.client,
     required this.commentText,
     required this.commentId,
+    this.source,
   });
 
   final int id;
@@ -75,6 +76,10 @@ class AppointmentApi {
   final String? commentText;
   /// `comment.id`, если блок комментария есть в ответе.
   final int? commentId;
+  /// Источник записи из API (`3` — прямая ссылка / виджет).
+  final int? source;
+
+  String get sourceDisplayLabel => source == 3 ? 'Ссылка' : 'Админ';
 
   /// Записи для отображения в расписании (все известные статусы 0–4).
   bool get isActive => status >= 0 && status <= 4;
@@ -229,6 +234,7 @@ class AppointmentApi {
           : AppointmentClientApi.fromJson(json['client'] as Map<String, dynamic>),
       commentText: commentText,
       commentId: commentId,
+      source: (json['source'] as num?)?.toInt(),
     );
   }
 }

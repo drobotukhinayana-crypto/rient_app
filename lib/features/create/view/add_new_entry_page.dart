@@ -3232,10 +3232,14 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Image.asset(AppImages.solidFull),
+                      if (widget.initialAppointment?.source == 3)
+                        Icon(Icons.link, size: 16, color: primaryText)
+                      else
+                        Image.asset(AppImages.solidFull),
                       const Gap(6),
                       Text(
-                        'Админ',
+                        widget.initialAppointment?.sourceDisplayLabel ??
+                            'Админ',
                         style: AppFonts.c1Regular.copyWith(color: primaryText),
                       ),
                     ],
