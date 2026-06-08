@@ -55,6 +55,9 @@ class AppointmentsApiResponse {
   }
 }
 
+/// Статус «Клиент пришел» в ответе API `/appointments/`.
+const int appointmentStatusClientArrived = 2;
+
 class AppointmentApi {
   const AppointmentApi({
     required this.id,
@@ -66,6 +69,7 @@ class AppointmentApi {
     required this.commentText,
     required this.commentId,
     this.source,
+    this.paid = false,
   });
 
   final int id;
@@ -80,6 +84,13 @@ class AppointmentApi {
   final int? commentId;
   /// Источник записи из API (0 — сотрудник, 1 — виджет, 3 — ссылка и т.д.).
   final int? source;
+
+  /// Запись оплачена (`paid` в `/appointments/`).
+  final bool paid;
+
+  /// Клиент пришёл, но оплата ещё не проведена — жёлтая полоса в расписании.
+  bool get isUnpaidClientArrived =>
+      status == appointmentStatusClientArrived && !paid;
 
   String? get sourceDisplayLabel => appointmentSourceInfo(source)?.label;
 
@@ -239,6 +250,7 @@ class AppointmentApi {
       commentText: commentText,
       commentId: commentId,
       source: (json['source'] as num?)?.toInt(),
+      paid: json['paid'] as bool? ?? false,
     );
   }
 }

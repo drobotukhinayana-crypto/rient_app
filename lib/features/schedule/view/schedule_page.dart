@@ -528,6 +528,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       notes: _appointmentNotes(appointment),
       backgroundColor: colors.backgroundColor,
       accentColor: colors.accentColor,
+      leftBorderColor: appointment.isUnpaidClientArrived
+          ? AppColors.yel
+          : colors.accentColor,
       hasComment: appointment.hasComment,
     );
   }

@@ -17,6 +17,7 @@ class ScheduleAppointmentItem {
     required this.notes,
     required this.backgroundColor,
     required this.accentColor,
+    this.leftBorderColor,
     this.hasComment = false,
   });
 
@@ -28,6 +29,9 @@ class ScheduleAppointmentItem {
   final String notes;
   final Color backgroundColor;
   final Color accentColor;
+
+  /// Левая полоса карточки; по умолчанию совпадает с [accentColor].
+  final Color? leftBorderColor;
   final bool hasComment;
 }
 
@@ -363,6 +367,7 @@ class _ScheduleCalendarOneUserWidgetState
     final timeStr = '$timeStartLine\n$timeEndLine';
     final item = _findItem(a);
     final accentColor = item?.accentColor ?? a.color;
+    final leftBorderColor = item?.leftBorderColor ?? accentColor;
     final backgroundColor =
         item?.backgroundColor ?? a.color.withValues(alpha: 0.2);
     final clientName = (item?.notes ?? a.notes ?? '').trim();
@@ -373,47 +378,56 @@ class _ScheduleCalendarOneUserWidgetState
             ? null
             : () => widget.onAppointmentTap!(item),
         behavior: HitTestBehavior.opaque,
-        child: Container(
-          width: bounds.width,
-          height: bounds.height,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            width: bounds.width,
+            height: bounds.height,
             color: backgroundColor,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          alignment: Alignment.center,
-          child: SizedBox.expand(
-            child: FittedBox(
-              fit: BoxFit.contain,
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    timeStr,
-                    maxLines: 2,
-                    overflow: TextOverflow.clip,
-                    textAlign: TextAlign.center,
-                    style: AppFonts.c2Tabbar.copyWith(
-                      color: accentColor,
-                      fontWeight: FontWeight.w600,
-                      height: 1.1,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(width: 3, color: leftBorderColor),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 4,
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            timeStr,
+                            maxLines: 2,
+                            overflow: TextOverflow.clip,
+                            textAlign: TextAlign.center,
+                            style: AppFonts.c2Tabbar.copyWith(
+                              color: accentColor,
+                              fontWeight: FontWeight.w600,
+                              height: 1.1,
+                            ),
+                          ),
+                          if (item?.hasComment == true) ...[
+                            const SizedBox(height: 2),
+                            Image.asset(
+                              AppImages.comment,
+                              width: 14,
+                              height: 14,
+                              color: accentColor,
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
-                  if (item?.hasComment == true) ...[
-                    const SizedBox(height: 2),
-                    Image.asset(
-                      AppImages.comment,
-                      width: 14,
-                      height: 14,
-                      color: accentColor,
-                    ),
-                  ],
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -452,7 +466,7 @@ class _ScheduleCalendarOneUserWidgetState
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(width: 3, color: accentColor),
+              Container(width: 3, color: leftBorderColor),
               Expanded(
                 child: Stack(
                   fit: StackFit.expand,

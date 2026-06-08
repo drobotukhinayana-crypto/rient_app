@@ -27,7 +27,6 @@ import 'package:rient_app/features/create/data/models/worker_services_api.dart';
 import 'package:rient_app/features/create/service/clients_service.dart';
 import 'package:rient_app/features/create/view/components/client_arrived_payment_confirm_dialog.dart';
 import 'package:rient_app/features/create/view/components/client_status_selector_widget.dart';
-import 'package:rient_app/features/link/service/widget_links_service.dart';
 import 'package:rient_app/features/create/view/providers/clients_provider.dart';
 import 'package:rient_app/features/create/view/providers/worker_services_provider.dart';
 import 'package:rient_app/features/create/view/providers/workers_offering_catalog_services_provider.dart';
@@ -42,7 +41,6 @@ import 'package:rient_app/features/schedule/view/providers/schedule_offline_prov
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
 import 'package:rient_app/core/network/app_connectivity_provider.dart';
 import 'package:rient_app/core/network/network_failure.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
@@ -565,6 +563,7 @@ class _AddNewEntryPageState extends ConsumerState<AddNewEntryPage> {
               isEditMode: widget.isEditMode || widget.initialAppointment != null,
               initialAppointmentId: widget.initialAppointment?.id,
               initialAppointmentDatetime: widget.initialAppointment?.datetime,
+              initialAppointmentPaid: widget.initialAppointment?.paid ?? false,
             ),
     );
   }
@@ -1090,8 +1089,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         if (!mounted) return;
         switch (result) {
           case ClientArrivedPaymentDialogResult.pay:
-            setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
-            await _openAppointmentPayment(appointmentId);
           case ClientArrivedPaymentDialogResult.saveOnly:
             setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
           case ClientArrivedPaymentDialogResult.dismiss:
@@ -1102,40 +1099,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       }
     }
     setState(() => _selectedStatusIndex = index);
-  }
-
-  Future<void> _openAppointmentPayment(int appointmentId) async {
-    try {
-      final url = await ref
-          .read(widgetLinksServiceProvider)
-          .getAppointmentPaymentWidgetUrl(appointmentId: appointmentId);
-      final uri = Uri.tryParse(url);
-      if (uri == null) {
-        if (!mounted) return;
-        showAppServiceMessage(
-          context,
-          message: 'Не удалось открыть оплату',
-          variant: AppServiceMessageVariant.error,
-        );
-        return;
-      }
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else if (mounted) {
-        showAppServiceMessage(
-          context,
-          message: 'Не удалось открыть оплату',
-          variant: AppServiceMessageVariant.error,
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      showAppServiceMessage(
-        context,
-        message: 'Не удалось загрузить ссылку на оплату',
-        variant: AppServiceMessageVariant.error,
-      );
-    }
   }
 
   _ServiceBlockState _createInitialServiceBlock(AppointmentServiceApi service) {
@@ -3526,11 +3489,13 @@ class _BottomActionsBar extends ConsumerWidget {
     required this.isEditMode,
     required this.initialAppointmentId,
     this.initialAppointmentDatetime,
+    this.initialAppointmentPaid = false,
   });
 
   final bool isEditMode;
   final int? initialAppointmentId;
   final String? initialAppointmentDatetime;
+  final bool initialAppointmentPaid;
 
   String _formatMoney(double value) => '${value.round()}₽';
   String _formatDiscount(double value) => '${value.round()}%';
@@ -3753,6 +3718,16 @@ class _BottomActionsBar extends ConsumerWidget {
               ),
             ],
           ),
+          if (isEditMode && initialAppointmentPaid) ...[
+            const Gap(12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Оплачено ✅',
+                style: AppFonts.b2Semi.copyWith(color: AppColors.green),
+              ),
+            ),
+          ],
           const Gap(12),
           MainButton(
             title: 'Сохранить',

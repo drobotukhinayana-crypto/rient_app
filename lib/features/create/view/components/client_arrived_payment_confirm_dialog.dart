@@ -61,7 +61,7 @@ Future<ClientArrivedPaymentDialogResult?> showClientArrivedPaymentConfirmDialog(
                 ),
                 const Gap(8),
                 _DialogSecondaryButton(
-                  title: 'Нет, просто сохранить',
+                  title: 'Сохранить',
                   onSurface: onSurface,
                   secondaryBorder: secondaryBorder,
                   onPressed: () => Navigator.of(dialogContext).pop(
