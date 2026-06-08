@@ -96,15 +96,45 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
 
 class _ScheduleCalendarOneUserWidgetState
     extends State<ScheduleCalendarOneUserWidget> {
-  bool _scrollRegistered = false;
+  ScrollPosition? _linkedScrollPosition;
 
   @override
   void didUpdateWidget(covariant ScheduleCalendarOneUserWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.date != widget.date ||
+        oldWidget.startHour != widget.startHour ||
+        oldWidget.endHour != widget.endHour ||
         oldWidget.onScrollPositionReady != widget.onScrollPositionReady) {
-      _scrollRegistered = false;
+      _linkedScrollPosition = null;
     }
+  }
+
+  void _tryLinkScrollPosition(ScrollPosition position) {
+    if (widget.onScrollPositionReady == null) return;
+    final linked = _linkedScrollPosition;
+    if (linked != null) {
+      if (identical(linked, position)) return;
+      // Берём основной вертикальный скролл сетки, а не вложенный у карточки записи.
+      if (position.maxScrollExtent <= linked.maxScrollExtent) return;
+    }
+    _linkedScrollPosition = position;
+    widget.onScrollPositionReady!(position);
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (widget.onScrollPositionReady == null) return false;
+    if (notification.metrics.axis != Axis.vertical) return false;
+    final metrics = notification.metrics;
+    if (metrics is! ScrollPosition) return false;
+    _tryLinkScrollPosition(metrics);
+    return false;
+  }
+
+  bool get _isSelectedDateToday {
+    final now = DateTime.now();
+    return widget.date.year == now.year &&
+        widget.date.month == now.month &&
+        widget.date.day == now.day;
   }
 
   List<TimeRegion> _getSpecialRegions() {
@@ -296,13 +326,13 @@ class _ScheduleCalendarOneUserWidgetState
   }
 
   Widget _buildTimeRegion(BuildContext context, TimeRegionDetails details) {
-    if (widget.onScrollPositionReady != null && !_scrollRegistered) {
+    if (widget.onScrollPositionReady != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _scrollRegistered) return;
+        if (!mounted) return;
         final scrollable = Scrollable.maybeOf(context);
-        if (scrollable != null) {
-          _scrollRegistered = true;
-          widget.onScrollPositionReady!(scrollable.position);
+        final position = scrollable?.position;
+        if (position is ScrollPosition) {
+          _tryLinkScrollPosition(position);
         }
       });
     }
@@ -513,9 +543,15 @@ class _ScheduleCalendarOneUserWidgetState
     // Workaround: Syncfusion calendar can emit invalid invisible semantics nodes
     // in complex split layouts (fixed ruler + scrollable columns) on iOS/iPad.
     // We disable internal semantics to avoid scheduler crashes in debug/profile.
-    return ExcludeSemantics(
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: ExcludeSemantics(
       child: SfCalendar(
-        key: ValueKey(widget.viewMode),
+        key: ValueKey(
+          '${widget.viewMode}_'
+          '${widget.date.year}${widget.date.month}${widget.date.day}_'
+          '${widget.startHour}_${widget.endHour}',
+        ),
         view: _calendarView,
         initialDisplayDate: widget.date,
         firstDayOfWeek: 1,
@@ -526,7 +562,7 @@ class _ScheduleCalendarOneUserWidgetState
         headerHeight: 0,
         viewHeaderHeight: 0,
         showDatePickerButton: false,
-        showCurrentTimeIndicator: true,
+        showCurrentTimeIndicator: _isSelectedDateToday,
         todayHighlightColor: AppColors.red,
         selectionDecoration: const BoxDecoration(
           color: Colors.transparent,
@@ -556,6 +592,7 @@ class _ScheduleCalendarOneUserWidgetState
           timeFormat: 'HH:mm',
           timeRulerSize: widget.timeRulerSize,
         ),
+      ),
       ),
     );
   }

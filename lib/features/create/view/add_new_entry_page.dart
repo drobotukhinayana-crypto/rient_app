@@ -46,7 +46,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
-import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
@@ -905,7 +904,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       specialistId: specialistId,
       branchId: branchId,
     ).then((predicate) {
-      if (predicate == null || !mounted) return;
+      if (!mounted) return;
       _datePickerPredicateCache = _EntryDatePickerPredicateCache(
         specialistId: specialistId,
         branchId: branchId,
@@ -930,65 +929,107 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     }
   }
 
-  /// `null` — не открывать календарь (ошибка или уже показали сообщение).
-  Future<bool Function(DateTime day)?> _buildDateSelectablePredicate({
+  /// Рабочие дни филиала из schedule_patterns (fallback, если API графика недоступен).
+  Set<int> _branchWorkingWeekdays(int branchId) {
+    final patterns = ref.read(currentBranchProvider)?.schedulePatterns;
+    if (patterns == null || patterns.isEmpty) return const {};
+    final result = <int>{};
+    for (final pattern in patterns) {
+      if (!(pattern.active ?? false)) continue;
+      final patternBranch = pattern.branch;
+      if (patternBranch != null && patternBranch != branchId) continue;
+      final weekday = _weekdayFromSchedulePatternDay(pattern.day);
+      if (weekday == null) continue;
+      final start = _schedulePatternTimeToHour(pattern.timeStart);
+      final end = _schedulePatternTimeToHour(pattern.timeEnd);
+      if (start <= 0 || end <= 0 || end <= start) continue;
+      result.add(weekday);
+    }
+    return result;
+  }
+
+  int? _weekdayFromSchedulePatternDay(String? day) {
+    switch ((day ?? '').toLowerCase()) {
+      case 'mon':
+        return DateTime.monday;
+      case 'tue':
+        return DateTime.tuesday;
+      case 'wed':
+      case 'wen':
+        return DateTime.wednesday;
+      case 'thu':
+        return DateTime.thursday;
+      case 'fri':
+        return DateTime.friday;
+      case 'sat':
+        return DateTime.saturday;
+      case 'sun':
+        return DateTime.sunday;
+      default:
+        return null;
+    }
+  }
+
+  double _schedulePatternTimeToHour(String? value) {
+    if (value == null || value.isEmpty) return 0;
+    final parts = value.split(':');
+    if (parts.length < 2) return 0;
+    final hour = int.tryParse(parts[0]) ?? 0;
+    final minute = int.tryParse(parts[1]) ?? 0;
+    return hour + (minute / 60.0);
+  }
+
+  Future<bool Function(DateTime day)> _buildDateSelectablePredicate({
     required int specialistId,
     required int branchId,
   }) async {
+    final from = _dateOnly(_selectedDate).subtract(const Duration(days: 60));
+    final to = _dateOnly(_selectedDate).add(const Duration(days: 400));
+
+    WorkerSchedulesRangeData rangeData;
     try {
-      final workerRow = await ref
-          .read(workersServiceProvider)
-          .getWorkerRow(workerId: specialistId, branchId: branchId);
-      final scheduleConfig = workerScheduleConfigForBranch(
-        workerRow,
-        branchId,
-      );
-      if (isShiftWorkerScheduleConfig(scheduleConfig)) {
-        return (day) => isShiftWorkerWorkDay(
-          _dateOnly(day),
-          scheduleConfig,
-        );
-      }
-
-      final allowedWeekdays = await _loadSpecialistWorkingWeekdays(
-        specialistId: specialistId,
-        branchId: branchId,
-      );
-      if (allowedWeekdays.isEmpty) {
-        if (mounted) {
-          showAppServiceMessage(
-            context,
-            message: 'У выбранного мастера нет рабочих дней',
-            variant: AppServiceMessageVariant.info,
-          );
-        }
-        return null;
-      }
-
-      final from = _dateOnly(_selectedDate).subtract(const Duration(days: 60));
-      final to = _dateOnly(_selectedDate).add(const Duration(days: 400));
-      final schedulesResponse = await ref
-          .read(schedulesServiceProvider)
-          .getWorkerSchedules(
+      rangeData = await ref.read(
+        workerSchedulesRangeProvider(
+          WorkerSchedulesRangeQuery(
             workerId: specialistId,
-            dateGte: from,
-            dateLte: to,
-          );
-      final schedulesByDate = indexDailySchedulesByDate(
-        schedulesResponse.results,
+            rangeStart: from,
+            rangeEnd: to,
+          ),
+        ).future,
       );
-      return (day) {
-        final normalized = _dateOnly(day);
-        return isWorkerWorkingOnDate(
-          date: normalized,
-          workingWeekdays: allowedWeekdays,
-          daily: schedulesByDate[SchedulesService.dateToApi(normalized)],
-          shiftConfig: scheduleConfig,
-        );
-      };
     } catch (_) {
-      return null;
+      rangeData = const WorkerSchedulesRangeData(schedulesByDate: {});
     }
+
+    final shiftConfig = rangeData.shiftConfig;
+    if (isShiftWorkerScheduleConfig(shiftConfig)) {
+      return (day) => isShiftWorkerWorkDay(_dateOnly(day), shiftConfig);
+    }
+
+    Set<int> allowedWeekdays = const {};
+    try {
+      final weekdaysMap = await ref.read(workerWeekdaysByIdProvider.future);
+      allowedWeekdays = weekdaysMap[specialistId] ?? const {};
+    } catch (_) {}
+
+    if (allowedWeekdays.isEmpty) {
+      allowedWeekdays = _branchWorkingWeekdays(branchId);
+    }
+
+    if (allowedWeekdays.isEmpty) {
+      return (day) => true;
+    }
+
+    final schedulesByDate = rangeData.schedulesByDate;
+    return (day) {
+      final normalized = _dateOnly(day);
+      return isWorkerWorkingOnDate(
+        date: normalized,
+        workingWeekdays: allowedWeekdays,
+        daily: schedulesByDate[SchedulesService.dateToApi(normalized)],
+        shiftConfig: shiftConfig,
+      );
+    };
   }
 
   Future<void> _clearRememberedClientIfChanged(String nextPhone) async {
@@ -1437,16 +1478,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return chunks;
   }
 
-  Future<Set<int>> _loadSpecialistWorkingWeekdays({
-    required int specialistId,
-    required int branchId,
-  }) async {
-    final map = await ref
-        .read(workersServiceProvider)
-        .getWorkersWorkingWeekdays(branchId: branchId);
-    return map[specialistId] ?? const <int>{};
-  }
-
   _CreateAppointmentDraft? _buildCreateDraft({
     required List<WorkerServiceItem> workerServices,
     required int? selectedSpecialistId,
@@ -1591,7 +1622,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             specialistId: specialistId,
             branchId: branchId,
           );
-          if (isSelectableDay == null) return;
           _datePickerPredicateCache = _EntryDatePickerPredicateCache(
             specialistId: specialistId,
             branchId: branchId,
@@ -2130,11 +2160,14 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final canChangeStatus = permissions?.changeStatus ?? true;
     final canChangeWorker = permissions?.changeWorker ?? true;
     final canTransferSchedule = permissions?.transferSchedule ?? true;
+    final canCreateSchedule = permissions?.createSchedule ?? true;
+    final isEditingEntry = widget.initialAppointment != null;
+    final canPickEntryDateTime =
+        isEditingEntry ? canTransferSchedule : canCreateSchedule;
     final roleId = ref.watch(roleProvider);
     final isWorkerRole = roleId == UserRole.worker.value;
     final currentWorkerIdAsync = ref.watch(currentWorkerIdProvider);
     final currentWorkerId = currentWorkerIdAsync.value;
-    final isEditingEntry = widget.initialAppointment != null;
     final workerCanPickTransferTarget =
         isWorkerRole && isEditingEntry && canTransferSchedule;
     final useWorkerReadOnlySpecialistTile =
@@ -2927,7 +2960,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     Text('Дата', style: AppFonts.c1Medium),
                     GestureDetector(
                       onTap: (selectedSpecialistId == null ||
-                              !canTransferSchedule ||
+                              !canPickEntryDateTime ||
                               _datePickerInFlight)
                           ? null
                           : () => unawaited(_pickDate()),
@@ -3285,7 +3318,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                   slots: slots,
                                   selectedTime: _services[index].selectedTime,
                                   onSelect: (time) {
-                                    if (!canTransferSchedule) return;
+                                    if (!canPickEntryDateTime) return;
                                     setState(
                                       () =>
                                           _services[index].selectedTime = time,
@@ -3296,7 +3329,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                       availableSlots: availableSlots,
                                       initialTime: initialTime,
                                       onSelect: (time) {
-                                        if (!canTransferSchedule) return;
+                                        if (!canPickEntryDateTime) return;
                                         setState(
                                           () => _services[index].selectedTime =
                                               time,

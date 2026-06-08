@@ -907,10 +907,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       }
       initialSelected ??= specialists[0];
     }
-    final dayWorkHours = _workHoursForDate(
-      selectedDate,
-      currentBranch?.schedulePatterns ?? const [],
-    );
+    final isAdminMultiDayView =
+        !isWorkerRole && _viewMode == ViewMode.day && specialists.length > 1;
+    final branchPatterns = currentBranch?.schedulePatterns ?? const [];
+    final dayWorkHours = isAdminMultiDayView
+        ? _workHoursForWeek(branchPatterns)
+        : _workHoursForDate(selectedDate, branchPatterns);
     final selectedSpecialistId = initialSelected?.id;
     /// Пока нет списка доступных на дату, у воркера всё равно известен id из профиля.
     final specialistIdForData = selectedSpecialistId ??
@@ -1078,10 +1080,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final weekEndDate = weekStartDate
         .add(const Duration(days: 7))
         .subtract(const Duration(milliseconds: 1));
-    final multiDayColumns =
-        !isWorkerRole &&
-        _viewMode == ViewMode.day &&
-        specialists.length > 1;
+    final multiDayColumns = isAdminMultiDayView;
     final dayAppsBySpecialistIndex = multiDayColumns
         ? <AsyncValue<List<AppointmentApi>>>[
             for (var i = 0; i < specialists.length; i++)

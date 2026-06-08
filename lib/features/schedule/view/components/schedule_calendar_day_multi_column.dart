@@ -94,6 +94,7 @@ class _ScheduleCalendarDayMultiColumnState
   final Map<int, ScrollPosition> _positions = <int, ScrollPosition>{};
   final Map<int, VoidCallback> _listeners = <int, VoidCallback>{};
   bool _syncing = false;
+  bool _scrollToTopPending = true;
 
   void _syncAllTo(double px) {
     if (_positions.isEmpty) return;
@@ -109,11 +110,11 @@ class _ScheduleCalendarDayMultiColumnState
     _syncing = false;
   }
 
-  void _syncAllToAnchor() {
-    final anchor = _positions[_masterScrollIndex] ??
-        (_positions.isNotEmpty ? _positions.values.first : null);
-    if (anchor == null || !anchor.hasPixels) return;
-    _syncAllTo(anchor.pixels);
+  void _resetScrollToTopIfNeeded() {
+    final master = _positions[_masterScrollIndex];
+    if (master == null || !master.hasPixels) return;
+    _syncAllTo(0);
+    _scrollToTopPending = false;
   }
 
   void _detachIndex(int index) {
@@ -126,7 +127,10 @@ class _ScheduleCalendarDayMultiColumnState
 
   void _onScrollReady(int index, ScrollPosition position) {
     final existing = _positions[index];
-    if (identical(existing, position)) return;
+    if (identical(existing, position)) {
+      _applyScrollAlignmentAfterRegister(index);
+      return;
+    }
     if (existing != null) {
       _detachIndex(index);
     }
@@ -136,19 +140,6 @@ class _ScheduleCalendarDayMultiColumnState
       if (_syncing) return;
       final source = _positions[index];
       if (source == null || !source.hasPixels) return;
-      final master = _positions[_masterScrollIndex];
-
-      // Любой скролл в колонке сотрудника превращаем в скролл мастер-колонки.
-      if (index != _masterScrollIndex && master != null && master.hasPixels) {
-        final delta = source.pixels - master.pixels;
-        final masterTarget = (master.pixels + delta).clamp(
-          master.minScrollExtent,
-          master.maxScrollExtent,
-        );
-        _syncAllTo(masterTarget);
-        return;
-      }
-
       _syncAllTo(source.pixels);
     }
 
@@ -156,8 +147,40 @@ class _ScheduleCalendarDayMultiColumnState
     position.addListener(listener);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _syncAllToAnchor();
+      _applyScrollAlignmentAfterRegister(index);
     });
+  }
+
+  void _applyScrollAlignmentAfterRegister(int index) {
+    final master = _positions[_masterScrollIndex];
+    if (index == _masterScrollIndex) {
+      if (_scrollToTopPending) {
+        _resetScrollToTopIfNeeded();
+      }
+      return;
+    }
+    // Колонка могла смонтироваться со смещением к записям — выравниваем по шкале.
+    if (master != null && master.hasPixels) {
+      _syncAllTo(master.pixels);
+    } else if (_scrollToTopPending) {
+      _syncAllTo(0);
+    }
+  }
+
+  void _scheduleAlignAllToMaster() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final master = _positions[_masterScrollIndex];
+      if (master != null && master.hasPixels) {
+        _syncAllTo(master.pixels);
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleAlignAllToMaster();
   }
 
   @override
@@ -165,20 +188,16 @@ class _ScheduleCalendarDayMultiColumnState
     super.didUpdateWidget(oldWidget);
     // Полный сброс только когда реально меняется набор/дата колонок.
     if (oldWidget.date != widget.date ||
-        oldWidget.columns.length != widget.columns.length) {
+        oldWidget.columns.length != widget.columns.length ||
+        oldWidget.branchStartHour != widget.branchStartHour ||
+        oldWidget.branchEndHour != widget.branchEndHour) {
       for (final index in _positions.keys.toList()) {
         _detachIndex(index);
       }
+      _scrollToTopPending = true;
       return;
     }
-    for (var i = 0; i < widget.columns.length; i++) {
-      final oldItems = oldWidget.columns[i].items;
-      final newItems = widget.columns[i].items;
-      if (scheduleDayColumnItemsKey(oldItems) !=
-          scheduleDayColumnItemsKey(newItems)) {
-        _detachIndex(i);
-      }
-    }
+    _scheduleAlignAllToMaster();
   }
 
   @override
@@ -190,9 +209,8 @@ class _ScheduleCalendarDayMultiColumnState
   }
 
   Widget _calendar(int i, String dateKey) {
-    final itemsKey = scheduleDayColumnItemsKey(widget.columns[i].items);
     return ScheduleCalendarOneUserWidget(
-      key: ValueKey('day_col_${widget.columns[i].workerId}_${dateKey}_$itemsKey'),
+      key: ValueKey('day_col_${widget.columns[i].workerId}_$dateKey'),
       date: widget.date,
       items: widget.columns[i].items,
       viewMode: ViewMode.day,
