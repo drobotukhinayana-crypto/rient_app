@@ -196,10 +196,10 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     if (!offline) return;
 
     final router = GoRouter.of(context);
-    final onScheduleShell =
-        widget.navigationShell.currentIndex == 1 &&
-        router.state.name != AddNewEntryPage.name;
-    if (onScheduleShell) return;
+    // Просмотр записи в оффлайне — отдельный экран поверх табов, не сбрасывать.
+    if (router.state.name == AddNewEntryPage.name) return;
+
+    if (widget.navigationShell.currentIndex == 1) return;
 
     TabBarPage.goToScheduleTab(context);
   }
@@ -305,12 +305,6 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
         );
       }
     });
-
-    if (offlineExceptSchedule) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _redirectToScheduleIfOffline();
-      });
-    }
 
     return PopScope(
       canPop: false,

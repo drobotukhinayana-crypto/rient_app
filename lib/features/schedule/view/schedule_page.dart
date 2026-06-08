@@ -789,7 +789,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final screenBackground = isDark
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
+    final isScheduleOffline = ref.watch(scheduleOfflineModeProvider);
     final workersAsync = ref.watch(scheduleWorkersProvider);
+    final offlineSpecialistsAsync = ref.watch(scheduleOfflineSpecialistsProvider);
     final roleId = ref.watch(roleProvider);
     final isWorkerRole = roleId == UserRole.worker.value;
     final workerPermissions = ref.watch(workerPermissionsProvider).maybeWhen(
@@ -797,8 +799,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           orElse: () => null,
         );
     final canCreateSchedule = workerPermissions?.createSchedule ?? true;
-    final isScheduleOffline = ref.watch(scheduleOfflineModeProvider);
-    ref.watch(scheduleServerUnreachableListenerProvider);
     final scheduleReadOnly = isScheduleOffline;
 
     if (!_initialOfflineSyncScheduled) {
@@ -844,7 +844,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         : allSpecialists;
     final savedSelectedId = ref.watch(selectedSpecialistIdProvider);
     if (isScheduleOffline && specialists.isEmpty) {
-      final fromCache = ref.watch(scheduleOfflineSpecialistsProvider).value;
+      final fromCache = offlineSpecialistsAsync.value;
       if (fromCache != null && fromCache.isNotEmpty) {
         final workerFilterId = currentWorkerId ?? savedSelectedId;
         specialists = isWorkerRole && workerFilterId != null

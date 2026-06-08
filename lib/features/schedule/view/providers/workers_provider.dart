@@ -7,17 +7,21 @@ import 'package:rient_app/features/schedule/data/models/available_workers_api/av
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/core/network/app_connectivity_provider.dart'
-    show onScheduleNetworkFailure;
+    show
+        appNoConnectionProvider,
+        onScheduleNetworkFailure,
+        scheduleServerReachableProvider;
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
 /// Список рабочих (специалистов) для текущего филиала на странице расписания.
 final scheduleWorkersProvider = FutureProvider<WorkersApiResponse>((ref) async {
-  if (ref.watch(scheduleOfflineModeProvider)) {
+  if (ref.watch(appNoConnectionProvider) ||
+      !ref.watch(scheduleServerReachableProvider)) {
     return scheduleOfflineEmptyWorkers;
   }
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0) {
-    throw Exception('No valid branch selected');
+    return scheduleOfflineEmptyWorkers;
   }
   final service = ref.watch(workersServiceProvider);
   try {
@@ -27,23 +31,23 @@ final scheduleWorkersProvider = FutureProvider<WorkersApiResponse>((ref) async {
     if (isPermissionDenied(caused ?? e)) {
       return scheduleOfflineEmptyWorkers;
     }
-    onScheduleNetworkFailure(ref, caused ?? e);
-    if (!ref.mounted || ref.read(scheduleOfflineModeProvider)) {
-      return scheduleOfflineEmptyWorkers;
+    if (isNetworkFailure(caused ?? e)) {
+      onScheduleNetworkFailure(ref, caused ?? e);
     }
-    rethrow;
+    return scheduleOfflineEmptyWorkers;
   }
 });
 
 /// Доступные сотрудники в конкретный день для текущего филиала.
 final availableWorkersForDateProvider =
     FutureProvider.family<List<AvailableWorkerShift>, DateTime>((ref, date) async {
-      if (ref.watch(scheduleOfflineModeProvider)) {
+      if (ref.watch(appNoConnectionProvider) ||
+          !ref.watch(scheduleServerReachableProvider)) {
         return const [];
       }
       final branchId = ref.watch(currentBranchIdProvider);
       if (branchId == 0) {
-        throw Exception('No valid branch selected');
+        return const [];
       }
       final service = ref.watch(workersServiceProvider);
       final normalizedDate = DateTime(date.year, date.month, date.day);
@@ -57,11 +61,10 @@ final availableWorkersForDateProvider =
         if (isPermissionDenied(caused ?? e)) {
           return const [];
         }
-        onScheduleNetworkFailure(ref, caused ?? e);
-        if (!ref.mounted || ref.read(scheduleOfflineModeProvider)) {
-          return const [];
+        if (isNetworkFailure(caused ?? e)) {
+          onScheduleNetworkFailure(ref, caused ?? e);
         }
-        rethrow;
+        return const [];
       }
     });
 
@@ -70,13 +73,18 @@ final availableWorkersForDateProvider =
 final workerWeekdaysByIdProvider = FutureProvider<Map<int, Set<int>>>((
   ref,
 ) async {
-  if (ref.watch(scheduleOfflineModeProvider)) {
+  if (ref.watch(appNoConnectionProvider) ||
+      !ref.watch(scheduleServerReachableProvider)) {
     return const <int, Set<int>>{};
   }
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0) return const <int, Set<int>>{};
   final service = ref.watch(workersServiceProvider);
-  return service.getWorkersWorkingWeekdays(branchId: branchId);
+  try {
+    return await service.getWorkersWorkingWeekdays(branchId: branchId);
+  } catch (_) {
+    return const <int, Set<int>>{};
+  }
 });
 
 /// Ключ для сохранения id выбранного специалиста в локальное хранилище.

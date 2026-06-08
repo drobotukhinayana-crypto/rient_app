@@ -456,7 +456,8 @@ class AddNewEntryPage extends ConsumerWidget {
     final canDeleteSchedule = permissions?.deleteSchedule ?? true;
     final isScheduleOffline = ref.watch(scheduleOfflineModeProvider);
     final noConnection = ref.watch(appNoConnectionProvider);
-    final viewOnly = isScheduleOffline && initialAppointment != null;
+    final viewOnly = initialAppointment != null &&
+        (isScheduleOffline || noConnection);
     final offlineNewEntryBlocked =
         initialAppointment == null && (noConnection || isScheduleOffline);
     if (offlineNewEntryBlocked) {
@@ -617,10 +618,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     super.initState();
     _applyInitialAppointment();
     _applyInitialDataForNewEntry();
-    unawaited(_applyRememberedClientForNewEntry());
-    final specialistId = _selectedSpecialistId;
-    if (specialistId != null) {
-      _prefetchDatePickerPredicate(specialistId);
+    if (!widget.viewOnly) {
+      unawaited(_applyRememberedClientForNewEntry());
+      final specialistId = _selectedSpecialistId;
+      if (specialistId != null) {
+        _prefetchDatePickerPredicate(specialistId);
+      }
     }
   }
 
@@ -1846,8 +1849,222 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     });
   }
 
+  Widget _buildViewOnlyBody(BuildContext context) {
+    final workerLabels = WorkerEntityLabels.defaults;
+    final roleId = ref.watch(roleProvider);
+    final isWorkerRole = roleId == UserRole.worker.value;
+    final cardSurface = _entryCardSurface(context);
+    final mutedFill = _entryMutedFill(context);
+    final divider = _entryDivider(context);
+    final accent = _entryAccent(context);
+    final primaryText = _entryPrimaryText(context);
+    final shouldShowClientCommentField =
+        _selectedClient == null ||
+        ((_selectedClient?.commentText ?? '').trim().isNotEmpty);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        children: [
+          DefaultContainerWidget(
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(24),
+              bottomRight: Radius.circular(24),
+            ),
+            hasShadow: false,
+            padding: const EdgeInsets.only(
+              top: 20,
+              bottom: 8,
+              left: 16,
+              right: 16,
+            ),
+            color: cardSurface,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Gap(8),
+                GestureDetector(
+                  onTap: () {
+                    setState(
+                      () => _isCommentVisitExpanded = !_isCommentVisitExpanded,
+                    );
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Комментарий к визиту', style: AppFonts.c1Medium),
+                      Image.asset(
+                        _isCommentVisitExpanded
+                            ? AppImages.arrowOutlinedDown
+                            : AppImages.arrowOutlinedTop,
+                      ),
+                    ],
+                  ),
+                ),
+                if (_isCommentVisitExpanded) ...[
+                  const Gap(16),
+                  MainTextField(
+                    controller: _commentVisitController,
+                    hintText: 'Введите комментарий',
+                    maxLines: 3,
+                    isMultiline: true,
+                    borderRadius: BorderRadius.circular(16),
+                    canEdit: false,
+                  ),
+                ],
+                const Gap(16),
+                IgnorePointer(
+                  child: Opacity(
+                    opacity: 0.6,
+                    child: ClientStatusSelectorWidget(
+                      initialIndex: _selectedStatusIndex,
+                    ),
+                  ),
+                ),
+                const Gap(12),
+                MainTextField(
+                  controller: _phoneController,
+                  label: 'Телефон',
+                  hintText: 'Телефон',
+                  canEdit: false,
+                ),
+                const Gap(12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: MainTextField(
+                        controller: _firstNameController,
+                        label: 'Имя',
+                        hintText: 'Иван',
+                        canEdit: false,
+                      ),
+                    ),
+                    const Gap(12),
+                    Expanded(
+                      child: MainTextField(
+                        controller: _lastNameController,
+                        label: 'Фамилия',
+                        hintText: 'Иванов',
+                        canEdit: false,
+                      ),
+                    ),
+                  ],
+                ),
+                if (shouldShowClientCommentField) ...[
+                  const Gap(24),
+                  GestureDetector(
+                    onTap: () {
+                      setState(
+                        () => _isCommentClientExpanded =
+                            !_isCommentClientExpanded,
+                      );
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Комментарий к клиенту', style: AppFonts.c1Medium),
+                        Image.asset(
+                          _isCommentClientExpanded
+                              ? AppImages.arrowOutlinedDown
+                              : AppImages.arrowOutlinedTop,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_isCommentClientExpanded) ...[
+                    const Gap(16),
+                    MainTextField(
+                      controller: _commentClientController,
+                      hintText: 'Введите комментарий',
+                      maxLines: 3,
+                      isMultiline: true,
+                      borderRadius: BorderRadius.circular(16),
+                      canEdit: false,
+                    ),
+                  ],
+                  const Gap(16),
+                ],
+              ],
+            ),
+          ),
+          const Gap(20),
+          DefaultContainerWidget(
+            borderRadius: BorderRadius.circular(24),
+            hasShadow: false,
+            color: cardSurface,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ..._viewOnlyMasterServicesChildren(
+                  mutedFill: mutedFill,
+                  divider: divider,
+                  primaryText: primaryText,
+                  accent: accent,
+                  workerLabels: workerLabels,
+                  isWorkerRole: isWorkerRole,
+                ),
+              ],
+            ),
+          ),
+          if (appointmentSourceInfo(widget.initialAppointment?.source)
+              case final sourceInfo?) ...[
+            const Gap(20),
+            DefaultContainerWidget(
+              borderRadius: BorderRadius.circular(24),
+              hasShadow: false,
+              color: cardSurface,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Источник', style: AppFonts.c1Medium),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: mutedFill,
+                      borderRadius: BorderRadius.circular(300),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppointmentSourceIcon(
+                          source: widget.initialAppointment!.source,
+                          size: 16,
+                        ),
+                        const Gap(6),
+                        Text(
+                          sourceInfo.label,
+                          style: AppFonts.c1Regular.copyWith(
+                            color: primaryText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isScheduleOffline = ref.watch(scheduleOfflineModeProvider);
+    final noConnection = ref.watch(appNoConnectionProvider);
+    final effectiveViewOnly = widget.viewOnly ||
+        (widget.initialAppointment != null &&
+            (isScheduleOffline || noConnection));
+    if (effectiveViewOnly) {
+      return _buildViewOnlyBody(context);
+    }
     final workerLabels =
         ref.watch(workerEntityLabelsProvider).value ??
         WorkerEntityLabels.defaults;

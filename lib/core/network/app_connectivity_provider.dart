@@ -1,4 +1,5 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:rient_app/core/network/app_connectivity.dart';
@@ -71,9 +72,11 @@ void markAppNetworkUnavailable(dynamic ref) => markScheduleServerUnreachable(ref
 /// @deprecated Используйте [markScheduleServerReachable].
 void markAppNetworkAvailable(dynamic ref) => markScheduleServerReachable(ref);
 
-/// Первая сетевая ошибка — сразу оффлайн-режим расписания.
+/// Первая сетевая ошибка — оффлайн расписания (на следующий кадр, без цикла провайдеров).
 void onScheduleNetworkFailure(dynamic ref, Object error) {
-  if (isNetworkFailure(error)) {
+  if (!isNetworkFailure(error)) return;
+  SchedulerBinding.instance.addPostFrameCallback((_) {
+    if (!ref.mounted) return;
     markScheduleServerUnreachable(ref);
-  }
+  });
 }

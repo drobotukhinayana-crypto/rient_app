@@ -63,35 +63,39 @@ final workerSchedulesRangeProvider =
     return const WorkerSchedulesRangeData(schedulesByDate: {});
   }
 
-  final schedulesService = ref.read(schedulesServiceProvider);
-  final workersService = ref.read(workersServiceProvider);
+  try {
+    final schedulesService = ref.read(schedulesServiceProvider);
+    final workersService = ref.read(workersServiceProvider);
 
-  final workerResponse = await schedulesService.getWorkerSchedules(
-    workerId: query.workerId,
-    dateGte: query._startNorm,
-    dateLte: query._endNorm,
-    bustCache: true,
-  );
-  final branchResponse = await schedulesService.getSchedules(
-    branchId: branchId,
-    dateGte: query._startNorm,
-    dateLte: query._endNorm,
-    bustCache: true,
-  );
-  final merged = mergeWorkerScheduleSources(
-    fromWorkerEndpoint: workerResponse.results,
-    fromBranchEndpoint: branchResponse.results,
-    workerId: query.workerId,
-    branchId: branchId,
-  );
+    final workerResponse = await schedulesService.getWorkerSchedules(
+      workerId: query.workerId,
+      dateGte: query._startNorm,
+      dateLte: query._endNorm,
+      bustCache: true,
+    );
+    final branchResponse = await schedulesService.getSchedules(
+      branchId: branchId,
+      dateGte: query._startNorm,
+      dateLte: query._endNorm,
+      bustCache: true,
+    );
+    final merged = mergeWorkerScheduleSources(
+      fromWorkerEndpoint: workerResponse.results,
+      fromBranchEndpoint: branchResponse.results,
+      workerId: query.workerId,
+      branchId: branchId,
+    );
 
-  final workerRow = await workersService.getWorkerRow(
-    workerId: query.workerId,
-    branchId: branchId,
-  );
+    final workerRow = await workersService.getWorkerRow(
+      workerId: query.workerId,
+      branchId: branchId,
+    );
 
-  return WorkerSchedulesRangeData(
-    schedulesByDate: indexDailySchedulesByDate(merged),
-    shiftConfig: workerScheduleConfigForBranch(workerRow, branchId),
-  );
+    return WorkerSchedulesRangeData(
+      schedulesByDate: indexDailySchedulesByDate(merged),
+      shiftConfig: workerScheduleConfigForBranch(workerRow, branchId),
+    );
+  } catch (_) {
+    return const WorkerSchedulesRangeData(schedulesByDate: {});
+  }
 });

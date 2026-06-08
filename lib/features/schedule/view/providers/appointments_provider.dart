@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
@@ -101,6 +100,6 @@ final scheduleAppointmentsProvider =
         if (cached.isNotEmpty) {
           return cached;
         }
-        throw CustomException(causedError: e);
+        return const <AppointmentApi>[];
       }
     });

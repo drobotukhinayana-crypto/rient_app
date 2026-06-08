@@ -9,7 +9,8 @@ import 'package:rient_app/features/schedule/view/providers/worker_schedules_rang
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 
 import 'package:rient_app/core/services/token_storage.dart';
-import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
+
+bool _scheduleInvalidationScheduled = false;
 
 /// Сбрасывает зависшие онлайн-запросы расписания при входе в оффлайн.
 void invalidateScheduleNetworkProviders(dynamic ref) {
@@ -21,13 +22,16 @@ void invalidateScheduleNetworkProviders(dynamic ref) {
   ref.invalidate(workerSchedulesRangeProvider);
   ref.invalidate(scheduleStatisticsForWeekProvider);
   ref.invalidate(scheduleStatisticsForMonthProvider);
-  ref.invalidate(scheduleOfflineSpecialistsProvider);
-  ref.invalidate(currentWorkerIdProvider);
+  // currentWorkerIdProvider не инвалидируем: он сам пересобирается при смене
+  // scheduleOfflineModeProvider, повторный invalidate даёт rebuild в том же кадре.
 }
 
 /// Инвалидация на следующий кадр — не ломает провайдеры в том же build.
 void invalidateScheduleNetworkProvidersDeferred(dynamic ref) {
+  if (_scheduleInvalidationScheduled) return;
+  _scheduleInvalidationScheduled = true;
   SchedulerBinding.instance.addPostFrameCallback((_) {
+    _scheduleInvalidationScheduled = false;
     if (!ref.mounted) return;
     invalidateScheduleNetworkProviders(ref);
   });
@@ -49,12 +53,8 @@ final scheduleServerUnreachableListenerProvider = Provider<void>((ref) {
   });
 
   ref.listen<bool>(appNoConnectionProvider, (previous, next) {
-    if (next) {
-      final wasReachable = ref.read(scheduleServerReachableProvider);
-      markScheduleServerUnreachable(ref);
-      if (wasReachable) {
-        invalidateScheduleNetworkProvidersDeferred(ref);
-      }
+    if (next && previous != true) {
+      invalidateScheduleNetworkProvidersDeferred(ref);
     }
   });
 
