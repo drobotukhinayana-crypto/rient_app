@@ -393,12 +393,6 @@ class AddNewEntryPage extends ConsumerWidget {
                           listen: false,
                         );
                         refreshAfterAppointmentMutation(container);
-                        unawaited(
-                          Future<void>.delayed(
-                            const Duration(milliseconds: 550),
-                            () => refreshAfterAppointmentMutation(container),
-                          ),
-                        );
                         showAppServiceMessage(
                           context,
                           message: 'Запись удалена',
@@ -3341,33 +3335,6 @@ class _BottomActionsBar extends ConsumerWidget {
           draft.startDateTime,
           oldDayLocal,
         );
-        if (context.mounted) {
-          final retryContainer = ProviderScope.containerOf(
-            context,
-            listen: false,
-          );
-          final retryNewDay = DateTime(
-            draft.startDateTime.year,
-            draft.startDateTime.month,
-            draft.startDateTime.day,
-          );
-          unawaited(Future<void>.delayed(const Duration(milliseconds: 550), () {
-            _invalidateScheduleStatsForDayContainer(retryContainer, retryNewDay);
-            if (oldDayLocal != null) {
-              final oldD = DateTime(
-                oldDayLocal.year,
-                oldDayLocal.month,
-                oldDayLocal.day,
-              );
-              if (oldD != retryNewDay) {
-                _invalidateScheduleStatsForDayContainer(
-                  retryContainer,
-                  oldDayLocal,
-                );
-              }
-            }
-          }));
-        }
         if (!context.mounted) return;
         showAppServiceMessage(
           context,
