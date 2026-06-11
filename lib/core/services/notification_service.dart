@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:rient_app/core/services/push_notification_display.dart';
 import 'package:rient_app/core/services/push_notification_navigation.dart';
 
 /// Id канала Android — должен совпадать с AndroidManifest meta-data.
@@ -21,14 +22,25 @@ class NotificationService {
     if (_initialized) return;
     _initialized = true;
 
-    await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
     await _initLocalNotifications();
+    await ensureNotificationPermissions();
     await _initForegroundHandlers();
+  }
+
+  Future<void> ensureNotificationPermissions() async {
+    if (Platform.isIOS) {
+      await _messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    }
+    if (Platform.isAndroid) {
+      final androidPlugin =
+          _localNotifications.resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.requestNotificationsPermission();
+    }
   }
 
   Future<void> _initLocalNotifications() async {
@@ -60,7 +72,6 @@ class NotificationService {
           _localNotifications.resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
       await androidPlugin?.createNotificationChannel(_androidChannel);
-      await androidPlugin?.requestNotificationsPermission();
     }
 
     if (Platform.isIOS) {
@@ -96,19 +107,12 @@ class NotificationService {
   void _showForegroundNotification(RemoteMessage message) {
     if (kIsWeb) return;
 
-    final title = message.notification?.title ??
-        message.data['title']?.toString() ??
-        message.data['notification_title']?.toString();
-    final body = message.notification?.body ??
-        message.data['body']?.toString() ??
-        message.data['notification_body']?.toString();
-
-    if (title == null && body == null) return;
+    final content = parsePushNotificationContent(message);
+    if (content.isEmpty) return;
 
     // iOS: баннер в foreground через setForegroundNotificationPresentationOptions,
     // если в payload есть notification. Для data-only — показываем локально.
-    final hasFcmNotification = message.notification != null;
-    if (Platform.isIOS && hasFcmNotification) {
+    if (Platform.isIOS && message.notification != null) {
       return;
     }
 
@@ -116,8 +120,8 @@ class NotificationService {
 
     _localNotifications.show(
       id: id,
-      title: title,
-      body: body,
+      title: content.title,
+      body: content.body,
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           _androidChannel.id,

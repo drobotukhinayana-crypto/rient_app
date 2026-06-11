@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:rient_app/core/services/notification_service.dart';
 import 'package:rient_app/core/services/push_device_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
@@ -33,9 +34,13 @@ class PushRegistrationService {
 
   final Ref ref;
   StreamSubscription<String>? _tokenRefreshSubscription;
+  Timer? _registerRetryTimer;
+  int _registerRetryAttempt = 0;
   bool _initialized = false;
 
   void dispose() {
+    _registerRetryTimer?.cancel();
+    _registerRetryTimer = null;
     unawaited(_tokenRefreshSubscription?.cancel());
     _tokenRefreshSubscription = null;
   }
@@ -104,21 +109,35 @@ class PushRegistrationService {
     bool? pushEnabled,
   }) async {
     final organizationId = ref.read(organizationIdProvider);
-    if (organizationId <= 0) return;
+    if (organizationId <= 0) {
+      debugPrint(
+        'PushRegistrationService: organization id missing, retry register',
+      );
+      _scheduleRegisterRetry();
+      return;
+    }
 
     final jwt = ref.read(tokenProvider);
-    if (jwt == null || jwt.isEmpty) return;
+    if (jwt == null || jwt.isEmpty) {
+      debugPrint('PushRegistrationService: JWT missing, retry register');
+      _scheduleRegisterRetry();
+      return;
+    }
 
     try {
       await ensureInitialized();
+      await NotificationService.instance.ensureNotificationPermissions();
 
       final token = await _resolveFcmToken(override: fcmToken);
       if (token == null || token.isEmpty) {
         debugPrint(
           'PushRegistrationService: FCM token unavailable, skip register',
         );
+        _scheduleRegisterRetry();
         return;
       }
+      _registerRetryAttempt = 0;
+      _registerRetryTimer?.cancel();
       // Для теста в Firebase Console → Cloud Messaging → Send test message
       debugPrint('FCM token: $token');
 
@@ -152,9 +171,24 @@ class PushRegistrationService {
           );
 
       await deviceStorage.saveRegisteredDeviceApiId(device.id);
+      debugPrint(
+        'PushRegistrationService: registered device id=${device.id} '
+        'active=${device.isActive} pushEnabled=${device.pushEnabled}',
+      );
     } catch (e, st) {
       debugPrint('PushRegistrationService: register failed: $e\n$st');
+      _scheduleRegisterRetry();
     }
+  }
+
+  void _scheduleRegisterRetry() {
+    if (_registerRetryAttempt >= 5) return;
+    _registerRetryTimer?.cancel();
+    final delaySeconds = 2 * (_registerRetryAttempt + 1);
+    _registerRetryAttempt++;
+    _registerRetryTimer = Timer(Duration(seconds: delaySeconds), () {
+      unawaited(registerCurrentDevice());
+    });
   }
 
   Future<void> deactivateCurrentDevice() async {

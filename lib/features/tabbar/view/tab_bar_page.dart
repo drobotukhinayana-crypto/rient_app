@@ -299,6 +299,9 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
       unawaited(
         ref.read(notificationsWebSocketControllerProvider).ensureConnected(),
       );
+      unawaited(
+        ref.read(pushRegistrationServiceProvider).registerCurrentDevice(),
+      );
     });
     ref.listen<int>(currentBranchIdProvider, (previous, next) {
       if (next > 0 && previous != next) {
