@@ -412,6 +412,53 @@ String? _shortTimeFromDynamic(dynamic value) {
   return s.length >= 5 ? s.substring(0, 5) : s;
 }
 
+/// Ячейка дня — та же логика, что в [workScheduleEmployeeRow].
+WorkScheduleDayCell resolveWorkerWorkScheduleDayCell({
+  required DateTime date,
+  required int branchId,
+  required List<SchedulePatternItemApi> patterns,
+  Map<String, dynamic>? workerRow,
+  Map<String, dynamic>? configMap,
+  ScheduleItemApi? daily,
+  SchedulePatternBranchItemApi? branchPattern,
+  bool selected = false,
+}) {
+  final resolvedConfig =
+      configMap ?? workerScheduleConfigForBranch(workerRow, branchId);
+  final resolvedPatterns = dedupeSchedulePatternsByDay(patterns);
+
+  final templateCell = _cellFromTemplate(
+    date: date,
+    patterns: resolvedPatterns,
+    workerRow: workerRow,
+    configMap: resolvedConfig,
+    daily: null,
+    selected: selected,
+  );
+
+  final WorkScheduleDayCell cell;
+  if (daily != null && (!daily.active || !daily.auto)) {
+    cell = workScheduleCellFromScheduleItem(
+      daily,
+      selected: selected,
+      isManuallyEdited: resolveManualWorkScheduleEdit(
+        daily: daily,
+        templateCell: templateCell,
+      ),
+    );
+  } else {
+    cell = _cellFromTemplate(
+      date: date,
+      patterns: resolvedPatterns,
+      workerRow: workerRow,
+      configMap: resolvedConfig,
+      daily: daily,
+      selected: selected,
+    );
+  }
+  return _clampCellToBranchPattern(cell, branchPattern);
+}
+
 WorkScheduleDayCell _cellFromTemplate({
   required DateTime date,
   required List<SchedulePatternItemApi> patterns,
@@ -481,7 +528,6 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
   Map<String, dynamic>? workerRow,
   DateTime? highlightedCellDate,
 }) {
-  final configMap = workerScheduleConfigForBranch(workerRow, branchId);
   final days = daysOfMonth(monthStart);
   final highlighted = highlightedCellDate != null
       ? DateTime(
@@ -526,41 +572,18 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
             workerId: worker.id,
             dateKey: dateKey,
           );
-          final branchPattern = _branchPatternForWeekday(
-            branchPatternsByDay,
-            date.weekday,
-          );
-
-          final templateCell = _cellFromTemplate(
+          return resolveWorkerWorkScheduleDayCell(
             date: date,
+            branchId: branchId,
             patterns: resolvedPatterns,
             workerRow: workerRow,
-            configMap: configMap,
-            daily: null,
+            daily: daily,
+            branchPattern: _branchPatternForWeekday(
+              branchPatternsByDay,
+              date.weekday,
+            ),
             selected: selected,
           );
-
-          final WorkScheduleDayCell cell;
-          if (daily != null && (!daily.active || !daily.auto)) {
-            cell = workScheduleCellFromScheduleItem(
-              daily,
-              selected: selected,
-              isManuallyEdited: resolveManualWorkScheduleEdit(
-                daily: daily,
-                templateCell: templateCell,
-              ),
-            );
-          } else {
-            cell = _cellFromTemplate(
-              date: date,
-              patterns: resolvedPatterns,
-              workerRow: workerRow,
-              configMap: configMap,
-              daily: daily,
-              selected: selected,
-            );
-          }
-          return _clampCellToBranchPattern(cell, branchPattern);
         }(),
     ],
   );

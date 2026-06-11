@@ -45,6 +45,7 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
     this.startHour = 9,
     this.endHour = 21,
     this.weekWorkHoursByWeekday,
+    this.weekWorkerHoursByDay,
     this.breakStart,
     this.breakEnd,
     this.breaksByDay,
@@ -68,6 +69,10 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
   final double startHour;
   final double endHour;
   final Map<int, ({double startHour, double endHour})>? weekWorkHoursByWeekday;
+
+  /// Часы мастера по датам недели из `/schedules/` (приоритет над [weekWorkHoursByWeekday]).
+  final Map<DateTime, ({double startHour, double endHour})>? weekWorkerHoursByDay;
+
   final String? breakStart;
   final String? breakEnd;
 
@@ -252,7 +257,9 @@ class _ScheduleCalendarOneUserWidgetState
           continue;
         }
 
-        final hours = widget.weekWorkHoursByWeekday![day.weekday];
+        final dayNorm = DateTime(day.year, day.month, day.day);
+        final hours = widget.weekWorkerHoursByDay?[dayNorm] ??
+            widget.weekWorkHoursByWeekday![day.weekday];
 
         if (hours == null) {
           regions.add(

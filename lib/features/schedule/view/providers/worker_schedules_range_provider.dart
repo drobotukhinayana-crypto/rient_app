@@ -67,33 +67,72 @@ final workerSchedulesRangeProvider =
     final schedulesService = ref.read(schedulesServiceProvider);
     final workersService = ref.read(workersServiceProvider);
 
-    final workerResponse = await schedulesService.getWorkerSchedules(
-      workerId: query.workerId,
-      dateGte: query._startNorm,
-      dateLte: query._endNorm,
-      bustCache: true,
-    );
-    final branchResponse = await schedulesService.getSchedules(
-      branchId: branchId,
-      dateGte: query._startNorm,
-      dateLte: query._endNorm,
-      bustCache: true,
-    );
-    final merged = mergeWorkerScheduleSources(
-      fromWorkerEndpoint: workerResponse.results,
-      fromBranchEndpoint: branchResponse.results,
-      workerId: query.workerId,
-      branchId: branchId,
-    );
-
     final workerRow = await workersService.getWorkerRow(
       workerId: query.workerId,
       branchId: branchId,
     );
+    final shiftConfig = workerScheduleConfigForBranch(workerRow, branchId);
+    final keyId = shiftConfig?['id']?.toString();
+    final daysInRange =
+        query._endNorm.difference(query._startNorm).inDays.abs() + 1;
+    final pageSize = daysInRange.clamp(7, 500);
+
+    final keyIn = 'worker/${query.workerId}';
+    List<ScheduleItemApi> schedules = const [];
+
+    Future<List<ScheduleItemApi>> fetchMergedFallback() async {
+      final workerResponse = await schedulesService.getWorkerSchedules(
+        workerId: query.workerId,
+        dateGte: query._startNorm,
+        dateLte: query._endNorm,
+        bustCache: true,
+      );
+      final branchResponse = await schedulesService.getSchedules(
+        branchId: branchId,
+        dateGte: query._startNorm,
+        dateLte: query._endNorm,
+        bustCache: true,
+      );
+      return mergeWorkerScheduleSources(
+        fromWorkerEndpoint: workerResponse.results,
+        fromBranchEndpoint: branchResponse.results,
+        workerId: query.workerId,
+        branchId: branchId,
+      );
+    }
+
+    if (keyId != null && keyId.isNotEmpty) {
+      final response = await schedulesService.getSchedules(
+        branchId: branchId,
+        dateGte: query._startNorm,
+        dateLte: query._endNorm,
+        pageSize: pageSize,
+        keyIn: keyIn,
+        keyId: keyId,
+        ordering: 'date',
+        bustCache: true,
+      );
+      schedules = response.results;
+      if (schedules.isEmpty) {
+        final withoutKeyId = await schedulesService.getSchedules(
+          branchId: branchId,
+          dateGte: query._startNorm,
+          dateLte: query._endNorm,
+          pageSize: pageSize,
+          keyIn: keyIn,
+          ordering: 'date',
+          bustCache: true,
+        );
+        schedules = withoutKeyId.results;
+      }
+    }
+    if (schedules.isEmpty) {
+      schedules = await fetchMergedFallback();
+    }
 
     return WorkerSchedulesRangeData(
-      schedulesByDate: indexDailySchedulesByDate(merged),
-      shiftConfig: workerScheduleConfigForBranch(workerRow, branchId),
+      schedulesByDate: indexDailySchedulesByDate(schedules),
+      shiftConfig: shiftConfig,
     );
   } catch (_) {
     return const WorkerSchedulesRangeData(schedulesByDate: {});

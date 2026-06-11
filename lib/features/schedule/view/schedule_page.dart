@@ -45,6 +45,7 @@ import 'package:rient_app/features/schedule/view/providers/schedules_provider.da
 import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/worker_schedules_range_provider.dart';
 import 'package:rient_app/features/schedule/utils/schedule_branch_bounds.dart';
+import 'package:rient_app/features/schedule/utils/worker_schedule_template.dart';
 import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 
@@ -219,10 +220,30 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     ];
   }
 
+  static SpecialistItem? _specialistById(
+    int? workerId,
+    List<WorkerApi> allWorkers,
+    WorkerEntityLabels labels,
+  ) {
+    if (workerId == null || workerId <= 0) return null;
+    for (final worker in allWorkers) {
+      if (worker.id == workerId) {
+        return SpecialistItem(
+          name: labels.personDisplayName(
+            '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim(),
+          ),
+          role: worker.specialization ?? '',
+          id: worker.id,
+          pictureUrl: worker.pictureThumbnail ?? worker.picture,
+        );
+      }
+    }
+    return null;
+  }
+
   void _syncToNow() {
     final now = DateTime.now();
-    final weekday = now.weekday;
-    _weekStart = now.subtract(Duration(days: weekday - 1));
+    _weekStart = _mondayOf(now);
     _monthStart = DateTime(now.year, now.month, 1);
   }
 
@@ -340,6 +361,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     ref.invalidate(scheduleStatisticsForWeekProvider);
     ref.invalidate(scheduleStatisticsForMonthProvider);
     ref.invalidate(scheduleWorkersProvider);
+    ref.invalidate(workerScheduleTemplatesByIdProvider);
     ref.invalidate(workerWeekdaysByIdProvider);
     ref.invalidate(workerSchedulesRangeProvider);
     ref.invalidate(scheduleForDateProvider);
@@ -741,39 +763,22 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     return (start: null, end: null);
   }
 
-  /// Выходной только при явном графике; без данных — рабочий (мастер в списке дня).
-  static bool _isWorkerExplicitlyOffOnDate({
-    required DateTime date,
-    required Set<int> workingWeekdays,
-    ScheduleItemApi? daily,
-  }) {
-    if (daily != null) {
-      final parsed = daily.dateParsed;
-      if (parsed != null && isSameCalendarDay(parsed, dateOnly(date))) {
-        return !daily.active;
-      }
-    }
-    if (workingWeekdays.isNotEmpty) {
-      return !workingWeekdays.contains(date.weekday);
-    }
-    return false;
-  }
-
-  /// День «все мастера»: часы филиала, без штриховки до/после узкой смены.
+  /// День «все мастера»: часы из `/schedules/` или филиала.
   static ({double? start, double? end}) _adminMultiColumnWorkerHours({
     required DateTime date,
     required Set<int> workingWeekdays,
     ScheduleItemApi? daily,
+    Map<String, dynamic>? shiftConfig,
     required ({double startHour, double endHour}) branchHours,
   }) {
-    if (_isWorkerExplicitlyOffOnDate(
+    return workerShiftHoursForDate(
       date: date,
       workingWeekdays: workingWeekdays,
       daily: daily,
-    )) {
-      return (start: null, end: null);
-    }
-    return (start: branchHours.startHour, end: branchHours.endHour);
+      shiftConfig: shiftConfig,
+      branchStartHour: branchHours.startHour,
+      branchEndHour: branchHours.endHour,
+    );
   }
 
   static int? _weekdayFromPatternDay(String? day) {
@@ -872,6 +877,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final workerWeekdaysById = workerWeekdaysAsync.hasValue
         ? workerWeekdaysAsync.requireValue
         : const <int, Set<int>>{};
+    final workerTemplatesAsync = ref.watch(workerScheduleTemplatesByIdProvider);
+    final workerScheduleTemplatesById = workerTemplatesAsync.hasValue
+        ? workerTemplatesAsync.requireValue
+        : const <int, WorkerScheduleTemplate>{};
     final availableWorkersAsync = ref.watch(
       availableWorkersForDateProvider(selectedDate),
     );
@@ -883,19 +892,29 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final workerLabels =
         ref.watch(workerEntityLabelsProvider).value ??
         WorkerEntityLabels.defaults;
-    // Для всех режимов показываем активных сотрудников на выбранную дату.
-    final allSpecialists = _daySpecialistsFromProviders(
+    final allWorkers = workersAsync.value?.results ?? const <WorkerApi>[];
+    final specialistsOnSelectedDate = _daySpecialistsFromProviders(
       availableWorkersAsync: availableWorkersAsync,
       workersAsync: workersAsync,
       labels: workerLabels,
     );
-    if (availableWorkersAsync.hasValue && allSpecialists.isNotEmpty) {
-      _lastDaySpecialists = allSpecialists;
+    if (availableWorkersAsync.hasValue && specialistsOnSelectedDate.isNotEmpty) {
+      _lastDaySpecialists = specialistsOnSelectedDate;
     }
-    var specialists = isWorkerRole
-        ? allSpecialists.where((s) => s.id == currentWorkerId).toList()
-        : allSpecialists;
+    final allBranchSpecialists =
+        _allWorkersToSpecialists(allWorkers, workerLabels);
     final savedSelectedId = ref.watch(selectedSpecialistIdProvider);
+    // Колонки «все мастера» в дне — только доступные на дату; выбор мастера и неделя/месяц — весь филиал.
+    final useAvailableOnlyForDayColumns = !isWorkerRole &&
+        _viewMode == ViewMode.day &&
+        specialistsOnSelectedDate.length > 1;
+    var specialists = isWorkerRole
+        ? specialistsOnSelectedDate
+            .where((s) => s.id == currentWorkerId)
+            .toList()
+        : useAvailableOnlyForDayColumns
+        ? specialistsOnSelectedDate
+        : allBranchSpecialists;
     if (isScheduleOffline && specialists.isEmpty) {
       final fromCache = offlineSpecialistsAsync.value;
       if (fromCache != null && fromCache.isNotEmpty) {
@@ -906,30 +925,31 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       }
     }
     SpecialistItem? initialSelected;
-    if (specialists.isNotEmpty) {
-      if (savedSelectedId != null) {
-        for (final specialist in specialists) {
-          if (specialist.id == savedSelectedId) {
-            initialSelected = specialist;
-            break;
-          }
-        }
+    if (savedSelectedId != null && savedSelectedId > 0) {
+      initialSelected = _specialistById(
+        savedSelectedId,
+        allWorkers,
+        workerLabels,
+      );
+      if (initialSelected != null &&
+          !specialists.any((s) => s.id == savedSelectedId)) {
+        specialists = [initialSelected, ...specialists];
       }
-      initialSelected ??= specialists[0];
     }
-    final isAdminMultiDayView =
-        !isWorkerRole && _viewMode == ViewMode.day && specialists.length > 1;
+    initialSelected ??=
+        specialists.isNotEmpty ? specialists.first : null;
+    final isAdminMultiDayView = useAvailableOnlyForDayColumns;
     final branchPatterns = currentBranch?.schedulePatterns ?? const [];
     final dayWorkHours = isAdminMultiDayView
         ? _workHoursForWeek(branchPatterns)
         : _workHoursForDate(selectedDate, branchPatterns);
     final selectedSpecialistId = initialSelected?.id;
-    /// Пока нет списка доступных на дату, у воркера всё равно известен id из профиля.
-    final specialistIdForData = selectedSpecialistId ??
-        (savedSelectedId != null && savedSelectedId > 0 ? savedSelectedId : null) ??
-        (isWorkerRole && currentWorkerId != null && currentWorkerId > 0
-            ? currentWorkerId
-            : null);
+    /// Id для графика/загруженности: не зависит от списка доступных на выбранную дату.
+    final specialistIdForData = isWorkerRole
+        ? (currentWorkerId != null && currentWorkerId > 0 ? currentWorkerId : null)
+        : (savedSelectedId != null && savedSelectedId > 0
+              ? savedSelectedId
+              : selectedSpecialistId);
     final workerIdMissing = !isScheduleOffline &&
         isWorkerRole &&
         !currentWorkerIdAsync.isLoading &&
@@ -1020,13 +1040,27 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final workerWeekdaysForSpecialist = specialistIdForData != null
         ? (workerWeekdaysById[specialistIdForData] ?? const <int>{})
         : const <int>{};
+    final workerShiftConfigForSpecialist = specialistIdForData != null
+        ? (workerSchedulesData?.shiftConfig ??
+            workerScheduleTemplatesById[specialistIdForData]?.shiftConfig)
+        : null;
     bool resolveWorkerNonWorkingDay(DateTime date) {
       if (specialistIdForData == null) return false;
+      if (workerSchedulesAsync != null && workerSchedulesAsync.isLoading) {
+        return false;
+      }
+      final daily = workerSchedulesData?.scheduleOn(date);
+      final fromDaily = workingStateFromDailySchedule(date, daily);
+      if (fromDaily != null) return !fromDaily;
+      final loadedByDate = workerSchedulesData?.schedulesByDate;
+      if (loadedByDate != null && loadedByDate.isNotEmpty) {
+        return false;
+      }
       return isWorkerNonWorkingOnDate(
         date: date,
         workingWeekdays: workerWeekdaysForSpecialist,
-        daily: workerSchedulesData?.scheduleOn(date),
-        shiftConfig: workerSchedulesData?.shiftConfig,
+        daily: null,
+        shiftConfig: workerShiftConfigForSpecialist,
       );
     }
     final slotsByDay = _slotsByDayFromActiveAppointments(
@@ -1078,6 +1112,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final weekWorkHoursByWeekday = _workHoursByWeekday(
       currentBranch?.schedulePatterns ?? const [],
     );
+    final weekWorkerHoursByDay = specialistIdForData != null &&
+            workerSchedulesData != null
+        ? workerWorkHoursByDayForRange(
+            rangeStart: scheduleRangeBounds.start,
+            rangeEnd: scheduleRangeBounds.end,
+            schedulesByDate: workerSchedulesData.schedulesByDate,
+          )
+        : const <DateTime, ({double startHour, double endHour})>{};
     final dayStart = DateTime(
       selectedDate.year,
       selectedDate.month,
@@ -1149,6 +1191,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         : (!workerWeekdaysAsync.hasValue
               ? null
               : (workerWeekdaysById[specialistIdForData] ?? const <int>{}));
+    final workerSchedulesReady =
+        specialistIdForData == null || (workerSchedulesAsync?.hasValue ?? false);
+    final weekCalendarWorkingWeekdays = workerSchedulesReady
+        ? null
+        : workingWeekdaysForWeekCalendar;
+    final weekCalendarResolveNonWorkingDay =
+        specialistIdForData != null && workerSchedulesReady
+        ? resolveWorkerNonWorkingDay
+        : null;
 
     final showScheduleBodyLoader = !isScheduleOffline &&
         ((isWorkerRole && currentWorkerIdAsync.isLoading) ||
@@ -1313,7 +1364,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                 onScheduleDateSelected: (date) {
                   final normalized = _toDateOnly(date);
                   final monday = _mondayOf(normalized);
-                  if (monday != _weekStart) {
+                  if (!isSameCalendarDay(monday, _weekStart)) {
                     setState(() => _weekStart = monday);
                   }
                   ref.read(selectedScheduleDateProvider.notifier).state =
@@ -1405,7 +1456,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                   final workerId =
                                                       specialists[i].id!;
                                                   final weekdays =
-                                                      workerWeekdaysById[workerId] ??
+                                                      workerWeekdaysById[
+                                                              workerId] ??
                                                       const <int>{};
                                                   final dailyForWorker =
                                                       pickPreferredDailySchedule(
@@ -1421,6 +1473,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                     date: selectedDate,
                                                     workingWeekdays: weekdays,
                                                     daily: dailyForWorker,
+                                                    shiftConfig:
+                                                        workerScheduleTemplatesById[workerId]
+                                                            ?.shiftConfig,
                                                     branchHours: dayWorkHours,
                                                   );
 
@@ -1565,11 +1620,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         useMonthCalendarCircleFill: true,
                                         occupancyByDay: weekOccupancyByDay,
                                         workingWeekdays:
-                                            workingWeekdaysForWeekCalendar,
+                                            weekCalendarWorkingWeekdays,
                                         resolveNonWorkingDay:
-                                            specialistIdForData != null
-                                            ? resolveWorkerNonWorkingDay
-                                            : null,
+                                            weekCalendarResolveNonWorkingDay,
                                       ),
                                     ),
                                     Expanded(
@@ -1577,8 +1630,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         key: ValueKey(
                                           'schedule_week_${weekKey}_'
                                           '${specialistIdForData ?? 0}_'
-                                          '${workerWeekdaysAsync.hasValue}_'
-                                          '${Object.hashAll(workingWeekdaysForWeekCalendar ?? const <int>{})}_'
+                                          '${workerSchedulesData?.schedulesByDate.length ?? 0}_'
                                           '$_refreshVersion',
                                         ),
                                         date: _weekStart,
@@ -1590,12 +1642,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         endHour: weekWorkHours.endHour,
                                         weekWorkHoursByWeekday:
                                             weekWorkHoursByWeekday,
+                                        weekWorkerHoursByDay:
+                                            weekWorkerHoursByDay,
                                         workingWeekdays:
-                                            workingWeekdaysForWeekCalendar,
+                                            weekCalendarWorkingWeekdays,
                                         resolveNonWorkingDay:
-                                            specialistIdForData != null
-                                            ? resolveWorkerNonWorkingDay
-                                            : null,
+                                            weekCalendarResolveNonWorkingDay,
                                         breaksByDay: weekBreaksByDay,
                                         onAppointmentTap: (item) async {
                                           final appointment = item.source;

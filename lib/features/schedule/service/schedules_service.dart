@@ -31,6 +31,9 @@ class SchedulesService {
     required DateTime dateGte,
     required DateTime dateLte,
     int pageSize = 500,
+    String? keyIn,
+    String? keyId,
+    String? ordering,
     bool bustCache = false,
   }) async {
     final organizationId = ref.read(organizationIdProvider);
@@ -48,6 +51,9 @@ class SchedulesService {
       'date__lte': dateToApi(dateLte),
       'page_size': pageSize,
       'branch': branchId,
+      if (keyIn != null && keyIn.isNotEmpty) 'key__in': keyIn,
+      if (keyId != null && keyId.isNotEmpty) 'key_id': keyId,
+      if (ordering != null && ordering.isNotEmpty) 'ordering': ordering,
       if (bustCache) '_': DateTime.now().millisecondsSinceEpoch,
     };
 

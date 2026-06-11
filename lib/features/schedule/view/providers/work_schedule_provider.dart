@@ -205,6 +205,8 @@ void invalidateWorkScheduleCaches(
     );
   }
   ref.invalidate(workScheduleMonthProvider);
+  ref.invalidate(workerScheduleTemplatesByIdProvider);
+  ref.invalidate(workerWeekdaysByIdProvider);
   ref.invalidate(workerSchedulesRangeProvider);
   ref.invalidate(scheduleForDateProvider);
   bumpWorkScheduleReloadToken(ref);

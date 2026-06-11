@@ -6,9 +6,14 @@ import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
+import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/service/schedule_offline_sync_service.dart';
+import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
+import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
+import 'package:rient_app/features/schedule/utils/worker_schedule_template.dart';
+import 'package:rient_app/features/schedule/view/components/work_schedule_mapper.dart';
 import 'package:rient_app/core/network/app_connectivity_provider.dart'
     show
         appNoConnectionProvider,
@@ -91,23 +96,58 @@ final availableWorkersForDateProvider =
       }
     });
 
-/// Рабочие дни сотрудников по данным /workers/?with_schedules=1
+/// Шаблоны графика сотрудников — те же данные, что в сетке «График работы».
+final workerScheduleTemplatesByIdProvider =
+    FutureProvider<Map<int, WorkerScheduleTemplate>>((ref) async {
+  if (ref.watch(appNoConnectionProvider) ||
+      !ref.watch(scheduleServerReachableProvider)) {
+    return const <int, WorkerScheduleTemplate>{};
+  }
+  final branchId = ref.watch(currentBranchIdProvider);
+  if (branchId == 0) return const <int, WorkerScheduleTemplate>{};
+
+  final workersService = ref.watch(workersServiceProvider);
+  final patternsService = ref.watch(schedulePatternsServiceProvider);
+  try {
+    final patternsResponse =
+        await patternsService.getSchedulePatterns(branchId: branchId);
+    final patternsByWorker =
+        groupSchedulePatternsByWorker(patternsResponse.results);
+    final rows = await workersService.getWorkerRowsWithSchedules(
+      branchId: branchId,
+    );
+
+    final templates = <int, WorkerScheduleTemplate>{};
+    for (final row in rows) {
+      final workerId = (row['id'] as num?)?.toInt();
+      if (workerId == null) continue;
+      templates[workerId] = WorkerScheduleTemplate(
+        patterns: mergeSchedulePatternsForWorker(
+          fromBranchApi: patternsByWorker[workerId] ?? const [],
+          workerRow: row,
+        ),
+        shiftConfig: workerScheduleConfigForBranch(row, branchId),
+      );
+    }
+    return templates;
+  } catch (_) {
+    return const <int, WorkerScheduleTemplate>{};
+  }
+});
+
+/// Рабочие дни сотрудников по merged-шаблонам.
 /// workerId -> Set<weekday>, где weekday: 1..7 (Mon..Sun).
 final workerWeekdaysByIdProvider = FutureProvider<Map<int, Set<int>>>((
   ref,
 ) async {
-  if (ref.watch(appNoConnectionProvider) ||
-      !ref.watch(scheduleServerReachableProvider)) {
-    return const <int, Set<int>>{};
-  }
-  final branchId = ref.watch(currentBranchIdProvider);
-  if (branchId == 0) return const <int, Set<int>>{};
-  final service = ref.watch(workersServiceProvider);
-  try {
-    return await service.getWorkersWorkingWeekdays(branchId: branchId);
-  } catch (_) {
-    return const <int, Set<int>>{};
-  }
+  final templates = await ref.watch(workerScheduleTemplatesByIdProvider.future);
+  return {
+    for (final entry in templates.entries)
+      entry.key: {
+        for (final pattern in dedupeSchedulePatternsByDay(entry.value.patterns))
+          if (pattern.active) pattern.weekdayNumber,
+      }.whereType<int>().toSet(),
+  };
 });
 
 /// Ключ для сохранения id выбранного специалиста в локальное хранилище.

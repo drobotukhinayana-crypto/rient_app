@@ -33,19 +33,29 @@ Map<String, dynamic>? _mapWithBranchCheck(
   return map;
 }
 
+bool _isConfigActive(Map<String, dynamic> map) {
+  final active = map['active'];
+  return active == true || active == 1;
+}
+
 Map<String, dynamic>? _pickConfigForBranch(
   List<dynamic> configs,
   int branchId,
 ) {
+  Map<String, dynamic>? branchMatch;
   Map<String, dynamic>? fallback;
   for (final item in configs) {
     if (item is! Map) continue;
     final map = item.map((k, v) => MapEntry(k.toString(), v));
     final configBranch = _branchIdFromDynamic(map['branch']);
-    if (configBranch == branchId) return map;
+    if (configBranch == branchId) {
+      if (_isConfigActive(map)) return map;
+      branchMatch ??= map;
+      continue;
+    }
     fallback ??= map;
   }
-  return fallback;
+  return branchMatch ?? fallback;
 }
 
 int? _branchIdFromDynamic(dynamic value) {

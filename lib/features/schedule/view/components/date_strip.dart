@@ -1,10 +1,10 @@
 import 'package:collection/collection.dart';
-import 'package:dart_date/dart_date.dart';
 import 'package:flutter/material.dart';
 import 'package:rient_app/core/painting/diagonal_hatch.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
+import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
 
 /// Короткие названия дней недели (Пн, Вт, ...).
 const _weekdayShort = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
@@ -226,7 +226,10 @@ class _DateStripState extends State<DateStrip> {
                                 widget.occupancyByDay
                                     ?.firstWhereOrNull(
                                       (element) =>
-                                          element.date.isSameDay(_dates[i]),
+                                          isSameCalendarDay(
+                                            element.date,
+                                            _dates[i],
+                                          ),
                                     )
                                     ?.occupancy ??
                                 0,

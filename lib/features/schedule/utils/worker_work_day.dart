@@ -39,7 +39,19 @@ Map<String, ScheduleItemApi> indexDailySchedulesByDate(
   return map;
 }
 
-/// Рабочий ли день сотрудника с учётом ручных правок в `workers/.../schedules/`.
+/// `true`/`false` — решение по записи `/schedules/` на дату; `null` — нет записи на дату.
+bool? workingStateFromDailySchedule(DateTime date, ScheduleItemApi? daily) {
+  if (daily == null) return null;
+  final parsed = daily.dateParsed;
+  if (parsed == null || !isSameCalendarDay(parsed, dateOnly(date))) {
+    return null;
+  }
+  if (!daily.active) return false;
+  // На сайте `active: true` — рабочий день; часы могут подставляться из шаблона.
+  return true;
+}
+
+/// Рабочий ли день: запись `/schedules/` на дату, затем смена, затем шаблон недели.
 bool isWorkerWorkingOnDate({
   required DateTime date,
   required Set<int> workingWeekdays,
@@ -48,20 +60,8 @@ bool isWorkerWorkingOnDate({
 }) {
   final day = dateOnly(date);
 
-  if (daily != null) {
-    final parsed = daily.dateParsed;
-    if (parsed != null && isSameCalendarDay(parsed, day)) {
-      if (!daily.active) return false;
-      if (!daily.auto) {
-        final start = daily.timeStartShort;
-        final end = daily.timeEndShort;
-        return start != null &&
-            end != null &&
-            start.isNotEmpty &&
-            end.isNotEmpty;
-      }
-    }
-  }
+  final fromDaily = workingStateFromDailySchedule(day, daily);
+  if (fromDaily != null) return fromDaily;
 
   if (isShiftWorkerScheduleConfig(shiftConfig)) {
     return isShiftWorkerWorkDay(day, shiftConfig);
@@ -155,7 +155,7 @@ double? _hourFromShortTime(String? value) {
     return (start: null, end: null);
   }
 
-  if (daily != null && !daily.auto && daily.active) {
+  if (daily != null && daily.active) {
     final start = _hourFromShortTime(daily.timeStartShort);
     final end = _hourFromShortTime(daily.timeEndShort);
     if (start != null && end != null && end > start) {
@@ -178,4 +178,27 @@ double? _hourFromShortTime(String? value) {
   }
 
   return (start: null, end: null);
+}
+
+/// Часы работы по дням из `/schedules/` (только active с time_start/time_end).
+Map<DateTime, ({double startHour, double endHour})> workerWorkHoursByDayForRange({
+  required DateTime rangeStart,
+  required DateTime rangeEnd,
+  required Map<String, ScheduleItemApi> schedulesByDate,
+}) {
+  final result = <DateTime, ({double startHour, double endHour})>{};
+  var date = dateOnly(rangeStart);
+  final end = dateOnly(rangeEnd);
+  while (!date.isAfter(end)) {
+    final daily = schedulesByDate[SchedulesService.dateToApi(date)];
+    if (daily != null && daily.active) {
+      final start = _hourFromShortTime(daily.timeStartShort);
+      final endHour = _hourFromShortTime(daily.timeEndShort);
+      if (start != null && endHour != null && endHour > start) {
+        result[date] = (startHour: start, endHour: endHour);
+      }
+    }
+    date = date.add(const Duration(days: 1));
+  }
+  return result;
 }
