@@ -580,7 +580,7 @@ class _AnalyticsViewData {
     final specialistPerformance = summary.specialist?.performance;
     final productivityPercent = specialistPerformance != null
         ? _occupancyPercent(specialistPerformance)
-        : fallbackProductivity;
+        : fallbackProductivity.clamp(0, 100);
 
     final served = _clientsServedCount(summary, filterWorkerId: filterWorkerId);
     final workerScoped = _isWorkerScoped(summary, filterWorkerId);
@@ -703,7 +703,7 @@ class _AnalyticsViewData {
 
     return _AnalyticsViewData(
       fillRatePercent: fillRate.clamp(0, 100).toDouble(),
-      productivityPercent: productivityPercent.clamp(0, 100).toDouble(),
+      productivityPercent: productivityPercent.toDouble(),
       workerScoped: workerScoped,
       clientsServed: served,
       income: income,
@@ -1298,7 +1298,7 @@ class _AnalyticsContent extends StatelessWidget {
                 const Gap(10),
                 _MetricRowCard(
                   label: 'Производительность',
-                  value: '${data.productivityPercent.toStringAsFixed(2)}%',
+                  value: formatMoney(data.productivityPercent),
                   cardColor: cardColor,
                   labelColor: labelColor,
                   accent: accent,

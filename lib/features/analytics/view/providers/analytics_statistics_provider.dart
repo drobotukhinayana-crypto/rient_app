@@ -70,19 +70,22 @@ final analyticsSummaryProvider =
   var result = summary;
 
   if (query.type == 'month') {
-    try {
-      final branchStats =
-          await ref.read(statisticsServiceProvider).getBranchStatisticsComparison(
-                startDate: query.start,
-                endDate: query.end,
-                type: 'month',
-                workerId: workerId,
-              );
-      result = _summaryWithBranchStatistics(
-        summary: result,
-        period: branchStats.current,
-      );
-    } catch (_) {}
+    final isWorkerRole = roleId == UserRole.worker.value;
+    if (!isWorkerRole) {
+      try {
+        final branchStats =
+            await ref.read(statisticsServiceProvider).getBranchStatisticsComparison(
+                  startDate: query.start,
+                  endDate: query.end,
+                  type: 'month',
+                  workerId: workerId,
+                );
+        result = _summaryWithBranchStatistics(
+          summary: result,
+          period: branchStats.current,
+        );
+      } catch (_) {}
+    }
 
     if (workerId != null && workerId > 0) {
       try {
@@ -264,15 +267,40 @@ AnalyticsSummary _summaryWithMonthStatistics({
       )
       .toList();
 
+  final monthDateKey =
+      '$year-${month.toString().padLeft(2, '0')}-01';
+  final incomeByDay = [
+    AnalyticsIncomeByDay(
+      date: monthDateKey,
+      income: monthStats.income,
+      payDue: monthStats.payDue,
+    ),
+  ];
+
   return summary.copyWith(
     specialist: (summary.specialist ?? const AnalyticsSpecialist()).copyWith(
       performance: monthStats.performance,
+    ),
+    summary: summary.summary.copyWith(
+      occupancy: monthStats.occupancy,
+      incomeByDay: incomeByDay,
+    ),
+    comparison: summary.comparison.copyWith(
+      current: summary.comparison.current.copyWith(
+        totalIncome: monthStats.income,
+        occupancy: monthStats.occupancy,
+        totalClients: monthStats.clients > 0
+            ? monthStats.clients
+            : summary.comparison.current.totalClients,
+        incomeByDay: incomeByDay,
+      ),
     ),
     global: summary.global.copyWith(
       services: services.isNotEmpty ? services : summary.global.services,
     ),
     meta: summary.meta.copyWith(
-      canSeePayDue: summary.meta.canSeePayDue || monthStats.payDue > 0,
+      canSeeIncome: summary.meta.canSeeIncome || monthStats.income > 0,
+      canSeePayDue: true,
     ),
   );
 }

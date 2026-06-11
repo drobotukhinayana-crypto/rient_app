@@ -147,6 +147,12 @@ final createEntrySavingProvider = StateProvider<bool>((ref) => false);
 final createEntryDraftProvider = StateProvider<_CreateAppointmentDraft?>(
   (ref) => null,
 );
+final createEntryAppointmentPaidProvider = StateProvider<bool>((ref) => false);
+final createEntryPaymentProcessingProvider = StateProvider<bool>((ref) => false);
+final createEntryPaymentHandlerProvider =
+    StateProvider<Future<void> Function({bool updateStatusOnSaveOnly})?>(
+  (ref) => null,
+);
 const _rememberedClientStorageKey = 'create_entry_remembered_client';
 
 class _CreateAppointmentDraft {
@@ -581,7 +587,6 @@ class _AddNewEntryPageState extends ConsumerState<AddNewEntryPage> {
               isEditMode: widget.isEditMode || widget.initialAppointment != null,
               initialAppointmentId: widget.initialAppointment?.id,
               initialAppointmentDatetime: widget.initialAppointment?.datetime,
-              initialAppointmentPaid: widget.initialAppointment?.paid ?? false,
             ),
     );
   }
@@ -656,6 +661,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     _applyInitialDataForNewEntry();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      ref.read(createEntryAppointmentPaidProvider.notifier).state =
+          widget.initialAppointment?.paid ?? false;
+      ref.read(createEntryPaymentProcessingProvider.notifier).state = false;
+      ref.read(createEntryPaymentHandlerProvider.notifier).state =
+          _runAppointmentPaymentFlow;
       _refreshPermissionsOnce();
     });
     ref.listenManual<AsyncValue<WorkerPermissions>>(
@@ -1178,68 +1188,86 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return amount ?? ref.read(createEntryTotalPriceProvider);
   }
 
+  Future<void> _runAppointmentPaymentFlow({
+    bool updateStatusOnSaveOnly = false,
+  }) async {
+    final appointmentId = widget.initialAppointment?.id;
+    if (appointmentId == null || appointmentId <= 0) return;
+
+    final result = await showClientArrivedPaymentConfirmDialog(
+      context: context,
+      appointmentId: appointmentId,
+    );
+    if (!mounted) return;
+
+    switch (result) {
+      case ClientArrivedPaymentDialogResult.pay:
+        ref.read(createEntryPaymentProcessingProvider.notifier).state = true;
+        try {
+          final saved = await _saveAppointmentWithStatus(
+            kClientArrivedStatusIndex,
+          );
+          if (!mounted) return;
+
+          final amount = await _resolvePaymentAmountAfterSave(
+            appointmentId,
+            saved,
+          );
+
+          if (!mounted) return;
+          final confirmed = await showPaymentAmountConfirmDialog(
+            context: context,
+            amount: amount,
+          );
+          if (!mounted || !confirmed) return;
+
+          await ref.read(appointmentsServiceProvider).payAppointmentTransaction(
+                appointmentId: appointmentId,
+                price: amount.round(),
+              );
+          if (!mounted) return;
+          ref.read(createEntryAppointmentPaidProvider.notifier).state = true;
+          showAppServiceMessage(context, message: 'Оплата проведена');
+          setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
+        } catch (e) {
+          if (!mounted) return;
+          showAppServiceMessage(
+            context,
+            message: 'Не удалось провести оплату: ${_paymentErrorMessage(e)}',
+            variant: AppServiceMessageVariant.error,
+          );
+        } finally {
+          if (mounted) {
+            ref.read(createEntryPaymentProcessingProvider.notifier).state =
+                false;
+          }
+        }
+      case ClientArrivedPaymentDialogResult.saveOnly:
+        if (!updateStatusOnSaveOnly) return;
+        try {
+          await _saveAppointmentWithStatus(kClientArrivedStatusIndex);
+          if (!mounted) return;
+          setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
+        } catch (e) {
+          if (!mounted) return;
+          showAppServiceMessage(
+            context,
+            message: 'Не удалось сохранить статус: ${_paymentErrorMessage(e)}',
+            variant: AppServiceMessageVariant.error,
+          );
+        }
+      case ClientArrivedPaymentDialogResult.dismiss:
+      case null:
+        break;
+    }
+  }
+
   Future<void> _onClientStatusSelected(int index) async {
     if (index == kClientArrivedStatusIndex &&
         _selectedStatusIndex != kClientArrivedStatusIndex) {
       final appointmentId = widget.initialAppointment?.id;
       if (appointmentId != null && appointmentId > 0) {
-        final result = await showClientArrivedPaymentConfirmDialog(
-          context: context,
-          appointmentId: appointmentId,
-        );
-        if (!mounted) return;
-        switch (result) {
-          case ClientArrivedPaymentDialogResult.pay:
-            try {
-              final saved = await _saveAppointmentWithStatus(
-                kClientArrivedStatusIndex,
-              );
-              if (!mounted) return;
-
-              final amount = await _resolvePaymentAmountAfterSave(
-                appointmentId,
-                saved,
-              );
-
-              if (!mounted) return;
-              final confirmed = await showPaymentAmountConfirmDialog(
-                context: context,
-                amount: amount,
-              );
-              if (!mounted || !confirmed) return;
-
-              await ref.read(appointmentsServiceProvider).payAppointmentTransaction(
-                    appointmentId: appointmentId,
-                    price: amount.round(),
-                  );
-              if (!mounted) return;
-              showAppServiceMessage(context, message: 'Оплата проведена');
-              setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
-            } catch (e) {
-              if (!mounted) return;
-              showAppServiceMessage(
-                context,
-                message: 'Не удалось провести оплату: ${_paymentErrorMessage(e)}',
-                variant: AppServiceMessageVariant.error,
-              );
-            }
-          case ClientArrivedPaymentDialogResult.saveOnly:
-            try {
-              await _saveAppointmentWithStatus(kClientArrivedStatusIndex);
-              if (!mounted) return;
-              setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
-            } catch (e) {
-              if (!mounted) return;
-              showAppServiceMessage(
-                context,
-                message: 'Не удалось сохранить статус: ${_paymentErrorMessage(e)}',
-                variant: AppServiceMessageVariant.error,
-              );
-            }
-          case ClientArrivedPaymentDialogResult.dismiss:
-          case null:
-            break;
-        }
+        await _runAppointmentPaymentFlow(updateStatusOnSaveOnly: true);
         return;
       }
     }
@@ -1283,6 +1311,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
   @override
   void dispose() {
+    ref.read(createEntryPaymentHandlerProvider.notifier).state = null;
     _commentVisitController.dispose();
     _commentClientController.dispose();
     _phoneController.dispose();
@@ -3635,13 +3664,11 @@ class _BottomActionsBar extends ConsumerWidget {
     required this.isEditMode,
     required this.initialAppointmentId,
     this.initialAppointmentDatetime,
-    this.initialAppointmentPaid = false,
   });
 
   final bool isEditMode;
   final int? initialAppointmentId;
   final String? initialAppointmentDatetime;
-  final bool initialAppointmentPaid;
 
   String _formatMoney(double value) => '${value.round()}₽';
   String _formatDiscount(double value) => '${value.round()}%';
@@ -3679,10 +3706,16 @@ class _BottomActionsBar extends ConsumerWidget {
     final discount = ref.watch(createEntryDiscountProvider);
     final canSave = ref.watch(createEntryCanSaveProvider);
     final isSaving = ref.watch(createEntrySavingProvider);
+    final isPaymentProcessing = ref.watch(createEntryPaymentProcessingProvider);
+    final isPaid = ref.watch(createEntryAppointmentPaidProvider);
     final draft = ref.watch(createEntryDraftProvider);
     final cardSurface = _entryCardSurface(context);
     final mutedFill = _entryMutedFill(context);
     final accent = _entryAccent(context);
+    final showPayButton = isEditMode &&
+        initialAppointmentId != null &&
+        !isPaid &&
+        (draft?.status ?? -1) == kClientArrivedStatusIndex;
 
     Future<void> createAppointment({required bool closeAfterSave}) async {
       if (!canSubmitByPermissions || !canSave || draft == null || isSaving) {
@@ -3864,7 +3897,22 @@ class _BottomActionsBar extends ConsumerWidget {
               ),
             ],
           ),
-          if (isEditMode && initialAppointmentPaid) ...[
+          if (showPayButton) ...[
+            const Gap(12),
+            MainButton(
+              title: 'Оплатить',
+              onTap: () async {
+                if (isSaving || isPaymentProcessing) return;
+                final handler = ref.read(createEntryPaymentHandlerProvider);
+                if (handler == null) return;
+                await handler(updateStatusOnSaveOnly: false);
+              },
+              isActive:
+                  !isSaving && !isPaymentProcessing && canSubmitByPermissions,
+              isLoading: isPaymentProcessing,
+            ),
+          ],
+          if (isEditMode && isPaid) ...[
             const Gap(12),
             Align(
               alignment: Alignment.centerLeft,

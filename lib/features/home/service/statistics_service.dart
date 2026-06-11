@@ -277,6 +277,9 @@ class StatisticsService {
           'branch_id': effectiveBranchId,
           'year': year,
           'month': month,
+          'more': false,
+          'page': 1,
+          'page_size': 30,
         },
         options: Options(headers: {'Authorization': 'JWT $token'}),
       );
