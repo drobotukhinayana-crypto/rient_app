@@ -100,7 +100,7 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
                   Gap(28),
 
                   // заголовок
-                  Text('Rient', style: AppFonts.bold40),
+                  Text('Rient Admin', style: AppFonts.h1Semi),
                   Gap(32),
 
                   // поле для ввода пароля

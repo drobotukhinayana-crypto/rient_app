@@ -1172,6 +1172,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     int appointmentId,
     Map<String, dynamic> savedAppointment,
   ) async {
+    final localTotal = ref.read(createEntryTotalPriceProvider);
+    if (localTotal > 0) {
+      return localTotal;
+    }
+
     var appointmentJson = savedAppointment;
     var amount = AppointmentTransactionUtils.parsePayDue(appointmentJson);
 
@@ -1185,7 +1190,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       }
     }
 
-    return amount ?? ref.read(createEntryTotalPriceProvider);
+    return amount ?? 0;
   }
 
   Future<void> _runAppointmentPaymentFlow({

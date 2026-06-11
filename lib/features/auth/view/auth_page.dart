@@ -93,7 +93,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             Gap(28),
 
             // заголовок
-            Text('Rient', style: AppFonts.bold40),
+            Text('Rient Admin', style: AppFonts.h1Semi),
             Gap(32),
 
             // выбор страны

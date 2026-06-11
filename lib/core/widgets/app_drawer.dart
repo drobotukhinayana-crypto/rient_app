@@ -111,7 +111,7 @@ class AppDrawer extends ConsumerWidget {
                   Image.asset(AppImages.logoMini, width: 40, height: 40),
                   const Spacer(),
                   Text(
-                    'Rient',
+                    'Rient Admin',
                     style: AppFonts.h3Medium.copyWith(color: onSurface),
                   ),
                   const Spacer(),
