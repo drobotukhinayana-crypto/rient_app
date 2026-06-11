@@ -198,6 +198,15 @@ class AnalyticsService {
     }
     normalized['global'] = global;
 
+    final specialistRaw = normalized['specialist'];
+    if (specialistRaw is Map) {
+      final row = specialistRaw.map((k, v) => MapEntry(k.toString(), v));
+      normalized['specialist'] = <String, dynamic>{
+        if (row['performance'] != null)
+          'performance': (row['performance'] as num).toDouble(),
+      };
+    }
+
     final meta = (normalized['meta'] as Map?)?.map(
           (k, v) => MapEntry(k.toString(), v),
         ) ??

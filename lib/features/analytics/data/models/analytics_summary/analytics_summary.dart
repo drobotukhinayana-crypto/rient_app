@@ -14,6 +14,7 @@ sealed class AnalyticsSummary with _$AnalyticsSummary {
     @Default([]) List<AnalyticsOccupancyDay> occupancy,
     required AnalyticsComparison comparison,
     required AnalyticsGlobal global,
+    AnalyticsSpecialist? specialist,
     AnalyticsBenchmarking? benchmarking,
     required AnalyticsMeta meta,
   }) = _AnalyticsSummary;
@@ -211,6 +212,16 @@ sealed class AnalyticsGlobalService with _$AnalyticsGlobalService {
 
   factory AnalyticsGlobalService.fromJson(Map<String, dynamic> json) =>
       _$AnalyticsGlobalServiceFromJson(json);
+}
+
+@freezed
+sealed class AnalyticsSpecialist with _$AnalyticsSpecialist {
+  const factory AnalyticsSpecialist({
+    double? performance,
+  }) = _AnalyticsSpecialist;
+
+  factory AnalyticsSpecialist.fromJson(Map<String, dynamic> json) =>
+      _$AnalyticsSpecialistFromJson(json);
 }
 
 @freezed

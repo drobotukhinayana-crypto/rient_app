@@ -369,7 +369,6 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 clientsExpanded: _clientsExpanded,
                 topServicesExpanded: _topServicesExpanded,
                 formatMoney: _formatMoney,
-                formatProductivity: _formatMoney,
                 onGeneralToggle: () =>
                     setState(() => _generalExpanded = !_generalExpanded),
                 onWorkloadToggle: () =>
@@ -396,8 +395,7 @@ class _AnalyticsViewData {
   const _AnalyticsViewData({
     required this.fillRatePercent,
     required this.productivityPercent,
-    required this.productivityAmount,
-    required this.productivityInRubles,
+    required this.workerScoped,
     required this.clientsServed,
     required this.income,
     required this.payDue,
@@ -423,9 +421,8 @@ class _AnalyticsViewData {
   });
 
   final double fillRatePercent;
-  final int productivityPercent;
-  final double productivityAmount;
-  final bool productivityInRubles;
+  final double productivityPercent;
+  final bool workerScoped;
   final int clientsServed;
   final double income;
   final double payDue;
@@ -568,9 +565,7 @@ class _AnalyticsViewData {
     final current = summary.comparison.current;
 
     final fillRate = _occupancyPercent(
-      filterMode != _AnalyticsFilterMode.month &&
-              current.occupancy != null &&
-              current.occupancy! > 0
+      current.occupancy != null && current.occupancy! > 0
           ? current.occupancy!
           : summary.summary.occupancy,
     );
@@ -579,9 +574,13 @@ class _AnalyticsViewData {
     final completedAppointments = current.completedAppointments ??
         (appointments.total - appointments.cancelled)
             .clamp(0, appointments.total);
-    final productivity = totalAppointments > 0
-        ? (completedAppointments / totalAppointments * 100).round()
-        : 0;
+    final fallbackProductivity = totalAppointments > 0
+        ? completedAppointments / totalAppointments * 100
+        : 0.0;
+    final specialistPerformance = summary.specialist?.performance;
+    final productivityPercent = specialistPerformance != null
+        ? _occupancyPercent(specialistPerformance)
+        : fallbackProductivity;
 
     final served = _clientsServedCount(summary, filterWorkerId: filterWorkerId);
     final workerScoped = _isWorkerScoped(summary, filterWorkerId);
@@ -593,27 +592,33 @@ class _AnalyticsViewData {
     var income = 0.0;
     var payDue = 0.0;
     if (showIncome || showPayDue) {
-      final incomeDays = summary.summary.incomeByDay.isNotEmpty
-          ? summary.summary.incomeByDay
-          : current.incomeByDay;
-      for (final item in incomeDays) {
-        final d = _parseDate(item.date);
-        if (d == null || d.isBefore(start) || d.isAfter(end)) continue;
-        if (showIncome) income += item.incomeValue;
-        if (showPayDue) payDue += item.payDueValue;
+      if (current.totalIncome != null &&
+          (filterMode == _AnalyticsFilterMode.dateRange ||
+              filterMode == _AnalyticsFilterMode.month ||
+              filterMode == _AnalyticsFilterMode.singleDay)) {
+        income = current.totalIncome!;
+      } else {
+        final incomeDays = summary.summary.incomeByDay.isNotEmpty
+            ? summary.summary.incomeByDay
+            : current.incomeByDay;
+        for (final item in incomeDays) {
+          final d = _parseDate(item.date);
+          if (d == null || d.isBefore(start) || d.isAfter(end)) continue;
+          if (showIncome) income += item.incomeValue;
+          if (showPayDue) payDue += item.payDueValue;
+        }
+        if (showIncome && income == 0 && current.totalIncome != null) {
+          income = current.totalIncome!;
+        }
       }
-    }
-    if (showIncome && income == 0 && current.totalIncome != null) {
-      income = current.totalIncome!;
-    }
-    if (showPayDue && payDue == 0 && current.incomeByDay.isNotEmpty) {
-      for (final item in current.incomeByDay) {
-        payDue += item.payDueValue;
+      if (showPayDue && payDue == 0 && current.incomeByDay.isNotEmpty) {
+        for (final item in current.incomeByDay) {
+          payDue += item.payDueValue;
+        }
       }
     }
 
     final avgCheck = current.averageTransactions ?? 0.0;
-    final productivityAmount = avgCheck;
 
     final globalClients = summary.global.clients;
     final totalClients = workerScoped
@@ -698,10 +703,8 @@ class _AnalyticsViewData {
 
     return _AnalyticsViewData(
       fillRatePercent: fillRate.clamp(0, 100).toDouble(),
-      productivityPercent: productivity.clamp(0, 100),
-      productivityAmount: productivityAmount,
-      productivityInRubles:
-          workerScoped || current.averageTransactions != null,
+      productivityPercent: productivityPercent.clamp(0, 100).toDouble(),
+      workerScoped: workerScoped,
       clientsServed: served,
       income: income,
       payDue: payDue,
@@ -1230,7 +1233,6 @@ class _AnalyticsContent extends StatelessWidget {
     required this.clientsExpanded,
     required this.topServicesExpanded,
     required this.formatMoney,
-    required this.formatProductivity,
     required this.onGeneralToggle,
     required this.onWorkloadToggle,
     required this.onClientsToggle,
@@ -1250,7 +1252,6 @@ class _AnalyticsContent extends StatelessWidget {
   final bool showTopServices;
   final bool isWorkerRole;
   final String Function(double) formatMoney;
-  final String Function(double) formatProductivity;
   final VoidCallback onGeneralToggle;
   final VoidCallback onWorkloadToggle;
   final VoidCallback onClientsToggle;
@@ -1297,9 +1298,7 @@ class _AnalyticsContent extends StatelessWidget {
                 const Gap(10),
                 _MetricRowCard(
                   label: 'Производительность',
-                  value: data.productivityInRubles
-                      ? formatProductivity(data.productivityAmount)
-                      : '${data.productivityPercent}%',
+                  value: '${data.productivityPercent.toStringAsFixed(2)}%',
                   cardColor: cardColor,
                   labelColor: labelColor,
                   accent: accent,
@@ -1421,12 +1420,12 @@ class _AnalyticsContent extends StatelessWidget {
                     title: 'Всего клиентов',
                     value: '${data.totalClients}',
                   ),
-                if (data.existingClients != null && !data.productivityInRubles)
+                if (data.existingClients != null && !data.workerScoped)
                   _AnalyticsMetricItem(
                     title: 'Постоянные',
                     value: '${data.existingClients}',
                   ),
-                if (data.oneshotClients != null && !data.productivityInRubles)
+                if (data.oneshotClients != null && !data.workerScoped)
                   _AnalyticsMetricItem(
                     title: 'Разовые',
                     value: '${data.oneshotClients}',

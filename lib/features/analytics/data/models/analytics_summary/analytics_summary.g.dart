@@ -27,6 +27,11 @@ _AnalyticsSummary _$AnalyticsSummaryFromJson(Map<String, dynamic> json) =>
         json['comparison'] as Map<String, dynamic>,
       ),
       global: AnalyticsGlobal.fromJson(json['global'] as Map<String, dynamic>),
+      specialist: json['specialist'] == null
+          ? null
+          : AnalyticsSpecialist.fromJson(
+              json['specialist'] as Map<String, dynamic>,
+            ),
       benchmarking: json['benchmarking'] == null
           ? null
           : AnalyticsBenchmarking.fromJson(
@@ -45,6 +50,7 @@ Map<String, dynamic> _$AnalyticsSummaryToJson(_AnalyticsSummary instance) =>
       'occupancy': instance.occupancy,
       'comparison': instance.comparison,
       'global': instance.global,
+      'specialist': instance.specialist,
       'benchmarking': instance.benchmarking,
       'meta': instance.meta,
     };
@@ -288,6 +294,15 @@ Map<String, dynamic> _$AnalyticsGlobalServiceToJson(
   'count': instance.count,
   'total': instance.total,
 };
+
+_AnalyticsSpecialist _$AnalyticsSpecialistFromJson(Map<String, dynamic> json) =>
+    _AnalyticsSpecialist(
+      performance: (json['performance'] as num?)?.toDouble(),
+    );
+
+Map<String, dynamic> _$AnalyticsSpecialistToJson(
+  _AnalyticsSpecialist instance,
+) => <String, dynamic>{'performance': instance.performance};
 
 _AnalyticsBenchmarking _$AnalyticsBenchmarkingFromJson(
   Map<String, dynamic> json,

@@ -127,6 +127,13 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
     );
   }
 
+  WorkScheduleDayCell _cellAt(WorkScheduleEmployeeRow employee, int index) {
+    if (index < 0 || index >= employee.monthCells.length) {
+      return const WorkScheduleDayCell.dayOff();
+    }
+    return employee.monthCells[index];
+  }
+
   Widget _scheduleRow(int rowIndex, List<DateTime> monthDays) {
     final employee = widget.employees[rowIndex];
     return Padding(
@@ -145,7 +152,7 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
                 width: workScheduleDayColumnWidth,
                 child: _DayCell(
                   date: monthDays[j],
-                  cell: employee.monthCells[j],
+                  cell: _cellAt(employee, j),
                   isSaving: _isSavingCell(employee.id, monthDays[j]),
                   onTap:
                       widget.onCellTap == null || employee.isBranchRow

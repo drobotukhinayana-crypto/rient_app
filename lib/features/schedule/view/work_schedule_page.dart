@@ -391,6 +391,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     setState(() {
       _monthStart = DateTime(monthStart.year, monthStart.month, 1);
       _pendingHorizontalScrollToSelectedDate = true;
+      _employees = const AsyncValue.loading();
     });
     _jumpHorizontalScrollToTarget();
     unawaited(_reloadWorkSchedule());
@@ -540,6 +541,8 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     final updatedRows = [
       for (final row in employees)
         if (row.isBranchRow || row.id != employeeId)
+          row
+        else if (dayIndex >= row.monthCells.length)
           row
         else
           WorkScheduleEmployeeRow(
@@ -820,6 +823,13 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
                 ),
               ),
               data: (employees) {
+                final dayCount = daysInMonth(_monthStart);
+                final rowsReady = employees.every(
+                  (row) => row.monthCells.length == dayCount,
+                );
+                if (!rowsReady) {
+                  return const Center(child: LoadingWidget());
+                }
                 if (_pendingHorizontalScrollToSelectedDate) {
                   _scheduleHorizontalScrollSync();
                 }

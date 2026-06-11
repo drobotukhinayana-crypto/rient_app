@@ -10,6 +10,7 @@ import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/home/data/models/branch_statistics_comparison.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 import 'package:rient_app/features/home/data/models/worker_month_statistics.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
@@ -105,6 +106,79 @@ class StatisticsService {
         ((normalized['occupancy'] as num?) ?? 0).toDouble();
 
     return normalized;
+  }
+
+  /// Статистика филиала за период (month / interval) — как на сайте в аналитике.
+  Future<BranchStatisticsComparison> getBranchStatisticsComparison({
+    required DateTime startDate,
+    required DateTime endDate,
+    required String type,
+    int? branchId,
+    int? workerId,
+    String groupingType = '0',
+  }) async {
+    final token = ref.read(tokenProvider);
+    final organizationId = ref.read(organizationIdProvider);
+    final int effectiveBranchId =
+        branchId ?? ref.read(currentBranchIdProvider);
+
+    if (token == null || token.isEmpty) {
+      throw CustomException(causedError: Exception('Token is missing'));
+    }
+    if (effectiveBranchId <= 0) {
+      throw CustomException(causedError: Exception('Branch is missing'));
+    }
+
+    final startDateStr =
+        '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}T00:00:00+03:00';
+    final endDateStr =
+        '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}T23:59:00+03:00';
+
+    try {
+      final url = ApiConsts().createUrl(
+        'organizations/$organizationId/branches/$effectiveBranchId/statistics/',
+      );
+      final response = await createAppDio().get<dynamic>(
+        url,
+        queryParameters: {
+          'datetime__gte': startDateStr,
+          'datetime__lte': endDateStr,
+          'type': type,
+          'grouping_type': groupingType,
+          'more': false,
+          'page': 1,
+          'page_size': 30,
+          if (workerId != null && workerId > 0) 'worker': workerId,
+        },
+        options: Options(headers: {'Authorization': 'JWT $token'}),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final raw = response.data;
+        final Map<String, dynamic> payload;
+        if (raw is Map<String, dynamic>) {
+          payload = raw;
+        } else if (raw is Map) {
+          payload = raw.map((k, v) => MapEntry(k.toString(), v));
+        } else {
+          throw CustomException(
+            causedError: Exception(
+              'Unexpected branch statistics payload: ${raw.runtimeType}',
+            ),
+          );
+        }
+        return BranchStatisticsComparison.fromJson(payload);
+      }
+
+      throw CustomException(
+        causedError: Exception(
+          'Failed to load branch statistics: ${response.statusCode}',
+        ),
+      );
+    } catch (e) {
+      await handleUnauthorizedIfNeeded(ref, e);
+      throw CustomException(causedError: e);
+    }
   }
 
   Future<Statistics> getStatistics({
