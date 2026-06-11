@@ -93,7 +93,7 @@ final scheduleAppointmentsProvider =
         if (isPermissionDenied(e)) {
           return const <AppointmentApi>[];
         }
-        if (isNetworkFailure(e)) {
+        if (isNetworkFailure(e) && !isClientHttpError(e)) {
           onScheduleNetworkFailure(ref, e);
         }
         final cached = fromCache();

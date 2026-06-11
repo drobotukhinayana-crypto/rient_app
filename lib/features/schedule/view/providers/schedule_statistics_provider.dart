@@ -131,7 +131,9 @@ final scheduleStatisticsForMonthProvider =
   );
   } catch (e) {
     final caused = e is CustomException ? e.causedError : e;
-    onScheduleNetworkFailure(ref, caused ?? e);
+    if (isNetworkFailure(caused ?? e)) {
+      onScheduleNetworkFailure(ref, caused ?? e);
+    }
     return scheduleOfflineEmptyStatistics();
   }
 });
@@ -170,7 +172,9 @@ final scheduleStatisticsForWeekProvider =
     );
   } catch (e) {
     final caused = e is CustomException ? e.causedError : e;
-    onScheduleNetworkFailure(ref, caused ?? e);
+    if (isNetworkFailure(caused ?? e)) {
+      onScheduleNetworkFailure(ref, caused ?? e);
+    }
     return scheduleOfflineEmptyStatistics();
   }
 });

@@ -5,7 +5,7 @@ const appNoConnectionMessage = 'Отсутствует интернет или �
 
 /// Баннер оффлайн-режима расписания.
 const scheduleOfflineBannerMessage =
-    '$appNoConnectionMessage. Включен оффлайн режим';
+    'Нет интернета. Включен оффлайн режим';
 
 /// Бросается провайдерами, когда запрос невозможен без сети.
 class AppOfflineException implements Exception {

@@ -72,8 +72,9 @@ void markAppNetworkUnavailable(dynamic ref) => markScheduleServerUnreachable(ref
 /// @deprecated Используйте [markScheduleServerReachable].
 void markAppNetworkAvailable(dynamic ref) => markScheduleServerReachable(ref);
 
-/// Первая сетевая ошибка — оффлайн расписания (на следующий кадр, без цикла провайдеров).
+/// Сетевая ошибка API — кэш расписания, без оффлайн-UI (он только при отсутствии сети).
 void onScheduleNetworkFailure(dynamic ref, Object error) {
+  if (isClientHttpError(error)) return;
   if (!isNetworkFailure(error)) return;
   SchedulerBinding.instance.addPostFrameCallback((_) {
     if (!ref.mounted) return;

@@ -37,6 +37,7 @@ import 'package:rient_app/features/home/view/providers/current_worker_id_provide
 import 'package:rient_app/features/schedule/view/providers/schedule_appointments_refresh.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
+import 'package:rient_app/features/schedule/utils/appointment_transaction_utils.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
 import 'package:rient_app/core/network/app_connectivity_provider.dart';
@@ -243,6 +244,23 @@ class _CreateAppointmentDraft {
       'has_edited_services': false,
       'branch': branchId,
       'captcha': 'dummy',
+    };
+  }
+
+  Map<String, dynamic> toPaymentUpdateRequestBody({int? overrideClientId}) {
+    return {
+      'services': services.map((service) => service.toJson()).toList(),
+      'status': status,
+      'comment': {'id': commentId, 'user': null, 'text': commentText},
+      'worker': workerId,
+      'branch': branchId,
+      'client': overrideClientId ?? clientId,
+      'datetime': startDateTime.toUtc().toIso8601String(),
+      'discount': discountPercent,
+      'sum': totalSum,
+      'pay_due': totalSum,
+      'paid': false,
+      'has_edited_services': false,
     };
   }
 
@@ -1077,6 +1095,89 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return status;
   }
 
+  Future<Map<String, dynamic>> _saveAppointmentWithStatus(int status) async {
+    final appointmentId = widget.initialAppointment?.id;
+    if (appointmentId == null || appointmentId <= 0) {
+      throw Exception('Appointment id is missing');
+    }
+    final specialistId = _selectedSpecialistId;
+    final branchId = ref.read(currentBranchIdProvider);
+    if (specialistId == null || branchId == 0) {
+      throw Exception('Заполните мастера и филиал');
+    }
+
+    final workerServices = await ref.read(
+      workerServicesForWorkerProvider(specialistId).future,
+    );
+    final permissions = ref.read(workerPermissionsProvider).value;
+    final canSeeContactData = _canSeeContactData(permissions);
+    final subtotal = _calculateSelectedServicesTotal(workerServices);
+    final selectedClientDiscount = _selectedClient?.discount ?? 0;
+    final totalSum = _applyDiscount(
+      total: subtotal,
+      discountPercent: selectedClientDiscount,
+    );
+    final draft = _buildCreateDraft(
+      workerServices: workerServices,
+      selectedSpecialistId: specialistId,
+      branchId: branchId,
+      totalSum: totalSum,
+      selectedClientDiscount: selectedClientDiscount,
+      canSeeContactData: canSeeContactData,
+      statusOverride: status,
+    );
+    if (draft == null) {
+      throw Exception('Не удалось подготовить запись к сохранению');
+    }
+
+    return ref.read(appointmentsServiceProvider).updateAppointment(
+          appointmentId: appointmentId,
+          payload: draft.toPaymentUpdateRequestBody(),
+        );
+  }
+
+  String _paymentErrorMessage(Object error) {
+    if (error is CustomException) {
+      final caused = error.causedError;
+      if (caused is DioException) {
+        final data = caused.response?.data;
+        if (data is Map) {
+          for (final value in data.values) {
+            if (value is String && value.trim().isNotEmpty) return value;
+            if (value is List && value.isNotEmpty) {
+              return value.first.toString();
+            }
+          }
+        }
+        if (data is String && data.trim().isNotEmpty) return data;
+      }
+      if (error.message != null && error.message!.trim().isNotEmpty) {
+        return error.message!;
+      }
+    }
+    return error.toString();
+  }
+
+  Future<double> _resolvePaymentAmountAfterSave(
+    int appointmentId,
+    Map<String, dynamic> savedAppointment,
+  ) async {
+    var appointmentJson = savedAppointment;
+    var amount = AppointmentTransactionUtils.parsePayDue(appointmentJson);
+
+    if (amount == null || amount <= 0) {
+      final fresh = await ref
+          .read(appointmentsServiceProvider)
+          .getAppointmentJson(appointmentId);
+      if (fresh != null) {
+        appointmentJson = fresh;
+        amount = AppointmentTransactionUtils.parsePayDue(fresh);
+      }
+    }
+
+    return amount ?? ref.read(createEntryTotalPriceProvider);
+  }
+
   Future<void> _onClientStatusSelected(int index) async {
     if (index == kClientArrivedStatusIndex &&
         _selectedStatusIndex != kClientArrivedStatusIndex) {
@@ -1089,8 +1190,52 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         if (!mounted) return;
         switch (result) {
           case ClientArrivedPaymentDialogResult.pay:
+            try {
+              final saved = await _saveAppointmentWithStatus(
+                kClientArrivedStatusIndex,
+              );
+              if (!mounted) return;
+
+              final amount = await _resolvePaymentAmountAfterSave(
+                appointmentId,
+                saved,
+              );
+
+              if (!mounted) return;
+              final confirmed = await showPaymentAmountConfirmDialog(
+                context: context,
+                amount: amount,
+              );
+              if (!mounted || !confirmed) return;
+
+              await ref.read(appointmentsServiceProvider).payAppointmentTransaction(
+                    appointmentId: appointmentId,
+                    price: amount.round(),
+                  );
+              if (!mounted) return;
+              showAppServiceMessage(context, message: 'Оплата проведена');
+              setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
+            } catch (e) {
+              if (!mounted) return;
+              showAppServiceMessage(
+                context,
+                message: 'Не удалось провести оплату: ${_paymentErrorMessage(e)}',
+                variant: AppServiceMessageVariant.error,
+              );
+            }
           case ClientArrivedPaymentDialogResult.saveOnly:
-            setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
+            try {
+              await _saveAppointmentWithStatus(kClientArrivedStatusIndex);
+              if (!mounted) return;
+              setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
+            } catch (e) {
+              if (!mounted) return;
+              showAppServiceMessage(
+                context,
+                message: 'Не удалось сохранить статус: ${_paymentErrorMessage(e)}',
+                variant: AppServiceMessageVariant.error,
+              );
+            }
           case ClientArrivedPaymentDialogResult.dismiss:
           case null:
             break;
@@ -1448,6 +1593,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     required double totalSum,
     required double selectedClientDiscount,
     required bool canSeeContactData,
+    int? statusOverride,
   }) {
     if (selectedSpecialistId == null || branchId == 0) {
       return null;
@@ -1508,7 +1654,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           : (_selectedClient?.id ?? widget.initialAppointment?.client?.id),
       workerId: selectedSpecialistId,
       branchId: branchId,
-      status: _selectedStatusIndex,
+      status: statusOverride ?? _selectedStatusIndex,
       commentText: _commentVisitController.text.trim(),
       totalSum: totalSum,
       discountPercent: selectedClientDiscount.round(),

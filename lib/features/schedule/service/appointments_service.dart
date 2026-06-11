@@ -6,6 +6,7 @@ import 'package:rient_app/core/network/app_dio.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
+import 'package:rient_app/features/schedule/utils/appointment_transaction_utils.dart';
 
 final appointmentsServiceProvider = Provider<AppointmentsService>(
   (ref) => AppointmentsService(ref),
@@ -15,6 +16,30 @@ class AppointmentsService {
   AppointmentsService(this.ref);
 
   final Ref ref;
+
+  Future<Map<String, dynamic>?> getAppointmentJson(int appointmentId) async {
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      throw CustomException(causedError: Exception('Token is missing'));
+    }
+
+    final url = ApiConsts().createUrl('appointments/$appointmentId/');
+
+    try {
+      final response = await createAppDio().get<Map<String, dynamic>>(
+        url,
+        options: Options(headers: {'Authorization': 'JWT $token'}),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        return Map<String, dynamic>.from(response.data!);
+      }
+      return null;
+    } catch (e) {
+      await handleUnauthorizedIfNeeded(ref, e);
+      throw CustomException(causedError: e);
+    }
+  }
 
   Future<AppointmentApi?> getAppointmentById(int appointmentId) async {
     final token = ref.read(tokenProvider);
@@ -191,6 +216,55 @@ class AppointmentsService {
       throw CustomException(
         causedError: Exception(
           'Failed to update appointment: ${response.statusCode}',
+        ),
+      );
+    } catch (e) {
+      await handleUnauthorizedIfNeeded(ref, e);
+      throw CustomException(causedError: e);
+    }
+  }
+
+  /// POST /appointments/{id}/transactions/ — провести оплату (как на сайте).
+  Future<Map<String, dynamic>> payAppointmentTransaction({
+    required int appointmentId,
+    required int price,
+    String paymentMethod = 'cash',
+    String captcha = AppointmentTransactionUtils.mobileCaptcha,
+  }) async {
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      throw CustomException(causedError: Exception('Token is missing'));
+    }
+
+    final payload = AppointmentTransactionUtils.buildMobilePayPostBody(
+      price: price,
+      paymentMethod: paymentMethod,
+      captcha: captcha,
+    );
+
+    final url = ApiConsts().createUrl(
+      'appointments/$appointmentId/transactions/',
+    );
+
+    try {
+      final response = await createAppDio().post<Map<String, dynamic>>(
+        url,
+        data: payload,
+        options: Options(
+          headers: {
+            'Authorization': 'JWT $token',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          response.data != null) {
+        return Map<String, dynamic>.from(response.data!);
+      }
+      throw CustomException(
+        causedError: Exception(
+          'Failed to pay appointment: ${response.statusCode}',
         ),
       );
     } catch (e) {

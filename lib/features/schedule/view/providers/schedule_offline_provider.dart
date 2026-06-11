@@ -58,10 +58,9 @@ Statistics scheduleOfflineEmptyStatistics() => Statistics(
       occupancyByDay: const [],
     );
 
-/// Оффлайн-режим расписания: нет интернета или временно недоступен сервер.
+/// Оффлайн-режим расписания: только при отсутствии интернета (не при 4xx/5xx API).
 final scheduleOfflineModeProvider = Provider<bool>((ref) {
-  if (ref.watch(appNoConnectionProvider)) return true;
-  return !ref.watch(scheduleServerReachableProvider);
+  return ref.watch(appNoConnectionProvider);
 });
 
 /// Специалисты из локального кэша, если сеть недоступна.

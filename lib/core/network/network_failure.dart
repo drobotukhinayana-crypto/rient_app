@@ -32,6 +32,19 @@ bool isNetworkFailure(Object? error) {
       error is TimeoutException;
 }
 
+/// 4xx — ошибка запроса (валидация, неверные параметры), не сетевой сбой.
+bool isClientHttpError(Object? error) {
+  if (error == null) return false;
+  if (error is CustomException) {
+    return isClientHttpError(error.causedError);
+  }
+  if (error is DioException) {
+    final code = error.response?.statusCode;
+    return code != null && code >= 400 && code < 500;
+  }
+  return false;
+}
+
 /// 403 — аутентифицирован, но нет доступа к ресурсу (не сетевой сбой).
 bool isPermissionDenied(Object? error) {
   if (error == null) return false;

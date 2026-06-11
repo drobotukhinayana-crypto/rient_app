@@ -81,6 +81,7 @@ class ScheduleOfflineSyncService {
         await cache.save(snapshot);
       }
     } catch (e) {
+      if (isClientHttpError(e)) return;
       if (isNetworkFailure(e)) {
         ref.read(scheduleServerReachableProvider.notifier).state = false;
       }
