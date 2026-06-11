@@ -236,6 +236,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       _weekStart = weekStart;
       _monthStart = monthStart;
     });
+    if (viewMode == ViewMode.day) {
+      final selected = ref.read(selectedScheduleDateProvider);
+      final monday = _mondayOf(selected);
+      if (_mondayOf(_weekStart) != monday) {
+        setState(() => _weekStart = monday);
+      }
+    }
     // Если выбранный день не попадает в видимую неделю (например, вчера в режиме
     // «День», а навигатор показывает текущую неделю) — переносим на сегодня в
     // пределах этой недели, чтобы полоска и календарь совпадали.
@@ -261,10 +268,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   }
 
   void _switchToDayMode(DateTime date) {
-    final normalized = DateTime(date.year, date.month, date.day);
+    final normalized = _toDateOnly(date);
     setState(() {
       _viewMode = ViewMode.day;
-      _weekStart = normalized.subtract(Duration(days: normalized.weekday - 1));
+      _weekStart = _mondayOf(normalized);
       _monthStart = DateTime(normalized.year, normalized.month, 1);
     });
     ref.read(selectedScheduleDateProvider.notifier).state = normalized;
@@ -273,9 +280,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   static DateTime _toDateOnly(DateTime value) =>
       DateTime(value.year, value.month, value.day);
 
+  static DateTime _mondayOf(DateTime date) {
+    final normalized = _toDateOnly(date);
+    return normalized.subtract(Duration(days: normalized.weekday - 1));
+  }
+
   static ({DateTime start, DateTime end}) _scheduleRangeBounds({
     required ViewMode viewMode,
-    required DateTime selectedDate,
     required DateTime weekStart,
     required DateTime monthStart,
   }) {
@@ -284,10 +295,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       final end = DateTime(monthStart.year, monthStart.month + 1, 0);
       return (start: start, end: end);
     }
-    final anchor = _toDateOnly(
-      viewMode == ViewMode.day ? selectedDate : weekStart,
-    );
-    final monday = anchor.subtract(Duration(days: anchor.weekday - 1));
+    final monday = _toDateOnly(weekStart);
     return (start: monday, end: monday.add(const Duration(days: 6)));
   }
 
@@ -318,7 +326,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     ref.invalidate(workerEntityLabelsProvider);
     ref.invalidate(scheduleAppointmentsProvider);
     final weekAnchor = _toDateOnly(
-      _viewMode == ViewMode.day ? selectedDate : _weekStart,
+      _viewMode == ViewMode.day ? _mondayOf(selectedDate) : _weekStart,
     );
     final monday =
         weekAnchor.subtract(Duration(days: weekAnchor.weekday - 1));
@@ -389,7 +397,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final specialistId = ref.read(selectedSpecialistIdProvider);
     final range = _scheduleRangeBounds(
       viewMode: _viewMode,
-      selectedDate: normalizedDate,
       weekStart: _weekStart,
       monthStart: _monthStart,
     );
@@ -931,14 +938,19 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         specialistIdForData != null && specialistIdForData > 0
             ? specialistIdForData
             : null;
-    final dayHeaderWeekKey = scheduleWeekKey(selectedDate);
-    final branchWeekStatisticsAsync = ref.watch(
+    final dayHeaderWeekStart =
+        _viewMode == ViewMode.day ? _weekStart : selectedDate;
+    final dayHeaderWeekKey = scheduleWeekKey(dayHeaderWeekStart);
+    final dayHeaderStatisticsAsync = ref.watch(
       scheduleStatisticsForWeekProvider(
-        ScheduleStatisticsQuery(periodKey: dayHeaderWeekKey),
+        ScheduleStatisticsQuery(
+          periodKey: dayHeaderWeekKey,
+          workerId: statisticsWorkerId,
+        ),
       ),
     );
     final dayOccupancyByDay =
-        branchWeekStatisticsAsync.value?.occupancyByDay ?? [];
+        dayHeaderStatisticsAsync.value?.occupancyByDay ?? [];
     final workerWeekStatisticsQuery = ScheduleStatisticsQuery(
       periodKey: weekKey,
       workerId: statisticsWorkerId,
@@ -985,7 +997,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         _viewMode == ViewMode.month && monthAppointmentsAsync.isLoading;
     final scheduleRangeBounds = _scheduleRangeBounds(
       viewMode: _viewMode,
-      selectedDate: selectedDate,
       weekStart: _weekStart,
       monthStart: _monthStart,
     );
@@ -1001,7 +1012,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
             ),
           )
         : null;
-    final workerSchedulesData = workerSchedulesAsync?.value;
+    final workerSchedulesData = workerSchedulesAsync?.asData?.value;
     final dayBranchSchedules =
         ref.watch(scheduleForDateProvider(scheduleDateKey(selectedDate))).value
             ?.results ??
@@ -1293,14 +1304,20 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                         );
                       },
                 scheduleSelectedDate: selectedDate,
+                weekStart: _weekStart,
                 occupancyByDay: dayOccupancyByDay,
                 resolveScheduleNonWorkingDay:
                     !multiDayColumns && specialistIdForData != null
                     ? resolveWorkerNonWorkingDay
                     : null,
                 onScheduleDateSelected: (date) {
+                  final normalized = _toDateOnly(date);
+                  final monday = _mondayOf(normalized);
+                  if (monday != _weekStart) {
+                    setState(() => _weekStart = monday);
+                  }
                   ref.read(selectedScheduleDateProvider.notifier).state =
-                      DateTime(date.year, date.month, date.day);
+                      normalized;
                 },
                 scheduleCellIntervalMinutes: scheduleCellIntervalMinutes,
                 onScheduleCellIntervalChanged: scheduleReadOnly

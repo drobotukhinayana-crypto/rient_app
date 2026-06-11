@@ -3,6 +3,7 @@ import 'package:rient_app/features/analytics/data/models/analytics_summary/analy
 import 'package:rient_app/features/analytics/service/analytics_service.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 import 'package:rient_app/features/home/data/models/worker_month_statistics.dart';
 import 'package:rient_app/features/home/service/statistics_service.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
@@ -65,11 +66,10 @@ final analyticsSummaryProvider =
         type: query.type,
       );
 
-  if (workerId == null || workerId <= 0) return summary;
-
   var result = summary;
 
   if (query.type == 'month') {
+    if (workerId == null || workerId <= 0) return summary;
     try {
       final monthStats = await ref.read(statisticsServiceProvider).getMonthStatistics(
             year: query.start.year,
@@ -92,50 +92,87 @@ final analyticsSummaryProvider =
     );
   }
 
-  if (roleId != UserRole.worker.value) {
-    result = await _summaryWithWorkerTopServices(
-      ref,
-      summary: summary,
-      workerId: workerId,
-      start: query.start,
-      end: query.end,
-    );
-  }
+  try {
+    final stats = await ref.read(statisticsServiceProvider).getStatistics(
+          startDate: query.start,
+          endDate: query.end,
+          workerId: workerId,
+        );
+    result = _summaryWithIntervalStatistics(summary: result, stats: stats);
+  } catch (_) {}
 
   return result;
     });
 
-/// ТОП услуг: `global.services` в summary — по филиалу; для мастера — `statistics_one` с `worker`.
-Future<AnalyticsSummary> _summaryWithWorkerTopServices(
-  Ref ref, {
+String _analyticsDateKey(DateTime date) =>
+    '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+/// День / произвольный период: `analytics/summary?type=interval` часто пустой —
+/// подмешиваем фактические цифры из `statistics_one` за тот же диапазон.
+AnalyticsSummary _summaryWithIntervalStatistics({
   required AnalyticsSummary summary,
-  required int workerId,
-  required DateTime start,
-  required DateTime end,
-}) async {
-  try {
-    final stats = await ref.read(statisticsServiceProvider).getStatistics(
-          startDate: start,
-          endDate: end,
-          workerId: workerId,
-        );
-    if (stats.services.isEmpty) return summary;
+  required Statistics stats,
+}) {
+  final incomeByDay = [
+    for (final item in stats.incomeByDay ?? const <IncomeByDay>[])
+      AnalyticsIncomeByDay(
+        date: _analyticsDateKey(item.date),
+        income: item.income,
+        payDue: item.payDue,
+      ),
+  ];
 
-    final services = stats.services.entries
-        .map(
-          (e) => AnalyticsGlobalService(
-            name: e.key,
-            count: e.value,
-          ),
-        )
-        .toList();
+  final totalIncome = incomeByDay.fold<double>(0, (sum, e) => sum + e.incomeValue);
 
-    return summary.copyWith(
-      global: summary.global.copyWith(services: services),
-    );
-  } catch (_) {
-    return summary;
-  }
+  final occupancyByDay = [
+    for (final day in stats.occupancyByDay)
+      AnalyticsOccupancyDay(
+        date: _analyticsDateKey(day.date),
+        occupancy: day.occupancy,
+      ),
+  ];
+
+  final appointments = stats.appointments;
+  final completed =
+      (appointments.total - appointments.cancelled).clamp(0, appointments.total);
+
+  final services = stats.services.entries
+      .map((e) => AnalyticsGlobalService(name: e.key, count: e.value))
+      .toList();
+
+  final current = summary.comparison.current;
+
+  return summary.copyWith(
+    summary: summary.summary.copyWith(
+      appointments: AnalyticsAppointments(
+        total: appointments.total,
+        cancelled: appointments.cancelled,
+        newCount: appointments.newCount,
+      ),
+      occupancy: stats.occupancy,
+      occupancyByDay: occupancyByDay.isNotEmpty
+          ? occupancyByDay
+          : summary.summary.occupancyByDay,
+      incomeByDay:
+          incomeByDay.isNotEmpty ? incomeByDay : summary.summary.incomeByDay,
+    ),
+    occupancy: occupancyByDay.isNotEmpty ? occupancyByDay : summary.occupancy,
+    comparison: summary.comparison.copyWith(
+      current: current.copyWith(
+        totalIncome: totalIncome > 0 ? totalIncome : current.totalIncome,
+        totalClients: current.totalClients ?? completed,
+        totalAppointments: appointments.total,
+        completedAppointments: completed,
+        newClients: current.newClients ?? appointments.newCount,
+        incomeByDay:
+            incomeByDay.isNotEmpty ? incomeByDay : current.incomeByDay,
+        occupancy: stats.occupancy > 0 ? stats.occupancy : current.occupancy,
+      ),
+    ),
+    global: summary.global.copyWith(
+      services: services.isNotEmpty ? services : summary.global.services,
+    ),
+  );
 }
 
 Future<AnalyticsSummary> _summaryWithOccupancyByDay(
@@ -209,7 +246,6 @@ AnalyticsSummary _summaryWithMonthStatistics({
       current: summary.comparison.current.copyWith(
         totalIncome: monthStats.income,
         totalClients: monthStats.clients,
-        averageTransactions: monthStats.performance,
         incomeByDay: incomeByDay,
       ),
     ),

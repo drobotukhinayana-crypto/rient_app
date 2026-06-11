@@ -142,22 +142,6 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     return '${n < 0 ? '-' : ''}$formatted ₽';
   }
 
-  String _formatDecimalMoney(double value) {
-    final negative = value < 0;
-    final fixed = value.abs().toStringAsFixed(2);
-    final dotIndex = fixed.indexOf('.');
-    final intPart = fixed.substring(0, dotIndex);
-    final fracPart = fixed.substring(dotIndex + 1);
-    final chars = intPart.split('').reversed.toList();
-    final buf = StringBuffer();
-    for (var i = 0; i < chars.length; i++) {
-      if (i > 0 && i % 3 == 0) buf.write(' ');
-      buf.write(chars[i]);
-    }
-    final formattedInt = buf.toString().split('').reversed.join();
-    return '${negative ? '-' : ''}$formattedInt.$fracPart ₽';
-  }
-
   void _openScheduleForDay(DateTime date) {
     final day = DateTime(date.year, date.month, date.day);
     ref.read(selectedScheduleDateProvider.notifier).state = day;
@@ -385,7 +369,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 clientsExpanded: _clientsExpanded,
                 topServicesExpanded: _topServicesExpanded,
                 formatMoney: _formatMoney,
-                formatProductivity: _formatDecimalMoney,
+                formatProductivity: _formatMoney,
                 onGeneralToggle: () =>
                     setState(() => _generalExpanded = !_generalExpanded),
                 onWorkloadToggle: () =>
@@ -469,13 +453,19 @@ class _AnalyticsViewData {
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   static DateTime? _parseDate(String raw) {
-    final parts = raw.split('-');
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final iso = DateTime.tryParse(trimmed);
+    if (iso != null) {
+      return DateTime(iso.year, iso.month, iso.day);
+    }
+    final parts = trimmed.split('-');
     if (parts.length < 3) return null;
-    return DateTime(
-      int.parse(parts[0]),
-      int.parse(parts[1]),
-      int.parse(parts[2]),
-    );
+    final year = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final day = int.tryParse(parts[2].split('T').first);
+    if (year == null || month == null || day == null) return null;
+    return DateTime(year, month, day);
   }
 
   static int _percentFromApi(double value) =>
@@ -577,7 +567,13 @@ class _AnalyticsViewData {
     final appointments = summary.summary.appointments;
     final current = summary.comparison.current;
 
-    final fillRate = _occupancyPercent(summary.summary.occupancy);
+    final fillRate = _occupancyPercent(
+      filterMode != _AnalyticsFilterMode.month &&
+              current.occupancy != null &&
+              current.occupancy! > 0
+          ? current.occupancy!
+          : summary.summary.occupancy,
+    );
     final totalAppointments =
         current.totalAppointments ?? appointments.total;
     final completedAppointments = current.completedAppointments ??
@@ -616,10 +612,8 @@ class _AnalyticsViewData {
       }
     }
 
-    final productivityAmount = current.averageTransactions ?? 0.0;
-
-    final avgCheck = current.averageTransactions ??
-        (served > 0 && showAverageCheck ? income / served : 0.0);
+    final avgCheck = current.averageTransactions ?? 0.0;
+    final productivityAmount = avgCheck;
 
     final globalClients = summary.global.clients;
     final totalClients = workerScoped

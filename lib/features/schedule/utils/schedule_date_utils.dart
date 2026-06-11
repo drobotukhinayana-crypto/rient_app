@@ -7,7 +7,10 @@ String canonicalScheduleDateKey(String raw) {
 
   final iso = DateTime.tryParse(trimmed);
   if (iso != null) {
-    return SchedulesService.dateToApi(iso);
+    final local = iso.toLocal();
+    return SchedulesService.dateToApi(
+      DateTime(local.year, local.month, local.day),
+    );
   }
 
   final dash = trimmed.split('-');

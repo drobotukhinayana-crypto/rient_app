@@ -252,9 +252,16 @@ class _TopPanelState extends State<TopPanel> {
   }
 
   Widget _buildDayDateStrip() {
+    final weekStart = widget.weekStart;
     return DateStrip(
+      key: weekStart != null
+          ? ValueKey(
+              'day_strip_${weekStart.year}_${weekStart.month}_${weekStart.day}',
+            )
+          : null,
       initialDate: widget.scheduleSelectedDate ?? DateTime.now(),
       selectedDate: widget.scheduleSelectedDate,
+      visibleWeekStart: weekStart,
       onDateSelected: widget.onScheduleDateSelected,
       useGreyCircles: true,
       occupancyByDay: widget.occupancyByDay,
