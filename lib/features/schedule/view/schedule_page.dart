@@ -954,10 +954,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         isWorkerRole &&
         !currentWorkerIdAsync.isLoading &&
         specialistIdForData == null;
-    final statisticsWorkerId =
+    final specialistStatisticsWorkerId =
         specialistIdForData != null && specialistIdForData > 0
             ? specialistIdForData
             : null;
+    /// День: owner — загруженность филиала; мастер — своя.
+    final dayStatisticsWorkerId =
+        isWorkerRole ? specialistStatisticsWorkerId : null;
     final dayHeaderWeekStart =
         _viewMode == ViewMode.day ? _weekStart : selectedDate;
     final dayHeaderWeekKey = scheduleWeekKey(dayHeaderWeekStart);
@@ -965,7 +968,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       scheduleStatisticsForWeekProvider(
         ScheduleStatisticsQuery(
           periodKey: dayHeaderWeekKey,
-          workerId: statisticsWorkerId,
+          workerId: dayStatisticsWorkerId,
         ),
       ),
     );
@@ -973,11 +976,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         dayHeaderStatisticsAsync.value?.occupancyByDay ?? [];
     final workerWeekStatisticsQuery = ScheduleStatisticsQuery(
       periodKey: weekKey,
-      workerId: statisticsWorkerId,
+      workerId: specialistStatisticsWorkerId,
     );
     final monthStatisticsQuery = ScheduleStatisticsQuery(
       periodKey: monthKey,
-      workerId: statisticsWorkerId,
+      workerId: specialistStatisticsWorkerId,
     );
     final weekStatisticsAsync = ref.watch(
       scheduleStatisticsForWeekProvider(workerWeekStatisticsQuery),
@@ -1607,7 +1610,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       child: DateStrip(
                                         key: ValueKey(
                                           'week_strip_${weekKey}_'
-                                          'w${statisticsWorkerId ?? 0}_'
+                                          'w${specialistStatisticsWorkerId ?? 0}_'
                                           '${Object.hashAll(workingWeekdaysForWeekCalendar ?? const <int>{})}_'
                                           '$_refreshVersion',
                                         ),
@@ -1698,7 +1701,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                     child: MonthCalendar(
                                       key: ValueKey(
                                         'month_${monthKey}_'
-                                        'w${statisticsWorkerId ?? 0}_'
+                                        'w${specialistStatisticsWorkerId ?? 0}_'
                                         '${Object.hashAll(workingWeekdaysForWeekCalendar ?? const <int>{})}_'
                                         '$_refreshVersion',
                                       ),
