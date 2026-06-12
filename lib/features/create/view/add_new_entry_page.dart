@@ -25,6 +25,7 @@ import 'package:rient_app/core/widgets/main_text_field.dart';
 import 'package:rient_app/features/create/data/models/clients_api.dart';
 import 'package:rient_app/features/create/data/models/worker_services_api.dart';
 import 'package:rient_app/features/create/service/clients_service.dart';
+import 'package:rient_app/features/create/view/components/appointment_inventory_conflict_dialog.dart';
 import 'package:rient_app/features/create/view/components/client_arrived_payment_confirm_dialog.dart';
 import 'package:rient_app/features/create/view/components/client_status_selector_widget.dart';
 import 'package:rient_app/features/create/view/providers/clients_provider.dart';
@@ -37,6 +38,7 @@ import 'package:rient_app/features/home/view/providers/current_worker_id_provide
 import 'package:rient_app/features/schedule/view/providers/schedule_appointments_refresh.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
+import 'package:rient_app/features/schedule/utils/appointment_inventory_conflict_utils.dart';
 import 'package:rient_app/features/schedule/utils/appointment_transaction_utils.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
@@ -154,6 +156,8 @@ final createEntryPaymentHandlerProvider =
   (ref) => null,
 );
 const _rememberedClientStorageKey = 'create_entry_remembered_client';
+
+class _AppointmentSaveCancelledException implements Exception {}
 
 class _CreateAppointmentDraft {
   const _CreateAppointmentDraft({
@@ -1105,7 +1109,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return status;
   }
 
-  Future<Map<String, dynamic>> _saveAppointmentWithStatus(int status) async {
+  Future<Map<String, dynamic>> _saveAppointmentWithStatus(
+    int status, {
+    bool silentInventoryOverride = false,
+  }) async {
     final appointmentId = widget.initialAppointment?.id;
     if (appointmentId == null || appointmentId <= 0) {
       throw Exception('Appointment id is missing');
@@ -1140,13 +1147,72 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       throw Exception('Не удалось подготовить запись к сохранению');
     }
 
-    return ref.read(appointmentsServiceProvider).updateAppointment(
-          appointmentId: appointmentId,
-          payload: draft.toPaymentUpdateRequestBody(),
-        );
+    final payload = draft.toPaymentUpdateRequestBody();
+    if (silentInventoryOverride) {
+      return _updateAppointmentSilentlyIgnoringInventory(
+        appointmentId: appointmentId,
+        payload: payload,
+      );
+    }
+    return _updateAppointmentWithInventoryConflictHandling(
+      appointmentId: appointmentId,
+      payload: payload,
+    );
+  }
+
+  Future<Map<String, dynamic>> _updateAppointmentSilentlyIgnoringInventory({
+    required int appointmentId,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      return await ref.read(appointmentsServiceProvider).updateAppointment(
+            appointmentId: appointmentId,
+            payload: payload,
+            createAnyway: false,
+          );
+    } on AppointmentInventoryConflictException {
+      return ref.read(appointmentsServiceProvider).updateAppointment(
+            appointmentId: appointmentId,
+            payload: payload,
+            createAnyway: true,
+          );
+    }
+  }
+
+  Future<Map<String, dynamic>> _updateAppointmentWithInventoryConflictHandling({
+    required int appointmentId,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      return await ref.read(appointmentsServiceProvider).updateAppointment(
+            appointmentId: appointmentId,
+            payload: payload,
+            createAnyway: false,
+          );
+    } on AppointmentInventoryConflictException catch (conflict) {
+      if (!mounted) rethrow;
+      final bookAnyway = await showAppointmentInventoryConflictDialog(
+        context: context,
+        conflict: conflict,
+      );
+      if (bookAnyway != true) {
+        throw _AppointmentSaveCancelledException();
+      }
+      return ref.read(appointmentsServiceProvider).updateAppointment(
+            appointmentId: appointmentId,
+            payload: payload,
+            createAnyway: true,
+          );
+    }
   }
 
   String _paymentErrorMessage(Object error) {
+    if (error is AppointmentInventoryConflictException) {
+      return error.message;
+    }
+    final inventoryConflict = appointmentInventoryConflictFromError(error);
+    if (inventoryConflict != null) return inventoryConflict.message;
+
     if (error is CustomException) {
       final caused = error.causedError;
       if (caused is DioException) {
@@ -1155,7 +1221,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           for (final value in data.values) {
             if (value is String && value.trim().isNotEmpty) return value;
             if (value is List && value.isNotEmpty) {
-              return value.first.toString();
+              final first = value.first;
+              if (first is String && first.trim().isNotEmpty) return first;
             }
           }
         }
@@ -1168,29 +1235,20 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return error.toString();
   }
 
-  Future<double> _resolvePaymentAmountAfterSave(
-    int appointmentId,
-    Map<String, dynamic> savedAppointment,
-  ) async {
+  Future<double> _resolvePaymentAmountBeforePay(int appointmentId) async {
     final localTotal = ref.read(createEntryTotalPriceProvider);
     if (localTotal > 0) {
       return localTotal;
     }
 
-    var appointmentJson = savedAppointment;
-    var amount = AppointmentTransactionUtils.parsePayDue(appointmentJson);
-
-    if (amount == null || amount <= 0) {
-      final fresh = await ref
-          .read(appointmentsServiceProvider)
-          .getAppointmentJson(appointmentId);
-      if (fresh != null) {
-        appointmentJson = fresh;
-        amount = AppointmentTransactionUtils.parsePayDue(fresh);
-      }
+    final fresh = await ref
+        .read(appointmentsServiceProvider)
+        .getAppointmentJson(appointmentId);
+    if (fresh != null) {
+      return AppointmentTransactionUtils.parsePayDue(fresh) ?? 0;
     }
 
-    return amount ?? 0;
+    return 0;
   }
 
   Future<void> _runAppointmentPaymentFlow({
@@ -1207,30 +1265,38 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
     switch (result) {
       case ClientArrivedPaymentDialogResult.pay:
-        ref.read(createEntryPaymentProcessingProvider.notifier).state = true;
         try {
-          final saved = await _saveAppointmentWithStatus(
-            kClientArrivedStatusIndex,
-          );
+          final amount = await _resolvePaymentAmountBeforePay(appointmentId);
           if (!mounted) return;
+          if (amount <= 0) {
+            throw Exception('Не удалось определить сумму оплаты');
+          }
 
-          final amount = await _resolvePaymentAmountAfterSave(
-            appointmentId,
-            saved,
-          );
-
-          if (!mounted) return;
-          final confirmed = await showPaymentAmountConfirmDialog(
+          final paid = await showPaymentAmountConfirmDialog(
             context: context,
             amount: amount,
+            onConfirm: () async {
+              ref.read(createEntryPaymentProcessingProvider.notifier).state =
+                  true;
+              try {
+                await ref
+                    .read(appointmentsServiceProvider)
+                    .payAppointmentTransaction(
+                      appointmentId: appointmentId,
+                      price: amount.round(),
+                    );
+                await _saveAppointmentWithStatus(
+                  kClientArrivedStatusIndex,
+                  silentInventoryOverride: true,
+                );
+              } finally {
+                ref.read(createEntryPaymentProcessingProvider.notifier).state =
+                    false;
+              }
+            },
           );
-          if (!mounted || !confirmed) return;
+          if (!mounted || !paid) return;
 
-          await ref.read(appointmentsServiceProvider).payAppointmentTransaction(
-                appointmentId: appointmentId,
-                price: amount.round(),
-              );
-          if (!mounted) return;
           ref.read(createEntryAppointmentPaidProvider.notifier).state = true;
           showAppServiceMessage(context, message: 'Оплата проведена');
           setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
@@ -1241,11 +1307,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             message: 'Не удалось провести оплату: ${_paymentErrorMessage(e)}',
             variant: AppServiceMessageVariant.error,
           );
-        } finally {
-          if (mounted) {
-            ref.read(createEntryPaymentProcessingProvider.notifier).state =
-                false;
-          }
         }
       case ClientArrivedPaymentDialogResult.saveOnly:
         if (!updateStatusOnSaveOnly) return;
@@ -1253,6 +1314,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           await _saveAppointmentWithStatus(kClientArrivedStatusIndex);
           if (!mounted) return;
           setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
+        } on _AppointmentSaveCancelledException {
+          return;
         } catch (e) {
           if (!mounted) return;
           showAppServiceMessage(
@@ -3294,13 +3357,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                               .map(
                                 (service) => DropdownItem<int>(
                                   value: service.id,
-                                  child: Text(
-                                    service.service.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppFonts.c1Regular.copyWith(
-                                      color: primaryText,
-                                    ),
+                                  child: _ServiceDropdownLabel(
+                                    name: service.service.name,
+                                    hasInventory: service.service.hasInventory,
+                                    textColor: primaryText,
+                                    accent: accent,
                                   ),
                                 ),
                               )
@@ -3680,6 +3741,40 @@ class _DateTimeRange {
   final DateTime end;
 }
 
+class _ServiceDropdownLabel extends StatelessWidget {
+  const _ServiceDropdownLabel({
+    required this.name,
+    required this.hasInventory,
+    required this.textColor,
+    required this.accent,
+  });
+
+  final String name;
+  final bool hasInventory;
+  final Color textColor;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Flexible(
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppFonts.c1Regular.copyWith(color: textColor),
+          ),
+        ),
+        if (hasInventory) ...[
+          const Gap(6),
+          Icon(Icons.inventory_2_outlined, size: 18, color: accent),
+        ],
+      ],
+    );
+  }
+}
+
 class _BottomActionsBar extends ConsumerWidget {
   const _BottomActionsBar({
     required this.isEditMode,
@@ -3766,31 +3861,47 @@ class _BottomActionsBar extends ConsumerWidget {
           ref.invalidate(clientsByPhoneSearchProvider(draft.clientPhone));
         }
         int? createdId;
-        if (isEditMode) {
-          final appointmentId = initialAppointmentId ?? draft.appointmentId;
-          if (appointmentId == null) {
-            throw Exception('Appointment id is missing');
+
+        Future<void> persistAppointment({required bool createAnyway}) async {
+          if (isEditMode) {
+            final appointmentId = initialAppointmentId ?? draft.appointmentId;
+            if (appointmentId == null) {
+              throw Exception('Appointment id is missing');
+            }
+            await ref.read(appointmentsServiceProvider).updateAppointment(
+                  appointmentId: appointmentId,
+                  payload: draft.toUpdateRequestBody(
+                    overrideClientId: resolvedClientId,
+                  ),
+                  createAnyway: createAnyway,
+                );
+            createdId = appointmentId;
+            return;
           }
-          await ref
-              .read(appointmentsServiceProvider)
-              .updateAppointment(
-                appointmentId: appointmentId,
-                payload: draft.toUpdateRequestBody(
-                  overrideClientId: resolvedClientId,
-                ),
-              );
-          createdId = appointmentId;
-        } else {
+
           final created = await ref
               .read(appointmentsServiceProvider)
               .createAppointment(
                 payload: draft.toRequestBody(
                   overrideClientId: resolvedClientId,
                 ),
+                createAnyway: createAnyway,
               );
           createdId = created.isNotEmpty
               ? (created.first['id'] as num?)?.toInt()
               : null;
+        }
+
+        try {
+          await persistAppointment(createAnyway: false);
+        } on AppointmentInventoryConflictException catch (conflict) {
+          if (!context.mounted) return;
+          final bookAnyway = await showAppointmentInventoryConflictDialog(
+            context: context,
+            conflict: conflict,
+          );
+          if (bookAnyway != true) return;
+          await persistAppointment(createAnyway: true);
         }
         DateTime? oldDayLocal;
         if (isEditMode && initialAppointmentDatetime != null) {

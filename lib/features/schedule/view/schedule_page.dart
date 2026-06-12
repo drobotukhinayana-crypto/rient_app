@@ -561,6 +561,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           ? AppColors.yel
           : colors.accentColor,
       hasComment: appointment.hasComment,
+      hasInventory: appointment.hasServiceInventory,
     );
   }
 

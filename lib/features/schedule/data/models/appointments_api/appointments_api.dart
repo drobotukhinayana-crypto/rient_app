@@ -92,6 +92,10 @@ class AppointmentApi {
   bool get isUnpaidClientArrived =>
       status == appointmentStatusClientArrived && !paid;
 
+  /// Есть ли у любой услуги записи привязанный инвентарь.
+  bool get hasServiceInventory =>
+      services.any((service) => service.hasInventory);
+
   String? get sourceDisplayLabel => appointmentSourceInfo(source)?.label;
 
   bool get hasKnownSource => appointmentSourceInfo(source) != null;
@@ -263,6 +267,7 @@ class AppointmentServiceApi {
     required this.datetime,
     required this.duration,
     required this.addDuration,
+    this.hasInventory = false,
   });
 
   final int? id;
@@ -271,16 +276,23 @@ class AppointmentServiceApi {
   final String? datetime;
   final int duration;
   final int addDuration;
+  final bool hasInventory;
 
   int get totalDurationMinutes => duration + addDuration;
 
   factory AppointmentServiceApi.fromJson(Map<String, dynamic> json) {
     final rawService = json['service'];
     int? parsedServiceId;
+    var hasInventory = false;
     if (rawService is num) {
       parsedServiceId = rawService.toInt();
     } else if (rawService is Map<String, dynamic>) {
       parsedServiceId = (rawService['id'] as num?)?.toInt();
+      hasInventory = _parseServiceHasInventory(rawService);
+    } else if (rawService is Map) {
+      final map = rawService.map((k, v) => MapEntry(k.toString(), v));
+      parsedServiceId = (map['id'] as num?)?.toInt();
+      hasInventory = _parseServiceHasInventory(map);
     }
     return AppointmentServiceApi(
       id: (json['id'] as num?)?.toInt(),
@@ -289,8 +301,27 @@ class AppointmentServiceApi {
       datetime: json['datetime'] as String?,
       duration: (json['duration'] as num?)?.toInt() ?? 0,
       addDuration: (json['add_duration'] as num?)?.toInt() ?? 0,
+      hasInventory: hasInventory,
     );
   }
+}
+
+bool _parseServiceHasInventory(Map<String, dynamic> serviceWrapper) {
+  final nested = serviceWrapper['service'];
+  if (nested is Map<String, dynamic>) {
+    return _parseHasInventoryFlag(nested['has_inventory']);
+  }
+  if (nested is Map) {
+    return _parseHasInventoryFlag(nested['has_inventory']);
+  }
+  return _parseHasInventoryFlag(serviceWrapper['has_inventory']);
+}
+
+bool _parseHasInventoryFlag(dynamic value) {
+  if (value == null) return false;
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  return false;
 }
 
 class AppointmentWorkerApi {

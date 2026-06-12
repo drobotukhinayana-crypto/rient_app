@@ -19,6 +19,7 @@ class ScheduleAppointmentItem {
     required this.accentColor,
     this.leftBorderColor,
     this.hasComment = false,
+    this.hasInventory = false,
   });
 
   final int? id;
@@ -33,6 +34,7 @@ class ScheduleAppointmentItem {
   /// Левая полоса карточки; по умолчанию совпадает с [accentColor].
   final Color? leftBorderColor;
   final bool hasComment;
+  final bool hasInventory;
 }
 
 /// Календарь с записями и перерывом (день или неделя).
@@ -442,11 +444,25 @@ class _ScheduleCalendarOneUserWidgetState
     }
 
     final serviceName = a.subject;
+    final durationMinutes = end.difference(start).inMinutes;
+    final isShortAppointment =
+        durationMinutes <= 25 || bounds.height < 52;
     final isVeryCompact = bounds.height < 44 || bounds.width < 120;
     final isCompact = bounds.height < 58 || bounds.width < 150;
     final timeFontSize = isVeryCompact ? 9.0 : (isCompact ? 10.0 : 11.0);
     final serviceFontSize = isVeryCompact ? 10.0 : (isCompact ? 11.0 : 12.0);
     final commentIconSize = isVeryCompact ? 14.0 : (isCompact ? 16.0 : 18.0);
+    final inventoryIconSize = isShortAppointment ? 14.0 : commentIconSize * 0.9;
+    final showInventoryOnSide = item?.hasInventory == true &&
+        isShortAppointment &&
+        bounds.width >= 56;
+    final showInventoryInline = item?.hasInventory == true &&
+        !isShortAppointment &&
+        bounds.height >= 52 &&
+        bounds.width >= 72;
+    final contentPadding = isShortAppointment
+        ? const EdgeInsets.fromLTRB(8, 4, 4, 4)
+        : const EdgeInsets.fromLTRB(10, 8, 8, 8);
 
     return GestureDetector(
       onTap: item == null || widget.onAppointmentTap == null
@@ -475,78 +491,103 @@ class _ScheduleCalendarOneUserWidgetState
             children: [
               Container(width: 3, color: leftBorderColor),
               Expanded(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          return FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.topLeft,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth: constraints.maxWidth,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          '$timeStartLine$timeEndLine',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          textAlign: TextAlign.start,
-                                          style: AppFonts.c1Medium.copyWith(
-                                            color: accentColor,
-                                            fontSize: timeFontSize,
-                                            fontWeight: FontWeight.w600,
-                                            height: 1.1,
+                child: Padding(
+                  padding: contentPadding,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.topLeft,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: constraints.maxWidth,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            '$timeStartLine$timeEndLine',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            textAlign: TextAlign.start,
+                                            style: AppFonts.c1Medium.copyWith(
+                                              color: accentColor,
+                                              fontSize: timeFontSize,
+                                              fontWeight: FontWeight.w600,
+                                              height: 1.1,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      if (item?.hasComment == true) ...[
-                                        const SizedBox(width: 4),
-                                        Image.asset(
-                                          AppImages.comment,
-                                          width: commentIconSize,
-                                          height: commentIconSize,
+                                        if (item?.hasComment == true) ...[
+                                          const SizedBox(width: 4),
+                                          Image.asset(
+                                            AppImages.comment,
+                                            width: commentIconSize,
+                                            height: commentIconSize,
+                                            color: accentColor,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            serviceName,
+                                            style: AppFonts.c1Regular.copyWith(
+                                              color: accentColor,
+                                              fontSize: serviceFontSize,
+                                              height: 1.1,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (showInventoryInline) ...[
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            Icons.inventory_2_outlined,
+                                            size: inventoryIconSize,
+                                            color: accentColor,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    if (clientName.isNotEmpty)
+                                      Text(
+                                        clientName,
+                                        style: AppFonts.c0Regular.copyWith(
                                           color: accentColor,
                                         ),
-                                      ],
-                                    ],
-                                  ),
-                                  Text(
-                                    serviceName,
-                                    style: AppFonts.c1Regular.copyWith(
-                                      color: accentColor,
-                                      fontSize: serviceFontSize,
-                                      height: 1.1,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (clientName.isNotEmpty)
-                                    Text(
-                                      clientName,
-                                      style: AppFonts.c0Regular.copyWith(
-                                        color: accentColor,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  ],
+                      if (showInventoryOnSide)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 2),
+                          child: Icon(
+                            Icons.inventory_2_outlined,
+                            size: inventoryIconSize,
+                            color: accentColor,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],

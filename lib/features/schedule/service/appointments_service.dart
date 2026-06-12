@@ -6,6 +6,7 @@ import 'package:rient_app/core/network/app_dio.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
+import 'package:rient_app/features/schedule/utils/appointment_inventory_conflict_utils.dart';
 import 'package:rient_app/features/schedule/utils/appointment_transaction_utils.dart';
 
 final appointmentsServiceProvider = Provider<AppointmentsService>(
@@ -142,6 +143,7 @@ class AppointmentsService {
 
   Future<List<Map<String, dynamic>>> createAppointment({
     required Map<String, dynamic> payload,
+    bool createAnyway = false,
   }) async {
     final token = ref.read(tokenProvider);
     if (token == null || token.isEmpty) {
@@ -149,11 +151,15 @@ class AppointmentsService {
     }
 
     final url = ApiConsts().createUrl('appointments/');
+    final body = withInventoryConflictOverride(
+      payload,
+      createAnyway: createAnyway,
+    );
 
     try {
       final response = await createAppDio().post<dynamic>(
         url,
-        data: payload,
+        data: body,
         options: Options(
           headers: {
             'Authorization': 'JWT $token',
@@ -165,6 +171,10 @@ class AppointmentsService {
       if ((response.statusCode == 201 || response.statusCode == 200) &&
           response.data != null) {
         final raw = response.data;
+        _throwIfInventoryConflictResponse(
+          raw,
+          createAnyway: createAnyway,
+        );
         if (raw is List<dynamic>) {
           return raw
               .whereType<Map<String, dynamic>>()
@@ -181,7 +191,14 @@ class AppointmentsService {
         ),
       );
     } catch (e) {
-      await handleUnauthorizedIfNeeded(ref, e);
+      if (e is AppointmentInventoryConflictException) rethrow;
+      if (e is DioException) {
+        await handleUnauthorizedIfNeeded(ref, e);
+        _throwIfInventoryConflictResponse(
+          e.response?.data,
+          createAnyway: createAnyway,
+        );
+      }
       throw CustomException(causedError: e);
     }
   }
@@ -189,6 +206,7 @@ class AppointmentsService {
   Future<Map<String, dynamic>> updateAppointment({
     required int appointmentId,
     required Map<String, dynamic> payload,
+    bool createAnyway = false,
   }) async {
     final token = ref.read(tokenProvider);
     if (token == null || token.isEmpty) {
@@ -196,11 +214,15 @@ class AppointmentsService {
     }
 
     final url = ApiConsts().createUrl('appointments/$appointmentId/');
+    final body = withInventoryConflictOverride(
+      payload,
+      createAnyway: createAnyway,
+    );
 
     try {
       final response = await createAppDio().patch<Map<String, dynamic>>(
         url,
-        data: payload,
+        data: body,
         options: Options(
           headers: {
             'Authorization': 'JWT $token',
@@ -211,6 +233,10 @@ class AppointmentsService {
 
       if ((response.statusCode == 200 || response.statusCode == 201) &&
           response.data != null) {
+        _throwIfInventoryConflictResponse(
+          response.data,
+          createAnyway: createAnyway,
+        );
         return Map<String, dynamic>.from(response.data!);
       }
       throw CustomException(
@@ -219,9 +245,25 @@ class AppointmentsService {
         ),
       );
     } catch (e) {
-      await handleUnauthorizedIfNeeded(ref, e);
+      if (e is AppointmentInventoryConflictException) rethrow;
+      if (e is DioException) {
+        await handleUnauthorizedIfNeeded(ref, e);
+        _throwIfInventoryConflictResponse(
+          e.response?.data,
+          createAnyway: createAnyway,
+        );
+      }
       throw CustomException(causedError: e);
     }
+  }
+
+  void _throwIfInventoryConflictResponse(
+    dynamic data, {
+    required bool createAnyway,
+  }) {
+    if (createAnyway) return;
+    final conflict = appointmentInventoryConflictFromApiData(data);
+    if (conflict != null) throw conflict;
   }
 
   /// POST /appointments/{id}/transactions/ — провести оплату (как на сайте).

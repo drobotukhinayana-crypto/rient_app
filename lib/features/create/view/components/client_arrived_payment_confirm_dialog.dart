@@ -3,6 +3,7 @@ import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/loading_widget.dart';
 
 /// Индекс статуса «Клиент пришел» в [defaultClientStatusOptions].
 const int kClientArrivedStatusIndex = 2;
@@ -130,25 +131,73 @@ Future<ClientArrivedPaymentDialogResult?> showClientArrivedPaymentConfirmDialog(
   );
 }
 
-/// Второй шаг: подтверждение суммы → «Да» / «Нет».
+/// Второй шаг: подтверждение суммы → «Да» / «Нет»; при «Да» — [onConfirm] с лоадером.
 Future<bool> showPaymentAmountConfirmDialog({
   required BuildContext context,
   required double amount,
+  required Future<void> Function() onConfirm,
 }) async {
   final result = await showDialog<bool>(
     context: context,
     barrierDismissible: true,
     barrierColor: Colors.black.withValues(alpha: 0.5),
-    builder: (dialogContext) {
-      final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
-      final surface = isDark ? AppColors.primaryDark : Colors.white;
-      final onSurface = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
-      final muted = isDark ? AppColors.grey : AppColors.tabbarGrey;
-      final accent = AppColors.themeAccent(dialogContext);
-      final divider = isDark ? AppColors.secondaryDarkDark : AppColors.secondaryDark;
-      final priceLabel = formatPaymentPriceForDialog(amount);
+    builder: (dialogContext) => _PaymentAmountConfirmDialog(
+      amount: amount,
+      onConfirm: onConfirm,
+    ),
+  );
+  return result ?? false;
+}
 
-      return Dialog(
+class _PaymentAmountConfirmDialog extends StatefulWidget {
+  const _PaymentAmountConfirmDialog({
+    required this.amount,
+    required this.onConfirm,
+  });
+
+  final double amount;
+  final Future<void> Function() onConfirm;
+
+  @override
+  State<_PaymentAmountConfirmDialog> createState() =>
+      _PaymentAmountConfirmDialogState();
+}
+
+class _PaymentAmountConfirmDialogState extends State<_PaymentAmountConfirmDialog> {
+  bool _isProcessing = false;
+  String? _errorMessage;
+
+  Future<void> _onConfirmPayment() async {
+    setState(() {
+      _isProcessing = true;
+      _errorMessage = null;
+    });
+    try {
+      await widget.onConfirm();
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? AppColors.primaryDark : Colors.white;
+    final onSurface = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
+    final muted = isDark ? AppColors.grey : AppColors.tabbarGrey;
+    final accent = AppColors.themeAccent(context);
+    final divider = isDark ? AppColors.secondaryDarkDark : AppColors.secondaryDark;
+    final priceLabel = formatPaymentPriceForDialog(widget.amount);
+
+    return PopScope(
+      canPop: !_isProcessing,
+      child: Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 48),
         child: ConstrainedBox(
@@ -176,47 +225,72 @@ Future<bool> showPaymentAmountConfirmDialog({
                     style: AppFonts.b2Medium.copyWith(color: muted),
                   ),
                 ),
-                Divider(height: 1, thickness: 1, color: divider),
-                SizedBox(
-                  height: 48,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(true),
-                          style: TextButton.styleFrom(
-                            foregroundColor: accent,
-                            shape: const RoundedRectangleBorder(),
-                          ),
-                          child: Text(
-                            'Да',
-                            style: AppFonts.b2Semi.copyWith(color: accent),
-                          ),
-                        ),
-                      ),
-                      Container(width: 1, height: 48, color: divider),
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(false),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.red,
-                            shape: const RoundedRectangleBorder(),
-                          ),
-                          child: Text(
-                            'Нет',
-                            style: AppFonts.b2Semi.copyWith(color: AppColors.red),
-                          ),
-                        ),
-                      ),
-                    ],
+                if (_errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Text(
+                      _errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: AppFonts.c1Regular.copyWith(color: AppColors.red),
+                    ),
                   ),
-                ),
+                if (_isProcessing)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                    child: Column(
+                      children: [
+                        const LoadingWidget(side: 28),
+                        const Gap(12),
+                        Text(
+                          'Проводим оплату…',
+                          textAlign: TextAlign.center,
+                          style: AppFonts.b2Medium.copyWith(color: muted),
+                        ),
+                      ],
+                    ),
+                  )
+                else ...[
+                  Divider(height: 1, thickness: 1, color: divider),
+                  SizedBox(
+                    height: 48,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: _onConfirmPayment,
+                            style: TextButton.styleFrom(
+                              foregroundColor: accent,
+                              shape: const RoundedRectangleBorder(),
+                            ),
+                            child: Text(
+                              'Да',
+                              style: AppFonts.b2Semi.copyWith(color: accent),
+                            ),
+                          ),
+                        ),
+                        Container(width: 1, height: 48, color: divider),
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.red,
+                              shape: const RoundedRectangleBorder(),
+                            ),
+                            child: Text(
+                              'Нет',
+                              style: AppFonts.b2Semi.copyWith(color: AppColors.red),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ),
-      );
-    },
-  );
-  return result ?? false;
+      ),
+    );
+  }
 }
