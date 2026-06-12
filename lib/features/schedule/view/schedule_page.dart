@@ -401,12 +401,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   }
 
   Future<void> _onPullToRefresh() async {
-    if (!ref.read(appHasNetworkProvider)) return;
-
-    if (!ref.read(scheduleServerReachableProvider)) {
-      markScheduleServerReachable(ref);
-      invalidateScheduleNetworkProviders(ref);
-    }
+    final recovered = await tryRecoverScheduleNetwork(ref);
+    if (!recovered) return;
 
     await ref.read(scheduleOfflineSyncServiceProvider).syncIfOnline();
     _forceRefreshScheduleScreen();

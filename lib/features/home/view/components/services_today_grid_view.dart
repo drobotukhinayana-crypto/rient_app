@@ -9,7 +9,7 @@ import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/offline_message.dart';
 import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
-import 'package:rient_app/core/network/app_connectivity_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
 class ServicesTodayGridView extends ConsumerWidget {
   const ServicesTodayGridView({super.key});
@@ -17,7 +17,7 @@ class ServicesTodayGridView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isOffline = ref.watch(appNoConnectionProvider);
+    final isOffline = ref.watch(scheduleOfflineModeProvider);
     final statisticsAsync = ref.watch(statisticsProvider);
     final selectedDate = ref.watch(selectedDateProvider);
 

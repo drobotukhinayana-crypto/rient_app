@@ -17,6 +17,7 @@ import 'package:rient_app/features/schedule/view/components/work_schedule_mapper
 import 'package:rient_app/core/network/app_connectivity_provider.dart'
     show
         appNoConnectionProvider,
+        markScheduleServerReachable,
         onScheduleNetworkFailure,
         scheduleServerReachableProvider;
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
@@ -49,6 +50,7 @@ final scheduleWorkersProvider = FutureProvider<WorkersApiResponse>((ref) async {
         ),
       );
     }
+    markScheduleServerReachable(ref);
     return response;
   } catch (e) {
     final caused = e is CustomException ? e.causedError : e;
@@ -80,10 +82,12 @@ final availableWorkersForDateProvider =
       final service = ref.watch(workersServiceProvider);
       final normalizedDate = DateTime(date.year, date.month, date.day);
       try {
-        return await service.getAvailableWorkers(
+        final workers = await service.getAvailableWorkers(
           branchId: branchId,
           date: normalizedDate,
         );
+        markScheduleServerReachable(ref);
+        return workers;
       } catch (e) {
         final caused = e is CustomException ? e.causedError : e;
         if (isPermissionDenied(caused ?? e)) {

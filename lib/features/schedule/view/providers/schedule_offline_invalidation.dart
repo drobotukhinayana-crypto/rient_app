@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_network_recovery.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
@@ -40,6 +44,8 @@ void invalidateScheduleNetworkProvidersDeferred(dynamic ref) {
 
 /// Глобально: нет сети / сервер недоступен → сброс зависших запросов.
 final scheduleServerUnreachableListenerProvider = Provider<void>((ref) {
+  registerScheduleNetworkRecoveryBindings();
+
   ref.listen<String?>(tokenProvider, (previous, next) {
     final hadToken = previous != null && previous.isNotEmpty;
     final hasToken = next != null && next.isNotEmpty;
@@ -55,22 +61,19 @@ final scheduleServerUnreachableListenerProvider = Provider<void>((ref) {
 
   ref.listen<bool>(scheduleServerReachableProvider, (previous, next) {
     if (previous != false && next == false) {
-      if (ref.read(appHasNetworkProvider)) {
-        Future<void>.delayed(const Duration(seconds: 2), () {
-          if (!ref.mounted) return;
-          if (!ref.read(appHasNetworkProvider)) return;
-          if (ref.read(scheduleServerReachableProvider)) return;
-          markScheduleServerReachable(ref);
-          invalidateScheduleNetworkProvidersDeferred(ref);
-        });
-      }
+      invalidateScheduleNetworkProvidersDeferred(ref);
     }
   });
 
-  ref.listen<bool>(appHasNetworkProvider, (previous, next) {
-    if (!next) return;
-    if (!ref.read(scheduleServerReachableProvider)) {
-      resetScheduleNetworkStateForSession(ref);
+  ref.listen<int>(currentBranchIdProvider, (previous, next) {
+    if (next <= 0) return;
+    if (previous != null && previous > 0) return;
+    unawaited(confirmScheduleServerWhenBranchReady(ref));
+  });
+
+  ref.listen<bool>(appNoConnectionProvider, (previous, next) {
+    if (previous == true && !next) {
+      unawaited(tryRecoverScheduleNetwork(ref));
     }
   });
 });

@@ -6,8 +6,12 @@ import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/core/network/app_offline.dart';
 import 'package:rient_app/core/network/app_connectivity_provider.dart'
-    show appNoConnectionProvider, onScheduleNetworkFailure;
+    show
+        appNoConnectionProvider,
+        onScheduleNetworkFailure,
+        scheduleServerReachableProvider;
 import 'package:rient_app/core/network/app_dio.dart';
 import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
@@ -26,7 +30,8 @@ final _currentAccountProvider = FutureProvider<Map<String, dynamic>?>((ref) asyn
   if (roleId != UserRole.worker.value) return null;
 
   if (ref.watch(appNoConnectionProvider) ||
-      ref.watch(scheduleOfflineModeProvider)) {
+      ref.watch(scheduleOfflineModeProvider) ||
+      !ref.watch(scheduleServerReachableProvider)) {
     return null;
   }
 
@@ -47,6 +52,7 @@ final _currentAccountProvider = FutureProvider<Map<String, dynamic>?>((ref) asyn
     final caused = e is CustomException ? e.causedError : e;
     if (isNetworkFailure(caused ?? e)) {
       onScheduleNetworkFailure(ref, caused ?? e);
+      throw const AppOfflineException();
     }
     return null;
   }

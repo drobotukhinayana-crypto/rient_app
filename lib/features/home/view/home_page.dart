@@ -6,8 +6,6 @@ import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/network/app_offline.dart'
     show appNoConnectionMessage, shouldShowNoConnectionMessage;
-import 'package:rient_app/core/network/app_connectivity_provider.dart'
-    show markScheduleServerReachable;
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/offline_message.dart';
@@ -22,6 +20,8 @@ import 'package:rient_app/features/home/view/providers/selected_date_provider.da
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
 import 'package:rient_app/features/home/view/providers/today_revenue_metrics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart'
+    show scheduleOfflineModeProvider, tryRecoverScheduleNetwork;
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -54,10 +54,12 @@ class _BodyWidget extends ConsumerWidget {
 
     ref.watch(connectivityRecoveryListenerProvider);
 
-    final isOffline = ref.watch(appNoConnectionProvider);
+    final isOffline = ref.watch(appNoConnectionProvider) ||
+        ref.watch(scheduleOfflineModeProvider);
 
     Future<void> onRefresh() async {
-      markScheduleServerReachable(ref);
+      final recovered = await tryRecoverScheduleNetwork(ref);
+      if (!recovered) return;
       ref.invalidate(connectivityCheckProvider);
       ref.invalidate(statisticsProvider);
       ref.invalidate(todayRevenueMetricsProvider);
@@ -85,7 +87,7 @@ class _BodyWidget extends ConsumerWidget {
 
         Expanded(
           child: AppRefreshIndicator(
-            onRefresh: isOffline ? () async {} : onRefresh,
+            onRefresh: onRefresh,
             child: SingleChildScrollView(
               physics: AppRefreshIndicator.scrollPhysics,
               padding: AppDecoration.padding16.copyWith(top: 18),
@@ -130,7 +132,8 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
     final isOwnerOrManager =
         roleId == UserRole.owner.value || roleId == UserRole.manager.value;
     final todayRevenueAsync = ref.watch(todayRevenueMetricsProvider);
-    final isOffline = ref.watch(appNoConnectionProvider);
+    final isOffline = ref.watch(appNoConnectionProvider) ||
+        ref.watch(scheduleOfflineModeProvider);
 
     if (isOffline) {
       return Column(

@@ -12,6 +12,11 @@ import 'package:rient_app/features/schedule/service/schedule_offline_sync_servic
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 
+export 'package:rient_app/features/schedule/view/providers/schedule_network_recovery.dart'
+    show
+        confirmScheduleServerWhenBranchReady,
+        refreshConnectivityAndWait,
+        tryRecoverScheduleNetwork;
 export 'package:rient_app/features/schedule/view/providers/schedule_offline_invalidation.dart'
     show
         invalidateScheduleNetworkProviders,
@@ -30,7 +35,9 @@ export 'package:rient_app/core/network/app_connectivity_provider.dart'
         markScheduleServerUnreachable,
         onScheduleNetworkFailure,
         resetScheduleNetworkStateForSession,
-        scheduleServerReachableProvider;
+        scheduleNetworkRecoveryUntilProvider,
+        scheduleServerReachableProvider,
+        scheduleSessionBootstrapUntilProvider;
 
 const scheduleOfflineCurrentWorkerIdKey = 'schedule_offline_current_worker_id_v1';
 
@@ -58,9 +65,10 @@ Statistics scheduleOfflineEmptyStatistics() => Statistics(
       occupancyByDay: const [],
     );
 
-/// Оффлайн-режим расписания: только при отсутствии интернета (не при 4xx/5xx API).
+/// Оффлайн-режим: нет интерфейса сети или API недоступен (TLS/таймаут), не 4xx.
 final scheduleOfflineModeProvider = Provider<bool>((ref) {
-  return ref.watch(appNoConnectionProvider);
+  if (ref.watch(appNoConnectionProvider)) return true;
+  return !ref.watch(scheduleServerReachableProvider);
 });
 
 /// Специалисты из локального кэша, если сеть недоступна.

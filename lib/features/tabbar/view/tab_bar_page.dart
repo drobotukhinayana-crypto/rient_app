@@ -162,8 +162,13 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
   Future<void> _handleAppResumed() async {
     if (!mounted) return;
     ref.invalidate(workerEntityLabelsProvider);
-    if (ref.read(appHasNetworkProvider)) {
-      resetScheduleNetworkStateForSession(ref);
+    if (ref.read(scheduleOfflineModeProvider) &&
+        ref.read(appHasNetworkProvider)) {
+      unawaited(tryRecoverScheduleNetwork(ref));
+    }
+    if (ref.read(appHasNetworkProvider) &&
+        ref.read(scheduleServerReachableProvider)) {
+      ref.invalidate(connectivityCheckProvider);
       invalidateScheduleNetworkProvidersDeferred(ref);
       refreshWorkerPermissions(ref);
     }
@@ -264,10 +269,18 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     ref.watch(scheduleServerUnreachableListenerProvider);
 
     ref.listen<bool>(appNoConnectionProvider, (previous, next) {
-      _redirectToScheduleIfOffline();
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _redirectToScheduleIfOffline();
+      });
     });
     ref.listen<bool>(scheduleOfflineModeProvider, (previous, next) {
-      _redirectToScheduleIfOffline();
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _redirectToScheduleIfOffline();
+      });
     });
 
     ref.listen<int>(logoutRequestProvider, (previous, next) {
