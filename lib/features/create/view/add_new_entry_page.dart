@@ -1524,8 +1524,24 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         ignoreAppointmentId: widget.initialAppointment?.id,
       ),
     ];
-    // Перерыв в календаре только визуальный (ячейки под ним кликабельны).
-    // Слоты блокируем записями и другими услугами в этой форме, не break_start/end.
+    final workerBreak = resolveWorkerBreakForDate(
+      daily: daily,
+      fallbackBreakStart: shift.breakStart,
+      fallbackBreakEnd: shift.breakEnd,
+    );
+    final breakStartDt = _dateTimeFromTimeOfDayString(
+      date: date,
+      value: workerBreak.breakStart,
+    );
+    final breakEndDt = _dateTimeFromTimeOfDayString(
+      date: date,
+      value: workerBreak.breakEnd,
+    );
+    if (breakStartDt != null &&
+        breakEndDt != null &&
+        breakEndDt.isAfter(breakStartDt)) {
+      busyRanges.add(_DateTimeRange(start: breakStartDt, end: breakEndDt));
+    }
     for (var i = 0; i < _services.length; i++) {
       if (i == currentServiceIndex) continue;
       final block = _services[i];
