@@ -78,8 +78,6 @@ final todayRevenueMetricsProvider = FutureProvider<TodayRevenueMetrics>((
     rethrow;
   } catch (e) {
     await handleUnauthorizedIfNeeded(ref, e);
-    final caused = e is CustomException ? e.causedError : e;
-    rethrowAsOfflineIfNetworkFailure(ref, caused ?? e);
     rethrow;
   }
 });

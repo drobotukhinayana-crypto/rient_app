@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/network/app_offline.dart';
 import 'package:rient_app/core/network/ensure_network_for_request.dart';
-import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/core/network/app_connectivity_provider.dart'
     show markScheduleServerReachable;
@@ -48,8 +47,6 @@ final statisticsProvider = FutureProvider<Statistics>((ref) async {
   } on AppOfflineException {
     rethrow;
   } catch (e) {
-    final caused = e is CustomException ? e.causedError : e;
-    rethrowAsOfflineIfNetworkFailure(ref, caused ?? e);
     rethrow;
   }
 });

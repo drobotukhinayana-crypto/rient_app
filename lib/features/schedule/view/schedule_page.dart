@@ -470,20 +470,22 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     if (mounted) _bumpScheduleUiVersion();
   }
 
+  /// После экрана записи: обновление уже сделано при сохранении/удалении (pop true).
+  void _onReturnFromAddEntryPage(bool? changed) {
+    if (!mounted) return;
+    if (changed != true) {
+      _refreshScheduleAppointmentsOnly();
+    }
+  }
+
   Future<void> _openAddEntryFromEmptySlot({
     required AddNewEntryInitialData extra,
   }) async {
-    try {
-      await context.pushNamed<bool>(
-        AddNewEntryPage.name,
-        extra: extra,
-      );
-    } finally {
-      if (mounted) {
-        // Только записи/статистика: полный refresh обнуляет список мастеров на дату.
-        _refreshScheduleAppointmentsOnly();
-      }
-    }
+    final changed = await context.pushNamed<bool>(
+      AddNewEntryPage.name,
+      extra: extra,
+    );
+    _onReturnFromAddEntryPage(changed);
   }
 
   static DateTime _safeParseToLocal(String? raw, DateTime fallback) {
@@ -1219,63 +1221,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       _scheduleDayHorizontalScrollAlign();
     }
 
-    void refreshScheduleAfterMutation(AppointmentApi mutatedAppointment) {
-      final mutatedWorkerId = mutatedAppointment.worker?.id;
-      if (_viewMode == ViewMode.day) {
-        if (specialists.isNotEmpty) {
-          for (final specialist in specialists) {
-            final id = specialist.id;
-            if (id == null) continue;
-            ref.invalidate(
-              scheduleAppointmentsProvider(
-                AppointmentsQuery(
-                  workerId: id,
-                  dateTimeGte: dayStart,
-                  dateTimeLte: dayEnd,
-                ),
-              ),
-            );
-          }
-        } else {
-          ref.invalidate(
-            scheduleAppointmentsProvider(
-              AppointmentsQuery(
-                workerId: specialistIdForData,
-                dateTimeGte: dayStart,
-                dateTimeLte: dayEnd,
-              ),
-            ),
-          );
-        }
-      }
-
-      ref.invalidate(
-        scheduleAppointmentsProvider(
-          AppointmentsQuery(
-            workerId: specialistIdForData,
-            dateTimeGte: weekStartDate,
-            dateTimeLte: weekEndDate,
-          ),
-        ),
-      );
-      if (mutatedWorkerId != null && mutatedWorkerId != specialistIdForData) {
-        ref.invalidate(
-          scheduleAppointmentsProvider(
-            AppointmentsQuery(
-              workerId: mutatedWorkerId,
-              dateTimeGte: weekStartDate,
-              dateTimeLte: weekEndDate,
-            ),
-          ),
-        );
-      }
-      // Fallback: сбрасываем кеш всех family-инстансов записей.
-      ref.invalidate(scheduleAppointmentsProvider);
-      ref.invalidate(scheduleStatisticsForWeekProvider);
-      ref.invalidate(scheduleStatisticsForMonthProvider);
-      _bumpScheduleUiVersion();
-    }
-
     ref.listen(scheduleWorkersProvider, (prev, next) {
       next.whenData((_) async {
         if (ref.read(restoredSpecialistSelectionProvider)) return;
@@ -1507,18 +1452,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                           onAppointmentTap: (item) async {
                                             final appointment = item.source;
                                             if (appointment == null) return;
-                                            final wasDeleted = await context
+                                            final changed = await context
                                                 .pushNamed<bool>(
                                                   AddNewEntryPage.name,
                                                   extra: appointment,
                                                 );
-                                            if (!mounted) return;
-                                            if (wasDeleted == true) {
-                                              refreshScheduleAfterMutation(
-                                                appointment,
-                                              );
-                                            }
-                                            _refreshScheduleAppointmentsOnly();
+                                            _onReturnFromAddEntryPage(changed);
                                           },
                                           onEmptySlotTap: (workerId, dateTime) {
                                             if (scheduleReadOnly ||
@@ -1555,18 +1494,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                           onAppointmentTap: (item) async {
                                             final appointment = item.source;
                                             if (appointment == null) return;
-                                            final wasDeleted = await context
+                                            final changed = await context
                                                 .pushNamed<bool>(
                                                   AddNewEntryPage.name,
                                                   extra: appointment,
                                                 );
-                                            if (!mounted) return;
-                                            if (wasDeleted == true) {
-                                              refreshScheduleAfterMutation(
-                                                appointment,
-                                              );
-                                            }
-                                            _refreshScheduleAppointmentsOnly();
+                                            _onReturnFromAddEntryPage(changed);
                                           },
                                           onEmptySlotTap: (dateTime) {
                                             if (scheduleReadOnly ||
@@ -1652,18 +1585,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                         onAppointmentTap: (item) async {
                                           final appointment = item.source;
                                           if (appointment == null) return;
-                                          final wasDeleted = await context
+                                          final changed = await context
                                               .pushNamed<bool>(
                                                 AddNewEntryPage.name,
                                                 extra: appointment,
                                               );
-                                          if (!mounted) return;
-                                          if (wasDeleted == true) {
-                                            refreshScheduleAfterMutation(
-                                              appointment,
-                                            );
-                                          }
-                                          _refreshScheduleAppointmentsOnly();
+                                          _onReturnFromAddEntryPage(changed);
                                         },
                                         onEmptySlotTap: (dateTime) {
                                           if (scheduleReadOnly ||

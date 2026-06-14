@@ -1,13 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
-import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/features/home/data/models/statistics/statistics.dart';
 import 'package:rient_app/features/home/service/statistics_service.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
-import 'package:rient_app/core/network/app_connectivity_provider.dart'
-    show onScheduleNetworkFailure;
-import 'package:rient_app/features/schedule/view/providers/schedule_offline_invalidation.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
 /// Ключ недели: YYYY-MM-DD понедельника (для кэша по неделям).
@@ -130,10 +125,6 @@ final scheduleStatisticsForMonthProvider =
     appointmentsByDay: sortedAppointmentsByDay,
   );
   } catch (e) {
-    final caused = e is CustomException ? e.causedError : e;
-    if (isNetworkFailure(caused ?? e)) {
-      onScheduleNetworkFailure(ref, caused ?? e);
-    }
     return scheduleOfflineEmptyStatistics();
   }
 });
@@ -171,10 +162,6 @@ final scheduleStatisticsForWeekProvider =
       workerId: query.workerId,
     );
   } catch (e) {
-    final caused = e is CustomException ? e.causedError : e;
-    if (isNetworkFailure(caused ?? e)) {
-      onScheduleNetworkFailure(ref, caused ?? e);
-    }
     return scheduleOfflineEmptyStatistics();
   }
 });

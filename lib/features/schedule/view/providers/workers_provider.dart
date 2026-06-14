@@ -57,7 +57,7 @@ final scheduleWorkersProvider = FutureProvider<WorkersApiResponse>((ref) async {
     if (isPermissionDenied(caused ?? e)) {
       return scheduleOfflineEmptyWorkers;
     }
-    if (isNetworkFailure(caused ?? e)) {
+    if (isNetworkFailure(caused ?? e) && !isClientHttpError(caused ?? e)) {
       onScheduleNetworkFailure(ref, caused ?? e);
     }
     final cached = await workersCache.readForBranch(branchId);
@@ -93,7 +93,7 @@ final availableWorkersForDateProvider =
         if (isPermissionDenied(caused ?? e)) {
           return const [];
         }
-        if (isNetworkFailure(caused ?? e)) {
+        if (isNetworkFailure(caused ?? e) && !isClientHttpError(caused ?? e)) {
           onScheduleNetworkFailure(ref, caused ?? e);
         }
         return const [];

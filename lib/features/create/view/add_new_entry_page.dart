@@ -3914,6 +3914,7 @@ class _BottomActionsBar extends ConsumerWidget {
             }
           }
         }
+        markScheduleServerReachable(ref);
         _invalidateScheduleStatsForDateMoveWidgetRef(
           ref,
           draft.startDateTime,
