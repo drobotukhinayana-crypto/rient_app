@@ -1329,7 +1329,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                 child: Stack(
                   children: [
                     AppRefreshable(
-                  onRefresh: scheduleReadOnly ? () async {} : _onPullToRefresh,
+                  onRefresh: _onPullToRefresh,
                   hasScrollBody: true,
                   child: (!isScheduleOffline && workersAsync.isLoading)
                       ? const SizedBox.shrink()

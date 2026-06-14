@@ -715,6 +715,17 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return _phoneController.text.trim();
   }
 
+  bool _hasClientPhoneForSave(
+    bool canSeeContactData, {
+    required bool isEditingEntry,
+  }) {
+    if (isEditingEntry) return true;
+    if (_selectedClient?.id != null) return true;
+    final digits = _effectiveClientPhoneForSubmit(canSeeContactData)
+        .replaceAll(RegExp(r'\D'), '');
+    return digits.length >= 10;
+  }
+
   void _syncPhoneFieldForSelectedClientPrivacy(bool canSeeContactData) {
     final client = _selectedClient;
     if (client == null || client.phone.isEmpty) return;
@@ -1357,8 +1368,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     }
     block.isTimeExpanded = true;
     block.appointmentServiceId = service.id;
-    if (service.serviceId != null) {
-      block.selectedServiceId = service.serviceId;
+    if (service.serviceId != null && service.serviceId! > 0) {
+      block.catalogServiceId = service.serviceId;
     }
     if (serviceDateTime != null) {
       final h = serviceDateTime.hour.toString().padLeft(2, '0');
@@ -2115,30 +2126,56 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   ) {
     var hasChanges = false;
     for (final block in _services) {
-      if (block.selectedServiceId != null) continue;
-      final initialServiceName = block.initialServiceName;
-      if (initialServiceName == null || initialServiceName.isEmpty) continue;
-
-      WorkerServiceItem? matched;
-      for (final service in workerServices) {
-        if (service.service.name.toLowerCase() ==
-            initialServiceName.toLowerCase()) {
-          matched = service;
-          break;
+      if (block.selectedServiceId != null) {
+        final current = _selectedWorkerService(
+          workerServices,
+          block.selectedServiceId,
+        );
+        if (current != null) {
+          if (block.catalogServiceId == null && current.service.id > 0) {
+            block.catalogServiceId = current.service.id;
+            hasChanges = true;
+          }
+          continue;
         }
       }
-      if (matched == null) {
+
+      WorkerServiceItem? matched;
+      final catalogId = block.catalogServiceId;
+      if (catalogId != null && catalogId > 0) {
         for (final service in workerServices) {
-          if (service.service.name.toLowerCase().contains(
-            initialServiceName.toLowerCase(),
-          )) {
+          if (service.service.id == catalogId) {
             matched = service;
             break;
           }
         }
       }
+
+      final initialServiceName = block.initialServiceName;
+      if (matched == null &&
+          initialServiceName != null &&
+          initialServiceName.isNotEmpty) {
+        for (final service in workerServices) {
+          if (service.service.name.toLowerCase() ==
+              initialServiceName.toLowerCase()) {
+            matched = service;
+            break;
+          }
+        }
+        if (matched == null) {
+          for (final service in workerServices) {
+            if (service.service.name.toLowerCase().contains(
+              initialServiceName.toLowerCase(),
+            )) {
+              matched = service;
+              break;
+            }
+          }
+        }
+      }
       if (matched != null) {
         block.selectedServiceId = matched.id;
+        block.catalogServiceId = matched.service.id;
         if (block.durationMinutes <= 0) {
           block.durationMinutes = matched.duration;
         }
@@ -2420,6 +2457,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         workerServicesForCatalogAsync.value ?? const <WorkerServiceItem>[];
     final requiredCatalogServiceIds = <int>{};
     for (final block in _services) {
+      final catalogId = block.catalogServiceId;
+      if (catalogId != null && catalogId > 0) {
+        requiredCatalogServiceIds.add(catalogId);
+        continue;
+      }
       final sid = block.selectedServiceId;
       if (sid == null) continue;
       final item = _selectedWorkerService(workerServicesForCatalog, sid);
@@ -2581,8 +2623,14 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           service.selectedServiceId != null &&
           (service.selectedTime?.isNotEmpty ?? false),
     );
-    final canSave =
-        selectedSpecialistId != null && branchId != 0 && hasCompleteService;
+    final hasClientPhone = _hasClientPhoneForSave(
+      canSeeContactData,
+      isEditingEntry: isEditingEntry,
+    );
+    final canSave = selectedSpecialistId != null &&
+        branchId != 0 &&
+        hasCompleteService &&
+        hasClientPhone;
     final canSaveNotifier = ref.read(createEntryCanSaveProvider.notifier);
     if (canSaveNotifier.state != canSave) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3381,6 +3429,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                         _services[index].selectedServiceId;
                                     _services[index].selectedServiceId = value;
                                     if (selected != null) {
+                                      _services[index].catalogServiceId =
+                                          selected.service.id;
                                       _services[index].durationMinutes =
                                           selected.duration;
                                       _services[index].addDurationMinutes =
@@ -4099,6 +4149,7 @@ class _ServiceBlockState {
   final TextEditingController serviceSearchController = TextEditingController();
   int? appointmentServiceId;
   int? selectedServiceId;
+  int? catalogServiceId;
   String? initialServiceName;
   bool isTimeExpanded = true;
   String? selectedTime;
