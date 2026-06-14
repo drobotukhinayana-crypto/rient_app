@@ -1,10 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rient_app/core/services/email_storage.dart';
+import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
+import 'package:rient_app/core/session_data/data/session_data_storage.dart';
 import 'package:rient_app/core/session_data/models/session_data.dart';
 import 'package:rient_app/core/session_data/view/controller/session_data_controller.dart';
+import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/service/auth_service.dart';
 import 'package:rient_app/features/auth/logout_action.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
@@ -15,7 +17,58 @@ import 'package:rient_app/features/auth/view/providers/role_storage_provider.dar
 bool _isUnauthorizedHandlingInProgress = false;
 bool _isSilentRefreshInProgress = false;
 
-Future<bool> _tryRefreshTokenSilently(Ref ref) async {
+enum _TokenRefreshOutcome {
+  success,
+  networkFailure,
+  authFailure,
+}
+
+DioException? dioExceptionFrom(Object? error) {
+  if (error == null) return null;
+  if (error is DioException) return error;
+  if (error is CustomException) return dioExceptionFrom(error.causedError);
+  return null;
+}
+
+Future<SessionData?> _readStoredSession(Ref ref) async {
+  final inMemory = ref.read(sessionDataControllerProvider);
+  if (inMemory != null) return inMemory;
+  return ref.read(sessionDataStorageProvider).get();
+}
+
+bool _isAuthRefreshFailure(Object? error) {
+  if (error == null) return true;
+  if (isNetworkFailure(error)) return false;
+  final dio = dioExceptionFrom(error);
+  if (dio == null) return false;
+  final code = dio.response?.statusCode;
+  return code != null && code >= 400 && code < 500;
+}
+
+Future<_TokenRefreshOutcome> _refreshWithPassword(Ref ref, String password) async {
+  try {
+    await ref.read(authServiceProvider).getToken(
+          password: password,
+          deviceId: DateTime.now().millisecondsSinceEpoch,
+          userAgent: 'flutter_app'.hashCode,
+        );
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      return _TokenRefreshOutcome.authFailure;
+    }
+    return _TokenRefreshOutcome.success;
+  } catch (e) {
+    if (isNetworkFailure(e)) {
+      return _TokenRefreshOutcome.networkFailure;
+    }
+    if (_isAuthRefreshFailure(e)) {
+      return _TokenRefreshOutcome.authFailure;
+    }
+    return _TokenRefreshOutcome.networkFailure;
+  }
+}
+
+Future<_TokenRefreshOutcome> _tryRefreshTokenSilently(Ref ref) async {
   final savedRole = ref.read(roleStorageProvider);
   final currentRole = ref.read(roleProvider);
   if (currentRole == 0 && savedRole > 0) {
@@ -35,31 +88,36 @@ Future<bool> _tryRefreshTokenSilently(Ref ref) async {
     }
   }
 
+  final session = await _readStoredSession(ref);
   var password = ref.read(passwordProvider).trim();
   if (password.isEmpty) {
-    password = ref.read(sessionDataControllerProvider)?.password.trim() ?? '';
-  }
-  if (password.isEmpty) return false;
-
-  try {
-    await ref.read(authServiceProvider).getToken(
-      password: password,
-      deviceId: DateTime.now().millisecondsSinceEpoch,
-      userAgent: 'flutter_app'.hashCode,
-    );
-    final token = ref.read(tokenProvider);
-    final email = ref.read(emailStorageProvider);
-    if (token == null || token.isEmpty || email == null || email.isEmpty) {
-      return false;
+    password = session?.password.trim() ?? '';
+    if (password.isNotEmpty) {
+      ref.read(passwordProvider.notifier).state = password;
     }
-    ref.read(passwordProvider.notifier).state = password;
-    await ref.read(sessionDataControllerProvider.notifier).saveSessionData(
-      SessionData(email: email, password: password, token: token),
-    );
-    return true;
-  } catch (_) {
-    return false;
   }
+
+  final refreshToken = session?.refreshToken?.trim();
+  if (refreshToken != null && refreshToken.isNotEmpty) {
+    try {
+      await ref.read(authServiceProvider).refreshAccessToken(refreshToken);
+      return _TokenRefreshOutcome.success;
+    } catch (e) {
+      if (isNetworkFailure(e)) {
+        return _TokenRefreshOutcome.networkFailure;
+      }
+      if (!_isAuthRefreshFailure(e)) {
+        return _TokenRefreshOutcome.networkFailure;
+      }
+    }
+  }
+
+  if (password.isEmpty) {
+    return _TokenRefreshOutcome.authFailure;
+  }
+
+  final outcome = await _refreshWithPassword(ref, password);
+  return outcome;
 }
 
 /// Публичный мягкий refresh токена (без logout), удобен для lifecycle-resume.
@@ -69,28 +127,34 @@ Future<bool> refreshTokenSilentlyIfPossible(Ref ref) async {
   }
   _isSilentRefreshInProgress = true;
   try {
-    return await _tryRefreshTokenSilently(ref);
+    final outcome = await _tryRefreshTokenSilently(ref);
+    return outcome == _TokenRefreshOutcome.success;
   } finally {
     _isSilentRefreshInProgress = false;
   }
 }
 
-/// При 401 (просроченный токен) очищает сессию и переводит на экран входа.
+/// При 401 (просроченный токен) пробует обновить токен; logout только при ошибке авторизации.
 /// 403 — нет прав на ресурс, сессию не сбрасываем.
 Future<void> handleUnauthorizedIfNeeded(Ref ref, Object error) async {
   if (_isUnauthorizedHandlingInProgress) return;
-  if (error is! DioException) return;
 
-  final code = error.response?.statusCode;
-  if (code != 401) return;
+  final dio = dioExceptionFrom(error);
+  if (dio == null) return;
+  if (dio.response?.statusCode != 401) return;
 
   _isUnauthorizedHandlingInProgress = true;
   try {
-    final refreshed = await _tryRefreshTokenSilently(ref);
-    if (refreshed) return;
-    await performLogoutWithRef(ref);
+    final outcome = await _tryRefreshTokenSilently(ref);
+    switch (outcome) {
+      case _TokenRefreshOutcome.success:
+        return;
+      case _TokenRefreshOutcome.networkFailure:
+        return;
+      case _TokenRefreshOutcome.authFailure:
+        await performLogoutWithRef(ref);
+    }
   } finally {
     _isUnauthorizedHandlingInProgress = false;
   }
 }
-

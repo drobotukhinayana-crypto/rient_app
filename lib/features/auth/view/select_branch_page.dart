@@ -4,11 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rient_app/core/session_data/models/session_data.dart';
-import 'package:rient_app/core/session_data/view/controller/session_data_controller.dart';
-import 'package:rient_app/core/services/email_storage.dart';
 import 'package:rient_app/core/services/local_storage.dart';
-import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/app_service_message.dart';
@@ -143,19 +139,6 @@ class _BodyWidget extends StatelessWidget {
                       userAgent: Platform.operatingSystem.hashCode,
                       branchId: selectedBranchId,
                     );
-                    final token = ref.read(tokenProvider);
-                    final email = ref.read(emailStorageProvider);
-                    if (token != null && email != null && email.isNotEmpty) {
-                      await ref
-                          .read(sessionDataControllerProvider.notifier)
-                          .saveSessionData(
-                            SessionData(
-                              email: email,
-                              password: password,
-                              token: token,
-                            ),
-                          );
-                    }
                   } catch (_) {
                     if (!context.mounted) return;
                     showAppServiceMessage(

@@ -10,6 +10,7 @@ _SessionData _$SessionDataFromJson(Map<String, dynamic> json) => _SessionData(
   email: json['email'] as String,
   password: json['password'] as String,
   token: json['token'] as String?,
+  refreshToken: json['refreshToken'] as String?,
 );
 
 Map<String, dynamic> _$SessionDataToJson(_SessionData instance) =>
@@ -17,4 +18,5 @@ Map<String, dynamic> _$SessionDataToJson(_SessionData instance) =>
       'email': instance.email,
       'password': instance.password,
       'token': instance.token,
+      'refreshToken': instance.refreshToken,
     };

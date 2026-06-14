@@ -14,6 +14,7 @@ import 'package:rient_app/features/schedule/view/components/specialist_select_di
 
 export 'package:rient_app/features/schedule/view/providers/schedule_network_recovery.dart'
     show
+        beginScheduleNetworkRecovery,
         confirmScheduleServerWhenBranchReady,
         refreshConnectivityAndWait,
         tryRecoverScheduleNetwork;

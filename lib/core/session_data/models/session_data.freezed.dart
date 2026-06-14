@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$SessionData {
 
- String get email; String get password; String? get token;
+ String get email; String get password; String? get token; String? get refreshToken;
 /// Create a copy of SessionData
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $SessionDataCopyWith<SessionData> get copyWith => _$SessionDataCopyWithImpl<Sess
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionData&&(identical(other.email, email) || other.email == email)&&(identical(other.password, password) || other.password == password)&&(identical(other.token, token) || other.token == token));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionData&&(identical(other.email, email) || other.email == email)&&(identical(other.password, password) || other.password == password)&&(identical(other.token, token) || other.token == token)&&(identical(other.refreshToken, refreshToken) || other.refreshToken == refreshToken));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,email,password,token);
+int get hashCode => Object.hash(runtimeType,email,password,token,refreshToken);
 
 @override
 String toString() {
-  return 'SessionData(email: $email, password: $password, token: $token)';
+  return 'SessionData(email: $email, password: $password, token: $token, refreshToken: $refreshToken)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $SessionDataCopyWith<$Res>  {
   factory $SessionDataCopyWith(SessionData value, $Res Function(SessionData) _then) = _$SessionDataCopyWithImpl;
 @useResult
 $Res call({
- String email, String password, String? token
+ String email, String password, String? token, String? refreshToken
 });
 
 
@@ -65,11 +65,12 @@ class _$SessionDataCopyWithImpl<$Res>
 
 /// Create a copy of SessionData
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? email = null,Object? password = null,Object? token = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? email = null,Object? password = null,Object? token = freezed,Object? refreshToken = freezed,}) {
   return _then(_self.copyWith(
 email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
 as String,password: null == password ? _self.password : password // ignore: cast_nullable_to_non_nullable
 as String,token: freezed == token ? _self.token : token // ignore: cast_nullable_to_non_nullable
+as String?,refreshToken: freezed == refreshToken ? _self.refreshToken : refreshToken // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -152,10 +153,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String email,  String password,  String? token)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String email,  String password,  String? token,  String? refreshToken)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SessionData() when $default != null:
-return $default(_that.email,_that.password,_that.token);case _:
+return $default(_that.email,_that.password,_that.token,_that.refreshToken);case _:
   return orElse();
 
 }
@@ -173,10 +174,10 @@ return $default(_that.email,_that.password,_that.token);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String email,  String password,  String? token)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String email,  String password,  String? token,  String? refreshToken)  $default,) {final _that = this;
 switch (_that) {
 case _SessionData():
-return $default(_that.email,_that.password,_that.token);}
+return $default(_that.email,_that.password,_that.token,_that.refreshToken);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -190,10 +191,10 @@ return $default(_that.email,_that.password,_that.token);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String email,  String password,  String? token)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String email,  String password,  String? token,  String? refreshToken)?  $default,) {final _that = this;
 switch (_that) {
 case _SessionData() when $default != null:
-return $default(_that.email,_that.password,_that.token);case _:
+return $default(_that.email,_that.password,_that.token,_that.refreshToken);case _:
   return null;
 
 }
@@ -205,12 +206,13 @@ return $default(_that.email,_that.password,_that.token);case _:
 @JsonSerializable()
 
 class _SessionData implements SessionData {
-  const _SessionData({required this.email, required this.password, this.token});
+  const _SessionData({required this.email, required this.password, this.token, this.refreshToken});
   factory _SessionData.fromJson(Map<String, dynamic> json) => _$SessionDataFromJson(json);
 
 @override final  String email;
 @override final  String password;
 @override final  String? token;
+@override final  String? refreshToken;
 
 /// Create a copy of SessionData
 /// with the given fields replaced by the non-null parameter values.
@@ -225,16 +227,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SessionData&&(identical(other.email, email) || other.email == email)&&(identical(other.password, password) || other.password == password)&&(identical(other.token, token) || other.token == token));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SessionData&&(identical(other.email, email) || other.email == email)&&(identical(other.password, password) || other.password == password)&&(identical(other.token, token) || other.token == token)&&(identical(other.refreshToken, refreshToken) || other.refreshToken == refreshToken));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,email,password,token);
+int get hashCode => Object.hash(runtimeType,email,password,token,refreshToken);
 
 @override
 String toString() {
-  return 'SessionData(email: $email, password: $password, token: $token)';
+  return 'SessionData(email: $email, password: $password, token: $token, refreshToken: $refreshToken)';
 }
 
 
@@ -245,7 +247,7 @@ abstract mixin class _$SessionDataCopyWith<$Res> implements $SessionDataCopyWith
   factory _$SessionDataCopyWith(_SessionData value, $Res Function(_SessionData) _then) = __$SessionDataCopyWithImpl;
 @override @useResult
 $Res call({
- String email, String password, String? token
+ String email, String password, String? token, String? refreshToken
 });
 
 
@@ -262,11 +264,12 @@ class __$SessionDataCopyWithImpl<$Res>
 
 /// Create a copy of SessionData
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? email = null,Object? password = null,Object? token = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? email = null,Object? password = null,Object? token = freezed,Object? refreshToken = freezed,}) {
   return _then(_SessionData(
 email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
 as String,password: null == password ? _self.password : password // ignore: cast_nullable_to_non_nullable
 as String,token: freezed == token ? _self.token : token // ignore: cast_nullable_to_non_nullable
+as String?,refreshToken: freezed == refreshToken ? _self.refreshToken : refreshToken // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

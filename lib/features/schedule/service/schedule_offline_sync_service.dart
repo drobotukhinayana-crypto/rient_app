@@ -83,7 +83,7 @@ class ScheduleOfflineSyncService {
     } catch (e) {
       if (isClientHttpError(e)) return;
       if (isNetworkFailure(e)) {
-        ref.read(scheduleServerReachableProvider.notifier).state = false;
+        onScheduleNetworkFailure(ref, e);
       }
     }
   }

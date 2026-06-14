@@ -9,6 +9,7 @@ sealed class SessionData with _$SessionData {
     required String email,
     required String password,
     String? token,
+    String? refreshToken,
   }) = _SessionData;
   factory SessionData.fromJson(Map<String, dynamic> json) =>
       _$SessionDataFromJson(json);
