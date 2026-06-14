@@ -113,6 +113,9 @@ Color _entryDivider(BuildContext context) => _entryIsDark(context)
 
 Color _entryAccent(BuildContext context) => AppColors.themeAccent(context);
 
+Color _entryPaidStatusColor(BuildContext context) =>
+    _entryIsDark(context) ? AppColors.lightGreen : AppColors.green;
+
 /// Для списка клиентов при отсутствии права `see_contact_data`: последние 4 цифры
 /// номера заменяются на `****` (остальной формат сохраняется).
 String _maskPhoneLastFourDigitsForList(String phone) {
@@ -4052,7 +4055,9 @@ class _BottomActionsBar extends ConsumerWidget {
               alignment: Alignment.centerLeft,
               child: Text(
                 'Оплачено ✅',
-                style: AppFonts.b2Semi.copyWith(color: AppColors.green),
+                style: AppFonts.b2Semi.copyWith(
+                  color: _entryPaidStatusColor(context),
+                ),
               ),
             ),
           ],

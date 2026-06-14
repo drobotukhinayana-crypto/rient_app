@@ -592,27 +592,22 @@ class _AnalyticsViewData {
     var income = 0.0;
     var payDue = 0.0;
     if (showIncome || showPayDue) {
-      if (current.totalIncome != null &&
-          (filterMode == _AnalyticsFilterMode.dateRange ||
-              filterMode == _AnalyticsFilterMode.month ||
-              filterMode == _AnalyticsFilterMode.singleDay)) {
+      final incomeDays = summary.summary.incomeByDay.isNotEmpty
+          ? summary.summary.incomeByDay
+          : current.incomeByDay;
+      for (final item in incomeDays) {
+        final d = _parseDate(item.date);
+        if (d == null || d.isBefore(start) || d.isAfter(end)) continue;
+        if (showIncome) income += item.incomeValue;
+        if (showPayDue) payDue += item.payDueValue;
+      }
+      if (showIncome && income == 0 && current.totalIncome != null) {
         income = current.totalIncome!;
-      } else {
-        final incomeDays = summary.summary.incomeByDay.isNotEmpty
-            ? summary.summary.incomeByDay
-            : current.incomeByDay;
-        for (final item in incomeDays) {
-          final d = _parseDate(item.date);
-          if (d == null || d.isBefore(start) || d.isAfter(end)) continue;
-          if (showIncome) income += item.incomeValue;
-          if (showPayDue) payDue += item.payDueValue;
-        }
-        if (showIncome && income == 0 && current.totalIncome != null) {
-          income = current.totalIncome!;
-        }
       }
       if (showPayDue && payDue == 0 && current.incomeByDay.isNotEmpty) {
         for (final item in current.incomeByDay) {
+          final d = _parseDate(item.date);
+          if (d == null || d.isBefore(start) || d.isAfter(end)) continue;
           payDue += item.payDueValue;
         }
       }

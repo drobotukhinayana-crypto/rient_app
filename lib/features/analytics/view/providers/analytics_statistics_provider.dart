@@ -95,9 +95,9 @@ final analyticsSummaryProvider =
                   month: query.start.month,
                   workerId: workerId,
                 );
-        result = _summaryWithMonthStatistics(
+        result = _summaryWithWorkerStatistics(
           summary: result,
-          monthStats: monthStats,
+          workerStats: monthStats,
           year: query.start.year,
           month: query.start.month,
         );
@@ -134,7 +134,7 @@ final analyticsSummaryProvider =
           endDate: query.end,
           workerId: workerId,
         );
-    result = _summaryWithStatisticsOccupancy(summary: result, stats: stats);
+    result = _summaryWithIntervalStatistics(summary: result, stats: stats);
   } catch (_) {}
 
   return result;
@@ -143,8 +143,8 @@ final analyticsSummaryProvider =
 String _analyticsDateKey(DateTime date) =>
     '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-/// Подмешиваем только дневную загруженность из `statistics_one` для полоски периода.
-AnalyticsSummary _summaryWithStatisticsOccupancy({
+/// Загруженность и дневной доход из `statistics_one` для интервала / одного дня.
+AnalyticsSummary _summaryWithIntervalStatistics({
   required AnalyticsSummary summary,
   required Statistics stats,
 }) {
@@ -155,12 +155,90 @@ AnalyticsSummary _summaryWithStatisticsOccupancy({
         occupancy: day.occupancy,
       ),
   ];
-  if (occupancyByDay.isEmpty) return summary;
+
+  final incomeByDay = [
+    for (final item in stats.incomeByDay ?? const <IncomeByDay>[])
+      AnalyticsIncomeByDay(
+        date: _analyticsDateKey(item.date),
+        income: item.income,
+        payDue: item.payDue,
+      ),
+  ];
+
+  var next = summary;
+  if (occupancyByDay.isNotEmpty) {
+    next = next.copyWith(
+      occupancy: occupancyByDay,
+      summary: next.summary.copyWith(occupancyByDay: occupancyByDay),
+    );
+  }
+
+  if (incomeByDay.isEmpty) return next;
+
+  final totalIncome =
+      incomeByDay.fold<double>(0, (sum, item) => sum + item.incomeValue);
+  final totalPayDue =
+      incomeByDay.fold<double>(0, (sum, item) => sum + item.payDueValue);
+
+  return next.copyWith(
+    summary: next.summary.copyWith(incomeByDay: incomeByDay),
+    comparison: next.comparison.copyWith(
+      current: next.comparison.current.copyWith(
+        totalIncome: totalIncome,
+        incomeByDay: incomeByDay,
+      ),
+    ),
+    meta: next.meta.copyWith(
+      canSeeIncome: next.meta.canSeeIncome || totalIncome > 0,
+      canSeePayDue: next.meta.canSeePayDue || totalPayDue > 0,
+    ),
+  );
+}
+
+/// Месячный доход, к выплате и производительность мастера — `me/statistics/`.
+AnalyticsSummary _summaryWithWorkerStatistics({
+  required AnalyticsSummary summary,
+  required WorkerMonthStatistics workerStats,
+  required int year,
+  required int month,
+}) {
+  final services = workerStats.services.entries
+      .map(
+        (e) => AnalyticsGlobalService(
+          name: e.key,
+          count: e.value,
+        ),
+      )
+      .toList();
+
+  final monthDateKey = '$year-${month.toString().padLeft(2, '0')}-01';
+  final incomeByDay = [
+    AnalyticsIncomeByDay(
+      date: monthDateKey,
+      income: workerStats.income,
+      payDue: workerStats.payDue,
+    ),
+  ];
 
   return summary.copyWith(
-    occupancy: occupancyByDay,
+    specialist: (summary.specialist ?? const AnalyticsSpecialist()).copyWith(
+      performance: workerStats.performance,
+    ),
     summary: summary.summary.copyWith(
-      occupancyByDay: occupancyByDay,
+      incomeByDay: incomeByDay,
+    ),
+    comparison: summary.comparison.copyWith(
+      current: summary.comparison.current.copyWith(
+        totalIncome: workerStats.income,
+        incomeByDay: incomeByDay,
+      ),
+    ),
+    global: summary.global.copyWith(
+      services: services.isNotEmpty ? services : summary.global.services,
+    ),
+    meta: summary.meta.copyWith(
+      canSeeIncome: summary.meta.canSeeIncome || workerStats.income > 0,
+      canSeePayDue: true,
     ),
   );
 }
@@ -248,59 +326,6 @@ AnalyticsSummary _summaryWithBranchStatistics({
       clients: summary.global.clients.copyWith(
         total: period.totalClients ?? summary.global.clients.total,
       ),
-    ),
-  );
-}
-
-AnalyticsSummary _summaryWithMonthStatistics({
-  required AnalyticsSummary summary,
-  required WorkerMonthStatistics monthStats,
-  required int year,
-  required int month,
-}) {
-  final services = monthStats.services.entries
-      .map(
-        (e) => AnalyticsGlobalService(
-          name: e.key,
-          count: e.value,
-        ),
-      )
-      .toList();
-
-  final monthDateKey =
-      '$year-${month.toString().padLeft(2, '0')}-01';
-  final incomeByDay = [
-    AnalyticsIncomeByDay(
-      date: monthDateKey,
-      income: monthStats.income,
-      payDue: monthStats.payDue,
-    ),
-  ];
-
-  return summary.copyWith(
-    specialist: (summary.specialist ?? const AnalyticsSpecialist()).copyWith(
-      performance: monthStats.performance,
-    ),
-    summary: summary.summary.copyWith(
-      occupancy: monthStats.occupancy,
-      incomeByDay: incomeByDay,
-    ),
-    comparison: summary.comparison.copyWith(
-      current: summary.comparison.current.copyWith(
-        totalIncome: monthStats.income,
-        occupancy: monthStats.occupancy,
-        totalClients: monthStats.clients > 0
-            ? monthStats.clients
-            : summary.comparison.current.totalClients,
-        incomeByDay: incomeByDay,
-      ),
-    ),
-    global: summary.global.copyWith(
-      services: services.isNotEmpty ? services : summary.global.services,
-    ),
-    meta: summary.meta.copyWith(
-      canSeeIncome: summary.meta.canSeeIncome || monthStats.income > 0,
-      canSeePayDue: true,
     ),
   );
 }
