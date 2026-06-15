@@ -285,6 +285,54 @@ class _TopPanelState extends State<TopPanel> {
     );
   }
 
+  bool get _showScheduleIntervalPicker =>
+      widget.scheduleCellIntervalMinutes != null &&
+      widget.onScheduleCellIntervalChanged != null;
+
+  Widget _buildScheduleIntervalPicker(bool isDark) {
+    return PopupMenuButton<int>(
+      onSelected: widget.onScheduleCellIntervalChanged,
+      tooltip: 'Интервал ячейки',
+      itemBuilder: (context) => [
+        for (final value in scheduleCellIntervalOptions)
+          PopupMenuItem<int>(
+            value: value,
+            child: Text('$value мин', style: AppFonts.b2Regular),
+          ),
+      ],
+      child: Container(
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(300),
+          color: isDark ? AppColors.secondaryDarkDark : AppColors.primaryWhite,
+          border: Border.all(
+            color: isDark
+                ? AppColors.secondaryDark
+                : AppColors.grey.withValues(alpha: 0.25),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${widget.scheduleCellIntervalMinutes} мин',
+              style: AppFonts.c1Medium.copyWith(
+                color: isDark ? AppColors.primaryWhite : AppColors.primaryDark,
+              ),
+            ),
+            const Gap(2),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 16,
+              color: isDark ? AppColors.primaryWhite : AppColors.primaryDark,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -392,66 +440,20 @@ class _TopPanelState extends State<TopPanel> {
             ),
           ] else if (showScheduleControls) ...[
             Gap(12),
-            ViewModeSegmentedControl(
-              value: _viewMode,
-              onChanged: _onViewModeChanged,
-            ),
-            if (_viewMode != ViewMode.month &&
-                widget.scheduleCellIntervalMinutes != null &&
-                widget.onScheduleCellIntervalChanged != null) ...[
-              Gap(10),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: PopupMenuButton<int>(
-                  onSelected: widget.onScheduleCellIntervalChanged,
-                  itemBuilder: (context) => [
-                    for (final value in scheduleCellIntervalOptions)
-                      PopupMenuItem<int>(
-                        value: value,
-                        child: Text('$value мин', style: AppFonts.b2Regular),
-                      ),
-                  ],
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: isDark
-                          ? AppColors.secondaryDarkDark
-                          : AppColors.primaryWhite,
-                      border: Border.all(
-                        color: isDark
-                            ? AppColors.secondaryDark
-                            : AppColors.grey.withValues(alpha: 0.25),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Интервал: ${widget.scheduleCellIntervalMinutes} мин',
-                          style: AppFonts.b2Medium.copyWith(
-                            color: isDark
-                                ? AppColors.primaryWhite
-                                : AppColors.primaryDark,
-                          ),
-                        ),
-                        const Gap(8),
-                        Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 18,
-                          color: isDark
-                              ? AppColors.primaryWhite
-                              : AppColors.primaryDark,
-                        ),
-                      ],
-                    ),
+            Row(
+              children: [
+                Expanded(
+                  child: ViewModeSegmentedControl(
+                    value: _viewMode,
+                    onChanged: _onViewModeChanged,
                   ),
                 ),
-              ),
-            ],
+                if (_viewMode != ViewMode.month && _showScheduleIntervalPicker) ...[
+                  const Gap(8),
+                  _buildScheduleIntervalPicker(isDark),
+                ],
+              ],
+            ),
             if (widget.showSpecialistSelector &&
                 _viewMode != ViewMode.day &&
                 widget.specialists != null &&

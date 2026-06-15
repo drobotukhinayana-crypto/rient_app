@@ -11,13 +11,28 @@ import 'package:rient_app/features/auth/service/auth_service.dart';
 import 'package:rient_app/core/routes/router_provider.dart';
 import 'package:rient_app/features/auth/logout_action.dart';
 import 'package:rient_app/features/auth/view/auth_page.dart';
+import 'package:rient_app/features/auth/view/auth_password_page.dart';
+import 'package:rient_app/features/auth/view/otp_page.dart';
+import 'package:rient_app/features/auth/view/select_branch_page.dart';
+import 'package:rient_app/features/auth/view/select_company_page.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_storage_provider.dart';
+import 'package:rient_app/features/launch/launch_page.dart';
 
 bool _isUnauthorizedHandlingInProgress = false;
 bool _isSilentRefreshInProgress = false;
+
+/// Экраны входа: на них и между ними 401 не должен сбрасывать сессию.
+const _authFlowPaths = {
+  LaunchPage.path,
+  AuthPage.path,
+  OtpPage.path,
+  SelectCompanyPage.path,
+  SelectBranchPage.path,
+  AuthPasswordPage.path,
+};
 
 enum _TokenRefreshOutcome {
   success,
@@ -37,6 +52,16 @@ Future<SessionData?> _readStoredSession(Ref ref) async {
   if (inMemory != null) return inMemory;
   return ref.read(sessionDataStorageProvider).get();
 }
+
+bool _hasCompletedLoginSession(SessionData? session) {
+  if (session == null) return false;
+  if (session.password.trim().isNotEmpty) return true;
+  final refresh = session.refreshToken?.trim() ?? '';
+  return refresh.isNotEmpty;
+}
+
+bool _isOnAuthFlowScreen(String location) =>
+    _authFlowPaths.contains(location);
 
 bool _isAuthRefreshFailure(Object? error) {
   if (error == null) return true;
@@ -149,7 +174,11 @@ Future<void> handleUnauthorizedIfNeeded(Ref ref, Object error) async {
   if (token == null || token.isEmpty) return;
 
   final location = ref.read(routerProvider).state.uri.path;
-  if (location.startsWith(AuthPage.path)) return;
+  if (_isOnAuthFlowScreen(location)) return;
+
+  final session = await _readStoredSession(ref);
+  // После OTP есть только verification token — полной сессии ещё нет.
+  if (!_hasCompletedLoginSession(session)) return;
 
   _isUnauthorizedHandlingInProgress = true;
   try {
