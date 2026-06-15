@@ -274,6 +274,13 @@ SchedulePatternBranchItemApi? _branchPatternForWeekday(
   return null;
 }
 
+SchedulePatternBranchItemApi? branchSchedulePatternForDate(
+  Map<String, SchedulePatternBranchItemApi> patternsByDay,
+  DateTime date,
+) {
+  return _branchPatternForWeekday(patternsByDay, date.weekday);
+}
+
 Map<String, SchedulePatternBranchItemApi> branchSchedulePatternsByDayFromBranchApi(
   List<SchedulePattern>? patterns,
   int branchId,

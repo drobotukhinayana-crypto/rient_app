@@ -154,8 +154,7 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
                   date: monthDays[j],
                   cell: _cellAt(employee, j),
                   isSaving: _isSavingCell(employee.id, monthDays[j]),
-                  onTap:
-                      widget.onCellTap == null || employee.isBranchRow
+                  onTap: widget.onCellTap == null
                       ? null
                       : () => widget.onCellTap!(employee, monthDays[j]),
                 ),

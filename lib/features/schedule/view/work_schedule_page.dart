@@ -16,6 +16,11 @@ import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/features/schedule/data/models/schedule_patterns_branch_api/schedule_patterns_branch_api.dart';
+import 'package:rient_app/features/schedule/data/models/schedule_patterns_branch_api/update_branch_schedule_patterns_request.dart';
+import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
+import 'package:rient_app/features/schedule/view/components/work_schedule_mapper.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_patterns_branch_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/data/models/schedules_api/create_worker_schedule_request.dart';
@@ -60,8 +65,12 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
   int _fetchGeneration = 0;
   String? _savingEmployeeId;
   DateTime? _savingDate;
+  Map<String, SchedulePatternBranchItemApi> _branchPatternsByDay = const {};
   AsyncValue<List<WorkScheduleEmployeeRow>> _employees =
       const AsyncValue.loading();
+
+  static const _branchWorkScheduleNoPermissionMessage =
+      'Изменять график филиала могут только владелец и менеджер';
 
   DateTime get _today {
     final now = DateTime.now();
@@ -173,8 +182,14 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
         branchId: branchId,
         workerId: workerId,
       );
+      final branchPatternsByDay = branchId > 0
+          ? await _loadBranchPatternsByDay(branchId)
+          : const <String, SchedulePatternBranchItemApi>{};
       if (!mounted || generation != _fetchGeneration) return;
-      setState(() => _employees = AsyncValue.data(rows));
+      setState(() {
+        _employees = AsyncValue.data(rows);
+        _branchPatternsByDay = branchPatternsByDay;
+      });
     } catch (error, stackTrace) {
       if (!mounted || generation != _fetchGeneration) return;
       setState(() => _employees = AsyncValue.error(error, stackTrace));
@@ -614,6 +629,72 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     return ref.read(canChangeWorkScheduleProvider.future);
   }
 
+  bool _canChangeBranchWorkSchedule() {
+    final roleId = ref.read(roleProvider);
+    return roleId == UserRole.owner.value || roleId == UserRole.manager.value;
+  }
+
+  Future<Map<String, SchedulePatternBranchItemApi>> _loadBranchPatternsByDay(
+    int branchId,
+  ) async {
+    try {
+      final response = await ref
+          .read(schedulePatternsServiceProvider)
+          .getBranchSchedulePatterns(branchId: branchId);
+      return branchSchedulePatternsByDay(response);
+    } catch (_) {
+      final branch = ref.read(currentBranchProvider);
+      return branchSchedulePatternsByDayFromBranchApi(
+        branch?.schedulePatterns,
+        branchId,
+      );
+    }
+  }
+
+  DateTime _dateForDayIndex(int dayIndex) {
+    return DateTime(_monthStart.year, _monthStart.month, dayIndex + 1);
+  }
+
+  void _applySavedBranchPatternLocally({
+    required int weekday,
+    required WorkScheduleDayCell cell,
+    required SchedulePatternBranchItemApi updatedPattern,
+  }) {
+    final employees = _employees.value;
+    if (employees == null || employees.isEmpty) return;
+
+    final branchRow = employees.first;
+    if (!branchRow.isBranchRow) return;
+
+    final dayCount = branchRow.monthCells.length;
+    final updatedBranchPatterns = Map<String, SchedulePatternBranchItemApi>.from(
+      _branchPatternsByDay,
+    );
+    updatedBranchPatterns[updatedPattern.day.toLowerCase()] = updatedPattern;
+
+    final updatedRows = [
+      WorkScheduleEmployeeRow(
+        id: branchRow.id,
+        name: branchRow.name,
+        isBranchRow: true,
+        monthCells: [
+          for (var i = 0; i < dayCount; i++)
+            _dateForDayIndex(i).weekday == weekday
+                ? cell
+                : branchRow.monthCells[i],
+        ],
+      ),
+      ...employees.skip(1),
+    ];
+
+    final offset = _readHorizontalScrollOffset();
+    setState(() {
+      _employees = AsyncValue.data(updatedRows);
+      _branchPatternsByDay = updatedBranchPatterns;
+    });
+    _restoreHorizontalScrollOffset(offset);
+  }
+
   void _showWorkScheduleNoPermissionMessage() {
     if (!mounted) return;
     final hostContext = _scaffoldKey.currentContext ?? context;
@@ -630,15 +711,144 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     _showWorkScheduleNoPermissionMessage();
   }
 
+  Future<void> _onBranchDayCellTap(DateTime date) async {
+    if (!_canChangeBranchWorkSchedule()) {
+      if (!mounted) return;
+      showAppServiceMessage(
+        _scaffoldKey.currentContext ?? context,
+        message: _branchWorkScheduleNoPermissionMessage,
+        variant: AppServiceMessageVariant.error,
+      );
+      return;
+    }
+
+    final employees = _employees.value;
+    if (employees == null || employees.isEmpty || !employees.first.isBranchRow) {
+      return;
+    }
+    final cell = _cellForDate(employees.first, date);
+    if (cell == null) return;
+
+    final branchId = ref.read(currentBranchIdProvider);
+    if (branchId <= 0) return;
+
+    final pattern = branchSchedulePatternForDate(_branchPatternsByDay, date);
+    if (pattern == null || pattern.id <= 0) {
+      if (!mounted) return;
+      showAppServiceMessage(
+        _scaffoldKey.currentContext ?? context,
+        message: 'Не удалось найти шаблон филиала для этого дня',
+        variant: AppServiceMessageVariant.error,
+      );
+      return;
+    }
+
+    final normalizedDate = DateTime(date.year, date.month, date.day);
+    final result = await showWorkScheduleDayEditDialog(
+      rootNavigatorKey.currentContext ?? context,
+      cell: cell,
+    );
+    if (result == null || !mounted) return;
+
+    final fallbackStart = cell.timeStart ?? '09:00';
+    final fallbackEnd = cell.timeEnd ?? '20:00';
+    final batch = UpdateBranchSchedulePatternsRequest(
+      patterns: [
+        UpdateBranchSchedulePatternItem.fromBranchPattern(
+          pattern,
+          timeStart: result.isWorkingDay ? result.workStart : fallbackStart,
+          timeEnd: result.isWorkingDay ? result.workEnd : fallbackEnd,
+          active: result.isWorkingDay,
+        ),
+      ],
+    );
+
+    final snapshot = _employees.value;
+    final branchPatternsSnapshot = _branchPatternsByDay;
+    final optimisticCell = _cellFromEditResult(
+      result: result,
+      previous: cell,
+    );
+    final optimisticPattern = UpdateBranchSchedulePatternItem.fromBranchPattern(
+      pattern,
+      timeStart: result.isWorkingDay ? result.workStart : fallbackStart,
+      timeEnd: result.isWorkingDay ? result.workEnd : fallbackEnd,
+      active: result.isWorkingDay,
+    );
+    final scrollOffsetBeforeSave = _readHorizontalScrollOffset();
+
+    setState(() {
+      _savingEmployeeId = workScheduleBranchRowId;
+      _savingDate = normalizedDate;
+    });
+    _applySavedBranchPatternLocally(
+      weekday: normalizedDate.weekday,
+      cell: optimisticCell,
+      updatedPattern: SchedulePatternBranchItemApi(
+        id: pattern.id,
+        branch: pattern.branch,
+        day: pattern.day,
+        timeStart: optimisticPattern.timeStart,
+        timeEnd: optimisticPattern.timeEnd,
+        active: optimisticPattern.active,
+      ),
+    );
+
+    try {
+      await ref.read(schedulePatternsServiceProvider).updateBranchSchedulePatternsBatch(
+        branchId: branchId,
+        body: batch,
+      );
+      if (!mounted) return;
+      invalidateWorkScheduleCaches(ref, branchId: branchId);
+      ref.invalidate(branchSchedulePatternsBranchProvider(branchId));
+      showAppServiceMessage(
+        _scaffoldKey.currentContext ?? context,
+        message: 'График филиала обновлён',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      if (snapshot != null) {
+        setState(() {
+          _employees = AsyncValue.data(snapshot);
+          _branchPatternsByDay = branchPatternsSnapshot;
+        });
+        _restoreHorizontalScrollOffset(scrollOffsetBeforeSave);
+      }
+      if (isWorkSchedulePermissionError(e)) {
+        _handleWorkSchedulePermissionDenied();
+        return;
+      }
+      showAppServiceMessage(
+        _scaffoldKey.currentContext ?? context,
+        message: _saveDayErrorMessage(e),
+        variant: AppServiceMessageVariant.error,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _savingEmployeeId = null;
+          _savingDate = null;
+        });
+        _restoreHorizontalScrollOffset(scrollOffsetBeforeSave);
+      }
+    }
+  }
+
   Future<void> _onDayCellTap(
     WorkScheduleEmployeeRow employee,
     DateTime date,
   ) async {
+    if (employee.isBranchRow) {
+      await _onBranchDayCellTap(date);
+      return;
+    }
+
     if (!await _canChangeWorkSchedule()) {
       _showWorkScheduleNoPermissionMessage();
       return;
     }
-    if (employee.isBranchRow || isPastWorkScheduleDate(date)) return;
+    if (isPastWorkScheduleDate(date)) return;
 
     final cell = _cellForDate(employee, date);
     if (cell == null) return;
