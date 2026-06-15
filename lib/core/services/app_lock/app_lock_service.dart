@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -31,10 +33,11 @@ class AppLockService {
   Future<bool> canUseBiometrics() async {
     if (kIsWeb) return false;
     try {
-      final supported = await _localAuth.isDeviceSupported();
-      if (!supported) return false;
-      return await _localAuth.canCheckBiometrics ||
-          await _localAuth.isDeviceSupported();
+      if (!await _localAuth.isDeviceSupported()) return false;
+      final enrolled = await _localAuth.getAvailableBiometrics();
+      return enrolled.isNotEmpty;
+    } on LocalAuthException {
+      return false;
     } catch (_) {
       return false;
     }
@@ -48,11 +51,15 @@ class AppLockService {
         return 'Face ID';
       }
       if (types.contains(BiometricType.fingerprint)) {
-        return 'Отпечаток пальца';
+        return Platform.isIOS ? 'Touch ID' : 'Отпечаток пальца';
       }
-      if (types.contains(BiometricType.strong) ||
-          types.contains(BiometricType.weak)) {
-        return 'Биометрия';
+      if (types.contains(BiometricType.strong)) {
+        // Android: отпечаток / сканер радужки.
+        return Platform.isIOS ? 'Биометрия' : 'Отпечаток пальца';
+      }
+      if (types.contains(BiometricType.weak)) {
+        // Android: распознавание лица.
+        return Platform.isIOS ? 'Биометрия' : 'Распознавание лица';
       }
     } catch (_) {}
     return 'Биометрия';
@@ -62,11 +69,13 @@ class AppLockService {
     final ok = await authenticateWithBiometrics(
       reason: 'Подтвердите включение блокировки приложения',
     );
-    if (!ok) {
-      throw AppLockSetupException('Не удалось подтвердить биометрию');
-    }
+    if (!ok) return;
+
     await _secureStorage.delete(key: _appLockPinSecureKey);
-    await _storage.saveString(appLockModeStorageKey, AppLockMode.biometric.storageValue);
+    await _storage.saveString(
+      appLockModeStorageKey,
+      AppLockMode.biometric.storageValue,
+    );
   }
 
   Future<void> enablePin(String pin) async {
@@ -75,7 +84,10 @@ class AppLockService {
       throw AppLockSetupException('PIN должен содержать минимум 4 цифры');
     }
     await _secureStorage.write(key: _appLockPinSecureKey, value: normalized);
-    await _storage.saveString(appLockModeStorageKey, AppLockMode.pin.storageValue);
+    await _storage.saveString(
+      appLockModeStorageKey,
+      AppLockMode.pin.storageValue,
+    );
   }
 
   Future<bool> verifyPin(String pin) async {
@@ -84,6 +96,7 @@ class AppLockService {
     return saved == pin.trim();
   }
 
+  /// `true` — успех, `false` — пользователь отменил. Ошибки — [AppLockSetupException].
   Future<bool> authenticateWithBiometrics({required String reason}) async {
     if (kIsWeb) return false;
     try {
@@ -92,11 +105,47 @@ class AppLockService {
         biometricOnly: true,
         persistAcrossBackgrounding: true,
       );
-    } on LocalAuthException catch (_) {
-      return false;
-    } catch (_) {
-      return false;
+    } on LocalAuthException catch (e) {
+      switch (e.code) {
+        case LocalAuthExceptionCode.userCanceled:
+        case LocalAuthExceptionCode.systemCanceled:
+          return false;
+        case LocalAuthExceptionCode.noBiometricsEnrolled:
+          throw AppLockSetupException(
+            'На устройстве не настроена биометрия. '
+            'Добавьте отпечаток или Face ID в настройках телефона.',
+          );
+        case LocalAuthExceptionCode.noBiometricHardware:
+        case LocalAuthExceptionCode.uiUnavailable:
+          throw AppLockSetupException(
+            'Биометрия недоступна на этом устройстве',
+          );
+        case LocalAuthExceptionCode.temporaryLockout:
+        case LocalAuthExceptionCode.biometricLockout:
+          throw AppLockSetupException(
+            'Слишком много попыток. Попробуйте позже или установите PIN-код',
+          );
+        case LocalAuthExceptionCode.timeout:
+          return false;
+        default:
+          throw AppLockSetupException(
+            await _failedToConfirmBiometricMessage(),
+          );
+      }
+    } catch (e) {
+      if (e is AppLockSetupException) rethrow;
+      throw AppLockSetupException(await _failedToConfirmBiometricMessage());
     }
+  }
+
+  Future<String> _failedToConfirmBiometricMessage() async {
+    final label = await biometricLabel();
+    return switch (label) {
+      'Отпечаток пальца' => 'Не удалось подтвердить отпечаток пальца',
+      'Распознавание лица' => 'Не удалось подтвердить распознавание лица',
+      'Touch ID' => 'Не удалось подтвердить Touch ID',
+      _ => 'Не удалось подтвердить $label',
+    };
   }
 
   Future<void> disable() async {

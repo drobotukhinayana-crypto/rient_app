@@ -94,12 +94,14 @@ class _AppLockSetupPageState extends ConsumerState<AppLockSetupPage> {
     if (_isLoading) return;
     setState(() => _isLoading = true);
     final service = ref.read(appLockServiceProvider);
+    final biometricLabel = _biometricLabel ?? 'Биометрия';
     try {
       await service.enableBiometric();
+      if (!mounted) return;
       await ref.read(appLockUiProvider.notifier).onBiometricEnabled();
       if (!mounted) return;
       await _finishSetup();
-      _showSetupSuccessMessage('Блокировка по $_biometricLabel включена');
+      _showSetupSuccessMessage('Блокировка по $biometricLabel включена');
     } on AppLockSetupException catch (e) {
       if (mounted) {
         showAppServiceMessage(
@@ -112,7 +114,7 @@ class _AppLockSetupPageState extends ConsumerState<AppLockSetupPage> {
       if (mounted) {
         showAppServiceMessage(
           context,
-          message: 'Не удалось включить биометрию',
+          message: 'Не удалось включить $biometricLabel',
           variant: AppServiceMessageVariant.error,
         );
       }
