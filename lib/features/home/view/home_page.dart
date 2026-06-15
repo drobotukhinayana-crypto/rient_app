@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
+import 'package:rient_app/core/network/app_connectivity_provider.dart';
+import 'package:rient_app/core/network/app_offline.dart'
+    show appNoConnectionMessage, shouldShowNoConnectionMessage;
+import 'package:rient_app/core/network/connectivity_recovery_listener.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
-import 'package:rient_app/core/network/app_offline.dart'
-    show appNoConnectionMessage, shouldShowNoConnectionMessage;
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/offline_message.dart';
 import 'package:rient_app/core/widgets/schedule_offline_banner.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
-import 'package:rient_app/core/network/app_connectivity_provider.dart';
-import 'package:rient_app/core/network/connectivity_recovery_listener.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/components/services_today_grid_view.dart';
 import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
 import 'package:rient_app/features/home/view/providers/today_revenue_metrics_provider.dart';
+import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart'
     show scheduleOfflineModeProvider, tryRecoverScheduleNetwork;
-import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class HomePage extends StatelessWidget {
@@ -54,7 +54,8 @@ class _BodyWidget extends ConsumerWidget {
 
     ref.watch(connectivityRecoveryListenerProvider);
 
-    final isOffline = ref.watch(appNoConnectionProvider) ||
+    final isOffline =
+        ref.watch(appNoConnectionProvider) ||
         ref.watch(scheduleOfflineModeProvider);
 
     Future<void> onRefresh() async {
@@ -125,14 +126,14 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
     final statisticsAsync = ref.watch(statisticsProvider);
     final roleId = ref.watch(roleProvider);
     final isWorkerRole = roleId == UserRole.worker.value;
-    final workerPermissions = ref.watch(workerPermissionsProvider).maybeWhen(
-          data: (v) => v,
-          orElse: () => null,
-        );
+    final workerPermissions = ref
+        .watch(workerPermissionsProvider)
+        .maybeWhen(data: (v) => v, orElse: () => null);
     final isOwnerOrManager =
         roleId == UserRole.owner.value || roleId == UserRole.manager.value;
     final todayRevenueAsync = ref.watch(todayRevenueMetricsProvider);
-    final isOffline = ref.watch(appNoConnectionProvider) ||
+    final isOffline =
+        ref.watch(appNoConnectionProvider) ||
         ref.watch(scheduleOfflineModeProvider);
 
     if (isOffline) {
@@ -203,6 +204,21 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
               final cancelled = dayAppointments?.cancelled ?? 0;
               final dayIncomeValue = dayIncome?.income ?? 0.0;
               final dayPayDueValue = dayIncome?.payDue ?? 0.0;
+              final statTitleStyle = AppFonts.c1Medium;
+              TextStyle statRublesStyle(Color color) =>
+                  AppFonts.c1Medium.copyWith(color: color);
+
+              Widget statRublesText(String text, Color color) {
+                return FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    text,
+                    maxLines: 1,
+                    style: statRublesStyle(color),
+                  ),
+                );
+              }
 
               return Column(
                 children: [
@@ -219,7 +235,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Записей', style: AppFonts.b2Medium),
+                              Text('Записей', style: statTitleStyle),
                               Gap(8),
                               Text(
                                 totalAppointments.toString(),
@@ -244,7 +260,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Новых', style: AppFonts.b2Medium),
+                              Text('Новых', style: statTitleStyle),
                               Gap(8),
                               Text(
                                 newCount.toString(),
@@ -270,8 +286,8 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Отменено',
-                                style: AppFonts.b2Medium,
+                                'Отмена',
+                                style: statTitleStyle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -311,11 +327,9 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                                 children: [
                                   Text('Доход', style: AppFonts.b2Medium),
                                   Gap(8),
-                                  Text(
+                                  statRublesText(
                                     '${dayIncomeValue.toStringAsFixed(0)} ₽',
-                                    style: AppFonts.h4Medium.copyWith(
-                                      color: AppColors.themeAccent(context),
-                                    ),
+                                    AppColors.themeAccent(context),
                                   ),
                                 ],
                               ),
@@ -337,11 +351,9 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                                 children: [
                                   Text('К выплате', style: AppFonts.b2Medium),
                                   Gap(8),
-                                  Text(
+                                  statRublesText(
                                     '${dayPayDueValue.toStringAsFixed(0)} ₽',
-                                    style: AppFonts.h4Medium.copyWith(
-                                      color: AppColors.themeAccent(context),
-                                    ),
+                                    AppColors.themeAccent(context),
                                   ),
                                 ],
                               ),
@@ -370,7 +382,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                               children: [
                                 Text(
                                   topTitle,
-                                  style: AppFonts.b2Medium,
+                                  style: statTitleStyle,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -378,17 +390,15 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                                   const Gap(2),
                                   Text(
                                     bottomTitle,
-                                    style: AppFonts.b2Medium,
+                                    style: statTitleStyle,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                                 Gap(8),
-                                Text(
+                                statRublesText(
                                   '${value.toStringAsFixed(0)} ₽',
-                                  style: AppFonts.h4Medium.copyWith(
-                                    color: AppColors.themeAccent(context),
-                                  ),
+                                  AppColors.themeAccent(context),
                                 ),
                               ],
                             ),
@@ -401,24 +411,21 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                               children: [
                                 Expanded(
                                   child: metricCard(
-                                    topTitle: 'Прогнозируемый',
-                                    bottomTitle: 'доход',
+                                    topTitle: 'Прогноз',
                                     value: metrics.projectedIncomeToday,
                                   ),
                                 ),
                                 Gap(8),
                                 Expanded(
                                   child: metricCard(
-                                    topTitle: 'Фактический',
-                                    bottomTitle: 'доход',
+                                    topTitle: 'Факт',
                                     value: metrics.factualIncomeNow,
                                   ),
                                 ),
                                 Gap(8),
                                 Expanded(
                                   child: metricCard(
-                                    topTitle: 'Средний',
-                                    bottomTitle: 'чек',
+                                    topTitle: 'Ср. Чек',
                                     value: metrics.averageCheckToday,
                                   ),
                                 ),

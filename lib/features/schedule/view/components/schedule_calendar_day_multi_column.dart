@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/features/schedule/view/components/schedule_calendar_one_user_widget.dart';
+import 'package:rient_app/features/schedule/view/components/schedule_day_horizontal_drag_scroll.dart';
+import 'package:rient_app/features/schedule/view/components/specialist_list_view.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
 
 /// Ширина шкалы времени в дневном режиме «все мастера».
@@ -286,34 +288,57 @@ class _ScheduleCalendarDayMultiColumnState
               final availableWidth = constraints.maxWidth;
               final requestedContentWidth =
                   (columnsCount * widget.columnWidth) + separatorsTotalWidth;
-              final effectiveColumnWidth = requestedContentWidth < availableWidth
-                  ? ((availableWidth - separatorsTotalWidth) / columnsCount)
-                  : widget.columnWidth;
+              final effectiveColumnWidth =
+                  SpecialistListView.effectiveItemWidth(
+                count: columnsCount,
+                availableWidth: availableWidth,
+                itemWidth: widget.columnWidth,
+                columnSeparatorWidth: scheduleDayColumnSeparatorWidth,
+              );
+              final contentWidth = requestedContentWidth < availableWidth
+                  ? availableWidth
+                  : requestedContentWidth.toDouble();
 
-              return SingleChildScrollView(
+              final scrollView = SingleChildScrollView(
                 controller: widget.horizontalScrollController,
                 scrollDirection: Axis.horizontal,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (var i = 0; i < widget.columns.length; i++) ...[
-                      if (i > 0)
-                        Container(
-                          width: 1,
-                          color: AppColors.grey.withValues(alpha: 0.25),
-                        ),
-                      SizedBox(
-                        width: effectiveColumnWidth,
-                        child: Theme(
-                          data: i == widget.columns.length - 1
-                              ? theme
-                              : themeWithoutScrollbar,
-                          child: _calendar(i),
-                        ),
-                      ),
-                    ],
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    right: scheduleDaySpecialistRowHorizontalPadding,
+                  ),
+                  child: SizedBox(
+                    width: contentWidth,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < widget.columns.length; i++) ...[
+                          if (i > 0)
+                            Container(
+                              width: 1,
+                              color: AppColors.grey.withValues(alpha: 0.25),
+                            ),
+                          SizedBox(
+                            width: effectiveColumnWidth,
+                            child: Theme(
+                              data: i == widget.columns.length - 1
+                                  ? theme
+                                  : themeWithoutScrollbar,
+                              child: _calendar(i),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
+              );
+
+              final controller = widget.horizontalScrollController;
+              if (controller == null) return scrollView;
+
+              return ScheduleDayHorizontalDragScroll(
+                controller: controller,
+                child: scrollView,
               );
             },
           ),

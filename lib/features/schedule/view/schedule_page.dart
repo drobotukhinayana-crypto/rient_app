@@ -73,7 +73,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   /// Пока перезагружается доступность на дату, не сбрасываем колонки календаря.
   List<SpecialistItem> _lastDaySpecialists = const [];
 
-  bool _pendingDayHorizontalScrollAlign = false;
   bool _initialOfflineSyncScheduled = false;
 
   @override
@@ -148,39 +147,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     _syncingDayHorizontalScroll = false;
   }
 
-  void _alignDayHorizontalScroll({int attempt = 0}) {
-    if (!mounted || attempt > 20) return;
-
-    if (!_daySpecialistsScrollController.hasClients ||
-        !_dayCalendarScrollController.hasClients) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _alignDayHorizontalScroll(attempt: attempt + 1);
-      });
-      return;
-    }
-
-    final specialists = _daySpecialistsScrollController.position;
-    final calendar = _dayCalendarScrollController.position;
-    final target = specialists.pixels.clamp(
-      calendar.minScrollExtent,
-      calendar.maxScrollExtent,
-    );
-
-    _syncingDayHorizontalScroll = true;
-    try {
-      if ((calendar.pixels - target).abs() > 0.5) {
-        _dayCalendarScrollController.jumpTo(target);
-      }
-    } finally {
-      _syncingDayHorizontalScroll = false;
-    }
-  }
-
-  void _scheduleDayHorizontalScrollAlign() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _alignDayHorizontalScroll();
-    });
+  void _bumpScheduleUiVersion() {
+    if (!mounted) return;
+    setState(() => _refreshVersion++);
   }
 
   static List<SpecialistItem> _availableToSpecialists(
@@ -326,19 +295,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     return (start: monday, end: monday.add(const Duration(days: 6)));
   }
 
-  void _bumpScheduleUiVersion() {
-    if (!mounted) return;
-    setState(() => _refreshVersion++);
-  }
-
   /// После создания/редактирования записи — только записи и статистика.
   void _refreshScheduleAppointmentsOnly() {
     ref.invalidate(scheduleAppointmentsProvider);
     ref.invalidate(scheduleStatisticsForWeekProvider);
     ref.invalidate(scheduleStatisticsForMonthProvider);
-    _pendingDayHorizontalScrollAlign = true;
     _bumpScheduleUiVersion();
-    _scheduleDayHorizontalScrollAlign();
   }
 
   void _deferForceRefreshScheduleScreen() {
@@ -373,7 +335,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     ref.invalidate(scheduleForDateProvider);
 
     _bumpScheduleUiVersion();
-    _scheduleDayHorizontalScrollAlign();
   }
 
   List<SpecialistItem> _daySpecialistsFromProviders({
@@ -1257,14 +1218,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
             (_viewMode == ViewMode.month &&
                 (monthStatisticsLoading || monthAppointmentsLoading)));
 
-    if (_pendingDayHorizontalScrollAlign &&
-        _viewMode == ViewMode.day &&
-        multiDayColumns &&
-        !dayAppointmentsLoading) {
-      _pendingDayHorizontalScrollAlign = false;
-      _scheduleDayHorizontalScrollAlign();
-    }
-
     ref.listen(scheduleWorkersProvider, (prev, next) {
       next.whenData((_) async {
         if (ref.read(restoredSpecialistSelectionProvider)) return;
@@ -1409,8 +1362,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                       specialists: specialists,
                                       scrollController:
                                           _daySpecialistsScrollController,
-                                      itemWidth: scheduleDaySpecialistColumnWidth,
-                                      leadingInset: scheduleDaySpecialistLeadingInset(
+                                      itemWidth:
+                                          scheduleDaySpecialistColumnWidth,
+                                      leadingInset:
+                                          scheduleDaySpecialistLeadingInset(
                                         rowHorizontalPadding:
                                             scheduleDaySpecialistRowHorizontalPadding,
                                       ),

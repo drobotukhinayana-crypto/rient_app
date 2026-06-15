@@ -10,6 +10,7 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/error_label.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/otp_input.dart';
+import 'package:rient_app/core/utils/app_exit_handler.dart';
 import 'package:rient_app/features/auth/logout_action.dart';
 import 'package:rient_app/features/auth/view/providers/app_lock_provider.dart';
 import 'package:rient_app/resources/resources.dart';
@@ -48,8 +49,11 @@ class _AppLockListenerState extends ConsumerState<AppLockListener>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
+      dismissRootOverlayRoutes();
       _isBiometricUnlockInProgress = false;
-      ref.read(appLockUiProvider.notifier).lockIfEnabled();
+      if (!consumeAppLockSuppressionForPause()) {
+        ref.read(appLockUiProvider.notifier).lockIfEnabled();
+      }
       return;
     }
 

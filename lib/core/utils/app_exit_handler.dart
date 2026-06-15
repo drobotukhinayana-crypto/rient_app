@@ -31,6 +31,32 @@ BuildContext? _exitDialogHostContext(BuildContext context) {
   return null;
 }
 
+/// Закрывает диалоги и другие overlay-маршруты (например «Выйти? Да/Нет»),
+/// чтобы при блокировке PIN они не мелькали при возврате в приложение.
+void dismissRootOverlayRoutes() {
+  final navigator = rootNavigatorKey.currentState;
+  if (navigator == null || !navigator.canPop()) return;
+  navigator.popUntil((route) => route is PageRoute);
+}
+
+bool _suppressAppLockOnNextPause = false;
+
+/// Не показывать PIN при уходе в фон из‑за подтверждённого выхода из приложения.
+void markAppExitInProgress() {
+  _suppressAppLockOnNextPause = true;
+}
+
+bool consumeAppLockSuppressionForPause() {
+  if (!_suppressAppLockOnNextPause) return false;
+  _suppressAppLockOnNextPause = false;
+  return true;
+}
+
+Future<void> exitApplication() async {
+  markAppExitInProgress();
+  await SystemNavigator.pop();
+}
+
 /// Обработка системной кнопки «назад» на Android.
 Future<bool> handleAndroidBackButton(BuildContext context) async {
   if (!Platform.isAndroid) return false;
@@ -57,7 +83,7 @@ Future<bool> handleAndroidBackButton(BuildContext context) async {
     if (hostContext == null) return true;
     final shouldExit = await showExitAppConfirmDialog(hostContext);
     if (shouldExit) {
-      await SystemNavigator.pop();
+      await exitApplication();
     }
     return true;
   }
@@ -71,7 +97,7 @@ Future<bool> handleAndroidBackButton(BuildContext context) async {
   if (hostContext == null) return true;
   final shouldExit = await showExitAppConfirmDialog(hostContext);
   if (shouldExit) {
-    await SystemNavigator.pop();
+    await exitApplication();
   }
   return true;
 }
