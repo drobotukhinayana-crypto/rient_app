@@ -123,8 +123,11 @@ class _OtpInputState extends State<OtpInput> {
               textInputAction: TextInputAction.done,
               enableSuggestions: false,
               autocorrect: false,
+              enableInteractiveSelection: false,
               showCursor: false,
               style: const TextStyle(color: Colors.transparent, fontSize: 1),
+              contextMenuBuilder: (context, editableTextState) =>
+                  const SizedBox.shrink(),
               decoration: const InputDecoration(
                 counterText: '',
                 border: InputBorder.none,

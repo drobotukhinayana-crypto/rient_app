@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -11,6 +12,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:rient_app/core/services/notification_service.dart';
 import 'package:rient_app/core/services/push_device_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
+import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/chat/data/models/push_device_api/push_device_api.dart';
 import 'package:rient_app/features/chat/service/mobile_push_service.dart';
@@ -39,10 +41,16 @@ class PushRegistrationService {
   bool _initialized = false;
 
   void dispose() {
-    _registerRetryTimer?.cancel();
-    _registerRetryTimer = null;
+    cancelPendingRetries();
     unawaited(_tokenRefreshSubscription?.cancel());
     _tokenRefreshSubscription = null;
+  }
+
+  /// Отменяет отложенную регистрацию (logout / смена пользователя).
+  void cancelPendingRetries() {
+    _registerRetryTimer?.cancel();
+    _registerRetryTimer = null;
+    _registerRetryAttempt = 0;
   }
 
   Future<void> ensureInitialized() async {
@@ -176,6 +184,19 @@ class PushRegistrationService {
         'active=${device.isActive} pushEnabled=${device.pushEnabled}',
       );
     } catch (e, st) {
+      final caused = e is CustomException ? e.causedError : e;
+      if (caused is DioException) {
+        final status = caused.response?.statusCode;
+        debugPrint(
+          'PushRegistrationService: register HTTP $status '
+          'body=${caused.response?.data}',
+        );
+        // 401 при смене аккаунта или просроченном токене — не ретраим.
+        if (status == 401 || status == 403) {
+          cancelPendingRetries();
+          return;
+        }
+      }
       debugPrint('PushRegistrationService: register failed: $e\n$st');
       _scheduleRegisterRetry();
     }
@@ -192,6 +213,8 @@ class PushRegistrationService {
   }
 
   Future<void> deactivateCurrentDevice() async {
+    cancelPendingRetries();
+
     final organizationId = ref.read(organizationIdProvider);
     if (organizationId <= 0) return;
 

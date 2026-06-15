@@ -23,6 +23,7 @@ import 'package:rient_app/features/chat/view/providers/push_history_provider.dar
 import 'package:rient_app/features/home/view/providers/account_profile_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
+import 'package:rient_app/features/home/view/providers/organization_settings_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
 import 'package:rient_app/features/home/view/providers/today_revenue_metrics_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
@@ -30,6 +31,8 @@ import 'package:rient_app/features/schedule/data/schedule_appointments_cache.dar
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
 Future<void> _remoteLogoutCleanup(dynamic ref) async {
+  ref.read(pushRegistrationServiceProvider).cancelPendingRetries();
+
   try {
     await ref
         .read(notificationsWebSocketControllerProvider)
@@ -76,6 +79,7 @@ Future<void> clearUserSession(dynamic ref) async {
 
   ref.invalidate(branchesProvider);
   ref.invalidate(accountProfileProvider);
+  ref.invalidate(organizationSettingsProvider);
   ref.invalidate(statisticsProvider);
   ref.invalidate(todayRevenueMetricsProvider);
   ref.invalidate(currentWorkerIdProvider);
@@ -112,6 +116,7 @@ Future<void> _clearUserSessionLocalFallback(dynamic ref) async {
     invalidateScheduleNetworkProviders(ref);
     ref.invalidate(branchesProvider);
     ref.invalidate(accountProfileProvider);
+    ref.invalidate(organizationSettingsProvider);
   } catch (_) {}
 }
 

@@ -71,6 +71,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         success: (value) {
           // Переходим на OTP только если мы ещё на экране Auth (успех от запроса кода).
           // Иначе при успешной верификации OTP этот listener тоже сработает и снова откроет OTP.
+          if (!context.mounted) return;
           if (ModalRoute.of(context)?.isCurrent ?? false) {
             OtpPage.navigate(context, email: ref.read(_emailProvider));
           }

@@ -25,8 +25,8 @@ Future<bool?> showAppointmentInventoryConflictDialog({
       final divider = isDark ? AppColors.secondaryDarkDark : AppColors.secondaryDark;
 
       final intro = inventoryLabel == null || inventoryLabel.isEmpty
-          ? 'Инвентарь в выбранное время будут использоваться:'
-          : 'Инвентарь «$inventoryLabel» в выбранное время будут использоваться:';
+          ? 'Инвентарь в выбранное время будет использоваться:'
+          : 'Инвентарь «$inventoryLabel» в выбранное время будет использоваться:';
 
       return Dialog(
         backgroundColor: Colors.transparent,

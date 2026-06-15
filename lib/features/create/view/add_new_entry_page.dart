@@ -14,6 +14,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/models/worker_entity_labels.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/services/local_storage.dart';
+import 'package:rient_app/core/utils/appointment_backdate.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
@@ -34,6 +35,7 @@ import 'package:rient_app/features/create/view/providers/workers_offering_catalo
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/home/view/providers/organization_settings_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_appointments_refresh.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
@@ -341,10 +343,17 @@ class _CreateAppointmentServiceDraft {
 }
 
 class AddNewEntryInitialData {
-  const AddNewEntryInitialData({this.startDateTime, this.workerId});
+  const AddNewEntryInitialData({
+    this.startDateTime,
+    this.workerId,
+    this.limitSpecialistsToWorkingDay = false,
+  });
 
   final DateTime? startDateTime;
   final int? workerId;
+
+  /// Только при открытии из ячейки расписания: список мастеров — кто работает в этот день.
+  final bool limitSpecialistsToWorkingDay;
 }
 
 class AddNewEntryPage extends ConsumerStatefulWidget {
@@ -649,6 +658,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   _EntryDatePickerPredicateCache? _datePickerPredicateCache;
   Future<void>? _datePickerPredicatePrefetch;
   bool _permissionsRefreshed = false;
+  bool _limitSpecialistsToWorkingDay = false;
 
   bool _canSeeContactData(WorkerPermissions? permissions) {
     final blocked = ref.read(seeContactDataBlockedProvider);
@@ -858,6 +868,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (widget.initialAppointment != null) return;
     final initialData = widget.initialData;
     if (initialData == null) return;
+    _limitSpecialistsToWorkingDay = initialData.limitSpecialistsToWorkingDay;
     final startDateTime = initialData.startDateTime;
     if (startDateTime != null) {
       final local = startDateTime.toLocal();
@@ -1867,15 +1878,35 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       }
       if (!mounted) return;
 
+      final allowBackdatedAppointments = await ref
+          .read(organizationSettingsProvider.future)
+          .then((settings) => settings.allowBackdatedAppointments)
+          .catchError((_) => true);
+      if (!mounted) return;
+      final preservedCalendarDate = widget.initialAppointment != null
+          ? _appointmentCalendarDate(widget.initialAppointment!)
+          : null;
+
+      bool isDaySelectable(DateTime day) {
+        final normalized = _dateOnly(day);
+        if (!isAppointmentDaySelectable(
+          day: normalized,
+          allowBackdatedAppointments: allowBackdatedAppointments,
+          preservedCalendarDate: preservedCalendarDate,
+        )) {
+          return false;
+        }
+        if (isSelectableDay == null) return true;
+        return isSelectableDay(normalized);
+      }
+
       final anchor = _dateOnly(_selectedDate);
-      final initialDate = isSelectableDay == null
+      final initialDate = isDaySelectable(anchor)
           ? anchor
-          : (isSelectableDay(anchor)
-              ? anchor
-              : resolveNextWorkerWorkDate(
-                  from: anchor,
-                  isWorkDay: (d) => isSelectableDay!(_dateOnly(d)),
-                ));
+          : resolveNextWorkerWorkDate(
+              from: anchor,
+              isWorkDay: isDaySelectable,
+            );
 
       final picked = await showDatePicker(
         context: context,
@@ -1883,10 +1914,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         firstDate: DateTime(2000),
         lastDate: DateTime(2100),
         locale: const Locale('ru'),
-        selectableDayPredicate: (day) {
-          if (isSelectableDay == null) return true;
-          return isSelectableDay(_dateOnly(day));
-        },
+        selectableDayPredicate: isDaySelectable,
       );
       if (picked == null || !mounted) return;
       setState(() => _selectedDate = _dateOnly(picked));
@@ -2479,6 +2507,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final eligibleSpecialistIdsAsync = ref.watch(
       workersOfferingCatalogServicesProvider(specialistFilterKeyForWatch),
     );
+    final selectedDateOnly = _dateOnly(_selectedDate);
+    final selectedShiftAsync = ref.watch(
+      availableWorkersForDateProvider(selectedDateOnly),
+    );
     final specialistsBase = workersAsync.maybeWhen(
       data: (response) => response.results
           .map(
@@ -2492,11 +2524,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           .toList(),
       orElse: () => const <_SpecialistOption>[],
     );
-    final List<_SpecialistOption> specialists;
+    final List<_SpecialistOption> specialistsBeforeWorkingDayFilter;
     if (isWorkerRole) {
       if (currentWorkerId != null && currentWorkerId > 0) {
         if (workerCanPickTransferTarget) {
-          specialists = eligibleSpecialistIdsAsync.when(
+          specialistsBeforeWorkingDayFilter = eligibleSpecialistIdsAsync.when(
             data: (eligible) => specialistsBase
                 .where((s) => eligible.contains(s.id))
                 .toList(),
@@ -2510,17 +2542,17 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             },
           );
         } else {
-          specialists = specialistsBase
+          specialistsBeforeWorkingDayFilter = specialistsBase
               .where((s) => s.id == currentWorkerId)
               .toList();
         }
       } else {
-        specialists = const [];
+        specialistsBeforeWorkingDayFilter = const [];
       }
     } else if (requiredCatalogServiceIds.isEmpty) {
-      specialists = specialistsBase;
+      specialistsBeforeWorkingDayFilter = specialistsBase;
     } else {
-      specialists = eligibleSpecialistIdsAsync.when(
+      specialistsBeforeWorkingDayFilter = eligibleSpecialistIdsAsync.when(
         data: (eligible) => specialistsBase
             .where((s) => eligible.contains(s.id))
             .toList(),
@@ -2536,6 +2568,26 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         error: (_, __) => specialistsBase,
       );
     }
+    final specialists = _limitSpecialistsToWorkingDay
+        ? selectedShiftAsync.when(
+            data: (shifts) {
+              final workingIds = shifts.map((s) => s.worker.id).toSet();
+              return specialistsBeforeWorkingDayFilter
+                  .where((s) => workingIds.contains(s.id))
+                  .toList();
+            },
+            loading: () {
+              final keepId = _selectedSpecialistId;
+              if (keepId != null && keepId > 0) {
+                return specialistsBeforeWorkingDayFilter
+                    .where((s) => s.id == keepId)
+                    .toList();
+              }
+              return const <_SpecialistOption>[];
+            },
+            error: (_, __) => specialistsBeforeWorkingDayFilter,
+          )
+        : specialistsBeforeWorkingDayFilter;
     final selectedSpecialistId =
         specialists.any((item) => item.id == _selectedSpecialistId)
         ? _selectedSpecialistId
@@ -2543,10 +2595,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final workerServicesAsync = selectedSpecialistId == null
         ? const AsyncValue.data(<WorkerServiceItem>[])
         : ref.watch(workerServicesForWorkerProvider(selectedSpecialistId));
-    final selectedDateOnly = _dateOnly(_selectedDate);
-    final selectedShiftAsync = ref.watch(
-      availableWorkersForDateProvider(selectedDateOnly),
-    );
     final selectedShift = selectedSpecialistId == null
         ? null
         : _shiftForSpecialist(

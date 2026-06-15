@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/features/schedule/view/components/schedule_calendar_one_user_widget.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
-import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
 
 /// Ширина шкалы времени в дневном режиме «все мастера».
 const scheduleDayTimeRulerWidth = 50.0;
@@ -70,6 +69,7 @@ class ScheduleCalendarDayMultiColumn extends StatefulWidget {
     this.timeIntervalMinutes = 10,
     this.onAppointmentTap,
     this.onEmptySlotTap,
+    this.canTapEmptySlot,
   });
 
   final DateTime date;
@@ -81,6 +81,7 @@ class ScheduleCalendarDayMultiColumn extends StatefulWidget {
   final int timeIntervalMinutes;
   final ValueChanged<ScheduleAppointmentItem>? onAppointmentTap;
   final void Function(int workerId, DateTime dateTime)? onEmptySlotTap;
+  final bool Function(DateTime dateTime)? canTapEmptySlot;
 
   @override
   State<ScheduleCalendarDayMultiColumn> createState() =>
@@ -195,6 +196,7 @@ class _ScheduleCalendarDayMultiColumnState
         _detachIndex(index);
       }
       _scrollToTopPending = true;
+      _scheduleAlignAllToMaster();
       return;
     }
     _scheduleAlignAllToMaster();
@@ -208,9 +210,9 @@ class _ScheduleCalendarDayMultiColumnState
     super.dispose();
   }
 
-  Widget _calendar(int i, String dateKey) {
+  Widget _calendar(int i) {
     return ScheduleCalendarOneUserWidget(
-      key: ValueKey('day_col_${widget.columns[i].workerId}_$dateKey'),
+      key: ValueKey('day_col_${widget.columns[i].workerId}'),
       date: widget.date,
       items: widget.columns[i].items,
       viewMode: ViewMode.day,
@@ -224,15 +226,16 @@ class _ScheduleCalendarDayMultiColumnState
       timeIntervalMinutes: widget.timeIntervalMinutes,
       onScrollPositionReady: (pos) => _onScrollReady(i, pos),
       onAppointmentTap: widget.onAppointmentTap,
+      canTapEmptySlot: widget.canTapEmptySlot,
       onEmptySlotTap: (dateTime) {
         widget.onEmptySlotTap?.call(widget.columns[i].workerId, dateTime);
       },
     );
   }
 
-  Widget _timeRulerCalendar(String dateKey) {
+  Widget _timeRulerCalendar() {
     return ScheduleCalendarOneUserWidget(
-      key: ValueKey('day_time_ruler_$dateKey'),
+      key: const ValueKey('day_time_ruler'),
       date: widget.date,
       items: const [],
       viewMode: ViewMode.day,
@@ -241,6 +244,7 @@ class _ScheduleCalendarDayMultiColumnState
       timeRulerSize: _ruler,
       timeIntervalMinutes: widget.timeIntervalMinutes,
       onScrollPositionReady: (pos) => _onScrollReady(-1, pos),
+      canTapEmptySlot: widget.canTapEmptySlot,
     );
   }
 
@@ -261,7 +265,6 @@ class _ScheduleCalendarDayMultiColumnState
       scrollbarTheme: scrollbarHidden,
     );
 
-    final dateKey = scheduleDateKey(widget.date);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -269,7 +272,7 @@ class _ScheduleCalendarDayMultiColumnState
           width: _ruler,
           child: Theme(
             data: themeWithoutScrollbar,
-            child: _timeRulerCalendar(dateKey),
+            child: _timeRulerCalendar(),
           ),
         ),
         Container(width: 1, color: AppColors.grey.withValues(alpha: 0.25)),
@@ -305,7 +308,7 @@ class _ScheduleCalendarDayMultiColumnState
                           data: i == widget.columns.length - 1
                               ? theme
                               : themeWithoutScrollbar,
-                          child: _calendar(i, dateKey),
+                          child: _calendar(i),
                         ),
                       ),
                     ],

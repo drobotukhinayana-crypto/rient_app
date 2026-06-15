@@ -165,16 +165,20 @@ class AppointmentsService {
             'Authorization': 'JWT $token',
             'Content-Type': 'application/json',
           },
+          validateStatus: (status) => status != null && status < 500,
         ),
       );
 
-      if ((response.statusCode == 201 || response.statusCode == 200) &&
-          response.data != null) {
-        final raw = response.data;
+      final raw = response.data;
+      if (raw != null) {
         _throwIfInventoryConflictResponse(
           raw,
           createAnyway: createAnyway,
         );
+      }
+
+      if ((response.statusCode == 201 || response.statusCode == 200) &&
+          raw != null) {
         if (raw is List<dynamic>) {
           return raw
               .whereType<Map<String, dynamic>>()
@@ -186,8 +190,11 @@ class AppointmentsService {
         }
       }
       throw CustomException(
-        causedError: Exception(
-          'Failed to create appointment: ${response.statusCode}',
+        causedError: DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+          message: 'Failed to create appointment: ${response.statusCode}',
         ),
       );
     } catch (e) {
@@ -228,20 +235,28 @@ class AppointmentsService {
             'Authorization': 'JWT $token',
             'Content-Type': 'application/json',
           },
+          validateStatus: (status) => status != null && status < 500,
         ),
       );
 
-      if ((response.statusCode == 200 || response.statusCode == 201) &&
-          response.data != null) {
+      final raw = response.data;
+      if (raw != null) {
         _throwIfInventoryConflictResponse(
-          response.data,
+          raw,
           createAnyway: createAnyway,
         );
-        return Map<String, dynamic>.from(response.data!);
+      }
+
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          raw != null) {
+        return Map<String, dynamic>.from(raw);
       }
       throw CustomException(
-        causedError: Exception(
-          'Failed to update appointment: ${response.statusCode}',
+        causedError: DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+          message: 'Failed to update appointment: ${response.statusCode}',
         ),
       );
     } catch (e) {

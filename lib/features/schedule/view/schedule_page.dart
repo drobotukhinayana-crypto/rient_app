@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/models/worker_entity_labels.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/services/local_storage.dart';
+import 'package:rient_app/core/utils/appointment_backdate.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/app_exit_handler.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
@@ -21,6 +22,7 @@ import 'package:rient_app/features/home/data/models/branches_api/branches_api.da
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/home/view/providers/organization_settings_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
@@ -80,6 +82,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     _syncToNow();
     _daySpecialistsScrollController.addListener(_onSpecialistsScrolled);
     _dayCalendarScrollController.addListener(_onCalendarScrolled);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(ref.read(organizationSettingsProvider.future));
+    });
   }
 
   @override
@@ -488,6 +494,37 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     _onReturnFromAddEntryPage(changed);
   }
 
+  void _tryOpenEmptySlot({
+    required bool scheduleReadOnly,
+    required bool canCreateSchedule,
+    required bool allowBackdatedAppointments,
+    required AddNewEntryInitialData extra,
+  }) {
+    if (scheduleReadOnly || !canCreateSchedule) return;
+    final startDateTime = extra.startDateTime;
+    if (startDateTime != null &&
+        !canCreateAppointmentAtSlot(
+          dateTime: startDateTime,
+          allowBackdatedAppointments: allowBackdatedAppointments,
+        )) {
+      return;
+    }
+    unawaited(_openAddEntryFromEmptySlot(extra: extra));
+  }
+
+  bool _canTapEmptySlot({
+    required bool scheduleReadOnly,
+    required bool canCreateSchedule,
+    required bool allowBackdatedAppointments,
+    required DateTime dateTime,
+  }) {
+    if (scheduleReadOnly || !canCreateSchedule) return false;
+    return canCreateAppointmentAtSlot(
+      dateTime: dateTime,
+      allowBackdatedAppointments: allowBackdatedAppointments,
+    );
+  }
+
   static DateTime _safeParseToLocal(String? raw, DateTime fallback) {
     if (raw == null || raw.isEmpty) return fallback;
     final parsed = DateTime.tryParse(raw);
@@ -856,7 +893,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           orElse: () => null,
         );
     final canCreateSchedule = workerPermissions?.createSchedule ?? true;
+    final allowBackdatedAppointments = ref.watch(allowBackdatedAppointmentsProvider);
     final scheduleReadOnly = isScheduleOffline;
+    bool canTapEmptySlot(DateTime dateTime) => _canTapEmptySlot(
+          scheduleReadOnly: scheduleReadOnly,
+          canCreateSchedule: canCreateSchedule,
+          allowBackdatedAppointments: allowBackdatedAppointments,
+          dateTime: dateTime,
+        );
 
     if (!_initialOfflineSyncScheduled) {
       _initialOfflineSyncScheduled = true;
@@ -1376,7 +1420,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                   child: multiDayColumns
                                       ? ScheduleCalendarDayMultiColumn(
                                           key: ValueKey(
-                                            'schedule_day_multi_${scheduleDateKey(selectedDate)}_$_refreshVersion',
+                                            'schedule_day_multi_$_refreshVersion',
                                           ),
                                           date: selectedDate,
                                           branchStartHour: dayWorkHours.startHour,
@@ -1460,19 +1504,19 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                             _onReturnFromAddEntryPage(changed);
                                           },
                                           onEmptySlotTap: (workerId, dateTime) {
-                                            if (scheduleReadOnly ||
-                                                !canCreateSchedule) {
-                                              return;
-                                            }
-                                            unawaited(
-                                              _openAddEntryFromEmptySlot(
-                                                extra: AddNewEntryInitialData(
-                                                  workerId: workerId,
-                                                  startDateTime: dateTime,
-                                                ),
+                                            _tryOpenEmptySlot(
+                                              scheduleReadOnly: scheduleReadOnly,
+                                              canCreateSchedule: canCreateSchedule,
+                                              allowBackdatedAppointments:
+                                                  allowBackdatedAppointments,
+                                              extra: AddNewEntryInitialData(
+                                                workerId: workerId,
+                                                startDateTime: dateTime,
+                                                limitSpecialistsToWorkingDay: true,
                                               ),
                                             );
                                           },
+                                          canTapEmptySlot: canTapEmptySlot,
                                         )
                                       : ScheduleCalendarOneUserWidget(
                                           key: ValueKey(
@@ -1502,22 +1546,22 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                             _onReturnFromAddEntryPage(changed);
                                           },
                                           onEmptySlotTap: (dateTime) {
-                                            if (scheduleReadOnly ||
-                                                !canCreateSchedule) {
-                                              return;
-                                            }
                                             if (specialistIdForData == null) {
                                               return;
                                             }
-                                            unawaited(
-                                              _openAddEntryFromEmptySlot(
-                                                extra: AddNewEntryInitialData(
-                                                  workerId: specialistIdForData,
-                                                  startDateTime: dateTime,
-                                                ),
+                                            _tryOpenEmptySlot(
+                                              scheduleReadOnly: scheduleReadOnly,
+                                              canCreateSchedule: canCreateSchedule,
+                                              allowBackdatedAppointments:
+                                                  allowBackdatedAppointments,
+                                              extra: AddNewEntryInitialData(
+                                                workerId: specialistIdForData,
+                                                startDateTime: dateTime,
+                                                limitSpecialistsToWorkingDay: true,
                                               ),
                                             );
                                           },
+                                          canTapEmptySlot: canTapEmptySlot,
                                         ),
                                 ),
                               ],
@@ -1593,22 +1637,22 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                           _onReturnFromAddEntryPage(changed);
                                         },
                                         onEmptySlotTap: (dateTime) {
-                                          if (scheduleReadOnly ||
-                                              !canCreateSchedule) {
-                                            return;
-                                          }
                                           if (specialistIdForData == null) {
                                             return;
                                           }
-                                          unawaited(
-                                            _openAddEntryFromEmptySlot(
-                                              extra: AddNewEntryInitialData(
-                                                workerId: specialistIdForData,
-                                                startDateTime: dateTime,
-                                              ),
+                                          _tryOpenEmptySlot(
+                                            scheduleReadOnly: scheduleReadOnly,
+                                            canCreateSchedule: canCreateSchedule,
+                                            allowBackdatedAppointments:
+                                                allowBackdatedAppointments,
+                                            extra: AddNewEntryInitialData(
+                                              workerId: specialistIdForData,
+                                              startDateTime: dateTime,
+                                              limitSpecialistsToWorkingDay: true,
                                             ),
                                           );
                                         },
+                                        canTapEmptySlot: canTapEmptySlot,
                                       ),
                                     ),
                                   ],

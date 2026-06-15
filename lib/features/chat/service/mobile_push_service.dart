@@ -221,7 +221,7 @@ class MobilePushService {
         ),
       );
     } catch (e) {
-      await handleUnauthorizedIfNeeded(ref, e);
+      // Регистрация push — фоновая задача; 401 при смене аккаунта не должен ронять сессию.
       throw CustomException(causedError: e);
     }
   }
@@ -259,7 +259,7 @@ class MobilePushService {
         ),
       );
     } catch (e) {
-      await handleUnauthorizedIfNeeded(ref, e);
+      // Деактивация при logout часто получает 401 — это ожидаемо.
       throw CustomException(causedError: e);
     }
   }

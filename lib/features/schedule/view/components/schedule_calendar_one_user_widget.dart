@@ -60,6 +60,7 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
     this.onScrollPositionReady,
     this.onAppointmentTap,
     this.onEmptySlotTap,
+    this.canTapEmptySlot,
   });
 
   static const kDefaultTimeRulerSize = 50.0;
@@ -99,6 +100,7 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
   final ValueChanged<ScrollPosition>? onScrollPositionReady;
   final ValueChanged<ScheduleAppointmentItem>? onAppointmentTap;
   final ValueChanged<DateTime>? onEmptySlotTap;
+  final bool Function(DateTime dateTime)? canTapEmptySlot;
 
   @override
   State<ScheduleCalendarOneUserWidget> createState() =>
@@ -137,6 +139,7 @@ class _ScheduleCalendarOneUserWidgetState
     if (notification.metrics.axis != Axis.vertical) return false;
     final metrics = notification.metrics;
     if (metrics is! ScrollPosition) return false;
+    if (metrics.maxScrollExtent < 80) return false;
     _tryLinkScrollPosition(metrics);
     return false;
   }
@@ -295,8 +298,9 @@ class _ScheduleCalendarOneUserWidgetState
       }
     }
 
-    if (widget.onScrollPositionReady != null && regions.isEmpty) {
-      regions.add(
+    if (widget.onScrollPositionReady != null) {
+      regions.insert(
+        0,
         TimeRegion(
           startTime: at(widget.date, widget.startHour),
           endTime: at(widget.date, widget.startHour + 1 / 60),
@@ -339,7 +343,9 @@ class _ScheduleCalendarOneUserWidgetState
   }
 
   Widget _buildTimeRegion(BuildContext context, TimeRegionDetails details) {
-    if (widget.onScrollPositionReady != null) {
+    final isScrollProbe =
+        widget.onScrollPositionReady != null && details.bounds.height <= 4;
+    if (isScrollProbe) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final scrollable = Scrollable.maybeOf(context);
@@ -348,6 +354,7 @@ class _ScheduleCalendarOneUserWidgetState
           _tryLinkScrollPosition(position);
         }
       });
+      return const SizedBox.shrink();
     }
     if (details.bounds.height < 2) {
       return const SizedBox.shrink();
@@ -643,6 +650,10 @@ class _ScheduleCalendarOneUserWidgetState
             return;
           }
           if (details.targetElement == CalendarElement.calendarCell) {
+            if (widget.canTapEmptySlot != null &&
+                !widget.canTapEmptySlot!(date)) {
+              return;
+            }
             widget.onEmptySlotTap!(date);
           }
         },

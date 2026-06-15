@@ -21,9 +21,15 @@ class AppointmentInventoryConflictException implements Exception {
 
 bool isAppointmentInventoryConflictMessage(String? raw) {
   if (raw == null) return false;
-  return raw.contains('Инвентарь') &&
-      raw.contains('в выбранное время будут использоваться');
+  if (!raw.contains('Инвентарь')) return false;
+  return _inventoryConflictTimePhrase.hasMatch(raw);
 }
+
+/// API отдаёт и единственное («будет»), и множественное («будут») число.
+final _inventoryConflictTimePhrase = RegExp(
+  r'в выбранное время буд(?:ет|ут) использоваться',
+  caseSensitive: false,
+);
 
 bool isAppointmentInventoryConflictApiData(dynamic data) {
   if (data == null) return false;
@@ -89,6 +95,19 @@ String? parseInventoryLabelFromMessage(String message) {
 List<String> parseInventoryConflictLines(String message) {
   final lines = <String>[];
   final seen = <String>{};
+
+  final inlineTail = RegExp(
+    r'в выбранное время буд(?:ет|ут) использоваться:\s*(.+)$',
+    caseSensitive: false,
+    dotAll: true,
+  ).firstMatch(message);
+  final inlineConflict = inlineTail?.group(1)?.trim();
+  if (inlineConflict != null &&
+      inlineConflict.isNotEmpty &&
+      seen.add(inlineConflict)) {
+    lines.add(inlineConflict);
+  }
+
   for (final rawLine in message.split(RegExp(r'[\r\n]+'))) {
     final line = rawLine.trim();
     if (line.isEmpty) continue;

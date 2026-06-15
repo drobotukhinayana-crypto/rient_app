@@ -190,12 +190,11 @@ class _AppLockListenerState extends ConsumerState<AppLockListener>
                   child: Column(
                     children: [
                       Expanded(
-                        child: Center(
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.symmetric(vertical: 24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.only(top: 54, bottom: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
                                 Image.asset(AppImages.logoBig, height: 72),
                                 const Gap(24),
                                 Text(
@@ -246,8 +245,7 @@ class _AppLockListenerState extends ConsumerState<AppLockListener>
                                     ),
                                   ),
                                 ],
-                              ],
-                            ),
+                            ],
                           ),
                         ),
                       ),

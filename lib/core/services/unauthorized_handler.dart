@@ -8,7 +8,9 @@ import 'package:rient_app/core/session_data/models/session_data.dart';
 import 'package:rient_app/core/session_data/view/controller/session_data_controller.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/service/auth_service.dart';
+import 'package:rient_app/core/routes/router_provider.dart';
 import 'package:rient_app/features/auth/logout_action.dart';
+import 'package:rient_app/features/auth/view/auth_page.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
@@ -142,6 +144,12 @@ Future<void> handleUnauthorizedIfNeeded(Ref ref, Object error) async {
   final dio = dioExceptionFrom(error);
   if (dio == null) return;
   if (dio.response?.statusCode != 401) return;
+
+  final token = ref.read(tokenProvider);
+  if (token == null || token.isEmpty) return;
+
+  final location = ref.read(routerProvider).state.uri.path;
+  if (location.startsWith(AuthPage.path)) return;
 
   _isUnauthorizedHandlingInProgress = true;
   try {
