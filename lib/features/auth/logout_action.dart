@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/routes/router_provider.dart';
+import 'package:rient_app/core/services/app_lock/app_lock_service.dart';
 import 'package:rient_app/core/services/email_storage.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
@@ -15,6 +16,7 @@ import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_storage_provider.dart';
 import 'package:rient_app/features/auth/view/providers/selected_organization_member_provider.dart';
+import 'package:rient_app/features/auth/view/providers/app_lock_provider.dart';
 import 'package:rient_app/features/chat/service/notifications_websocket_service.dart';
 import 'package:rient_app/features/chat/service/push_registration_service.dart';
 import 'package:rient_app/features/chat/view/providers/push_history_provider.dart';
@@ -65,6 +67,9 @@ Future<void> clearUserSession(dynamic ref) async {
   await storage.removeValue(selectedBranchIdStorageKey);
   await storage.removeValue(scheduleOfflineCacheStorageKey);
   await storage.removeValue(scheduleOfflineCurrentWorkerIdKey);
+
+  await ref.read(appLockServiceProvider).clearAll();
+  await ref.read(appLockUiProvider.notifier).onSessionEnded();
 
   resetScheduleNetworkStateForSession(ref);
   invalidateScheduleNetworkProviders(ref);

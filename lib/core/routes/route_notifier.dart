@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/models/worker_entity_labels.dart';
+import 'package:rient_app/core/services/app_lock/app_lock_service.dart';
+import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/features/analytics/view/analytics_page.dart';
 import 'package:rient_app/features/settings/view/settings_page.dart';
 import 'package:rient_app/features/auth/view/auth_page.dart';
 import 'package:rient_app/features/auth/view/auth_password_page.dart';
+import 'package:rient_app/features/auth/view/app_lock_setup_page.dart';
 import 'package:rient_app/features/auth/view/otp_page.dart';
 import 'package:rient_app/features/auth/view/select_branch_page.dart';
 import 'package:rient_app/features/auth/view/select_company_page.dart';
@@ -31,9 +34,35 @@ final _rootNavigatorSchedule = GlobalKey<NavigatorState>(
 final _rootNavigatorChat = GlobalKey<NavigatorState>(debugLabel: 'chat');
 
 class RouterNotifier extends ChangeNotifier {
-  RouterNotifier({required this.ref});
+  RouterNotifier({required this.ref}) {
+    ref.listen<String?>(tokenProvider, (_, __) => notifyListeners());
+  }
 
   final Ref ref;
+
+  static const _pathsWithoutAppLockSetup = {
+    LaunchPage.path,
+    AuthPage.path,
+    OtpPage.path,
+    SelectCompanyPage.path,
+    SelectBranchPage.path,
+    AuthPasswordPage.path,
+    AppLockSetupPage.path,
+  };
+
+  Future<String?> redirect(BuildContext context, GoRouterState state) async {
+    if (_pathsWithoutAppLockSetup.contains(state.matchedLocation)) {
+      return null;
+    }
+
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) return null;
+
+    final needsSetup = await ref.read(appLockServiceProvider).shouldOfferSetup();
+    if (!needsSetup) return null;
+
+    return AppLockSetupPage.path;
+  }
 
   List<RouteBase> get routes => [
     _launch,
@@ -42,6 +71,7 @@ class RouterNotifier extends ChangeNotifier {
     _selectCompany,
     _selectBranch,
     _authPassword,
+    _appLockSetup,
 
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>
@@ -189,6 +219,14 @@ final GoRoute _authPassword = GoRoute(
   routes: const [],
   pageBuilder: (_, state) =>
       MaterialPage(key: state.pageKey, child: const AuthPasswordPage()),
+);
+
+final GoRoute _appLockSetup = GoRoute(
+  name: AppLockSetupPage.name,
+  path: AppLockSetupPage.path,
+  parentNavigatorKey: rootNavigatorKey,
+  pageBuilder: (_, state) =>
+      MaterialPage(key: state.pageKey, child: const AppLockSetupPage()),
 );
 
 final GoRoute _addNewEntryRoute = GoRoute(

@@ -18,8 +18,8 @@ import 'package:rient_app/features/auth/view/providers/branches_id_provider.dart
 import 'package:rient_app/features/auth/view/providers/password_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_storage_provider.dart';
+import 'package:rient_app/features/auth/utils/post_login_navigation.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
-import 'package:rient_app/features/tabbar/view/tab_bar_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class SelectBranchPage extends StatelessWidget {
@@ -150,7 +150,7 @@ class _BodyWidget extends StatelessWidget {
                     return;
                   }
                   if (!context.mounted) return;
-                  TabBarPage.navigate(context);
+                  await navigateToHomeAfterLogin(context, ref);
                 },
               ),
             ),

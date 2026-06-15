@@ -43,7 +43,9 @@ class MainButton extends ConsumerWidget {
       child: ElevatedButton(
         onPressed: isActive
             ? () {
-                if (unfocusOnTap) FocusScope.of(context).unfocus();
+                if (unfocusOnTap) {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                }
                 onTap();
               }
             : null,

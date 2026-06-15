@@ -148,13 +148,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       child: GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         behavior: HitTestBehavior.opaque,
-        child: Stack(
-          children: [
-            SingleChildScrollView(
-              padding: AppDecoration.padding16.copyWith(top: 16, bottom: 16),
-              child: Column(
-                children: [
-                  Row(
+        child: SingleChildScrollView(
+          padding: AppDecoration.padding16.copyWith(top: 16, bottom: 16),
+          child: Column(
+            children: [
+              Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       // кнопка назад
@@ -245,6 +243,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       alignment: Alignment.center,
                     ),
 
+                  if (_isVerifying) ...[
+                    Gap(16),
+                    const Center(child: CircularProgressIndicator()),
+                  ],
+
                   Gap(16),
 
                   // кнопка отправки нового кода и секундомер
@@ -284,18 +287,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   Gap(8),
                 ],
               ),
-            ),
-            if (_isVerifying) ...[
-              Positioned.fill(
-                child: ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  child: const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
-              ),
-            ],
-          ],
         ),
       ),
     );

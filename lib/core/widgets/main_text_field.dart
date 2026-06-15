@@ -146,7 +146,7 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
           maxLines: widget.isMultiline ? (widget.maxLines) : 1,
           minLines: widget.isMultiline ? (widget.maxLines ?? 5) : 1,
           cursorColor: AppColors.primaryDark,
-          onTapOutside: (_) => FocusScope.of(context).unfocus(),
+          onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
           onChanged: widget.onChanged,
           controller: widget.controller,
           obscureText: widget.isPassword && isHidden,

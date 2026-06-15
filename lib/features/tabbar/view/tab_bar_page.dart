@@ -61,9 +61,12 @@ class TabBarPage extends ConsumerStatefulWidget {
 
   static void openLinkShare(BuildContext context, WidgetRef ref) {
     if (_isOfflineExceptSchedule(ref)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(appNoConnectionMessage)),
-      );
+      final hostContext = appShellScaffoldKey.currentContext ?? context;
+      if (hostContext.mounted) {
+        ScaffoldMessenger.maybeOf(hostContext)?.showSnackBar(
+          const SnackBar(content: Text(appNoConnectionMessage)),
+        );
+      }
       return;
     }
     unawaited(WidgetLinkShare.open(context, ref));
@@ -100,7 +103,9 @@ class TabBarPage extends ConsumerStatefulWidget {
   }
 
   static void showOfflineSnackBar(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    final hostContext = appShellScaffoldKey.currentContext ?? context;
+    if (!hostContext.mounted) return;
+    ScaffoldMessenger.maybeOf(hostContext)?.showSnackBar(
       const SnackBar(content: Text(appNoConnectionMessage)),
     );
   }
@@ -212,17 +217,29 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
   }
 
   void navigateOnTabIndexed(int index, {required bool showCreateTab}) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _performTabNavigation(index, showCreateTab: showCreateTab);
+    });
+  }
+
+  void _performTabNavigation(int index, {required bool showCreateTab}) {
+    if (!mounted) return;
     final offline = ref.read(appNoConnectionProvider) ||
         ref.read(scheduleOfflineModeProvider);
     if (offline && index != 1) {
       if (showCreateTab && index == 2) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Нет интернета. Создание записи недоступно в оффлайн режиме',
+        final hostContext = appShellScaffoldKey.currentContext ?? context;
+        if (hostContext.mounted) {
+          ScaffoldMessenger.maybeOf(hostContext)?.showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Нет интернета. Создание записи недоступно в оффлайн режиме',
+              ),
             ),
-          ),
-        );
+          );
+        }
       } else {
         TabBarPage.showOfflineSnackBar(context);
       }

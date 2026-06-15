@@ -11,6 +11,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: router,
     initialLocation: LaunchPage.path,
     navigatorKey: rootNavigatorKey,
+    redirect: router.redirect,
     routes: router.routes,
   );
 });

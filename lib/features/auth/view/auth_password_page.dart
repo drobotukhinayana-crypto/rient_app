@@ -23,8 +23,8 @@ import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/auth/view/providers/role_storage_provider.dart';
 import 'package:rient_app/features/auth/view/providers/selected_organization_member_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
+import 'package:rient_app/features/auth/utils/post_login_navigation.dart';
 import 'package:rient_app/features/auth/view/select_branch_page.dart';
-import 'package:rient_app/features/tabbar/view/tab_bar_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
 final _errorPasswordProvider = StateProvider.autoDispose<String>((ref) => '');
@@ -61,7 +61,7 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
           // Владелец (role = 0) — сразу на TabBar, без выбора филиала
           if (roleId == UserRole.owner.value || _isAutoSingleBranchLogin) {
             _isAutoSingleBranchLogin = false;
-            TabBarPage.navigate(context);
+            navigateToHomeAfterLogin(context, ref);
           } else {
             SelectBranchPage.navigate(context);
           }
@@ -77,37 +77,35 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
       bottomNavigationBar: const BottomPanel(),
       body: SafeArea(
         bottom: false,
-        child: Stack(
-          children: [
-            SingleChildScrollView(
-              padding: AppDecoration.padding16.copyWith(top: 54, bottom: 16),
-              child: Column(
-                children: [
-                  // логотип
-                  Image.asset(AppImages.logoBig),
-                  Gap(28),
+        child: SingleChildScrollView(
+          padding: AppDecoration.padding16.copyWith(top: 54, bottom: 16),
+          child: Column(
+            children: [
+              // логотип
+              Image.asset(AppImages.logoBig),
+              Gap(28),
 
-                  // заголовок
-                  Text('Rient Admin', style: AppFonts.h1Semi),
-                  Gap(32),
+              // заголовок
+              Text('Rient Admin', style: AppFonts.h1Semi),
+              Gap(32),
 
-                  // поле для ввода пароля
-                  MainTextField(
-                    label: 'Пароль',
-                    controller: passwordController,
-                    hintText: 'qwerty12345!',
-                    isPassword: true,
-                    hasError: ref.watch(_errorPasswordProvider).isNotEmpty,
-                  ),
-                  if (ref.watch(_errorPasswordProvider).isNotEmpty)
-                    ErrorLabel(ref.watch(_errorPasswordProvider)),
-                  Gap(24),
+              // поле для ввода пароля
+              MainTextField(
+                label: 'Пароль',
+                controller: passwordController,
+                hintText: 'qwerty12345!',
+                isPassword: true,
+                hasError: ref.watch(_errorPasswordProvider).isNotEmpty,
+              ),
+              if (ref.watch(_errorPasswordProvider).isNotEmpty)
+                ErrorLabel(ref.watch(_errorPasswordProvider)),
+              Gap(24),
 
-                  // кнопка
-                  MainButton(
-                    title: 'Продолжить',
-                    isLoading: isTokenLoading,
-                    onTap: () async {
+              // кнопка
+              MainButton(
+                title: 'Продолжить',
+                isLoading: isTokenLoading,
+                onTap: () async {
                       final password = passwordController.text;
                       final selectedMember = ref.read(
                         selectedOrganizationMemberProvider,
@@ -166,21 +164,10 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
                       if (!mounted) return;
                       SelectBranchPage.navigate(this.context);
                     },
-                  ),
-                  Gap(8),
-                ],
               ),
-            ),
-            if (isTokenLoading)
-              Positioned.fill(
-                child: ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  child: const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
-              ),
-          ],
+              Gap(8),
+            ],
+          ),
         ),
       ),
     );

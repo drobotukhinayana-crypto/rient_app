@@ -8,12 +8,18 @@ class OtpInput extends StatefulWidget {
     super.key,
     this.length = 6,
     this.hasError = false,
+    this.autofocus = false,
+    this.fieldBackgroundColor,
+    this.idleBorderColor,
     this.onCompleted,
     this.onChanged,
   });
 
   final int length;
   final bool hasError;
+  final bool autofocus;
+  final Color? fieldBackgroundColor;
+  final Color? idleBorderColor;
   final void Function(String code)? onCompleted;
   final void Function(String code)? onChanged;
 
@@ -22,199 +28,171 @@ class OtpInput extends StatefulWidget {
 }
 
 class _OtpInputState extends State<OtpInput> {
-  late List<TextEditingController> _controllers;
-  late List<FocusNode> _focusNodes;
+  static const _cellSize = 40.0;
+  static const _cellGap = 12.0;
+
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+  bool _focused = false;
 
   @override
   void initState() {
     super.initState();
-    _controllers = List.generate(widget.length, (_) => TextEditingController());
-    _focusNodes = List.generate(widget.length, (i) {
-      return FocusNode(onKeyEvent: (node, event) => _onKeyDown(i, node, event));
-    });
-    for (var i = 0; i < widget.length; i++) {
-      _controllers[i].addListener(_onTextChanged);
+    _controller = TextEditingController();
+    _focusNode = FocusNode();
+    _controller.addListener(_onTextChanged);
+    _focusNode.addListener(_onFocusChanged);
+    if (widget.autofocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
     }
   }
 
   @override
   void dispose() {
-    for (var i = 0; i < widget.length; i++) {
-      _controllers[i].removeListener(_onTextChanged);
-      _controllers[i].dispose();
-      _focusNodes[i].dispose();
-    }
+    _controller.removeListener(_onTextChanged);
+    _focusNode.removeListener(_onFocusChanged);
+    _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
+  void _onFocusChanged() {
+    setState(() => _focused = _focusNode.hasFocus);
+  }
+
   void _onTextChanged() {
-    final code = _getCode();
+    setState(() {});
+    final code = _controller.text;
     widget.onChanged?.call(code);
     if (code.length == widget.length) {
       widget.onCompleted?.call(code);
     }
   }
 
-  String _getCode() {
-    return _controllers.map((c) => c.text).join();
+  int get _activeCellIndex {
+    if (!_focused) return -1;
+    if (_controller.text.isEmpty) return 0;
+    if (_controller.text.length >= widget.length) {
+      return widget.length - 1;
+    }
+    return _controller.text.length;
   }
 
-  void _onFieldChanged(int index, String value) {
-    if (value.length > 1) {
-      final digits = value
-          .replaceAll(RegExp(r'\D'), '')
-          .split('')
-          .take(widget.length)
-          .toList();
-      for (var i = 0; i < widget.length; i++) {
-        _controllers[i].text = i < digits.length ? digits[i] : '';
-      }
-      if (digits.isNotEmpty) {
-        final nextIndex = digits.length.clamp(0, widget.length - 1);
-        _focusNodes[nextIndex].requestFocus();
-      }
-      return;
-    }
-    if (value.isNotEmpty) {
-      _controllers[index].text = value[value.length - 1];
-      if (index < widget.length - 1) {
-        _focusNodes[index + 1].requestFocus();
-      }
-    }
-  }
-
-  KeyEventResult _onKeyDown(int index, FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    if (event.logicalKey != LogicalKeyboardKey.backspace) return KeyEventResult.ignored;
-    if (index == 0 && _controllers[index].text.isEmpty) return KeyEventResult.ignored;
-    if (_controllers[index].text.isNotEmpty) {
-      _controllers[index].clear();
-      if (index > 0) _focusNodes[index - 1].requestFocus();
-      return KeyEventResult.handled;
-    }
-    if (_controllers[index].text.isEmpty && index > 0) {
-      _focusNodes[index - 1].requestFocus();
-      _controllers[index - 1].clear();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
+  double get _totalWidth =>
+      widget.length * _cellSize + (widget.length - 1) * _cellGap;
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = widget.hasError ? AppColors.red : Colors.transparent;
     final focusedBorderColor = widget.hasError
         ? AppColors.red
         : AppColors.themeAccent(context);
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(widget.length, (index) {
-        return Padding(
-          padding: EdgeInsets.only(left: index == 0 ? 0 : 12),
-          child: _OtpDigitField(
-            controller: _controllers[index],
-            focusNode: _focusNodes[index],
-            maxLength: index == 0 ? 4 : 1,
-            hasError: widget.hasError,
-            borderColor: borderColor,
-            focusedBorderColor: focusedBorderColor,
-            onChanged: (value) => _onFieldChanged(index, value),
+    return SizedBox(
+      width: _totalWidth,
+      height: _cellSize,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(widget.length, (index) {
+              final digit = index < _controller.text.length
+                  ? _controller.text[index]
+                  : '';
+              return Padding(
+                padding: EdgeInsets.only(left: index == 0 ? 0 : _cellGap),
+                child: _OtpCell(
+                  digit: digit,
+                  isActive: index == _activeCellIndex,
+                  hasError: widget.hasError,
+                  focusedBorderColor: focusedBorderColor,
+                  fieldBackgroundColor: widget.fieldBackgroundColor,
+                  idleBorderColor: widget.idleBorderColor,
+                ),
+              );
+            }),
           ),
-        );
-      }),
+          Positioned.fill(
+            child: TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              autofocus: false,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              enableSuggestions: false,
+              autocorrect: false,
+              showCursor: false,
+              style: const TextStyle(color: Colors.transparent, fontSize: 1),
+              decoration: const InputDecoration(
+                counterText: '',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                isDense: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(widget.length),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _OtpDigitField extends StatefulWidget {
-  const _OtpDigitField({
-    required this.controller,
-    required this.focusNode,
-    required this.maxLength,
+class _OtpCell extends StatelessWidget {
+  const _OtpCell({
+    required this.digit,
+    required this.isActive,
     required this.hasError,
-    required this.borderColor,
     required this.focusedBorderColor,
-    required this.onChanged,
+    this.fieldBackgroundColor,
+    this.idleBorderColor,
   });
 
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final int maxLength;
+  final String digit;
+  final bool isActive;
   final bool hasError;
-  final Color borderColor;
   final Color focusedBorderColor;
-  final void Function(String) onChanged;
-
-  @override
-  State<_OtpDigitField> createState() => _OtpDigitFieldState();
-}
-
-class _OtpDigitFieldState extends State<_OtpDigitField> {
-  bool _focused = false;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.focusNode.addListener(_onFocusChange);
-  }
-
-  @override
-  void dispose() {
-    widget.focusNode.removeListener(_onFocusChange);
-    super.dispose();
-  }
-
-  void _onFocusChange() {
-    setState(() => _focused = widget.focusNode.hasFocus);
-  }
+  final Color? fieldBackgroundColor;
+  final Color? idleBorderColor;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isFocused = _focused;
-    final borderColor = isFocused
-        ? widget.focusedBorderColor
-        : widget.borderColor;
-    final showBorder = isFocused || widget.hasError;
+    final resolvedBorderColor = hasError
+        ? AppColors.red
+        : isActive
+        ? focusedBorderColor
+        : (idleBorderColor ?? Colors.transparent);
 
     return Container(
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight,
+        color: fieldBackgroundColor ??
+            (isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: showBorder ? borderColor : Colors.transparent,
+          color: resolvedBorderColor,
           width: 1,
         ),
       ),
-      child: TextFormField(
-        controller: widget.controller,
-        focusNode: widget.focusNode,
-        textAlign: TextAlign.center,
-        keyboardType: TextInputType.number,
-        maxLength: widget.maxLength,
+      alignment: Alignment.center,
+      child: Text(
+        digit,
         style: AppFonts.b1Semi.copyWith(
-          color: widget.hasError
+          color: hasError
               ? AppColors.red
               : isDark
               ? AppColors.primaryWhite
               : AppColors.primaryDark,
         ),
-        cursorColor: widget.hasError
-            ? AppColors.red
-            : AppColors.themeAccent(context),
-        decoration: const InputDecoration(
-          counterText: '',
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          errorBorder: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 14),
-        ),
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        onChanged: widget.onChanged,
       ),
     );
   }

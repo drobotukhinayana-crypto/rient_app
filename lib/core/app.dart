@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:rient_app/core/providers/locale_provider.dart';
 import 'package:rient_app/core/providers/theme_mode_provider.dart';
 import 'package:rient_app/core/routes/router_provider.dart';
+import 'package:rient_app/core/widgets/app_lock_listener.dart';
 import 'package:rient_app/core/widgets/screenshot_protection_listener.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 
@@ -80,6 +81,11 @@ class App extends ConsumerWidget {
           routeInformationParser: router.routeInformationParser,
           routerDelegate: router.routerDelegate,
           routeInformationProvider: router.routeInformationProvider,
+          builder: (context, child) {
+            return AppLockListener(
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
         ),
       ),
     );
