@@ -185,6 +185,16 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     }
   }
 
+  Future<void> _registerPushForActiveSession() async {
+    final token = ref.read(tokenProvider);
+    final organizationId = ref.read(organizationIdProvider);
+    if (token == null || token.isEmpty || organizationId <= 0) return;
+
+    await _ensurePushPermissionAndRegistration(
+      showDeniedSettingsPrompt: false,
+    );
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -347,9 +357,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     ref.listen<int>(organizationIdProvider, (previous, next) {
       if (next > 0 && previous != next) {
         ref.invalidate(workerEntityLabelsProvider);
-        unawaited(
-          ref.read(pushRegistrationServiceProvider).registerCurrentDevice(),
-        );
+        unawaited(_registerPushForActiveSession());
         unawaited(
           ref.read(notificationsWebSocketControllerProvider).ensureConnected(),
         );
@@ -366,16 +374,23 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
       unawaited(
         ref.read(notificationsWebSocketControllerProvider).ensureConnected(),
       );
-      unawaited(
-        ref.read(pushRegistrationServiceProvider).registerCurrentDevice(),
-      );
+      unawaited(_registerPushForActiveSession());
     });
     ref.listen<int>(currentBranchIdProvider, (previous, next) {
       if (next > 0 && previous != next) {
-        unawaited(
-          ref.read(pushRegistrationServiceProvider).registerCurrentDevice(),
-        );
+        unawaited(_registerPushForActiveSession());
       }
+    });
+    ref.listen<int>(roleProvider, (previous, next) {
+      if (next > 0 && previous != next) {
+        unawaited(_registerPushForActiveSession());
+      }
+    });
+    ref.listen(branchesProvider, (previous, next) {
+      next.whenData((_) {
+        if (!mounted) return;
+        unawaited(_registerPushForActiveSession());
+      });
     });
 
     return PopScope(

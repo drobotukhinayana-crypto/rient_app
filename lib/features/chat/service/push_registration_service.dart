@@ -115,7 +115,14 @@ class PushRegistrationService {
   Future<void> registerCurrentDevice({
     String? fcmToken,
     bool? pushEnabled,
+    bool isRetry = false,
   }) async {
+    if (!isRetry) {
+      _registerRetryTimer?.cancel();
+      _registerRetryTimer = null;
+      _registerRetryAttempt = 0;
+    }
+
     final organizationId = ref.read(organizationIdProvider);
     if (organizationId <= 0) {
       debugPrint(
@@ -214,7 +221,7 @@ class PushRegistrationService {
     final delaySeconds = 2 * (_registerRetryAttempt + 1);
     _registerRetryAttempt++;
     _registerRetryTimer = Timer(Duration(seconds: delaySeconds), () {
-      unawaited(registerCurrentDevice());
+      unawaited(registerCurrentDevice(isRetry: true));
     });
   }
 
@@ -227,8 +234,8 @@ class PushRegistrationService {
     final jwt = ref.read(tokenProvider);
     if (jwt == null || jwt.isEmpty) return;
 
+    final deviceStorage = ref.read(pushDeviceStorageProvider);
     try {
-      final deviceStorage = ref.read(pushDeviceStorageProvider);
       final deviceId = await deviceStorage.getOrCreateDeviceId();
       final apiId = await deviceStorage.getRegisteredDeviceApiId();
       final fcmToken = await _resolveFcmToken();
@@ -239,10 +246,10 @@ class PushRegistrationService {
             token: fcmToken,
             deviceId: deviceId,
           );
-
-      await deviceStorage.clearRegisteredDeviceApiId();
     } catch (e, st) {
       debugPrint('PushRegistrationService: deactivate failed: $e\n$st');
+    } finally {
+      await deviceStorage.clearRegisteredDeviceApiId();
     }
   }
 }

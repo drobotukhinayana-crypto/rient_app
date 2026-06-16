@@ -8,6 +8,7 @@ import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
+import 'package:rient_app/features/schedule/service/schedules_service.dart';
 
 final workersServiceProvider = Provider<WorkersService>(
   (ref) => WorkersService(ref),
@@ -148,7 +149,7 @@ class WorkersService {
       'organizations/$organizationId/branches/$branchId/available_workers/',
     );
     final normalizedDate = DateTime(date.year, date.month, date.day);
-    final dateQuery = normalizedDate.toUtc().toIso8601String();
+    final dateQuery = SchedulesService.dateToApi(normalizedDate);
 
     try {
       final response = await createAppDio().get<List<dynamic>>(
