@@ -119,9 +119,9 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
           name: employee.name,
           pictureUrl: employee.pictureUrl,
           isBranchRow: employee.isBranchRow,
-          onMoreTap: employee.isBranchRow
+          onMoreTap: widget.onEmployeeMoreTap == null
               ? null
-              : () => widget.onEmployeeMoreTap?.call(employee),
+              : () => widget.onEmployeeMoreTap!(employee),
         ),
       ),
     );
@@ -352,10 +352,7 @@ class _EmployeeColumn extends StatelessWidget {
               ),
             ],
           ),
-          if (isBranchRow)
-            const SizedBox(height: 18)
-          else
-            _EmployeeMoreButton(onTap: onMoreTap),
+          _EmployeeMoreButton(onTap: onMoreTap),
         ],
       ),
     );

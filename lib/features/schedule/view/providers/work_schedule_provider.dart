@@ -11,6 +11,7 @@ import 'package:rient_app/features/schedule/service/schedules_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mapper.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
+import 'package:rient_app/features/schedule/view/providers/branch_schedule_loader.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_patterns_branch_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_patterns_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
@@ -82,24 +83,35 @@ Future<List<WorkScheduleEmployeeRow>> _loadWorkScheduleMonthRows(
 
   final workers =
       await _workersForWorkSchedule(container, workersResponse.results);
-  final branch = container.read(currentBranchProvider);
+
+  var branch = container.read(currentBranchProvider);
+  if (branch == null) {
+    try {
+      await container.read(branchesProvider.future);
+    } catch (_) {}
+    branch = container.read(currentBranchProvider);
+  }
   final branchName = branch?.name?.trim() ?? 'Филиал';
 
   final patternsService = container.read(schedulePatternsServiceProvider);
-  Map<String, SchedulePatternBranchItemApi> branchPatternsByDay;
+  List<SchedulePatternBranchItemApi> branchPatternsList;
   try {
     final branchPatternsResponse =
         await patternsService.getBranchSchedulePatterns(branchId: branchId);
-    branchPatternsByDay = branchSchedulePatternsByDay(branchPatternsResponse);
+    branchPatternsList = mergeBranchSchedulePatterns(
+      fromApi: branchPatternsResponse.results,
+      fromBranch: branch?.schedulePatterns,
+      branchId: branchId,
+    );
   } catch (_) {
-    branchPatternsByDay = const {};
-  }
-  if (branchPatternsByDay.isEmpty) {
-    branchPatternsByDay = branchSchedulePatternsByDayFromBranchApi(
-      branch?.schedulePatterns,
-      branchId,
+    branchPatternsList = mergeBranchSchedulePatterns(
+      fromApi: const [],
+      fromBranch: branch?.schedulePatterns,
+      branchId: branchId,
     );
   }
+  final branchPatternsByDay =
+      branchSchedulePatternsMapFromList(branchPatternsList);
 
   final patternsResponse = await container
       .read(schedulePatternsServiceProvider)

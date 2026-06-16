@@ -150,6 +150,12 @@ WorkScheduleShiftTone _toneForShiftHours(String start, String end) {
   return hours >= 10 ? WorkScheduleShiftTone.full : WorkScheduleShiftTone.short;
 }
 
+WorkScheduleDayCell clampWorkScheduleCellToBranchPattern(
+  WorkScheduleDayCell cell,
+  SchedulePatternBranchItemApi? branchPattern,
+) =>
+    _clampCellToBranchPattern(cell, branchPattern);
+
 WorkScheduleDayCell _clampCellToBranchPattern(
   WorkScheduleDayCell cell,
   SchedulePatternBranchItemApi? branchPattern,
@@ -268,6 +274,14 @@ SchedulePatternBranchItemApi? _branchPatternForWeekday(
   Map<String, SchedulePatternBranchItemApi> patternsByDay,
   int weekday,
 ) {
+  final dayKey = scheduleDayKeyForWeekday(weekday);
+  if (dayKey != null) {
+    final direct = patternsByDay[dayKey];
+    if (direct != null) return direct;
+    if (weekday == DateTime.wednesday) {
+      return patternsByDay['wen'];
+    }
+  }
   for (final pattern in patternsByDay.values) {
     if (pattern.weekdayNumber == weekday) return pattern;
   }
@@ -288,7 +302,6 @@ Map<String, SchedulePatternBranchItemApi> branchSchedulePatternsByDayFromBranchA
   final map = <String, SchedulePatternBranchItemApi>{};
   if (patterns == null) return map;
   for (final pattern in patterns) {
-    if (!(pattern.active ?? false)) continue;
     final patternBranch = pattern.branch;
     if (patternBranch != null && patternBranch != branchId) continue;
     final day = pattern.day;

@@ -18,6 +18,7 @@ import 'package:rient_app/features/create/view/add_new_entry_page.dart'
 import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/launch/launch_page.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
+import 'package:rient_app/features/schedule/view/branch_schedule_page.dart';
 import 'package:rient_app/features/schedule/view/specialist_schedule_page.dart';
 import 'package:rient_app/features/schedule/view/work_schedule_page.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
@@ -165,6 +166,24 @@ final GoRoute _workScheduleRoute = GoRoute(
         return MaterialPage(
           key: state.pageKey,
           child: SpecialistSchedulePage(args: args),
+        );
+      },
+    ),
+    GoRoute(
+      name: BranchSchedulePage.name,
+      path: BranchSchedulePage.path,
+      parentNavigatorKey: rootNavigatorKey,
+      pageBuilder: (_, state) {
+        final extra = state.extra;
+        final args = extra is BranchSchedulePageArgs
+            ? extra
+            : const BranchSchedulePageArgs(
+                branchId: 0,
+                branchName: 'Филиал',
+              );
+        return MaterialPage(
+          key: state.pageKey,
+          child: BranchSchedulePage(args: args),
         );
       },
     ),
