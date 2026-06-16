@@ -9,6 +9,7 @@ import 'package:rient_app/features/home/data/models/worker_month_statistics.dart
 import 'package:rient_app/features/home/service/statistics_service.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 
 class AnalyticsQuery {
   const AnalyticsQuery({
@@ -88,12 +89,11 @@ final analyticsSummaryProvider =
           month: query.start.month,
         );
       } catch (_) {}
-      result = await _summaryWithOccupancyByDay(
+      result = await _enrichSummaryWithMonthOccupancy(
         ref,
         summary: result,
+        monthStart: query.start,
         workerId: workerId,
-        start: query.start,
-        end: query.end,
       );
       return result.copyWith(workerId: workerId);
     }
@@ -112,6 +112,13 @@ final analyticsSummaryProvider =
         );
       } catch (_) {}
     }
+
+    result = await _enrichSummaryWithMonthOccupancy(
+      ref,
+      summary: result,
+      monthStart: query.start,
+      workerId: workerId,
+    );
 
     return result;
   }
@@ -338,30 +345,33 @@ AnalyticsSummary _summaryWithWorkerIntervalOverlay({
   );
 }
 
-Future<AnalyticsSummary> _summaryWithOccupancyByDay(
+/// Дневная загруженность из `statistics_one` по неделям — как в расписании и на главной.
+Future<AnalyticsSummary> _enrichSummaryWithMonthOccupancy(
   Ref ref, {
   required AnalyticsSummary summary,
-  required int workerId,
-  required DateTime start,
-  required DateTime end,
+  required DateTime monthStart,
+  int? workerId,
 }) async {
+  final monthKey =
+      '${monthStart.year}-${monthStart.month.toString().padLeft(2, '0')}';
   try {
-    final stats = await ref.read(statisticsServiceProvider).getStatistics(
-          startDate: start,
-          endDate: end,
-          workerId: workerId,
-        );
+    final stats = await ref.read(
+      scheduleStatisticsForMonthProvider(
+        ScheduleStatisticsQuery(
+          periodKey: monthKey,
+          workerId: workerId != null && workerId > 0 ? workerId : null,
+        ),
+      ).future,
+    );
     if (stats.occupancyByDay.isEmpty) return summary;
 
-    final occupancyByDay = stats.occupancyByDay
-        .map(
-          (day) => AnalyticsOccupancyDay(
-            date:
-                '${day.date.year}-${day.date.month.toString().padLeft(2, '0')}-${day.date.day.toString().padLeft(2, '0')}',
-            occupancy: day.occupancy,
-          ),
-        )
-        .toList();
+    final occupancyByDay = [
+      for (final day in stats.occupancyByDay)
+        AnalyticsOccupancyDay(
+          date: _analyticsDateKey(day.date),
+          occupancy: day.occupancy,
+        ),
+    ];
 
     return summary.copyWith(
       occupancy: occupancyByDay,
