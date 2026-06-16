@@ -63,6 +63,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
   int _loadEpoch = 0;
   int _gridVersion = 0;
   int _fetchGeneration = 0;
+  int? _displayedBranchId;
   String? _savingEmployeeId;
   DateTime? _savingDate;
   Map<String, SchedulePatternBranchItemApi> _branchPatternsByDay = const {};
@@ -90,6 +91,17 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
       refreshWorkerPermissions(ref);
       unawaited(_reloadWorkSchedule());
     });
+    ref.listenManual<int>(
+      currentBranchIdProvider,
+      (previous, next) {
+        if (previous == null || next <= 0 || previous == next) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          invalidateWorkScheduleCaches(ref, branchId: next);
+          unawaited(_reloadWorkSchedule(forceLoading: true));
+        });
+      },
+    );
   }
 
   @override
@@ -152,7 +164,10 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     _monthStart = DateTime(now.year, now.month, 1);
   }
 
-  Future<void> _reloadWorkSchedule({String? employeeId}) async {
+  Future<void> _reloadWorkSchedule({
+    String? employeeId,
+    bool forceLoading = false,
+  }) async {
     refreshWorkerPermissions(ref);
     final generation = ++_fetchGeneration;
     final branchId = ref.read(currentBranchIdProvider);
@@ -163,13 +178,21 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
       monthStart: _monthStart,
       loadEpoch: nextEpoch,
     );
-    final keepGridVisible = _employees.hasValue;
+    final branchChanged =
+        forceLoading ||
+        (_displayedBranchId != null &&
+            branchId > 0 &&
+            _displayedBranchId != branchId);
+    final keepGridVisible = _employees.hasValue && !branchChanged;
 
     setState(() {
       _loadEpoch = nextEpoch;
       _gridVersion++;
       if (!keepGridVisible) {
         _employees = const AsyncValue.loading();
+        if (branchChanged) {
+          _branchPatternsByDay = const {};
+        }
       }
       _pendingHorizontalScrollToSelectedDate = true;
       _pendingScrollForLoadEpoch = nextEpoch;
@@ -181,6 +204,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
         query,
         branchId: branchId,
         workerId: workerId,
+        invalidateBeforeLoad: branchChanged,
       );
       final branchPatternsByDay = branchId > 0
           ? await _loadBranchPatternsByDay(branchId)
@@ -189,6 +213,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
       setState(() {
         _employees = AsyncValue.data(rows);
         _branchPatternsByDay = branchPatternsByDay;
+        _displayedBranchId = branchId;
       });
     } catch (error, stackTrace) {
       if (!mounted || generation != _fetchGeneration) return;
@@ -987,12 +1012,6 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
   @override
   Widget build(BuildContext context) {
     final branchId = ref.watch(currentBranchIdProvider);
-
-    ref.listen<int>(currentBranchIdProvider, (previous, next) {
-      if (previous == null || previous == next || next <= 0) return;
-      unawaited(_reloadWorkSchedule());
-    });
-
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenBackground = isDark
         ? AppColors.secondaryDarkLight

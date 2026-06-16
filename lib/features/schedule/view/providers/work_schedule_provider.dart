@@ -63,9 +63,15 @@ Future<List<WorkScheduleEmployeeRow>> _loadWorkScheduleMonthRows(
   ProviderContainer container,
   WorkScheduleMonthQuery query, {
   bool bustCache = false,
+  int? branchIdOverride,
 }) async {
-  final branchId = container.read(currentBranchIdProvider);
-  if (branchId == 0) throw Exception('No valid branch selected');
+  final int branchId;
+  if (branchIdOverride != null) {
+    branchId = branchIdOverride;
+  } else {
+    branchId = container.read(currentBranchIdProvider);
+  }
+  if (branchId <= 0) throw Exception('No valid branch selected');
 
   // Всегда свежий список сотрудников с API (не кэш .future после invalidate).
   final workersResponse =
@@ -217,13 +223,30 @@ Future<List<WorkScheduleEmployeeRow>> reloadWorkScheduleMonth(
   WorkScheduleMonthQuery query, {
   int? branchId,
   int? workerId,
+  bool invalidateBeforeLoad = false,
 }) async {
   final container = ProviderScope.containerOf(ref.context, listen: false);
+  final resolvedBranchId =
+      branchId ?? container.read(currentBranchIdProvider);
+  if (invalidateBeforeLoad) {
+    invalidateWorkScheduleCaches(
+      ref,
+      branchId: resolvedBranchId,
+      workerId: workerId,
+    );
+  }
   final rows = await _loadWorkScheduleMonthRows(
     container,
     query,
     bustCache: true,
+    branchIdOverride: resolvedBranchId,
   );
-  invalidateWorkScheduleCaches(ref, branchId: branchId, workerId: workerId);
+  if (!invalidateBeforeLoad) {
+    invalidateWorkScheduleCaches(
+      ref,
+      branchId: resolvedBranchId,
+      workerId: workerId,
+    );
+  }
   return rows;
 }
