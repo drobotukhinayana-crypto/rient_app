@@ -18,7 +18,7 @@ void main() async {
   );
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  await NotificationService.instance.init();
+  await NotificationService.instance.init(skipPermissionRequest: true);
   final prefs = await SharedPreferences.getInstance();
   final container = ProviderContainer(
     overrides: [

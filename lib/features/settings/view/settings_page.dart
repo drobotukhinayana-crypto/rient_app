@@ -7,9 +7,11 @@ import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/core/services/notification_permission_service.dart';
 import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/core/widgets/notification_permission_prompt.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
 import 'package:rient_app/features/chat/view/providers/push_settings_provider.dart';
 import 'package:rient_app/features/settings/view/components/settings_worker_picker_sheet.dart';
@@ -126,6 +128,28 @@ class _PushNotificationsTileState extends ConsumerState<_PushNotificationsTile> 
             : (value) async {
                 setState(() => _isUpdating = true);
                 try {
+                  if (value) {
+                    var granted =
+                        await NotificationPermissionService.hasGrantedPermission();
+                    if (!granted) {
+                      if (!context.mounted) return;
+                      granted =
+                          await maybeRequestNotificationPermissionAfterLogin(
+                        context,
+                        ref,
+                        showDeniedSettingsPrompt: true,
+                      );
+                    }
+                    if (!granted) {
+                      if (!context.mounted) return;
+                      showAppServiceMessage(
+                        context,
+                        message: 'Разрешите уведомления в настройках телефона',
+                        variant: AppServiceMessageVariant.info,
+                      );
+                      return;
+                    }
+                  }
                   await setPushEnabled(ref, value);
                 } catch (_) {
                   if (!context.mounted) return;

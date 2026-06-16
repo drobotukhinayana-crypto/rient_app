@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
-import 'package:rient_app/features/home/view/providers/today_revenue_metrics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart'
     show beginScheduleNetworkRecovery;
@@ -11,9 +10,6 @@ Future<void> _prefetchHomeData(dynamic ref) async {
   try {
     await ref.read(statisticsProvider.future);
   } catch (_) {}
-  try {
-    await ref.read(todayRevenueMetricsProvider.future);
-  } catch (_) {}
 }
 
 /// После создания, изменения или удаления записи — обновить расписание и главную.
@@ -21,7 +17,6 @@ void refreshAfterAppointmentMutation(dynamic ref) {
   beginScheduleNetworkRecovery(ref);
   ref.invalidate(scheduleAppointmentsProvider);
   ref.invalidate(statisticsProvider);
-  ref.invalidate(todayRevenueMetricsProvider);
   ref.invalidate(scheduleStatisticsForWeekProvider);
   ref.invalidate(scheduleStatisticsForMonthProvider);
 
@@ -29,7 +24,6 @@ void refreshAfterAppointmentMutation(dynamic ref) {
   unawaited(
     Future<void>.delayed(const Duration(milliseconds: 600), () async {
       ref.invalidate(statisticsProvider);
-      ref.invalidate(todayRevenueMetricsProvider);
       await _prefetchHomeData(ref);
     }),
   );

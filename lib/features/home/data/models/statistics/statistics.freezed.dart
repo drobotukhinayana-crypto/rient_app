@@ -881,7 +881,7 @@ $AppointmentsCopyWith<$Res> get appointments {
 /// @nodoc
 mixin _$IncomeByDay {
 
- DateTime get date; double get income;@JsonKey(name: 'pay_due') double get payDue;
+ DateTime get date; double get income;@JsonKey(name: 'pay_due') double get payDue;@JsonKey(name: 'projected_income') double? get projectedIncome;@JsonKey(name: 'factual_income') double? get factualIncome;@JsonKey(name: 'average_check') double? get averageCheck;
 /// Create a copy of IncomeByDay
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -894,16 +894,16 @@ $IncomeByDayCopyWith<IncomeByDay> get copyWith => _$IncomeByDayCopyWithImpl<Inco
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is IncomeByDay&&(identical(other.date, date) || other.date == date)&&(identical(other.income, income) || other.income == income)&&(identical(other.payDue, payDue) || other.payDue == payDue));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is IncomeByDay&&(identical(other.date, date) || other.date == date)&&(identical(other.income, income) || other.income == income)&&(identical(other.payDue, payDue) || other.payDue == payDue)&&(identical(other.projectedIncome, projectedIncome) || other.projectedIncome == projectedIncome)&&(identical(other.factualIncome, factualIncome) || other.factualIncome == factualIncome)&&(identical(other.averageCheck, averageCheck) || other.averageCheck == averageCheck));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,date,income,payDue);
+int get hashCode => Object.hash(runtimeType,date,income,payDue,projectedIncome,factualIncome,averageCheck);
 
 @override
 String toString() {
-  return 'IncomeByDay(date: $date, income: $income, payDue: $payDue)';
+  return 'IncomeByDay(date: $date, income: $income, payDue: $payDue, projectedIncome: $projectedIncome, factualIncome: $factualIncome, averageCheck: $averageCheck)';
 }
 
 
@@ -914,7 +914,7 @@ abstract mixin class $IncomeByDayCopyWith<$Res>  {
   factory $IncomeByDayCopyWith(IncomeByDay value, $Res Function(IncomeByDay) _then) = _$IncomeByDayCopyWithImpl;
 @useResult
 $Res call({
- DateTime date, double income,@JsonKey(name: 'pay_due') double payDue
+ DateTime date, double income,@JsonKey(name: 'pay_due') double payDue,@JsonKey(name: 'projected_income') double? projectedIncome,@JsonKey(name: 'factual_income') double? factualIncome,@JsonKey(name: 'average_check') double? averageCheck
 });
 
 
@@ -931,12 +931,15 @@ class _$IncomeByDayCopyWithImpl<$Res>
 
 /// Create a copy of IncomeByDay
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? date = null,Object? income = null,Object? payDue = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? date = null,Object? income = null,Object? payDue = null,Object? projectedIncome = freezed,Object? factualIncome = freezed,Object? averageCheck = freezed,}) {
   return _then(_self.copyWith(
 date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
 as DateTime,income: null == income ? _self.income : income // ignore: cast_nullable_to_non_nullable
 as double,payDue: null == payDue ? _self.payDue : payDue // ignore: cast_nullable_to_non_nullable
-as double,
+as double,projectedIncome: freezed == projectedIncome ? _self.projectedIncome : projectedIncome // ignore: cast_nullable_to_non_nullable
+as double?,factualIncome: freezed == factualIncome ? _self.factualIncome : factualIncome // ignore: cast_nullable_to_non_nullable
+as double?,averageCheck: freezed == averageCheck ? _self.averageCheck : averageCheck // ignore: cast_nullable_to_non_nullable
+as double?,
   ));
 }
 
@@ -1018,10 +1021,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( DateTime date,  double income, @JsonKey(name: 'pay_due')  double payDue)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( DateTime date,  double income, @JsonKey(name: 'pay_due')  double payDue, @JsonKey(name: 'projected_income')  double? projectedIncome, @JsonKey(name: 'factual_income')  double? factualIncome, @JsonKey(name: 'average_check')  double? averageCheck)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _IncomeByDay() when $default != null:
-return $default(_that.date,_that.income,_that.payDue);case _:
+return $default(_that.date,_that.income,_that.payDue,_that.projectedIncome,_that.factualIncome,_that.averageCheck);case _:
   return orElse();
 
 }
@@ -1039,10 +1042,10 @@ return $default(_that.date,_that.income,_that.payDue);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( DateTime date,  double income, @JsonKey(name: 'pay_due')  double payDue)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( DateTime date,  double income, @JsonKey(name: 'pay_due')  double payDue, @JsonKey(name: 'projected_income')  double? projectedIncome, @JsonKey(name: 'factual_income')  double? factualIncome, @JsonKey(name: 'average_check')  double? averageCheck)  $default,) {final _that = this;
 switch (_that) {
 case _IncomeByDay():
-return $default(_that.date,_that.income,_that.payDue);}
+return $default(_that.date,_that.income,_that.payDue,_that.projectedIncome,_that.factualIncome,_that.averageCheck);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -1056,10 +1059,10 @@ return $default(_that.date,_that.income,_that.payDue);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( DateTime date,  double income, @JsonKey(name: 'pay_due')  double payDue)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( DateTime date,  double income, @JsonKey(name: 'pay_due')  double payDue, @JsonKey(name: 'projected_income')  double? projectedIncome, @JsonKey(name: 'factual_income')  double? factualIncome, @JsonKey(name: 'average_check')  double? averageCheck)?  $default,) {final _that = this;
 switch (_that) {
 case _IncomeByDay() when $default != null:
-return $default(_that.date,_that.income,_that.payDue);case _:
+return $default(_that.date,_that.income,_that.payDue,_that.projectedIncome,_that.factualIncome,_that.averageCheck);case _:
   return null;
 
 }
@@ -1070,13 +1073,16 @@ return $default(_that.date,_that.income,_that.payDue);case _:
 /// @nodoc
 @JsonSerializable()
 
-class _IncomeByDay implements IncomeByDay {
-  const _IncomeByDay({required this.date, required this.income, @JsonKey(name: 'pay_due') required this.payDue});
+class _IncomeByDay extends IncomeByDay {
+  const _IncomeByDay({required this.date, required this.income, @JsonKey(name: 'pay_due') required this.payDue, @JsonKey(name: 'projected_income') this.projectedIncome, @JsonKey(name: 'factual_income') this.factualIncome, @JsonKey(name: 'average_check') this.averageCheck}): super._();
   factory _IncomeByDay.fromJson(Map<String, dynamic> json) => _$IncomeByDayFromJson(json);
 
 @override final  DateTime date;
 @override final  double income;
 @override@JsonKey(name: 'pay_due') final  double payDue;
+@override@JsonKey(name: 'projected_income') final  double? projectedIncome;
+@override@JsonKey(name: 'factual_income') final  double? factualIncome;
+@override@JsonKey(name: 'average_check') final  double? averageCheck;
 
 /// Create a copy of IncomeByDay
 /// with the given fields replaced by the non-null parameter values.
@@ -1091,16 +1097,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _IncomeByDay&&(identical(other.date, date) || other.date == date)&&(identical(other.income, income) || other.income == income)&&(identical(other.payDue, payDue) || other.payDue == payDue));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _IncomeByDay&&(identical(other.date, date) || other.date == date)&&(identical(other.income, income) || other.income == income)&&(identical(other.payDue, payDue) || other.payDue == payDue)&&(identical(other.projectedIncome, projectedIncome) || other.projectedIncome == projectedIncome)&&(identical(other.factualIncome, factualIncome) || other.factualIncome == factualIncome)&&(identical(other.averageCheck, averageCheck) || other.averageCheck == averageCheck));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,date,income,payDue);
+int get hashCode => Object.hash(runtimeType,date,income,payDue,projectedIncome,factualIncome,averageCheck);
 
 @override
 String toString() {
-  return 'IncomeByDay(date: $date, income: $income, payDue: $payDue)';
+  return 'IncomeByDay(date: $date, income: $income, payDue: $payDue, projectedIncome: $projectedIncome, factualIncome: $factualIncome, averageCheck: $averageCheck)';
 }
 
 
@@ -1111,7 +1117,7 @@ abstract mixin class _$IncomeByDayCopyWith<$Res> implements $IncomeByDayCopyWith
   factory _$IncomeByDayCopyWith(_IncomeByDay value, $Res Function(_IncomeByDay) _then) = __$IncomeByDayCopyWithImpl;
 @override @useResult
 $Res call({
- DateTime date, double income,@JsonKey(name: 'pay_due') double payDue
+ DateTime date, double income,@JsonKey(name: 'pay_due') double payDue,@JsonKey(name: 'projected_income') double? projectedIncome,@JsonKey(name: 'factual_income') double? factualIncome,@JsonKey(name: 'average_check') double? averageCheck
 });
 
 
@@ -1128,12 +1134,15 @@ class __$IncomeByDayCopyWithImpl<$Res>
 
 /// Create a copy of IncomeByDay
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? date = null,Object? income = null,Object? payDue = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? date = null,Object? income = null,Object? payDue = null,Object? projectedIncome = freezed,Object? factualIncome = freezed,Object? averageCheck = freezed,}) {
   return _then(_IncomeByDay(
 date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
 as DateTime,income: null == income ? _self.income : income // ignore: cast_nullable_to_non_nullable
 as double,payDue: null == payDue ? _self.payDue : payDue // ignore: cast_nullable_to_non_nullable
-as double,
+as double,projectedIncome: freezed == projectedIncome ? _self.projectedIncome : projectedIncome // ignore: cast_nullable_to_non_nullable
+as double?,factualIncome: freezed == factualIncome ? _self.factualIncome : factualIncome // ignore: cast_nullable_to_non_nullable
+as double?,averageCheck: freezed == averageCheck ? _self.averageCheck : averageCheck // ignore: cast_nullable_to_non_nullable
+as double?,
   ));
 }
 

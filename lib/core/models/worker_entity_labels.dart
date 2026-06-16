@@ -83,7 +83,7 @@ class WorkerEntityLabels {
   String get scheduleOfWorker => 'График $name1';
 
   String workScheduleTitle({required bool isWorkerRole}) =>
-      'График ${isWorkerRole ? name1 : name7}';
+      isWorkerRole ? 'График $name1' : 'График работы';
 
   /// Подпись поля в карточке записи: у воркера — ед.ч., у остальных — мн.ч.
   String workerFieldLabel({required bool isWorkerRole}) =>

@@ -9,7 +9,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:rient_app/core/services/notification_service.dart';
+import 'package:rient_app/core/services/notification_permission_service.dart';
 import 'package:rient_app/core/services/push_device_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
@@ -134,7 +134,13 @@ class PushRegistrationService {
 
     try {
       await ensureInitialized();
-      await NotificationService.instance.ensureNotificationPermissions();
+
+      if (!await NotificationPermissionService.hasGrantedPermission()) {
+        debugPrint(
+          'PushRegistrationService: notifications permission missing, skip register',
+        );
+        return;
+      }
 
       final token = await _resolveFcmToken(override: fcmToken);
       if (token == null || token.isEmpty) {

@@ -90,10 +90,22 @@ class StatisticsService {
           final payDue = ((row['pay_due'] ?? row['payDue'] ?? row['sum']) as num?)
                   ?.toDouble() ??
               0.0;
+          final projectedIncome =
+              ((row['projected_income'] ?? row['projected']) as num?)
+                  ?.toDouble();
+          final factualIncome =
+              ((row['factual_income'] ?? row['income'] ?? row['income_paid'])
+                      as num?)
+                  ?.toDouble();
+          final averageCheck =
+              (row['average_check'] as num?)?.toDouble();
           return <String, dynamic>{
             'date': row['date']?.toString() ?? '',
             'income': income,
             'pay_due': payDue,
+            if (projectedIncome != null) 'projected_income': projectedIncome,
+            if (factualIncome != null) 'factual_income': factualIncome,
+            if (averageCheck != null) 'average_check': averageCheck,
           };
         })
         .toList();

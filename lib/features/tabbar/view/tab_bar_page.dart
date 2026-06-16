@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/services/notification_permission_service.dart';
 import 'package:rient_app/core/services/push_notification_navigation.dart';
+import 'package:rient_app/core/widgets/notification_permission_prompt.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/app_exit_handler.dart';
@@ -118,6 +120,8 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     with WidgetsBindingObserver {
   DateTime? _lastResumeRefreshAt;
   StreamSubscription<RemoteMessage>? _fcmForegroundSubscription;
+  bool _deniedSettingsPromptShownThisSession = false;
+  bool _permissionFlowInProgress = false;
 
   bool _showCreateTab() {
     final roleId = ref.watch(roleProvider);
@@ -135,9 +139,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       resetScheduleNetworkStateForSession(ref);
       ref.read(pushMessagingBootstrapProvider);
-      unawaited(
-        ref.read(pushRegistrationServiceProvider).registerCurrentDevice(),
-      );
+      unawaited(_ensurePushPermissionAndRegistration());
       unawaited(
         ref.read(notificationsWebSocketControllerProvider).ensureConnected(),
       );
@@ -148,6 +150,39 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
         FirebaseMessaging.onMessage.listen((_) {
       refreshPushHistoryFromRealtime(ref);
     });
+  }
+
+  Future<void> _ensurePushPermissionAndRegistration({
+    bool showDeniedSettingsPrompt = true,
+  }) async {
+    if (!mounted || _permissionFlowInProgress) return;
+    _permissionFlowInProgress = true;
+    try {
+      var granted = await NotificationPermissionService.hasGrantedPermission();
+      if (!granted) {
+        if (!mounted) return;
+        final shouldShowDeniedPrompt =
+            showDeniedSettingsPrompt && !_deniedSettingsPromptShownThisSession;
+        granted = await maybeRequestNotificationPermissionAfterLogin(
+          context,
+          ref,
+          showDeniedSettingsPrompt: shouldShowDeniedPrompt,
+        );
+        if (shouldShowDeniedPrompt &&
+            !granted &&
+            await NotificationPermissionService.getStatus() ==
+                AppNotificationPermissionStatus.denied) {
+          _deniedSettingsPromptShownThisSession = true;
+        }
+      }
+
+      if (!mounted) return;
+      if (granted) {
+        await ref.read(pushRegistrationServiceProvider).registerCurrentDevice();
+      }
+    } finally {
+      _permissionFlowInProgress = false;
+    }
   }
 
   @override
@@ -185,7 +220,9 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     _lastResumeRefreshAt = now;
     await refreshTokenSilentlyIfPossible(ref as Ref);
     if (!mounted) return;
-    await ref.read(pushRegistrationServiceProvider).registerCurrentDevice();
+    await _ensurePushPermissionAndRegistration(
+      showDeniedSettingsPrompt: false,
+    );
     unawaited(
       ref.read(notificationsWebSocketControllerProvider).ensureConnected(),
     );

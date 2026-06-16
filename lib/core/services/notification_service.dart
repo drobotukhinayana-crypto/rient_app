@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:rient_app/core/services/notification_permission_service.dart';
 import 'package:rient_app/core/services/push_notification_display.dart';
 import 'package:rient_app/core/services/push_notification_navigation.dart';
 
@@ -18,29 +19,19 @@ class NotificationService {
   late final AndroidNotificationChannel _androidChannel;
   bool _initialized = false;
 
-  Future<void> init() async {
+  Future<void> init({bool skipPermissionRequest = false}) async {
     if (_initialized) return;
     _initialized = true;
 
     await _initLocalNotifications();
-    await ensureNotificationPermissions();
+    if (!skipPermissionRequest) {
+      await ensureNotificationPermissions();
+    }
     await _initForegroundHandlers();
   }
 
   Future<void> ensureNotificationPermissions() async {
-    if (Platform.isIOS) {
-      await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-    }
-    if (Platform.isAndroid) {
-      final androidPlugin =
-          _localNotifications.resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-      await androidPlugin?.requestNotificationsPermission();
-    }
+    await NotificationPermissionService.request();
   }
 
   Future<void> _initLocalNotifications() async {

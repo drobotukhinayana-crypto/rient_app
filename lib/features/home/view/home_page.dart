@@ -18,7 +18,6 @@ import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/components/services_today_grid_view.dart';
 import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
-import 'package:rient_app/features/home/view/providers/today_revenue_metrics_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart'
@@ -63,13 +62,9 @@ class _BodyWidget extends ConsumerWidget {
       if (!recovered) return;
       ref.invalidate(connectivityCheckProvider);
       ref.invalidate(statisticsProvider);
-      ref.invalidate(todayRevenueMetricsProvider);
       ref.invalidate(scheduleAppointmentsProvider);
       try {
-        await Future.wait([
-          ref.read(statisticsProvider.future),
-          ref.read(todayRevenueMetricsProvider.future),
-        ]);
+        await ref.read(statisticsProvider.future);
       } catch (_) {}
     }
 
@@ -131,7 +126,6 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
         .maybeWhen(data: (v) => v, orElse: () => null);
     final isOwnerOrManager =
         roleId == UserRole.owner.value || roleId == UserRole.manager.value;
-    final todayRevenueAsync = ref.watch(todayRevenueMetricsProvider);
     final isOffline =
         ref.watch(appNoConnectionProvider) ||
         ref.watch(scheduleOfflineModeProvider);
@@ -216,6 +210,33 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                     text,
                     maxLines: 1,
                     style: statRublesStyle(color),
+                  ),
+                );
+              }
+
+              Widget metricCard({
+                required String topTitle,
+                required double value,
+              }) {
+                return DefaultContainerWidget(
+                  color: isDark ? AppColors.primaryWhiteDark : Colors.white,
+                  hasShadow: false,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        topTitle,
+                        style: statTitleStyle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Gap(8),
+                      statRublesText(
+                        '${value.toStringAsFixed(0)} ₽',
+                        AppColors.themeAccent(context),
+                      ),
+                    ],
                   ),
                 );
               }
@@ -364,83 +385,29 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
                   ],
                   if (isOwnerOrManager) ...[
                     Gap(10),
-                    todayRevenueAsync.when(
-                      data: (metrics) {
-                        Widget metricCard({
-                          required String topTitle,
-                          required double value,
-                          String? bottomTitle,
-                        }) {
-                          return DefaultContainerWidget(
-                            color: isDark
-                                ? AppColors.primaryWhiteDark
-                                : Colors.white,
-                            hasShadow: false,
-                            borderRadius: BorderRadius.circular(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  topTitle,
-                                  style: statTitleStyle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                if (bottomTitle != null) ...[
-                                  const Gap(2),
-                                  Text(
-                                    bottomTitle,
-                                    style: statTitleStyle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                                Gap(8),
-                                statRublesText(
-                                  '${value.toStringAsFixed(0)} ₽',
-                                  AppColors.themeAccent(context),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-
-                        return Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: metricCard(
-                                    topTitle: 'Прогноз',
-                                    value: metrics.projectedIncomeToday,
-                                  ),
-                                ),
-                                Gap(8),
-                                Expanded(
-                                  child: metricCard(
-                                    topTitle: 'Факт',
-                                    value: metrics.factualIncomeNow,
-                                  ),
-                                ),
-                                Gap(8),
-                                Expanded(
-                                  child: metricCard(
-                                    topTitle: 'Ср. Чек',
-                                    value: metrics.averageCheckToday,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        );
-                      },
-                      loading: () => const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                      error: (error, _) => shouldShowNoConnectionMessage(error)
-                          ? const OfflineMessage(padding: EdgeInsets.all(12))
-                          : const SizedBox.shrink(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: metricCard(
+                            topTitle: 'Прогноз',
+                            value: dayIncome?.projectedIncomeValue ?? 0,
+                          ),
+                        ),
+                        Gap(8),
+                        Expanded(
+                          child: metricCard(
+                            topTitle: 'Факт',
+                            value: dayIncome?.factualIncomeValue ?? 0,
+                          ),
+                        ),
+                        Gap(8),
+                        Expanded(
+                          child: metricCard(
+                            topTitle: 'Ср. Чек',
+                            value: dayIncome?.averageCheckValue ?? 0,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ],

@@ -53,7 +53,18 @@ sealed class IncomeByDay with _$IncomeByDay {
     required DateTime date,
     required double income,
     @JsonKey(name: 'pay_due') required double payDue,
+    @JsonKey(name: 'projected_income') double? projectedIncome,
+    @JsonKey(name: 'factual_income') double? factualIncome,
+    @JsonKey(name: 'average_check') double? averageCheck,
   }) = _IncomeByDay;
+
+  const IncomeByDay._();
+
+  double get projectedIncomeValue => projectedIncome ?? payDue;
+
+  double get factualIncomeValue => factualIncome ?? income;
+
+  double get averageCheckValue => averageCheck ?? 0;
 
   factory IncomeByDay.fromJson(Map<String, dynamic> json) =>
       _$IncomeByDayFromJson(json);

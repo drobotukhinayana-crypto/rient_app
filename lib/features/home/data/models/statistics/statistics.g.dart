@@ -71,6 +71,9 @@ _IncomeByDay _$IncomeByDayFromJson(Map<String, dynamic> json) => _IncomeByDay(
   date: DateTime.parse(json['date'] as String),
   income: (json['income'] as num).toDouble(),
   payDue: (json['pay_due'] as num).toDouble(),
+  projectedIncome: (json['projected_income'] as num?)?.toDouble(),
+  factualIncome: (json['factual_income'] as num?)?.toDouble(),
+  averageCheck: (json['average_check'] as num?)?.toDouble(),
 );
 
 Map<String, dynamic> _$IncomeByDayToJson(_IncomeByDay instance) =>
@@ -78,6 +81,9 @@ Map<String, dynamic> _$IncomeByDayToJson(_IncomeByDay instance) =>
       'date': instance.date.toIso8601String(),
       'income': instance.income,
       'pay_due': instance.payDue,
+      'projected_income': instance.projectedIncome,
+      'factual_income': instance.factualIncome,
+      'average_check': instance.averageCheck,
     };
 
 _ServiceByDayItem _$ServiceByDayItemFromJson(Map<String, dynamic> json) =>
