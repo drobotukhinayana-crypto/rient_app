@@ -353,17 +353,19 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                     ),
                   ],
                 ),
-                data: (summary) => _AnalyticsContent(
+                data: (summary) {
+                  final viewData = _AnalyticsViewData.fromAnalyticsSummary(
+                    summary,
+                    filterMode: _filterMode,
+                    start: start,
+                    end: end,
+                    filterWorkerId: isWorkerRole
+                        ? (summary.workerId ?? currentWorkerId)
+                        : _selectedSpecialist.id,
+                  );
+                  return _AnalyticsContent(
                 isDark: isDark,
-                data: _AnalyticsViewData.fromAnalyticsSummary(
-                  summary,
-                  filterMode: _filterMode,
-                  start: start,
-                  end: end,
-                  filterWorkerId: isWorkerRole
-                      ? (summary.workerId ?? currentWorkerId)
-                      : _selectedSpecialist.id,
-                ),
+                data: viewData,
                 generalExpanded: _generalExpanded,
                 workloadExpanded: _workloadExpanded,
                 clientsExpanded: _clientsExpanded,
@@ -378,10 +380,11 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 onTopServicesToggle: () => setState(
                   () => _topServicesExpanded = !_topServicesExpanded,
                 ),
-                showTopServices: !isWorkerRole,
+                showTopServices: !isWorkerRole && !viewData.workerScoped,
                 isWorkerRole: isWorkerRole,
                 onOpenScheduleDay: _openScheduleForDay,
-              ),
+              );
+                },
             ),
           ),
         ),
@@ -1293,7 +1296,7 @@ class _AnalyticsContent extends StatelessWidget {
                 const Gap(10),
                 _MetricRowCard(
                   label: 'Производительность',
-                  value: formatMoney(data.productivityPercent),
+                  value: '${data.productivityPercent.toStringAsFixed(2)}%',
                   cardColor: cardColor,
                   labelColor: labelColor,
                   accent: accent,
@@ -1410,7 +1413,12 @@ class _AnalyticsContent extends StatelessWidget {
                     title: 'Средний чек',
                     value: formatMoney(data.averageCheck),
                   ),
-                if (!isWorkerRole && data.totalClients != null)
+                if (data.workerScoped && data.totalClients != null)
+                  _AnalyticsMetricItem(
+                    title: 'Клиентов',
+                    value: '${data.totalClients}',
+                  ),
+                if (!isWorkerRole && !data.workerScoped && data.totalClients != null)
                   _AnalyticsMetricItem(
                     title: 'Всего клиентов',
                     value: '${data.totalClients}',
@@ -1425,12 +1433,13 @@ class _AnalyticsContent extends StatelessWidget {
                     title: 'Разовые',
                     value: '${data.oneshotClients}',
                   ),
-                if (!isWorkerRole && data.averageAge != null)
+                if (!isWorkerRole && !data.workerScoped && data.averageAge != null)
                   _AnalyticsMetricItem(
                     title: 'Средний возраст',
                     value: '${data.averageAge!.round()} лет',
                   ),
                 if (!isWorkerRole &&
+                    !data.workerScoped &&
                     data.maleClients != null &&
                     data.femaleClients != null)
                   _AnalyticsMetricItem(

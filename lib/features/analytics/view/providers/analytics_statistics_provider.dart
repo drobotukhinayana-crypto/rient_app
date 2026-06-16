@@ -69,25 +69,11 @@ final analyticsSummaryProvider =
 
   var result = summary;
 
-  if (query.type == 'month') {
-    final isWorkerRole = roleId == UserRole.worker.value;
-    if (!isWorkerRole) {
-      try {
-        final branchStats =
-            await ref.read(statisticsServiceProvider).getBranchStatisticsComparison(
-                  startDate: query.start,
-                  endDate: query.end,
-                  type: 'month',
-                  workerId: workerId,
-                );
-        result = _summaryWithBranchStatistics(
-          summary: result,
-          period: branchStats.current,
-        );
-      } catch (_) {}
-    }
+  final hasWorkerFilter = workerId != null && workerId > 0;
+  final isWorkerRole = roleId == UserRole.worker.value;
 
-    if (workerId != null && workerId > 0) {
+  if (query.type == 'month') {
+    if (hasWorkerFilter) {
       try {
         final monthStats =
             await ref.read(statisticsServiceProvider).getMonthStatistics(
@@ -102,16 +88,48 @@ final analyticsSummaryProvider =
           month: query.start.month,
         );
       } catch (_) {}
-      return _summaryWithOccupancyByDay(
+      result = await _summaryWithOccupancyByDay(
         ref,
         summary: result,
         workerId: workerId,
         start: query.start,
         end: query.end,
       );
+      return result.copyWith(workerId: workerId);
+    }
+
+    if (!isWorkerRole) {
+      try {
+        final branchStats =
+            await ref.read(statisticsServiceProvider).getBranchStatisticsComparison(
+                  startDate: query.start,
+                  endDate: query.end,
+                  type: 'month',
+                );
+        result = _summaryWithBranchStatistics(
+          summary: result,
+          period: branchStats.current,
+        );
+      } catch (_) {}
     }
 
     return result;
+  }
+
+  if (hasWorkerFilter) {
+    try {
+      final stats = await ref.read(statisticsServiceProvider).getStatistics(
+            startDate: query.start,
+            endDate: query.end,
+            workerId: workerId,
+          );
+      result = _summaryWithIntervalStatistics(summary: result, stats: stats);
+      result = _summaryWithWorkerIntervalOverlay(
+        summary: result,
+        stats: stats,
+      );
+    } catch (_) {}
+    return result.copyWith(workerId: workerId);
   }
 
   try {
@@ -195,7 +213,7 @@ AnalyticsSummary _summaryWithIntervalStatistics({
   );
 }
 
-/// Месячный доход, к выплате и производительность мастера — `me/statistics/`.
+/// Месячный доход, к выплате и производительность мастера — `me/statistics/` / `workers/{id}/statistics/`.
 AnalyticsSummary _summaryWithWorkerStatistics({
   required AnalyticsSummary summary,
   required WorkerMonthStatistics workerStats,
@@ -220,25 +238,102 @@ AnalyticsSummary _summaryWithWorkerStatistics({
     ),
   ];
 
+  final totalAppointments = workerStats.clients + workerStats.cancellations;
+
   return summary.copyWith(
     specialist: (summary.specialist ?? const AnalyticsSpecialist()).copyWith(
       performance: workerStats.performance,
     ),
     summary: summary.summary.copyWith(
+      occupancy: workerStats.occupancy,
       incomeByDay: incomeByDay,
+      appointments: AnalyticsAppointments(
+        total: totalAppointments,
+        cancelled: workerStats.cancellations,
+        newCount: summary.summary.appointments.newCount,
+      ),
     ),
     comparison: summary.comparison.copyWith(
       current: summary.comparison.current.copyWith(
         totalIncome: workerStats.income,
+        totalClients: workerStats.clients,
+        occupancy: workerStats.occupancy,
+        totalAppointments: totalAppointments,
+        completedAppointments: workerStats.clients,
         incomeByDay: incomeByDay,
       ),
     ),
     global: summary.global.copyWith(
-      services: services.isNotEmpty ? services : summary.global.services,
+      services: services,
+      clients: AnalyticsGlobalClients(total: workerStats.clients),
     ),
     meta: summary.meta.copyWith(
       canSeeIncome: summary.meta.canSeeIncome || workerStats.income > 0,
       canSeePayDue: true,
+    ),
+  );
+}
+
+/// Для интервала/дня: подставляем только метрики мастера, без демографии филиала.
+AnalyticsSummary _summaryWithWorkerIntervalOverlay({
+  required AnalyticsSummary summary,
+  required Statistics stats,
+}) {
+  final incomeByDay = [
+    for (final item in stats.incomeByDay ?? const <IncomeByDay>[])
+      AnalyticsIncomeByDay(
+        date: _analyticsDateKey(item.date),
+        income: item.income,
+        payDue: item.payDue,
+      ),
+  ];
+  final totalIncome = incomeByDay.fold<double>(
+    0,
+    (sum, item) => sum + item.incomeValue,
+  );
+  final totalPayDue = incomeByDay.fold<double>(
+    0,
+    (sum, item) => sum + item.payDueValue,
+  );
+
+  return summary.copyWith(
+    summary: summary.summary.copyWith(
+      occupancy: stats.occupancy,
+      incomeByDay: incomeByDay.isNotEmpty
+          ? incomeByDay
+          : summary.summary.incomeByDay,
+      appointments: AnalyticsAppointments(
+        total: stats.appointments.total,
+        cancelled: stats.appointments.cancelled,
+        newCount: stats.appointments.newCount,
+      ),
+    ),
+    comparison: summary.comparison.copyWith(
+      current: summary.comparison.current.copyWith(
+        totalIncome: totalIncome > 0 ? totalIncome : null,
+        totalClients: (stats.appointments.total - stats.appointments.cancelled)
+            .clamp(0, stats.appointments.total),
+        newClients: stats.appointments.newCount,
+        occupancy: stats.occupancy > 0 ? stats.occupancy : null,
+        totalAppointments: stats.appointments.total,
+        completedAppointments:
+            (stats.appointments.total - stats.appointments.cancelled)
+                .clamp(0, stats.appointments.total),
+        incomeByDay: incomeByDay.isNotEmpty
+            ? incomeByDay
+            : summary.comparison.current.incomeByDay,
+      ),
+    ),
+    global: summary.global.copyWith(
+      clients: AnalyticsGlobalClients(
+        total: (stats.appointments.total - stats.appointments.cancelled)
+            .clamp(0, stats.appointments.total),
+      ),
+      services: const [],
+    ),
+    meta: summary.meta.copyWith(
+      canSeeIncome: summary.meta.canSeeIncome || totalIncome > 0,
+      canSeePayDue: summary.meta.canSeePayDue || totalPayDue > 0,
     ),
   );
 }
