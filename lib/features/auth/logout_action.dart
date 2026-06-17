@@ -5,6 +5,7 @@ import 'package:rient_app/core/routes/router_provider.dart';
 import 'package:rient_app/core/services/app_lock/app_lock_service.dart';
 import 'package:rient_app/core/services/email_storage.dart';
 import 'package:rient_app/core/services/local_storage.dart';
+import 'package:rient_app/core/services/notification_permission_service.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/session_data/view/controller/session_data_controller.dart';
 import 'package:rient_app/features/auth/service/get_auth_branches.dart';
@@ -53,6 +54,8 @@ Future<void> clearUserSession(dynamic ref) async {
   final branchStorageKey = ref.read(selectedBranchStorageKeyProvider);
 
   await _remoteLogoutCleanup(ref);
+
+  await NotificationPermissionService.resetPromptStateForNewUser();
 
   await ref.read(sessionDataControllerProvider.notifier).deleteSessionData();
   await ref.read(tokenProvider.notifier).clearToken();

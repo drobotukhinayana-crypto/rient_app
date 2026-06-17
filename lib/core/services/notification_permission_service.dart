@@ -4,6 +4,7 @@ import 'package:app_settings/app_settings.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum AppNotificationPermissionStatus {
   granted,
@@ -33,7 +34,10 @@ class NotificationPermissionService {
       if (enabled == true) {
         return AppNotificationPermissionStatus.granted;
       }
-      if (enabled == false) {
+      // На Android 13+ areNotificationsEnabled() == false и до первого
+      // запроса, и после отказа — различаем по локальному флагу.
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString(notificationPermissionSystemDeniedKey) == '1') {
         return AppNotificationPermissionStatus.denied;
       }
       return AppNotificationPermissionStatus.notDetermined;
@@ -69,7 +73,13 @@ class NotificationPermissionService {
       final androidPlugin =
           _localNotifications.resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
-      await androidPlugin?.requestNotificationsPermission();
+      final granted = await androidPlugin?.requestNotificationsPermission();
+      final prefs = await SharedPreferences.getInstance();
+      if (granted == true) {
+        await prefs.remove(notificationPermissionSystemDeniedKey);
+      } else {
+        await prefs.setString(notificationPermissionSystemDeniedKey, '1');
+      }
     }
 
     return getStatus();
@@ -89,7 +99,20 @@ class NotificationPermissionService {
     final status = await getStatus();
     return status == AppNotificationPermissionStatus.granted;
   }
+
+  /// Сбрасывает флаги отказа, чтобы при входе другого пользователя
+  /// снова показать запрос уведомлений.
+  static Future<void> resetPromptStateForNewUser() async {
+    if (kIsWeb) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(notificationExplainPromptDeclinedKey);
+    await prefs.remove(notificationPermissionSystemDeniedKey);
+  }
 }
 
 const notificationExplainPromptDeclinedKey =
     'notification_explain_prompt_declined';
+
+/// Пользователь отклонил системный диалог POST_NOTIFICATIONS (Android 13+).
+const notificationPermissionSystemDeniedKey =
+    'notification_permission_system_denied';
