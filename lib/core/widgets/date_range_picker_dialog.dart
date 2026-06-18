@@ -50,11 +50,15 @@ class AppDateRangePickerDialog extends StatefulWidget {
     super.key,
     this.initialStart,
     this.initialEnd,
+    this.maxDate,
     this.summaryPrefix = 'Будут показаны уведомления за ',
   });
 
   final DateTime? initialStart;
   final DateTime? initialEnd;
+
+  /// Последняя доступная для выбора дата (включительно).
+  final DateTime? maxDate;
 
   /// Текст перед датами в подписи, например «Будет показана аналитика за ».
   final String summaryPrefix;
@@ -63,6 +67,7 @@ class AppDateRangePickerDialog extends StatefulWidget {
     BuildContext context, {
     DateTime? initialStart,
     DateTime? initialEnd,
+    DateTime? maxDate,
     String summaryPrefix = 'Будут показаны уведомления за ',
   }) {
     return showDialog<AppDateRangePickerResult>(
@@ -72,6 +77,7 @@ class AppDateRangePickerDialog extends StatefulWidget {
       builder: (context) => AppDateRangePickerDialog(
         initialStart: initialStart,
         initialEnd: initialEnd,
+        maxDate: maxDate,
         summaryPrefix: summaryPrefix,
       ),
     );
@@ -90,25 +96,56 @@ class _AppDateRangePickerDialogState extends State<AppDateRangePickerDialog> {
   DateTime? _start;
   DateTime? _end;
 
+  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  DateTime? get _maxDate =>
+      widget.maxDate == null ? null : _dateOnly(widget.maxDate!);
+
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
+    final max = _maxDate;
     _start = widget.initialStart;
     _end = widget.initialEnd;
-    _month = DateTime((_start ?? now).year, (_start ?? now).month, 1);
+    if (max != null) {
+      if (_start != null && _dateOnly(_start!).isAfter(max)) {
+        _start = max;
+        _end = null;
+      }
+      if (_end != null && _dateOnly(_end!).isAfter(max)) {
+        _end = max;
+      }
+    }
+    final initial = _start ?? max ?? now;
+    var month = DateTime(initial.year, initial.month, 1);
+    if (max != null) {
+      final maxMonth = DateTime(max.year, max.month, 1);
+      if (month.isAfter(maxMonth)) month = maxMonth;
+    }
+    _month = month;
   }
 
   void _prevMonth() {
     setState(() => _month = DateTime(_month.year, _month.month - 1, 1));
   }
 
+  bool get _canGoNextMonth {
+    final max = _maxDate;
+    if (max == null) return true;
+    final maxMonth = DateTime(max.year, max.month, 1);
+    return _month.isBefore(maxMonth);
+  }
+
   void _nextMonth() {
+    if (!_canGoNextMonth) return;
     setState(() => _month = DateTime(_month.year, _month.month + 1, 1));
   }
 
   void _onDayTap(DateTime date) {
-    final normalized = DateTime(date.year, date.month, date.day);
+    final normalized = _dateOnly(date);
+    final max = _maxDate;
+    if (max != null && normalized.isAfter(max)) return;
     setState(() {
       if (_start == null || (_start != null && _end != null)) {
         _start = normalized;
@@ -178,12 +215,13 @@ class _AppDateRangePickerDialogState extends State<AppDateRangePickerDialog> {
               accent: accent,
               primaryText: primaryText,
               onPrevious: _prevMonth,
-              onNext: _nextMonth,
+              onNext: _canGoNextMonth ? _nextMonth : null,
             ),
             const Gap(12),
             _RangeCalendarGrid(
               month: _month,
               isDark: isDark,
+              maxDate: _maxDate,
               rangeStart: range?.$1,
               rangeEnd: range?.$2,
               isSameDay: _isSameDay,
@@ -274,8 +312,15 @@ class _AppDateRangePickerDialogState extends State<AppDateRangePickerDialog> {
               isActive: _start != null,
               onTap: () {
                 if (_start == null) return;
+                var start = _dateOnly(_start!);
+                var end = _dateOnly(_end ?? _start!);
+                final max = _maxDate;
+                if (max != null) {
+                  if (start.isAfter(max)) start = max;
+                  if (end.isAfter(max)) end = max;
+                }
                 Navigator.of(context).pop(
-                  AppDateRangePickerResult(start: _start, end: _end ?? _start),
+                  AppDateRangePickerResult(start: start, end: end),
                 );
               },
             ),
@@ -336,7 +381,7 @@ class _CalendarHeader extends StatelessWidget {
   final Color accent;
   final Color primaryText;
   final VoidCallback onPrevious;
-  final VoidCallback onNext;
+  final VoidCallback? onNext;
 
   @override
   Widget build(BuildContext context) {
@@ -356,7 +401,11 @@ class _CalendarHeader extends StatelessWidget {
         const Spacer(),
         _NavIcon(icon: Icons.chevron_left, color: accent, onTap: onPrevious),
         const Gap(4),
-        _NavIcon(icon: Icons.chevron_right, color: accent, onTap: onNext),
+        _NavIcon(
+          icon: Icons.chevron_right,
+          color: onNext == null ? accent.withValues(alpha: 0.35) : accent,
+          onTap: onNext,
+        ),
       ],
     );
   }
@@ -371,7 +420,7 @@ class _NavIcon extends StatelessWidget {
 
   final IconData icon;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -390,6 +439,7 @@ class _RangeCalendarGrid extends StatelessWidget {
   const _RangeCalendarGrid({
     required this.month,
     required this.isDark,
+    required this.maxDate,
     required this.rangeStart,
     required this.rangeEnd,
     required this.isSameDay,
@@ -398,6 +448,7 @@ class _RangeCalendarGrid extends StatelessWidget {
 
   final DateTime month;
   final bool isDark;
+  final DateTime? maxDate;
   final DateTime? rangeStart;
   final DateTime? rangeEnd;
   final bool Function(DateTime? a, DateTime b) isSameDay;
@@ -420,9 +471,20 @@ class _RangeCalendarGrid extends StatelessWidget {
     return !d.isBefore(_dateOnly(start)) && !d.isAfter(_dateOnly(last));
   }
 
+  bool _isDisabled(DateTime date) {
+    if (maxDate == null) return false;
+    return _dateOnly(date).isAfter(_dateOnly(maxDate!));
+  }
+
   Color _defaultDayColor(DateTime date, {required bool inRange}) {
     final normalized = _dateOnly(date);
     final today = _dateOnly(DateTime.now());
+
+    if (_isDisabled(date)) {
+      return isDark
+          ? AppColors.tabbarGreyDark.withValues(alpha: 0.35)
+          : AppColors.tabbarGrey.withValues(alpha: 0.45);
+    }
 
     if (inRange) return _rangeSelectedTextColor;
 
@@ -482,16 +544,18 @@ class _RangeCalendarGrid extends StatelessWidget {
                       isSameDay(rangeEnd, date);
                   final inRange = _isInRange(date);
                   final inMiddle = inRange && !isStart && !isEnd;
+                  final isDisabled = _isDisabled(date);
 
                   return _RangeDayCell(
                     date: date,
                     isDark: isDark,
+                    isDisabled: isDisabled,
                     isRangeStart: isStart,
                     isRangeEnd: isEnd,
                     inRangeMiddle: inMiddle,
                     showRangeBand: inRange && hasRangeEnd,
                     defaultTextColor: _defaultDayColor(date, inRange: inRange),
-                    onTap: () => onDayTap(date),
+                    onTap: isDisabled ? null : () => onDayTap(date),
                   );
                 }),
               ),
@@ -515,6 +579,7 @@ class _RangeDayCell extends StatelessWidget {
   const _RangeDayCell({
     required this.date,
     required this.isDark,
+    required this.isDisabled,
     required this.isRangeStart,
     required this.isRangeEnd,
     required this.inRangeMiddle,
@@ -525,12 +590,13 @@ class _RangeDayCell extends StatelessWidget {
 
   final DateTime date;
   final bool isDark;
+  final bool isDisabled;
   final bool isRangeStart;
   final bool isRangeEnd;
   final bool inRangeMiddle;
   final bool showRangeBand;
   final Color defaultTextColor;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   static const _circleSize = 38.0;
   static const _bandInset = 2.0;

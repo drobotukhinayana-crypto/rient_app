@@ -83,25 +83,26 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
   }
 
   static const _monthsBeforeCurrent = 12;
-  static const _monthsAfterCurrent = 24;
+
+  static DateTime _todayDate() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
 
   static DateTime _addMonths(DateTime month, int delta) =>
       DateTime(month.year, month.month + delta, 1);
 
-  /// 12 мес. назад от текущего, 24 вперёд; при выборе прошлого месяца — с него.
+  /// Только прошлые месяцы и текущий — без будущих.
   List<DateTime> get _visibleMonths {
     final now = DateTime.now();
     final currentMonth = DateTime(now.year, now.month, 1);
     final focused = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
 
     var start = _addMonths(currentMonth, -_monthsBeforeCurrent);
-    var end = _addMonths(currentMonth, _monthsAfterCurrent);
+    final end = currentMonth;
 
     if (focused.isBefore(start)) {
       start = focused;
-      end = _addMonths(focused, _monthsBeforeCurrent + _monthsAfterCurrent);
-    } else if (focused.isAfter(end)) {
-      end = _addMonths(focused, _monthsAfterCurrent);
     }
 
     final count =
@@ -110,20 +111,34 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
   }
 
   (DateTime start, DateTime end) get _queryRange {
+    final today = _todayDate();
     switch (_filterMode) {
       case _AnalyticsFilterMode.month:
-        final last = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
-        return (_focusedMonth, last);
+        final monthStart =
+            DateTime(_focusedMonth.year, _focusedMonth.month, 1);
+        final monthLast =
+            DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
+        final monthLastDay =
+            DateTime(monthLast.year, monthLast.month, monthLast.day);
+        final end = monthLastDay.isAfter(today) ? today : monthLastDay;
+        return (monthStart, end);
       case _AnalyticsFilterMode.singleDay:
         final d = _rangeStart ?? DateTime.now();
         final day = DateTime(d.year, d.month, d.day);
-        return (day, day);
+        final clamped = day.isAfter(today) ? today : day;
+        return (clamped, clamped);
       case _AnalyticsFilterMode.dateRange:
         final start = _rangeStart ?? DateTime.now();
         final end = _rangeEnd ?? start;
         final s = DateTime(start.year, start.month, start.day);
         final e = DateTime(end.year, end.month, end.day);
-        return s.isBefore(e) ? (s, e) : (e, s);
+        final ordered = s.isBefore(e) ? (s, e) : (e, s);
+        final clampedEnd = ordered.$2.isAfter(today) ? today : ordered.$2;
+        final clampedStart =
+            ordered.$1.isAfter(today) ? today : ordered.$1;
+        return clampedStart.isBefore(clampedEnd) || clampedStart == clampedEnd
+            ? (clampedStart, clampedEnd)
+            : (clampedEnd, clampedStart);
     }
   }
 
@@ -160,10 +175,12 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
   }
 
   Future<void> _openCalendar() async {
+    final today = _todayDate();
     final range = await AppDateRangePickerDialog.show(
       context,
       initialStart: _rangeStart,
       initialEnd: _rangeEnd,
+      maxDate: today,
       summaryPrefix: 'Будет показана аналитика за ',
     );
     if (!mounted || range == null) return;
@@ -179,8 +196,18 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     }
     setState(() {
       if (range.start == null) return;
-      final start = range.start!;
-      final end = range.end ?? start;
+      var start = DateTime(
+        range.start!.year,
+        range.start!.month,
+        range.start!.day,
+      );
+      var end = DateTime(
+        (range.end ?? range.start)!.year,
+        (range.end ?? range.start)!.month,
+        (range.end ?? range.start)!.day,
+      );
+      if (start.isAfter(today)) start = today;
+      if (end.isAfter(today)) end = today;
       if (_isSameDay(start, end)) {
         _filterMode = _AnalyticsFilterMode.singleDay;
         _rangeStart = start;
@@ -188,9 +215,9 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
         _focusedMonth = DateTime(start.year, start.month, 1);
       } else {
         _filterMode = _AnalyticsFilterMode.dateRange;
-        _rangeStart = start;
-        _rangeEnd = end;
-        _focusedMonth = DateTime(start.year, start.month, 1);
+        _rangeStart = start.isBefore(end) ? start : end;
+        _rangeEnd = start.isBefore(end) ? end : start;
+        _focusedMonth = DateTime(_rangeStart!.year, _rangeStart!.month, 1);
       }
     });
   }
@@ -397,7 +424,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
 class _AnalyticsViewData {
   const _AnalyticsViewData({
     required this.fillRatePercent,
-    required this.productivityPercent,
+    required this.performance,
     required this.workerScoped,
     required this.clientsServed,
     required this.income,
@@ -424,7 +451,7 @@ class _AnalyticsViewData {
   });
 
   final double fillRatePercent;
-  final double productivityPercent;
+  final double performance;
   final bool workerScoped;
   final int clientsServed;
   final double income;
@@ -572,18 +599,7 @@ class _AnalyticsViewData {
           ? current.occupancy!
           : summary.summary.occupancy,
     );
-    final totalAppointments =
-        current.totalAppointments ?? appointments.total;
-    final completedAppointments = current.completedAppointments ??
-        (appointments.total - appointments.cancelled)
-            .clamp(0, appointments.total);
-    final fallbackProductivity = totalAppointments > 0
-        ? completedAppointments / totalAppointments * 100
-        : 0.0;
-    final specialistPerformance = summary.specialist?.performance;
-    final productivityPercent = specialistPerformance != null
-        ? _occupancyPercent(specialistPerformance)
-        : fallbackProductivity.clamp(0, 100);
+    final performance = summary.specialist?.performance ?? 0.0;
 
     final served = _clientsServedCount(summary, filterWorkerId: filterWorkerId);
     final workerScoped = _isWorkerScoped(summary, filterWorkerId);
@@ -643,14 +659,14 @@ class _AnalyticsViewData {
           )
           .toList();
     } else if (filterMode == _AnalyticsFilterMode.month) {
-      final monday = _weekMonday(DateTime.now());
-      weekDays = List.generate(7, (i) {
-        final d = monday.add(Duration(days: i));
-        return (
-          date: d,
-          occupancy: _occupancyForDate(occupancyDays, d),
-        );
-      });
+      weekDays = days
+          .map(
+            (d) => (
+              date: d,
+              occupancy: _occupancyForDate(occupancyDays, d),
+            ),
+          )
+          .toList();
     } else {
       weekDays = [
         (
@@ -664,9 +680,19 @@ class _AnalyticsViewData {
       ];
     }
 
-    final weekStart = filterMode == _AnalyticsFilterMode.month
-        ? _weekMonday(DateTime.now())
-        : _weekMonday(start);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final weekStart = switch (filterMode) {
+      _AnalyticsFilterMode.month => () {
+          final monthStart = DateTime(start.year, start.month, start.day);
+          final isCurrentMonth =
+              today.year == monthStart.year && today.month == monthStart.month;
+          // Текущий месяц — неделя с сегодня; прошлые — с начала месяца.
+          final anchor = isCurrentMonth ? today : monthStart;
+          return _weekMonday(anchor);
+        }(),
+      _ => _weekMonday(start),
+    };
     final isDateRange = filterMode == _AnalyticsFilterMode.dateRange;
     final periodOccupancy = isDateRange
         ? weekDays
@@ -701,7 +727,7 @@ class _AnalyticsViewData {
 
     return _AnalyticsViewData(
       fillRatePercent: fillRate.clamp(0, 100).toDouble(),
-      productivityPercent: productivityPercent.toDouble(),
+      performance: performance,
       workerScoped: workerScoped,
       clientsServed: served,
       income: income,
@@ -734,32 +760,106 @@ class _AnalyticsViewData {
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
 }
 
-class _AnalyticsPeriodLoadStrip extends StatelessWidget {
+class _AnalyticsPeriodLoadStrip extends StatefulWidget {
   const _AnalyticsPeriodLoadStrip({
+    super.key,
     required this.days,
     required this.onDayTap,
+    this.initialVisibleWeekStart,
   });
 
   final List<({DateTime date, double occupancy})> days;
   final ValueChanged<DateTime> onDayTap;
+  final DateTime? initialVisibleWeekStart;
+
+  @override
+  State<_AnalyticsPeriodLoadStrip> createState() =>
+      _AnalyticsPeriodLoadStripState();
+}
+
+class _AnalyticsPeriodLoadStripState extends State<_AnalyticsPeriodLoadStrip> {
+  static const _itemWidth = ScheduleDayLoadCircle.circleSize;
+  static const _separatorWidth = 4.0;
+  static const _itemStride = _itemWidth + _separatorWidth;
+
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialOffset = _offsetForWeekStart(widget.initialVisibleWeekStart);
+    _scrollController = ScrollController(initialScrollOffset: initialOffset);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToWeekStart());
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnalyticsPeriodLoadStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.days != widget.days ||
+        oldWidget.initialVisibleWeekStart != widget.initialVisibleWeekStart) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToWeekStart());
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  int _indexForWeekStart(DateTime weekStart) {
+    final target = DateTime(weekStart.year, weekStart.month, weekStart.day);
+    for (var i = 0; i < widget.days.length; i++) {
+      final d = widget.days[i].date;
+      final day = DateTime(d.year, d.month, d.day);
+      if (!day.isBefore(target)) return i;
+    }
+    return widget.days.isEmpty ? 0 : widget.days.length - 1;
+  }
+
+  double _offsetForWeekStart(DateTime? weekStart) {
+    if (weekStart == null || widget.days.isEmpty) return 0;
+    return _indexForWeekStart(weekStart) * _itemStride;
+  }
+
+  void _scrollToWeekStart({int attempt = 0}) {
+    if (!mounted || attempt > 8) return;
+    final weekStart = widget.initialVisibleWeekStart;
+    if (weekStart == null || widget.days.isEmpty) return;
+
+    if (!_scrollController.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _scrollToWeekStart(attempt: attempt + 1),
+      );
+      return;
+    }
+
+    final offset = _offsetForWeekStart(weekStart);
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    _scrollController.jumpTo(offset.clamp(0.0, maxExtent));
+  }
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 72,
       child: ListView.separated(
+        controller: _scrollController,
         scrollDirection: Axis.horizontal,
-        itemCount: days.length,
+        itemCount: widget.days.length,
         separatorBuilder: (_, __) => const Gap(4),
         itemBuilder: (context, index) {
-          final day = days[index];
+          final day = widget.days[index];
           final percent = day.occupancy.clamp(0.0, 100.0);
           return GestureDetector(
-            onTap: () => onDayTap(day.date),
+            onTap: () => widget.onDayTap(day.date),
             behavior: HitTestBehavior.opaque,
-            child: ScheduleDayLoadCircle(
-              date: day.date,
-              occupancyPercent: percent,
+            child: SizedBox(
+              width: _itemWidth,
+              child: ScheduleDayLoadCircle(
+                date: day.date,
+                occupancyPercent: percent,
+              ),
             ),
           );
         },
@@ -1267,7 +1367,9 @@ class _AnalyticsContent extends StatelessWidget {
         data.singleDayLoad == null && !data.showPeriodWorkload;
     final showPeriodStrip = data.showPeriodWorkload;
     final workloadTitle = data.singleDayLabel ??
-        (showPeriodStrip ? 'Загруженность за период' : 'Загруженность на неделю');
+        (showPeriodStrip
+            ? 'Загруженность за период'
+            : 'Загруженность на месяц');
 
     return SingleChildScrollView(
       physics: AppRefreshIndicator.scrollPhysics,
@@ -1296,7 +1398,7 @@ class _AnalyticsContent extends StatelessWidget {
                 const Gap(10),
                 _MetricRowCard(
                   label: 'Производительность',
-                  value: '${data.productivityPercent.toStringAsFixed(2)}%',
+                  value: formatMoney(data.performance),
                   cardColor: cardColor,
                   labelColor: labelColor,
                   accent: accent,
@@ -1378,21 +1480,19 @@ class _AnalyticsContent extends StatelessWidget {
               accent: accent,
               labelColor: labelColor,
               onToggle: onWorkloadToggle,
-              child: showPeriodStrip
-                  ? _AnalyticsPeriodLoadStrip(
-                      days: data.weekDays,
-                      onDayTap: onOpenScheduleDay,
-                    )
-                  : DateStrip(
-                      visibleWeekStart: data.weekStart,
-                      initialDate: data.stripSelectedDate,
-                      selectedDate: data.stripSelectedDate,
-                      occupancyByDay: data.occupancyByDay,
-                      onDateSelected: onOpenScheduleDay,
-                      showFullDateLabel: false,
-                      useGreyCircles: true,
-                      useMonthCalendarCircleFill: true,
-                    ),
+              child: _AnalyticsPeriodLoadStrip(
+                key: data.weekDays.isEmpty
+                    ? null
+                    : ValueKey(
+                        '${data.weekDays.first.date.year}-'
+                        '${data.weekDays.first.date.month}-'
+                        '${data.weekStart.millisecondsSinceEpoch}',
+                      ),
+                days: data.weekDays,
+                onDayTap: onOpenScheduleDay,
+                initialVisibleWeekStart:
+                    showPeriodStrip ? null : data.weekStart,
+              ),
             ),
           ],
           const Gap(16),

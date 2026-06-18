@@ -62,6 +62,26 @@ Future<bool> maybeRequestNotificationPermissionAfterLogin(
   return false;
 }
 
+/// Запрос из экрана настроек — без explain-диалога «Не сейчас».
+Future<bool> ensureNotificationPermissionFromSettings(BuildContext context) async {
+  final status = await NotificationPermissionService.getStatus();
+  if (status == AppNotificationPermissionStatus.granted) {
+    return true;
+  }
+
+  if (status == AppNotificationPermissionStatus.notDetermined) {
+    final afterRequest = await NotificationPermissionService.request();
+    if (afterRequest == AppNotificationPermissionStatus.granted) {
+      return true;
+    }
+  }
+
+  if (context.mounted) {
+    await showNotificationPermissionDeniedDialog(context);
+  }
+  return false;
+}
+
 Future<void> showNotificationPermissionDeniedDialog(BuildContext context) {
   return showDialog<void>(
     context: context,

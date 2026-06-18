@@ -7,6 +7,7 @@ import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/core/providers/notification_permission_status_provider.dart';
 import 'package:rient_app/core/services/notification_permission_service.dart';
 import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
@@ -41,8 +42,10 @@ class SettingsPage extends ConsumerWidget {
 
     Future<void> onRefresh() async {
       invalidatePushSettings(ref);
+      invalidateNotificationPermissionStatus(ref);
       try {
         await ref.read(currentPushSettingsDeviceProvider.future);
+        await ref.read(notificationPermissionStatusProvider.future);
       } catch (_) {}
     }
 
@@ -96,75 +99,187 @@ class _PushNotificationsTile extends ConsumerStatefulWidget {
       _PushNotificationsTileState();
 }
 
-class _PushNotificationsTileState extends ConsumerState<_PushNotificationsTile> {
+class _PushNotificationsTileState extends ConsumerState<_PushNotificationsTile>
+    with WidgetsBindingObserver {
   bool _isUpdating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      invalidateNotificationPermissionStatus(ref);
+    }
+  }
+
+  Future<void> _enablePushNotifications() async {
+    if (!mounted) return;
+    final granted = await ensureNotificationPermissionFromSettings(context);
+    invalidateNotificationPermissionStatus(ref);
+    if (!granted || !mounted) return;
+
+    await setPushEnabled(ref, true);
+    invalidatePushSettings(ref);
+  }
+
+  Future<void> _openSystemNotificationSettings() async {
+    await NotificationPermissionService.openSystemNotificationSettings();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final deviceAsync = ref.watch(currentPushSettingsDeviceProvider);
+    final permissionAsync = ref.watch(notificationPermissionStatusProvider);
     final pushEnabled = deviceAsync.value?.pushEnabled ?? true;
-    final isLoading = deviceAsync.isLoading || _isUpdating;
+    final permissionGranted =
+        permissionAsync.value == AppNotificationPermissionStatus.granted;
+    final isLoading =
+        deviceAsync.isLoading || permissionAsync.isLoading || _isUpdating;
+    final accent = AppColors.themeAccent(context);
+    final titleColor = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
+
+    final status = _resolvePushStatus(
+      pushEnabled: pushEnabled,
+      permissionGranted: permissionGranted,
+      hasLoadError: deviceAsync.hasError,
+      permissionLoadError: permissionAsync.hasError,
+    );
 
     return Material(
       color: isDark ? AppColors.primaryWhiteDark : Colors.white,
       borderRadius: BorderRadius.circular(16),
-      child: SwitchListTile(
-        title: Text(
-          'Push-уведомления',
-          style: AppFonts.b1Medium.copyWith(
-            color: isDark ? AppColors.primaryWhite : AppColors.primaryDark,
-          ),
-        ),
-        subtitle: deviceAsync.hasError
-            ? Text(
-                'Не удалось загрузить настройки',
-                style: AppFonts.c1Regular.copyWith(color: AppColors.red),
-              )
-            : null,
-        value: pushEnabled,
-        onChanged: isLoading
-            ? null
-            : (value) async {
-                setState(() => _isUpdating = true);
-                try {
-                  if (value) {
-                    var granted =
-                        await NotificationPermissionService.hasGrantedPermission();
-                    if (!granted) {
-                      if (!context.mounted) return;
-                      granted =
-                          await maybeRequestNotificationPermissionAfterLogin(
-                        context,
-                        ref,
-                        showDeniedSettingsPrompt: true,
-                      );
-                    }
-                    if (!granted) {
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SwitchListTile(
+            title: Text(
+              'Push-уведомления',
+              style: AppFonts.b1Medium.copyWith(color: titleColor),
+            ),
+            subtitle: Text(
+              status.subtitle,
+              style: AppFonts.c1Regular.copyWith(color: status.color),
+            ),
+            value: pushEnabled,
+            onChanged: isLoading
+                ? null
+                : (value) async {
+                    setState(() => _isUpdating = true);
+                    try {
+                      if (value) {
+                        await _enablePushNotifications();
+                      } else {
+                        await setPushEnabled(ref, false);
+                        invalidatePushSettings(ref);
+                      }
+                    } catch (_) {
                       if (!context.mounted) return;
                       showAppServiceMessage(
                         context,
-                        message: 'Разрешите уведомления в настройках телефона',
-                        variant: AppServiceMessageVariant.info,
+                        message: 'Не удалось изменить настройку',
+                        variant: AppServiceMessageVariant.error,
                       );
-                      return;
+                    } finally {
+                      if (mounted) setState(() => _isUpdating = false);
                     }
-                  }
-                  await setPushEnabled(ref, value);
-                } catch (_) {
-                  if (!context.mounted) return;
-                  showAppServiceMessage(
-                    context,
-                    message: 'Не удалось изменить настройку',
-                    variant: AppServiceMessageVariant.error,
-                  );
-                } finally {
-                  if (mounted) setState(() => _isUpdating = false);
-                }
-              },
+                  },
+          ),
+          if (!permissionGranted && !permissionAsync.isLoading) ...[
+            const Divider(height: 1),
+            TextButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      setState(() => _isUpdating = true);
+                      try {
+                        final status = await NotificationPermissionService
+                            .getStatus();
+                        if (!context.mounted) return;
+                        if (status ==
+                            AppNotificationPermissionStatus.notDetermined) {
+                          await _enablePushNotifications();
+                        } else {
+                          await _openSystemNotificationSettings();
+                        }
+                      } finally {
+                        invalidateNotificationPermissionStatus(ref);
+                        if (mounted) setState(() => _isUpdating = false);
+                      }
+                    },
+              child: Text(
+                status.actionLabel,
+                style: AppFonts.b2Medium.copyWith(color: accent),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
+}
+
+class _PushStatusUi {
+  const _PushStatusUi({
+    required this.subtitle,
+    required this.color,
+    required this.actionLabel,
+  });
+
+  final String subtitle;
+  final Color color;
+  final String actionLabel;
+}
+
+_PushStatusUi _resolvePushStatus({
+  required bool pushEnabled,
+  required bool permissionGranted,
+  required bool hasLoadError,
+  required bool permissionLoadError,
+}) {
+  if (hasLoadError) {
+    return const _PushStatusUi(
+      subtitle: 'Не удалось загрузить настройки',
+      color: AppColors.red,
+      actionLabel: 'Разрешить уведомления',
+    );
+  }
+  if (permissionLoadError) {
+    return const _PushStatusUi(
+      subtitle: 'Не удалось проверить разрешение',
+      color: AppColors.red,
+      actionLabel: 'Разрешить уведомления',
+    );
+  }
+  if (!permissionGranted) {
+    return const _PushStatusUi(
+      subtitle: 'Нет разрешения в настройках телефона',
+      color: AppColors.red,
+      actionLabel: 'Разрешить уведомления',
+    );
+  }
+  if (!pushEnabled) {
+    return const _PushStatusUi(
+      subtitle: 'Отключены в приложении',
+      color: AppColors.grey,
+      actionLabel: 'Открыть настройки телефона',
+    );
+  }
+  return const _PushStatusUi(
+    subtitle: 'Уведомления включены',
+    color: AppColors.green,
+    actionLabel: 'Открыть настройки телефона',
+  );
 }
 
 class _SettingsHeader extends StatelessWidget {
