@@ -127,6 +127,34 @@ bool isWorkerNonWorkingOnDate({
   );
 }
 
+/// Выходной для полоски дат / календаря: `active: true` — рабочий, `active: false` — выходной.
+bool isWorkerNonWorkingDayForCalendar({
+  required DateTime date,
+  required Set<int> workingWeekdays,
+  ScheduleItemApi? daily,
+  Map<String, dynamic>? shiftConfig,
+  bool hasSchedulesInRange = false,
+}) {
+  final fromDaily = workingStateFromDailySchedule(date, daily);
+  if (fromDaily != null) {
+    return !fromDaily;
+  }
+  // Неделя уже загружена из `/schedules/` — только явные `active: false`.
+  if (hasSchedulesInRange) {
+    return false;
+  }
+  if (workingWeekdays.isEmpty &&
+      !isShiftWorkerScheduleConfig(shiftConfig)) {
+    return false;
+  }
+  return isWorkerNonWorkingOnDate(
+    date: date,
+    workingWeekdays: workingWeekdays,
+    daily: null,
+    shiftConfig: shiftConfig,
+  );
+}
+
 double? _hourFromShortTime(String? value) {
   if (value == null || value.isEmpty) return null;
   final parts = value.split(':');

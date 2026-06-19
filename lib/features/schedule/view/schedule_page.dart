@@ -70,6 +70,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   final ScrollController _daySpecialistsScrollController = ScrollController();
   final ScrollController _dayCalendarScrollController = ScrollController();
   bool _syncingDayHorizontalScroll = false;
+  int? _dayViewSingleWorkerId;
 
   bool _initialOfflineSyncScheduled = false;
 
@@ -933,6 +934,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final savedSelectedId = ref.watch(selectedSpecialistIdProvider);
     // День: колонки только у мастеров, доступных на выбранную дату (как на сайте).
     final isAdminDayView = !isWorkerRole && _viewMode == ViewMode.day;
+    final isAdminMultiDayView =
+        isAdminDayView && specialistsOnSelectedDate.length > 1;
     var specialists = isWorkerRole
         ? specialistsOnSelectedDate
             .where((s) => s.id == currentWorkerId)
@@ -940,6 +943,22 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         : isAdminDayView
         ? specialistsOnSelectedDate
         : allBranchSpecialists;
+    // Один мастер в «День»: на его выходной сохраняем контекст для полоски дат и графика.
+    if (isAdminDayView &&
+        !isAdminMultiDayView &&
+        specialistsOnSelectedDate.isEmpty) {
+      final persistId = _dayViewSingleWorkerId ?? savedSelectedId;
+      if (persistId != null && persistId > 0) {
+        final saved = _specialistById(
+          persistId,
+          allWorkers,
+          workerLabels,
+        );
+        if (saved != null && !specialists.any((s) => s.id == persistId)) {
+          specialists = [saved, ...specialists];
+        }
+      }
+    }
     if (isScheduleOffline && specialists.isEmpty) {
       final fromCache = offlineSpecialistsAsync.value;
       if (fromCache != null && fromCache.isNotEmpty) {
@@ -971,8 +990,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     }
     initialSelected ??=
         specialists.isNotEmpty ? specialists.first : null;
-    final isAdminMultiDayView =
-        isAdminDayView && specialistsOnSelectedDate.length > 1;
+    if (isAdminDayView && !isAdminMultiDayView) {
+      final candidate = initialSelected?.id ??
+          (savedSelectedId != null && savedSelectedId > 0
+              ? savedSelectedId
+              : null);
+      if (candidate != null) {
+        _dayViewSingleWorkerId = candidate;
+      }
+    }
     final dayWorkHours = isAdminMultiDayView
         ? _workHoursForWeek(branchPatterns)
         : _workHoursForDate(selectedDate, branchPatterns);
@@ -981,7 +1007,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final specialistIdForData = isWorkerRole
         ? (currentWorkerId != null && currentWorkerId > 0 ? currentWorkerId : null)
         : isAdminDayView
-        ? initialSelected?.id
+        ? (isAdminMultiDayView
+              ? initialSelected?.id
+              : (_dayViewSingleWorkerId ??
+                  initialSelected?.id ??
+                  (savedSelectedId != null && savedSelectedId > 0
+                      ? savedSelectedId
+                      : null)))
         : (savedSelectedId != null && savedSelectedId > 0
               ? savedSelectedId
               : selectedSpecialistId);
@@ -1083,18 +1115,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       if (workerSchedulesAsync != null && workerSchedulesAsync.isLoading) {
         return false;
       }
-      final daily = workerSchedulesData?.scheduleOn(date);
-      final fromDaily = workingStateFromDailySchedule(date, daily);
-      if (fromDaily != null) return !fromDaily;
-      final loadedByDate = workerSchedulesData?.schedulesByDate;
-      if (loadedByDate != null && loadedByDate.isNotEmpty) {
-        return false;
-      }
-      return isWorkerNonWorkingOnDate(
+      return isWorkerNonWorkingDayForCalendar(
         date: date,
         workingWeekdays: workerWeekdaysForSpecialist,
-        daily: null,
+        daily: workerSchedulesData?.scheduleOn(date),
         shiftConfig: workerShiftConfigForSpecialist,
+        hasSchedulesInRange:
+            workerSchedulesData?.schedulesByDate.isNotEmpty ?? false,
       );
     }
     final slotsByDay = _slotsByDayFromActiveAppointments(
@@ -1118,12 +1145,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     );
     final selectedWorkerHours = specialistIdForData != null
         ? (() {
-            final hasWorkerInBranch = workerWeekdaysById.containsKey(
-              specialistIdForData,
-            );
-            if (!hasWorkerInBranch) {
-              return (start: null, end: null);
-            }
             final byShift = _workerShiftHoursForId(
               availableWorkersAsync.value ?? const [],
               specialistIdForData,
@@ -1134,7 +1155,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
               date: selectedDate,
               workingWeekdays: workerWeekdaysForSpecialist,
               daily: workerSchedulesData?.scheduleOn(selectedDate),
-              shiftConfig: workerSchedulesData?.shiftConfig,
+              shiftConfig: workerSchedulesData?.shiftConfig ??
+                  workerShiftConfigForSpecialist,
               branchStartHour: dayWorkHours.startHour,
               branchEndHour: dayWorkHours.endHour,
             );
