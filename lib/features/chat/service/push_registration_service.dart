@@ -13,7 +13,10 @@ import 'package:rient_app/core/services/notification_permission_service.dart';
 import 'package:rient_app/core/services/push_device_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
+import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/features/auth/view/providers/branches_id_provider.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/chat/data/models/push_device_api/push_device_api.dart';
 import 'package:rient_app/features/chat/service/mobile_push_service.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
@@ -53,10 +56,16 @@ class PushRegistrationService {
     _registerRetryAttempt = 0;
   }
 
-  Future<void> ensureInitialized() async {
-    if (_initialized) return;
-    _initialized = true;
+  /// Сбрасывает отложенную регистрацию при logout / смене пользователя.
+  void resetForNewSession() {
+    cancelPendingRetries();
+  }
 
+  Future<void> registerForActiveSession() async {
+    await registerCurrentDevice();
+  }
+
+  Future<void> ensureInitialized() async {
     try {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp(
@@ -65,12 +74,13 @@ class PushRegistrationService {
       }
       final messaging = FirebaseMessaging.instance;
       await messaging.setAutoInitEnabled(true);
-      if (Platform.isIOS) {
+      if (Platform.isIOS && !_initialized) {
         await _waitForApnsToken(messaging);
       }
       _tokenRefreshSubscription ??= messaging.onTokenRefresh.listen((token) {
         unawaited(registerCurrentDevice(fcmToken: token));
       });
+      _initialized = true;
     } catch (e, st) {
       debugPrint('PushRegistrationService: Firebase init failed: $e\n$st');
     }
@@ -88,7 +98,7 @@ class PushRegistrationService {
     );
   }
 
-  Future<String?> _resolveFcmToken({String? override}) async {
+  Future<String?> resolveFcmToken({String? override}) async {
     if (override != null && override.isNotEmpty) return override;
     try {
       if (Firebase.apps.isEmpty) return null;
@@ -112,10 +122,28 @@ class PushRegistrationService {
     return defaultTargetPlatform.name.toLowerCase();
   }
 
+  Future<int> _resolveBranchId() async {
+    var branchId = ref.read(currentBranchIdProvider);
+    if (branchId > 0) return branchId;
+
+    final authBranchId = ref.read(branchesIdProvider);
+    if (authBranchId > 0) return authBranchId;
+
+    try {
+      final branches = await ref.read(branchesProvider.future);
+      final selectedBranch = ref.read(selectedBranchProvider);
+      if (selectedBranch != null) return selectedBranch.id;
+      if (branches.results.isNotEmpty) return branches.results.first.id;
+    } catch (_) {}
+
+    return 0;
+  }
+
   Future<void> registerCurrentDevice({
     String? fcmToken,
     bool? pushEnabled,
     bool isRetry = false,
+    bool throwOnFailure = false,
   }) async {
     if (!isRetry) {
       _registerRetryTimer?.cancel();
@@ -146,14 +174,20 @@ class PushRegistrationService {
         debugPrint(
           'PushRegistrationService: notifications permission missing, skip register',
         );
+        if (throwOnFailure) {
+          throw StateError('notification_permission_missing');
+        }
         return;
       }
 
-      final token = await _resolveFcmToken(override: fcmToken);
+      final token = await resolveFcmToken(override: fcmToken);
       if (token == null || token.isEmpty) {
         debugPrint(
           'PushRegistrationService: FCM token unavailable, skip register',
         );
+        if (throwOnFailure) {
+          throw StateError('fcm_token_unavailable');
+        }
         _scheduleRegisterRetry();
         return;
       }
@@ -164,7 +198,18 @@ class PushRegistrationService {
 
       final deviceStorage = ref.read(pushDeviceStorageProvider);
       final deviceId = await deviceStorage.getOrCreateDeviceId();
-      final branchId = ref.read(currentBranchIdProvider);
+      final branchId = await _resolveBranchId();
+      final roleId = ref.read(roleProvider);
+      if (roleId != UserRole.owner.value && branchId <= 0) {
+        debugPrint(
+          'PushRegistrationService: branch id missing for role=$roleId, retry register',
+        );
+        if (throwOnFailure) {
+          throw StateError('branch_missing');
+        }
+        _scheduleRegisterRetry();
+        return;
+      }
       final packageInfo = await PackageInfo.fromPlatform();
       final locale = WidgetsBinding.instance.platformDispatcher.locale;
       final localeTag = locale.languageCode;
@@ -207,16 +252,18 @@ class PushRegistrationService {
         // 401 при смене аккаунта или просроченном токене — не ретраим.
         if (status == 401 || status == 403) {
           cancelPendingRetries();
+          if (throwOnFailure) rethrow;
           return;
         }
       }
       debugPrint('PushRegistrationService: register failed: $e\n$st');
+      if (throwOnFailure) rethrow;
       _scheduleRegisterRetry();
     }
   }
 
   void _scheduleRegisterRetry() {
-    if (_registerRetryAttempt >= 5) return;
+    if (_registerRetryAttempt >= 8) return;
     _registerRetryTimer?.cancel();
     final delaySeconds = 2 * (_registerRetryAttempt + 1);
     _registerRetryAttempt++;
@@ -238,7 +285,7 @@ class PushRegistrationService {
     try {
       final deviceId = await deviceStorage.getOrCreateDeviceId();
       final apiId = await deviceStorage.getRegisteredDeviceApiId();
-      final fcmToken = await _resolveFcmToken();
+      final fcmToken = await resolveFcmToken();
 
       await ref.read(mobilePushServiceProvider).deactivateDevice(
             organizationId: organizationId,

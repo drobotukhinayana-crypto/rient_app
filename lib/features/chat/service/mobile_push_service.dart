@@ -320,15 +320,17 @@ class MobilePushService {
 
     try {
       final url = ApiConsts().createUrl('mobile-push/settings/');
+      final payload = UpdatePushSettingsRequest(
+        organization: organizationId,
+        pushEnabled: pushEnabled,
+        id: deviceRecordId,
+        token: fcmToken,
+        deviceId: deviceId,
+      ).toJson()
+        ..removeWhere((_, value) => value == null);
       final response = await Dio().patch<Map<String, dynamic>>(
         url,
-        data: UpdatePushSettingsRequest(
-          organization: organizationId,
-          pushEnabled: pushEnabled,
-          id: deviceRecordId,
-          token: fcmToken,
-          deviceId: deviceId,
-        ).toJson(),
+        data: payload,
         options: Options(
           headers: {
             ...await _authHeaders(),

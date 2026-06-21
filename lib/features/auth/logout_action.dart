@@ -32,7 +32,7 @@ import 'package:rient_app/features/schedule/data/schedule_appointments_cache.dar
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
 Future<void> _remoteLogoutCleanup(dynamic ref) async {
-  ref.read(pushRegistrationServiceProvider).cancelPendingRetries();
+  ref.read(pushRegistrationServiceProvider).resetForNewSession();
 
   try {
     await ref

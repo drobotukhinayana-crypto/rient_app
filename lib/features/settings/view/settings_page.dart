@@ -119,6 +119,7 @@ class _PushNotificationsTileState extends ConsumerState<_PushNotificationsTile>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       invalidateNotificationPermissionStatus(ref);
+      invalidatePushSettings(ref);
     }
   }
 
@@ -129,11 +130,56 @@ class _PushNotificationsTileState extends ConsumerState<_PushNotificationsTile>
     if (!granted || !mounted) return;
 
     await setPushEnabled(ref, true);
-    invalidatePushSettings(ref);
+  }
+
+  Future<void> _disablePushNotifications() async {
+    await setPushEnabled(ref, false);
   }
 
   Future<void> _openSystemNotificationSettings() async {
     await NotificationPermissionService.openSystemNotificationSettings();
+  }
+
+  Future<void> _handlePushToggle(bool value) async {
+    setState(() => _isUpdating = true);
+    try {
+      if (value) {
+        final status = await NotificationPermissionService.getStatus();
+        if (!mounted) return;
+        if (status == AppNotificationPermissionStatus.notDetermined) {
+          await _enablePushNotifications();
+        } else if (status == AppNotificationPermissionStatus.denied) {
+          await _openSystemNotificationSettings();
+        } else {
+          await setPushEnabled(ref, true);
+        }
+      } else {
+        await _disablePushNotifications();
+      }
+    } on StateError catch (e) {
+      if (!mounted) return;
+      if (e.message == 'notification_permission_missing' ||
+          e.message == 'fcm_token_unavailable') {
+        await _openSystemNotificationSettings();
+      } else {
+        showAppServiceMessage(
+          context,
+          message: 'Не удалось изменить настройку',
+          variant: AppServiceMessageVariant.error,
+        );
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      showAppServiceMessage(
+        context,
+        message: 'Не удалось изменить настройку',
+        variant: AppServiceMessageVariant.error,
+      );
+    } finally {
+      invalidateNotificationPermissionStatus(ref);
+      invalidatePushSettings(ref);
+      if (mounted) setState(() => _isUpdating = false);
+    }
   }
 
   @override
@@ -141,16 +187,17 @@ class _PushNotificationsTileState extends ConsumerState<_PushNotificationsTile>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final deviceAsync = ref.watch(currentPushSettingsDeviceProvider);
     final permissionAsync = ref.watch(notificationPermissionStatusProvider);
-    final pushEnabled = deviceAsync.value?.pushEnabled ?? true;
+    final appPushEnabled = deviceAsync.value?.pushEnabled ?? false;
     final permissionGranted =
         permissionAsync.value == AppNotificationPermissionStatus.granted;
+    final switchValue = permissionGranted && appPushEnabled;
     final isLoading =
         deviceAsync.isLoading || permissionAsync.isLoading || _isUpdating;
     final accent = AppColors.themeAccent(context);
     final titleColor = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
 
     final status = _resolvePushStatus(
-      pushEnabled: pushEnabled,
+      pushEnabled: appPushEnabled,
       permissionGranted: permissionGranted,
       hasLoadError: deviceAsync.hasError,
       permissionLoadError: permissionAsync.hasError,
@@ -171,29 +218,8 @@ class _PushNotificationsTileState extends ConsumerState<_PushNotificationsTile>
               status.subtitle,
               style: AppFonts.c1Regular.copyWith(color: status.color),
             ),
-            value: pushEnabled,
-            onChanged: isLoading
-                ? null
-                : (value) async {
-                    setState(() => _isUpdating = true);
-                    try {
-                      if (value) {
-                        await _enablePushNotifications();
-                      } else {
-                        await setPushEnabled(ref, false);
-                        invalidatePushSettings(ref);
-                      }
-                    } catch (_) {
-                      if (!context.mounted) return;
-                      showAppServiceMessage(
-                        context,
-                        message: 'Не удалось изменить настройку',
-                        variant: AppServiceMessageVariant.error,
-                      );
-                    } finally {
-                      if (mounted) setState(() => _isUpdating = false);
-                    }
-                  },
+            value: switchValue,
+            onChanged: isLoading ? null : _handlePushToggle,
           ),
           if (!permissionGranted && !permissionAsync.isLoading) ...[
             const Divider(height: 1),

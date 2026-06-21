@@ -24,5 +24,5 @@ Future<void> navigateToHomeAfterLogin(
   }
 
   // Токен уже в сессии, TabBar ещё не смонтирован — регистрируем FCM сразу.
-  unawaited(ref.read(pushRegistrationServiceProvider).registerCurrentDevice());
+  unawaited(ref.read(pushRegistrationServiceProvider).registerForActiveSession());
 }

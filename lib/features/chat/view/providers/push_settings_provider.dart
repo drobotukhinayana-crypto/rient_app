@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/services/notification_permission_service.dart';
 import 'package:rient_app/core/services/push_device_storage.dart';
 import 'package:rient_app/features/chat/data/models/push_settings_api/push_settings_api.dart';
 import 'package:rient_app/features/chat/service/mobile_push_service.dart';
@@ -18,29 +19,56 @@ final currentPushSettingsDeviceProvider =
   for (final device in devices) {
     if (device.deviceId == deviceId) return device;
   }
-  return devices.isNotEmpty ? devices.first : null;
+  return null;
 });
+
+Future<int?> _resolveDeviceRecordId(WidgetRef ref, String deviceId) async {
+  final deviceStorage = ref.read(pushDeviceStorageProvider);
+  final settingsDevice = await ref.read(currentPushSettingsDeviceProvider.future);
+  return settingsDevice?.id ?? await deviceStorage.getRegisteredDeviceApiId();
+}
 
 Future<void> setPushEnabled(WidgetRef ref, bool enabled) async {
   final deviceStorage = ref.read(pushDeviceStorageProvider);
   final deviceId = await deviceStorage.getOrCreateDeviceId();
-  final settingsDevice = await ref.read(currentPushSettingsDeviceProvider.future);
-  final apiId =
-      settingsDevice?.id ?? await deviceStorage.getRegisteredDeviceApiId();
+  final pushService = ref.read(mobilePushServiceProvider);
+  final registration = ref.read(pushRegistrationServiceProvider);
 
-  await ref.read(mobilePushServiceProvider).updatePushSettings(
-        pushEnabled: enabled,
-        deviceRecordId: apiId,
-        deviceId: deviceId,
-      );
+  String? fcmToken;
+  if (enabled) {
+    if (!await NotificationPermissionService.hasGrantedPermission()) {
+      throw StateError('notification_permission_missing');
+    }
+    fcmToken = await registration.resolveFcmToken();
+    await registration.registerCurrentDevice(
+      fcmToken: fcmToken,
+      pushEnabled: true,
+      throwOnFailure: true,
+    );
+  } else {
+    fcmToken = await registration.resolveFcmToken();
+  }
 
-  invalidatePushSettings(ref);
+  var apiId = await _resolveDeviceRecordId(ref, deviceId);
 
   if (enabled) {
-    await ref.read(pushRegistrationServiceProvider).registerCurrentDevice(
-          pushEnabled: true,
-        );
+    apiId ??= await deviceStorage.getRegisteredDeviceApiId();
+  } else {
+    await registration.registerCurrentDevice(
+      fcmToken: fcmToken,
+      pushEnabled: false,
+    );
+    apiId ??= await deviceStorage.getRegisteredDeviceApiId();
   }
+
+  await pushService.updatePushSettings(
+    pushEnabled: enabled,
+    deviceRecordId: apiId,
+    deviceId: deviceId,
+    fcmToken: fcmToken,
+  );
+
+  invalidatePushSettings(ref);
 }
 
 void invalidatePushSettings(WidgetRef ref) {

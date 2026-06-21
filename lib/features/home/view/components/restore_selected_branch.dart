@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/local_storage.dart';
+import 'package:rient_app/features/chat/service/push_registration_service.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 
@@ -47,6 +50,9 @@ class _RestoreSelectedBranchState extends ConsumerState<RestoreSelectedBranch> {
     }
     if (branch != null && mounted) {
       ref.read(selectedBranchProvider.notifier).state = branch;
+      unawaited(
+        ref.read(pushRegistrationServiceProvider).registerForActiveSession(),
+      );
     }
   }
 }

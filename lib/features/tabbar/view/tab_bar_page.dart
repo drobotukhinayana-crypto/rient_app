@@ -178,7 +178,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
 
       if (!mounted) return;
       if (granted) {
-        await ref.read(pushRegistrationServiceProvider).registerCurrentDevice();
+        await ref.read(pushRegistrationServiceProvider).registerForActiveSession();
       }
     } finally {
       _permissionFlowInProgress = false;
@@ -189,10 +189,9 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     final token = ref.read(tokenProvider);
     final organizationId = ref.read(organizationIdProvider);
     if (token == null || token.isEmpty || organizationId <= 0) return;
+    if (!await NotificationPermissionService.hasGrantedPermission()) return;
 
-    await _ensurePushPermissionAndRegistration(
-      showDeniedSettingsPrompt: false,
-    );
+    await ref.read(pushRegistrationServiceProvider).registerForActiveSession();
   }
 
   @override
