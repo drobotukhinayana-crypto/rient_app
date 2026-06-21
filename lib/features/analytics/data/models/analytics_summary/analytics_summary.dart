@@ -14,6 +14,7 @@ sealed class AnalyticsSummary with _$AnalyticsSummary {
     @Default([]) List<AnalyticsOccupancyDay> occupancy,
     required AnalyticsComparison comparison,
     required AnalyticsGlobal global,
+    AnalyticsOverview? overview,
     AnalyticsSpecialist? specialist,
     AnalyticsBenchmarking? benchmarking,
     required AnalyticsMeta meta,
@@ -128,9 +129,26 @@ sealed class AnalyticsComparison with _$AnalyticsComparison {
 }
 
 @freezed
+sealed class AnalyticsOverview with _$AnalyticsOverview {
+  const factory AnalyticsOverview({
+    double? performance,
+    @JsonKey(name: 'pay_due') double? payDue,
+    double? occupancy,
+    double? income,
+    int? clients,
+    @JsonKey(name: 'average_check') double? averageCheck,
+  }) = _AnalyticsOverview;
+
+  factory AnalyticsOverview.fromJson(Map<String, dynamic> json) =>
+      _$AnalyticsOverviewFromJson(json);
+}
+
+@freezed
 sealed class AnalyticsComparisonPeriod with _$AnalyticsComparisonPeriod {
   const factory AnalyticsComparisonPeriod({
     @JsonKey(name: 'total_income') double? totalIncome,
+    double? performance,
+    @JsonKey(name: 'pay_due') double? payDue,
     @JsonKey(name: 'total_clients') int? totalClients,
     @JsonKey(name: 'completed_appointments') int? completedAppointments,
     @JsonKey(name: 'total_appointments') int? totalAppointments,
@@ -218,6 +236,7 @@ sealed class AnalyticsGlobalService with _$AnalyticsGlobalService {
 sealed class AnalyticsSpecialist with _$AnalyticsSpecialist {
   const factory AnalyticsSpecialist({
     double? performance,
+    @JsonKey(name: 'pay_due') double? payDue,
   }) = _AnalyticsSpecialist;
 
   factory AnalyticsSpecialist.fromJson(Map<String, dynamic> json) =>

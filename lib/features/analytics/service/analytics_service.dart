@@ -132,6 +132,9 @@ class AnalyticsService {
       if (row['average_transactions'] != null)
         'average_transactions':
             (row['average_transactions'] as num).toDouble(),
+      if (row['performance'] != null)
+        'performance': (row['performance'] as num).toDouble(),
+      if (row['pay_due'] != null) 'pay_due': (row['pay_due'] as num).toDouble(),
       if (row['occupancy'] != null)
         'occupancy': (row['occupancy'] as num).toDouble(),
       if (row['income_by_day'] != null)
@@ -198,12 +201,29 @@ class AnalyticsService {
     }
     normalized['global'] = global;
 
+    final overviewRaw = normalized['overview'];
+    if (overviewRaw is Map) {
+      final row = overviewRaw.map((k, v) => MapEntry(k.toString(), v));
+      normalized['overview'] = <String, dynamic>{
+        if (row['performance'] != null)
+          'performance': (row['performance'] as num).toDouble(),
+        if (row['pay_due'] != null) 'pay_due': (row['pay_due'] as num).toDouble(),
+        if (row['occupancy'] != null)
+          'occupancy': (row['occupancy'] as num).toDouble(),
+        if (row['income'] != null) 'income': (row['income'] as num).toDouble(),
+        if (row['clients'] != null) 'clients': (row['clients'] as num).toInt(),
+        if (row['average_check'] != null)
+          'average_check': (row['average_check'] as num).toDouble(),
+      };
+    }
+
     final specialistRaw = normalized['specialist'];
     if (specialistRaw is Map) {
       final row = specialistRaw.map((k, v) => MapEntry(k.toString(), v));
       normalized['specialist'] = <String, dynamic>{
         if (row['performance'] != null)
           'performance': (row['performance'] as num).toDouble(),
+        if (row['pay_due'] != null) 'pay_due': (row['pay_due'] as num).toDouble(),
       };
     }
 

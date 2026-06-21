@@ -27,6 +27,11 @@ _AnalyticsSummary _$AnalyticsSummaryFromJson(Map<String, dynamic> json) =>
         json['comparison'] as Map<String, dynamic>,
       ),
       global: AnalyticsGlobal.fromJson(json['global'] as Map<String, dynamic>),
+      overview: json['overview'] == null
+          ? null
+          : AnalyticsOverview.fromJson(
+              json['overview'] as Map<String, dynamic>,
+            ),
       specialist: json['specialist'] == null
           ? null
           : AnalyticsSpecialist.fromJson(
@@ -50,6 +55,7 @@ Map<String, dynamic> _$AnalyticsSummaryToJson(_AnalyticsSummary instance) =>
       'occupancy': instance.occupancy,
       'comparison': instance.comparison,
       'global': instance.global,
+      'overview': instance.overview,
       'specialist': instance.specialist,
       'benchmarking': instance.benchmarking,
       'meta': instance.meta,
@@ -182,10 +188,32 @@ Map<String, dynamic> _$AnalyticsComparisonToJson(
   _AnalyticsComparison instance,
 ) => <String, dynamic>{'current': instance.current};
 
+_AnalyticsOverview _$AnalyticsOverviewFromJson(Map<String, dynamic> json) =>
+    _AnalyticsOverview(
+      performance: (json['performance'] as num?)?.toDouble(),
+      payDue: (json['pay_due'] as num?)?.toDouble(),
+      occupancy: (json['occupancy'] as num?)?.toDouble(),
+      income: (json['income'] as num?)?.toDouble(),
+      clients: (json['clients'] as num?)?.toInt(),
+      averageCheck: (json['average_check'] as num?)?.toDouble(),
+    );
+
+Map<String, dynamic> _$AnalyticsOverviewToJson(_AnalyticsOverview instance) =>
+    <String, dynamic>{
+      'performance': instance.performance,
+      'pay_due': instance.payDue,
+      'occupancy': instance.occupancy,
+      'income': instance.income,
+      'clients': instance.clients,
+      'average_check': instance.averageCheck,
+    };
+
 _AnalyticsComparisonPeriod _$AnalyticsComparisonPeriodFromJson(
   Map<String, dynamic> json,
 ) => _AnalyticsComparisonPeriod(
   totalIncome: (json['total_income'] as num?)?.toDouble(),
+  performance: (json['performance'] as num?)?.toDouble(),
+  payDue: (json['pay_due'] as num?)?.toDouble(),
   totalClients: (json['total_clients'] as num?)?.toInt(),
   completedAppointments: (json['completed_appointments'] as num?)?.toInt(),
   totalAppointments: (json['total_appointments'] as num?)?.toInt(),
@@ -206,6 +234,8 @@ Map<String, dynamic> _$AnalyticsComparisonPeriodToJson(
   _AnalyticsComparisonPeriod instance,
 ) => <String, dynamic>{
   'total_income': instance.totalIncome,
+  'performance': instance.performance,
+  'pay_due': instance.payDue,
   'total_clients': instance.totalClients,
   'completed_appointments': instance.completedAppointments,
   'total_appointments': instance.totalAppointments,
@@ -298,11 +328,15 @@ Map<String, dynamic> _$AnalyticsGlobalServiceToJson(
 _AnalyticsSpecialist _$AnalyticsSpecialistFromJson(Map<String, dynamic> json) =>
     _AnalyticsSpecialist(
       performance: (json['performance'] as num?)?.toDouble(),
+      payDue: (json['pay_due'] as num?)?.toDouble(),
     );
 
 Map<String, dynamic> _$AnalyticsSpecialistToJson(
   _AnalyticsSpecialist instance,
-) => <String, dynamic>{'performance': instance.performance};
+) => <String, dynamic>{
+  'performance': instance.performance,
+  'pay_due': instance.payDue,
+};
 
 _AnalyticsBenchmarking _$AnalyticsBenchmarkingFromJson(
   Map<String, dynamic> json,

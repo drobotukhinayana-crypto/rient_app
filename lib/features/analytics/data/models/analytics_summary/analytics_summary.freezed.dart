@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$AnalyticsSummary {
 
-@JsonKey(name: 'organization_id') int get organizationId;@JsonKey(name: 'branch_id') int get branchId;@JsonKey(name: 'worker_id') int? get workerId; AnalyticsPeriod get period; AnalyticsSummaryBlock get summary; List<AnalyticsOccupancyDay> get occupancy; AnalyticsComparison get comparison; AnalyticsGlobal get global; AnalyticsSpecialist? get specialist; AnalyticsBenchmarking? get benchmarking; AnalyticsMeta get meta;
+@JsonKey(name: 'organization_id') int get organizationId;@JsonKey(name: 'branch_id') int get branchId;@JsonKey(name: 'worker_id') int? get workerId; AnalyticsPeriod get period; AnalyticsSummaryBlock get summary; List<AnalyticsOccupancyDay> get occupancy; AnalyticsComparison get comparison; AnalyticsGlobal get global; AnalyticsOverview? get overview; AnalyticsSpecialist? get specialist; AnalyticsBenchmarking? get benchmarking; AnalyticsMeta get meta;
 /// Create a copy of AnalyticsSummary
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $AnalyticsSummaryCopyWith<AnalyticsSummary> get copyWith => _$AnalyticsSummaryCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AnalyticsSummary&&(identical(other.organizationId, organizationId) || other.organizationId == organizationId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.workerId, workerId) || other.workerId == workerId)&&(identical(other.period, period) || other.period == period)&&(identical(other.summary, summary) || other.summary == summary)&&const DeepCollectionEquality().equals(other.occupancy, occupancy)&&(identical(other.comparison, comparison) || other.comparison == comparison)&&(identical(other.global, global) || other.global == global)&&(identical(other.specialist, specialist) || other.specialist == specialist)&&(identical(other.benchmarking, benchmarking) || other.benchmarking == benchmarking)&&(identical(other.meta, meta) || other.meta == meta));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AnalyticsSummary&&(identical(other.organizationId, organizationId) || other.organizationId == organizationId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.workerId, workerId) || other.workerId == workerId)&&(identical(other.period, period) || other.period == period)&&(identical(other.summary, summary) || other.summary == summary)&&const DeepCollectionEquality().equals(other.occupancy, occupancy)&&(identical(other.comparison, comparison) || other.comparison == comparison)&&(identical(other.global, global) || other.global == global)&&(identical(other.overview, overview) || other.overview == overview)&&(identical(other.specialist, specialist) || other.specialist == specialist)&&(identical(other.benchmarking, benchmarking) || other.benchmarking == benchmarking)&&(identical(other.meta, meta) || other.meta == meta));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,organizationId,branchId,workerId,period,summary,const DeepCollectionEquality().hash(occupancy),comparison,global,specialist,benchmarking,meta);
+int get hashCode => Object.hash(runtimeType,organizationId,branchId,workerId,period,summary,const DeepCollectionEquality().hash(occupancy),comparison,global,overview,specialist,benchmarking,meta);
 
 @override
 String toString() {
-  return 'AnalyticsSummary(organizationId: $organizationId, branchId: $branchId, workerId: $workerId, period: $period, summary: $summary, occupancy: $occupancy, comparison: $comparison, global: $global, specialist: $specialist, benchmarking: $benchmarking, meta: $meta)';
+  return 'AnalyticsSummary(organizationId: $organizationId, branchId: $branchId, workerId: $workerId, period: $period, summary: $summary, occupancy: $occupancy, comparison: $comparison, global: $global, overview: $overview, specialist: $specialist, benchmarking: $benchmarking, meta: $meta)';
 }
 
 
@@ -48,11 +48,11 @@ abstract mixin class $AnalyticsSummaryCopyWith<$Res>  {
   factory $AnalyticsSummaryCopyWith(AnalyticsSummary value, $Res Function(AnalyticsSummary) _then) = _$AnalyticsSummaryCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'organization_id') int organizationId,@JsonKey(name: 'branch_id') int branchId,@JsonKey(name: 'worker_id') int? workerId, AnalyticsPeriod period, AnalyticsSummaryBlock summary, List<AnalyticsOccupancyDay> occupancy, AnalyticsComparison comparison, AnalyticsGlobal global, AnalyticsSpecialist? specialist, AnalyticsBenchmarking? benchmarking, AnalyticsMeta meta
+@JsonKey(name: 'organization_id') int organizationId,@JsonKey(name: 'branch_id') int branchId,@JsonKey(name: 'worker_id') int? workerId, AnalyticsPeriod period, AnalyticsSummaryBlock summary, List<AnalyticsOccupancyDay> occupancy, AnalyticsComparison comparison, AnalyticsGlobal global, AnalyticsOverview? overview, AnalyticsSpecialist? specialist, AnalyticsBenchmarking? benchmarking, AnalyticsMeta meta
 });
 
 
-$AnalyticsPeriodCopyWith<$Res> get period;$AnalyticsSummaryBlockCopyWith<$Res> get summary;$AnalyticsComparisonCopyWith<$Res> get comparison;$AnalyticsGlobalCopyWith<$Res> get global;$AnalyticsSpecialistCopyWith<$Res>? get specialist;$AnalyticsBenchmarkingCopyWith<$Res>? get benchmarking;$AnalyticsMetaCopyWith<$Res> get meta;
+$AnalyticsPeriodCopyWith<$Res> get period;$AnalyticsSummaryBlockCopyWith<$Res> get summary;$AnalyticsComparisonCopyWith<$Res> get comparison;$AnalyticsGlobalCopyWith<$Res> get global;$AnalyticsOverviewCopyWith<$Res>? get overview;$AnalyticsSpecialistCopyWith<$Res>? get specialist;$AnalyticsBenchmarkingCopyWith<$Res>? get benchmarking;$AnalyticsMetaCopyWith<$Res> get meta;
 
 }
 /// @nodoc
@@ -65,7 +65,7 @@ class _$AnalyticsSummaryCopyWithImpl<$Res>
 
 /// Create a copy of AnalyticsSummary
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? organizationId = null,Object? branchId = null,Object? workerId = freezed,Object? period = null,Object? summary = null,Object? occupancy = null,Object? comparison = null,Object? global = null,Object? specialist = freezed,Object? benchmarking = freezed,Object? meta = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? organizationId = null,Object? branchId = null,Object? workerId = freezed,Object? period = null,Object? summary = null,Object? occupancy = null,Object? comparison = null,Object? global = null,Object? overview = freezed,Object? specialist = freezed,Object? benchmarking = freezed,Object? meta = null,}) {
   return _then(_self.copyWith(
 organizationId: null == organizationId ? _self.organizationId : organizationId // ignore: cast_nullable_to_non_nullable
 as int,branchId: null == branchId ? _self.branchId : branchId // ignore: cast_nullable_to_non_nullable
@@ -75,7 +75,8 @@ as AnalyticsPeriod,summary: null == summary ? _self.summary : summary // ignore:
 as AnalyticsSummaryBlock,occupancy: null == occupancy ? _self.occupancy : occupancy // ignore: cast_nullable_to_non_nullable
 as List<AnalyticsOccupancyDay>,comparison: null == comparison ? _self.comparison : comparison // ignore: cast_nullable_to_non_nullable
 as AnalyticsComparison,global: null == global ? _self.global : global // ignore: cast_nullable_to_non_nullable
-as AnalyticsGlobal,specialist: freezed == specialist ? _self.specialist : specialist // ignore: cast_nullable_to_non_nullable
+as AnalyticsGlobal,overview: freezed == overview ? _self.overview : overview // ignore: cast_nullable_to_non_nullable
+as AnalyticsOverview?,specialist: freezed == specialist ? _self.specialist : specialist // ignore: cast_nullable_to_non_nullable
 as AnalyticsSpecialist?,benchmarking: freezed == benchmarking ? _self.benchmarking : benchmarking // ignore: cast_nullable_to_non_nullable
 as AnalyticsBenchmarking?,meta: null == meta ? _self.meta : meta // ignore: cast_nullable_to_non_nullable
 as AnalyticsMeta,
@@ -116,6 +117,18 @@ $AnalyticsGlobalCopyWith<$Res> get global {
   
   return $AnalyticsGlobalCopyWith<$Res>(_self.global, (value) {
     return _then(_self.copyWith(global: value));
+  });
+}/// Create a copy of AnalyticsSummary
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$AnalyticsOverviewCopyWith<$Res>? get overview {
+    if (_self.overview == null) {
+    return null;
+  }
+
+  return $AnalyticsOverviewCopyWith<$Res>(_self.overview!, (value) {
+    return _then(_self.copyWith(overview: value));
   });
 }/// Create a copy of AnalyticsSummary
 /// with the given fields replaced by the non-null parameter values.
@@ -229,10 +242,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'organization_id')  int organizationId, @JsonKey(name: 'branch_id')  int branchId, @JsonKey(name: 'worker_id')  int? workerId,  AnalyticsPeriod period,  AnalyticsSummaryBlock summary,  List<AnalyticsOccupancyDay> occupancy,  AnalyticsComparison comparison,  AnalyticsGlobal global,  AnalyticsSpecialist? specialist,  AnalyticsBenchmarking? benchmarking,  AnalyticsMeta meta)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'organization_id')  int organizationId, @JsonKey(name: 'branch_id')  int branchId, @JsonKey(name: 'worker_id')  int? workerId,  AnalyticsPeriod period,  AnalyticsSummaryBlock summary,  List<AnalyticsOccupancyDay> occupancy,  AnalyticsComparison comparison,  AnalyticsGlobal global,  AnalyticsOverview? overview,  AnalyticsSpecialist? specialist,  AnalyticsBenchmarking? benchmarking,  AnalyticsMeta meta)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AnalyticsSummary() when $default != null:
-return $default(_that.organizationId,_that.branchId,_that.workerId,_that.period,_that.summary,_that.occupancy,_that.comparison,_that.global,_that.specialist,_that.benchmarking,_that.meta);case _:
+return $default(_that.organizationId,_that.branchId,_that.workerId,_that.period,_that.summary,_that.occupancy,_that.comparison,_that.global,_that.overview,_that.specialist,_that.benchmarking,_that.meta);case _:
   return orElse();
 
 }
@@ -250,10 +263,10 @@ return $default(_that.organizationId,_that.branchId,_that.workerId,_that.period,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'organization_id')  int organizationId, @JsonKey(name: 'branch_id')  int branchId, @JsonKey(name: 'worker_id')  int? workerId,  AnalyticsPeriod period,  AnalyticsSummaryBlock summary,  List<AnalyticsOccupancyDay> occupancy,  AnalyticsComparison comparison,  AnalyticsGlobal global,  AnalyticsSpecialist? specialist,  AnalyticsBenchmarking? benchmarking,  AnalyticsMeta meta)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'organization_id')  int organizationId, @JsonKey(name: 'branch_id')  int branchId, @JsonKey(name: 'worker_id')  int? workerId,  AnalyticsPeriod period,  AnalyticsSummaryBlock summary,  List<AnalyticsOccupancyDay> occupancy,  AnalyticsComparison comparison,  AnalyticsGlobal global,  AnalyticsOverview? overview,  AnalyticsSpecialist? specialist,  AnalyticsBenchmarking? benchmarking,  AnalyticsMeta meta)  $default,) {final _that = this;
 switch (_that) {
 case _AnalyticsSummary():
-return $default(_that.organizationId,_that.branchId,_that.workerId,_that.period,_that.summary,_that.occupancy,_that.comparison,_that.global,_that.specialist,_that.benchmarking,_that.meta);}
+return $default(_that.organizationId,_that.branchId,_that.workerId,_that.period,_that.summary,_that.occupancy,_that.comparison,_that.global,_that.overview,_that.specialist,_that.benchmarking,_that.meta);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -267,10 +280,10 @@ return $default(_that.organizationId,_that.branchId,_that.workerId,_that.period,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'organization_id')  int organizationId, @JsonKey(name: 'branch_id')  int branchId, @JsonKey(name: 'worker_id')  int? workerId,  AnalyticsPeriod period,  AnalyticsSummaryBlock summary,  List<AnalyticsOccupancyDay> occupancy,  AnalyticsComparison comparison,  AnalyticsGlobal global,  AnalyticsSpecialist? specialist,  AnalyticsBenchmarking? benchmarking,  AnalyticsMeta meta)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'organization_id')  int organizationId, @JsonKey(name: 'branch_id')  int branchId, @JsonKey(name: 'worker_id')  int? workerId,  AnalyticsPeriod period,  AnalyticsSummaryBlock summary,  List<AnalyticsOccupancyDay> occupancy,  AnalyticsComparison comparison,  AnalyticsGlobal global,  AnalyticsOverview? overview,  AnalyticsSpecialist? specialist,  AnalyticsBenchmarking? benchmarking,  AnalyticsMeta meta)?  $default,) {final _that = this;
 switch (_that) {
 case _AnalyticsSummary() when $default != null:
-return $default(_that.organizationId,_that.branchId,_that.workerId,_that.period,_that.summary,_that.occupancy,_that.comparison,_that.global,_that.specialist,_that.benchmarking,_that.meta);case _:
+return $default(_that.organizationId,_that.branchId,_that.workerId,_that.period,_that.summary,_that.occupancy,_that.comparison,_that.global,_that.overview,_that.specialist,_that.benchmarking,_that.meta);case _:
   return null;
 
 }
@@ -282,7 +295,7 @@ return $default(_that.organizationId,_that.branchId,_that.workerId,_that.period,
 @JsonSerializable()
 
 class _AnalyticsSummary implements AnalyticsSummary {
-  const _AnalyticsSummary({@JsonKey(name: 'organization_id') required this.organizationId, @JsonKey(name: 'branch_id') required this.branchId, @JsonKey(name: 'worker_id') this.workerId, required this.period, required this.summary, final  List<AnalyticsOccupancyDay> occupancy = const [], required this.comparison, required this.global, this.specialist, this.benchmarking, required this.meta}): _occupancy = occupancy;
+  const _AnalyticsSummary({@JsonKey(name: 'organization_id') required this.organizationId, @JsonKey(name: 'branch_id') required this.branchId, @JsonKey(name: 'worker_id') this.workerId, required this.period, required this.summary, final  List<AnalyticsOccupancyDay> occupancy = const [], required this.comparison, required this.global, this.overview, this.specialist, this.benchmarking, required this.meta}): _occupancy = occupancy;
   factory _AnalyticsSummary.fromJson(Map<String, dynamic> json) => _$AnalyticsSummaryFromJson(json);
 
 @override@JsonKey(name: 'organization_id') final  int organizationId;
@@ -299,6 +312,7 @@ class _AnalyticsSummary implements AnalyticsSummary {
 
 @override final  AnalyticsComparison comparison;
 @override final  AnalyticsGlobal global;
+@override final  AnalyticsOverview? overview;
 @override final  AnalyticsSpecialist? specialist;
 @override final  AnalyticsBenchmarking? benchmarking;
 @override final  AnalyticsMeta meta;
@@ -316,16 +330,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AnalyticsSummary&&(identical(other.organizationId, organizationId) || other.organizationId == organizationId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.workerId, workerId) || other.workerId == workerId)&&(identical(other.period, period) || other.period == period)&&(identical(other.summary, summary) || other.summary == summary)&&const DeepCollectionEquality().equals(other._occupancy, _occupancy)&&(identical(other.comparison, comparison) || other.comparison == comparison)&&(identical(other.global, global) || other.global == global)&&(identical(other.specialist, specialist) || other.specialist == specialist)&&(identical(other.benchmarking, benchmarking) || other.benchmarking == benchmarking)&&(identical(other.meta, meta) || other.meta == meta));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AnalyticsSummary&&(identical(other.organizationId, organizationId) || other.organizationId == organizationId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.workerId, workerId) || other.workerId == workerId)&&(identical(other.period, period) || other.period == period)&&(identical(other.summary, summary) || other.summary == summary)&&const DeepCollectionEquality().equals(other._occupancy, _occupancy)&&(identical(other.comparison, comparison) || other.comparison == comparison)&&(identical(other.global, global) || other.global == global)&&(identical(other.overview, overview) || other.overview == overview)&&(identical(other.specialist, specialist) || other.specialist == specialist)&&(identical(other.benchmarking, benchmarking) || other.benchmarking == benchmarking)&&(identical(other.meta, meta) || other.meta == meta));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,organizationId,branchId,workerId,period,summary,const DeepCollectionEquality().hash(_occupancy),comparison,global,specialist,benchmarking,meta);
+int get hashCode => Object.hash(runtimeType,organizationId,branchId,workerId,period,summary,const DeepCollectionEquality().hash(_occupancy),comparison,global,overview,specialist,benchmarking,meta);
 
 @override
 String toString() {
-  return 'AnalyticsSummary(organizationId: $organizationId, branchId: $branchId, workerId: $workerId, period: $period, summary: $summary, occupancy: $occupancy, comparison: $comparison, global: $global, specialist: $specialist, benchmarking: $benchmarking, meta: $meta)';
+  return 'AnalyticsSummary(organizationId: $organizationId, branchId: $branchId, workerId: $workerId, period: $period, summary: $summary, occupancy: $occupancy, comparison: $comparison, global: $global, overview: $overview, specialist: $specialist, benchmarking: $benchmarking, meta: $meta)';
 }
 
 
@@ -336,11 +350,11 @@ abstract mixin class _$AnalyticsSummaryCopyWith<$Res> implements $AnalyticsSumma
   factory _$AnalyticsSummaryCopyWith(_AnalyticsSummary value, $Res Function(_AnalyticsSummary) _then) = __$AnalyticsSummaryCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'organization_id') int organizationId,@JsonKey(name: 'branch_id') int branchId,@JsonKey(name: 'worker_id') int? workerId, AnalyticsPeriod period, AnalyticsSummaryBlock summary, List<AnalyticsOccupancyDay> occupancy, AnalyticsComparison comparison, AnalyticsGlobal global, AnalyticsSpecialist? specialist, AnalyticsBenchmarking? benchmarking, AnalyticsMeta meta
+@JsonKey(name: 'organization_id') int organizationId,@JsonKey(name: 'branch_id') int branchId,@JsonKey(name: 'worker_id') int? workerId, AnalyticsPeriod period, AnalyticsSummaryBlock summary, List<AnalyticsOccupancyDay> occupancy, AnalyticsComparison comparison, AnalyticsGlobal global, AnalyticsOverview? overview, AnalyticsSpecialist? specialist, AnalyticsBenchmarking? benchmarking, AnalyticsMeta meta
 });
 
 
-@override $AnalyticsPeriodCopyWith<$Res> get period;@override $AnalyticsSummaryBlockCopyWith<$Res> get summary;@override $AnalyticsComparisonCopyWith<$Res> get comparison;@override $AnalyticsGlobalCopyWith<$Res> get global;@override $AnalyticsSpecialistCopyWith<$Res>? get specialist;@override $AnalyticsBenchmarkingCopyWith<$Res>? get benchmarking;@override $AnalyticsMetaCopyWith<$Res> get meta;
+@override $AnalyticsPeriodCopyWith<$Res> get period;@override $AnalyticsSummaryBlockCopyWith<$Res> get summary;@override $AnalyticsComparisonCopyWith<$Res> get comparison;@override $AnalyticsGlobalCopyWith<$Res> get global;@override $AnalyticsOverviewCopyWith<$Res>? get overview;@override $AnalyticsSpecialistCopyWith<$Res>? get specialist;@override $AnalyticsBenchmarkingCopyWith<$Res>? get benchmarking;@override $AnalyticsMetaCopyWith<$Res> get meta;
 
 }
 /// @nodoc
@@ -353,7 +367,7 @@ class __$AnalyticsSummaryCopyWithImpl<$Res>
 
 /// Create a copy of AnalyticsSummary
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? organizationId = null,Object? branchId = null,Object? workerId = freezed,Object? period = null,Object? summary = null,Object? occupancy = null,Object? comparison = null,Object? global = null,Object? specialist = freezed,Object? benchmarking = freezed,Object? meta = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? organizationId = null,Object? branchId = null,Object? workerId = freezed,Object? period = null,Object? summary = null,Object? occupancy = null,Object? comparison = null,Object? global = null,Object? overview = freezed,Object? specialist = freezed,Object? benchmarking = freezed,Object? meta = null,}) {
   return _then(_AnalyticsSummary(
 organizationId: null == organizationId ? _self.organizationId : organizationId // ignore: cast_nullable_to_non_nullable
 as int,branchId: null == branchId ? _self.branchId : branchId // ignore: cast_nullable_to_non_nullable
@@ -363,7 +377,8 @@ as AnalyticsPeriod,summary: null == summary ? _self.summary : summary // ignore:
 as AnalyticsSummaryBlock,occupancy: null == occupancy ? _self._occupancy : occupancy // ignore: cast_nullable_to_non_nullable
 as List<AnalyticsOccupancyDay>,comparison: null == comparison ? _self.comparison : comparison // ignore: cast_nullable_to_non_nullable
 as AnalyticsComparison,global: null == global ? _self.global : global // ignore: cast_nullable_to_non_nullable
-as AnalyticsGlobal,specialist: freezed == specialist ? _self.specialist : specialist // ignore: cast_nullable_to_non_nullable
+as AnalyticsGlobal,overview: freezed == overview ? _self.overview : overview // ignore: cast_nullable_to_non_nullable
+as AnalyticsOverview?,specialist: freezed == specialist ? _self.specialist : specialist // ignore: cast_nullable_to_non_nullable
 as AnalyticsSpecialist?,benchmarking: freezed == benchmarking ? _self.benchmarking : benchmarking // ignore: cast_nullable_to_non_nullable
 as AnalyticsBenchmarking?,meta: null == meta ? _self.meta : meta // ignore: cast_nullable_to_non_nullable
 as AnalyticsMeta,
@@ -405,6 +420,18 @@ $AnalyticsGlobalCopyWith<$Res> get global {
   
   return $AnalyticsGlobalCopyWith<$Res>(_self.global, (value) {
     return _then(_self.copyWith(global: value));
+  });
+}/// Create a copy of AnalyticsSummary
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$AnalyticsOverviewCopyWith<$Res>? get overview {
+    if (_self.overview == null) {
+    return null;
+  }
+
+  return $AnalyticsOverviewCopyWith<$Res>(_self.overview!, (value) {
+    return _then(_self.copyWith(overview: value));
   });
 }/// Create a copy of AnalyticsSummary
 /// with the given fields replaced by the non-null parameter values.
@@ -2348,9 +2375,281 @@ $AnalyticsComparisonPeriodCopyWith<$Res> get current {
 
 
 /// @nodoc
+mixin _$AnalyticsOverview {
+
+ double? get performance;@JsonKey(name: 'pay_due') double? get payDue; double? get occupancy; double? get income; int? get clients;@JsonKey(name: 'average_check') double? get averageCheck;
+/// Create a copy of AnalyticsOverview
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$AnalyticsOverviewCopyWith<AnalyticsOverview> get copyWith => _$AnalyticsOverviewCopyWithImpl<AnalyticsOverview>(this as AnalyticsOverview, _$identity);
+
+  /// Serializes this AnalyticsOverview to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AnalyticsOverview&&(identical(other.performance, performance) || other.performance == performance)&&(identical(other.payDue, payDue) || other.payDue == payDue)&&(identical(other.occupancy, occupancy) || other.occupancy == occupancy)&&(identical(other.income, income) || other.income == income)&&(identical(other.clients, clients) || other.clients == clients)&&(identical(other.averageCheck, averageCheck) || other.averageCheck == averageCheck));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,performance,payDue,occupancy,income,clients,averageCheck);
+
+@override
+String toString() {
+  return 'AnalyticsOverview(performance: $performance, payDue: $payDue, occupancy: $occupancy, income: $income, clients: $clients, averageCheck: $averageCheck)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $AnalyticsOverviewCopyWith<$Res>  {
+  factory $AnalyticsOverviewCopyWith(AnalyticsOverview value, $Res Function(AnalyticsOverview) _then) = _$AnalyticsOverviewCopyWithImpl;
+@useResult
+$Res call({
+ double? performance,@JsonKey(name: 'pay_due') double? payDue, double? occupancy, double? income, int? clients,@JsonKey(name: 'average_check') double? averageCheck
+});
+
+
+
+
+}
+/// @nodoc
+class _$AnalyticsOverviewCopyWithImpl<$Res>
+    implements $AnalyticsOverviewCopyWith<$Res> {
+  _$AnalyticsOverviewCopyWithImpl(this._self, this._then);
+
+  final AnalyticsOverview _self;
+  final $Res Function(AnalyticsOverview) _then;
+
+/// Create a copy of AnalyticsOverview
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? performance = freezed,Object? payDue = freezed,Object? occupancy = freezed,Object? income = freezed,Object? clients = freezed,Object? averageCheck = freezed,}) {
+  return _then(_self.copyWith(
+performance: freezed == performance ? _self.performance : performance // ignore: cast_nullable_to_non_nullable
+as double?,payDue: freezed == payDue ? _self.payDue : payDue // ignore: cast_nullable_to_non_nullable
+as double?,occupancy: freezed == occupancy ? _self.occupancy : occupancy // ignore: cast_nullable_to_non_nullable
+as double?,income: freezed == income ? _self.income : income // ignore: cast_nullable_to_non_nullable
+as double?,clients: freezed == clients ? _self.clients : clients // ignore: cast_nullable_to_non_nullable
+as int?,averageCheck: freezed == averageCheck ? _self.averageCheck : averageCheck // ignore: cast_nullable_to_non_nullable
+as double?,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [AnalyticsOverview].
+extension AnalyticsOverviewPatterns on AnalyticsOverview {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _AnalyticsOverview value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _AnalyticsOverview() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _AnalyticsOverview value)  $default,){
+final _that = this;
+switch (_that) {
+case _AnalyticsOverview():
+return $default(_that);}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _AnalyticsOverview value)?  $default,){
+final _that = this;
+switch (_that) {
+case _AnalyticsOverview() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double? performance, @JsonKey(name: 'pay_due')  double? payDue,  double? occupancy,  double? income,  int? clients, @JsonKey(name: 'average_check')  double? averageCheck)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _AnalyticsOverview() when $default != null:
+return $default(_that.performance,_that.payDue,_that.occupancy,_that.income,_that.clients,_that.averageCheck);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double? performance, @JsonKey(name: 'pay_due')  double? payDue,  double? occupancy,  double? income,  int? clients, @JsonKey(name: 'average_check')  double? averageCheck)  $default,) {final _that = this;
+switch (_that) {
+case _AnalyticsOverview():
+return $default(_that.performance,_that.payDue,_that.occupancy,_that.income,_that.clients,_that.averageCheck);}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double? performance, @JsonKey(name: 'pay_due')  double? payDue,  double? occupancy,  double? income,  int? clients, @JsonKey(name: 'average_check')  double? averageCheck)?  $default,) {final _that = this;
+switch (_that) {
+case _AnalyticsOverview() when $default != null:
+return $default(_that.performance,_that.payDue,_that.occupancy,_that.income,_that.clients,_that.averageCheck);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _AnalyticsOverview implements AnalyticsOverview {
+  const _AnalyticsOverview({this.performance, @JsonKey(name: 'pay_due') this.payDue, this.occupancy, this.income, this.clients, @JsonKey(name: 'average_check') this.averageCheck});
+  factory _AnalyticsOverview.fromJson(Map<String, dynamic> json) => _$AnalyticsOverviewFromJson(json);
+
+@override final  double? performance;
+@override@JsonKey(name: 'pay_due') final  double? payDue;
+@override final  double? occupancy;
+@override final  double? income;
+@override final  int? clients;
+@override@JsonKey(name: 'average_check') final  double? averageCheck;
+
+/// Create a copy of AnalyticsOverview
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$AnalyticsOverviewCopyWith<_AnalyticsOverview> get copyWith => __$AnalyticsOverviewCopyWithImpl<_AnalyticsOverview>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$AnalyticsOverviewToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AnalyticsOverview&&(identical(other.performance, performance) || other.performance == performance)&&(identical(other.payDue, payDue) || other.payDue == payDue)&&(identical(other.occupancy, occupancy) || other.occupancy == occupancy)&&(identical(other.income, income) || other.income == income)&&(identical(other.clients, clients) || other.clients == clients)&&(identical(other.averageCheck, averageCheck) || other.averageCheck == averageCheck));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,performance,payDue,occupancy,income,clients,averageCheck);
+
+@override
+String toString() {
+  return 'AnalyticsOverview(performance: $performance, payDue: $payDue, occupancy: $occupancy, income: $income, clients: $clients, averageCheck: $averageCheck)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$AnalyticsOverviewCopyWith<$Res> implements $AnalyticsOverviewCopyWith<$Res> {
+  factory _$AnalyticsOverviewCopyWith(_AnalyticsOverview value, $Res Function(_AnalyticsOverview) _then) = __$AnalyticsOverviewCopyWithImpl;
+@override @useResult
+$Res call({
+ double? performance,@JsonKey(name: 'pay_due') double? payDue, double? occupancy, double? income, int? clients,@JsonKey(name: 'average_check') double? averageCheck
+});
+
+
+
+
+}
+/// @nodoc
+class __$AnalyticsOverviewCopyWithImpl<$Res>
+    implements _$AnalyticsOverviewCopyWith<$Res> {
+  __$AnalyticsOverviewCopyWithImpl(this._self, this._then);
+
+  final _AnalyticsOverview _self;
+  final $Res Function(_AnalyticsOverview) _then;
+
+/// Create a copy of AnalyticsOverview
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? performance = freezed,Object? payDue = freezed,Object? occupancy = freezed,Object? income = freezed,Object? clients = freezed,Object? averageCheck = freezed,}) {
+  return _then(_AnalyticsOverview(
+performance: freezed == performance ? _self.performance : performance // ignore: cast_nullable_to_non_nullable
+as double?,payDue: freezed == payDue ? _self.payDue : payDue // ignore: cast_nullable_to_non_nullable
+as double?,occupancy: freezed == occupancy ? _self.occupancy : occupancy // ignore: cast_nullable_to_non_nullable
+as double?,income: freezed == income ? _self.income : income // ignore: cast_nullable_to_non_nullable
+as double?,clients: freezed == clients ? _self.clients : clients // ignore: cast_nullable_to_non_nullable
+as int?,averageCheck: freezed == averageCheck ? _self.averageCheck : averageCheck // ignore: cast_nullable_to_non_nullable
+as double?,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$AnalyticsComparisonPeriod {
 
-@JsonKey(name: 'total_income') double? get totalIncome;@JsonKey(name: 'total_clients') int? get totalClients;@JsonKey(name: 'completed_appointments') int? get completedAppointments;@JsonKey(name: 'total_appointments') int? get totalAppointments;@JsonKey(name: 'new_clients') int? get newClients;@JsonKey(name: 'existing_clients') int? get existingClients;@JsonKey(name: 'oneshot_clients') int? get oneshotClients;@JsonKey(name: 'oneshot_clients_all') int? get oneshotClientsAll;@JsonKey(name: 'average_transactions') double? get averageTransactions; double? get occupancy;@JsonKey(name: 'income_by_day') List<AnalyticsIncomeByDay> get incomeByDay;
+@JsonKey(name: 'total_income') double? get totalIncome; double? get performance;@JsonKey(name: 'pay_due') double? get payDue;@JsonKey(name: 'total_clients') int? get totalClients;@JsonKey(name: 'completed_appointments') int? get completedAppointments;@JsonKey(name: 'total_appointments') int? get totalAppointments;@JsonKey(name: 'new_clients') int? get newClients;@JsonKey(name: 'existing_clients') int? get existingClients;@JsonKey(name: 'oneshot_clients') int? get oneshotClients;@JsonKey(name: 'oneshot_clients_all') int? get oneshotClientsAll;@JsonKey(name: 'average_transactions') double? get averageTransactions; double? get occupancy;@JsonKey(name: 'income_by_day') List<AnalyticsIncomeByDay> get incomeByDay;
 /// Create a copy of AnalyticsComparisonPeriod
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2363,16 +2662,16 @@ $AnalyticsComparisonPeriodCopyWith<AnalyticsComparisonPeriod> get copyWith => _$
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AnalyticsComparisonPeriod&&(identical(other.totalIncome, totalIncome) || other.totalIncome == totalIncome)&&(identical(other.totalClients, totalClients) || other.totalClients == totalClients)&&(identical(other.completedAppointments, completedAppointments) || other.completedAppointments == completedAppointments)&&(identical(other.totalAppointments, totalAppointments) || other.totalAppointments == totalAppointments)&&(identical(other.newClients, newClients) || other.newClients == newClients)&&(identical(other.existingClients, existingClients) || other.existingClients == existingClients)&&(identical(other.oneshotClients, oneshotClients) || other.oneshotClients == oneshotClients)&&(identical(other.oneshotClientsAll, oneshotClientsAll) || other.oneshotClientsAll == oneshotClientsAll)&&(identical(other.averageTransactions, averageTransactions) || other.averageTransactions == averageTransactions)&&(identical(other.occupancy, occupancy) || other.occupancy == occupancy)&&const DeepCollectionEquality().equals(other.incomeByDay, incomeByDay));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AnalyticsComparisonPeriod&&(identical(other.totalIncome, totalIncome) || other.totalIncome == totalIncome)&&(identical(other.performance, performance) || other.performance == performance)&&(identical(other.payDue, payDue) || other.payDue == payDue)&&(identical(other.totalClients, totalClients) || other.totalClients == totalClients)&&(identical(other.completedAppointments, completedAppointments) || other.completedAppointments == completedAppointments)&&(identical(other.totalAppointments, totalAppointments) || other.totalAppointments == totalAppointments)&&(identical(other.newClients, newClients) || other.newClients == newClients)&&(identical(other.existingClients, existingClients) || other.existingClients == existingClients)&&(identical(other.oneshotClients, oneshotClients) || other.oneshotClients == oneshotClients)&&(identical(other.oneshotClientsAll, oneshotClientsAll) || other.oneshotClientsAll == oneshotClientsAll)&&(identical(other.averageTransactions, averageTransactions) || other.averageTransactions == averageTransactions)&&(identical(other.occupancy, occupancy) || other.occupancy == occupancy)&&const DeepCollectionEquality().equals(other.incomeByDay, incomeByDay));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,totalIncome,totalClients,completedAppointments,totalAppointments,newClients,existingClients,oneshotClients,oneshotClientsAll,averageTransactions,occupancy,const DeepCollectionEquality().hash(incomeByDay));
+int get hashCode => Object.hash(runtimeType,totalIncome,performance,payDue,totalClients,completedAppointments,totalAppointments,newClients,existingClients,oneshotClients,oneshotClientsAll,averageTransactions,occupancy,const DeepCollectionEquality().hash(incomeByDay));
 
 @override
 String toString() {
-  return 'AnalyticsComparisonPeriod(totalIncome: $totalIncome, totalClients: $totalClients, completedAppointments: $completedAppointments, totalAppointments: $totalAppointments, newClients: $newClients, existingClients: $existingClients, oneshotClients: $oneshotClients, oneshotClientsAll: $oneshotClientsAll, averageTransactions: $averageTransactions, occupancy: $occupancy, incomeByDay: $incomeByDay)';
+  return 'AnalyticsComparisonPeriod(totalIncome: $totalIncome, performance: $performance, payDue: $payDue, totalClients: $totalClients, completedAppointments: $completedAppointments, totalAppointments: $totalAppointments, newClients: $newClients, existingClients: $existingClients, oneshotClients: $oneshotClients, oneshotClientsAll: $oneshotClientsAll, averageTransactions: $averageTransactions, occupancy: $occupancy, incomeByDay: $incomeByDay)';
 }
 
 
@@ -2383,7 +2682,7 @@ abstract mixin class $AnalyticsComparisonPeriodCopyWith<$Res>  {
   factory $AnalyticsComparisonPeriodCopyWith(AnalyticsComparisonPeriod value, $Res Function(AnalyticsComparisonPeriod) _then) = _$AnalyticsComparisonPeriodCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'total_income') double? totalIncome,@JsonKey(name: 'total_clients') int? totalClients,@JsonKey(name: 'completed_appointments') int? completedAppointments,@JsonKey(name: 'total_appointments') int? totalAppointments,@JsonKey(name: 'new_clients') int? newClients,@JsonKey(name: 'existing_clients') int? existingClients,@JsonKey(name: 'oneshot_clients') int? oneshotClients,@JsonKey(name: 'oneshot_clients_all') int? oneshotClientsAll,@JsonKey(name: 'average_transactions') double? averageTransactions, double? occupancy,@JsonKey(name: 'income_by_day') List<AnalyticsIncomeByDay> incomeByDay
+@JsonKey(name: 'total_income') double? totalIncome, double? performance,@JsonKey(name: 'pay_due') double? payDue,@JsonKey(name: 'total_clients') int? totalClients,@JsonKey(name: 'completed_appointments') int? completedAppointments,@JsonKey(name: 'total_appointments') int? totalAppointments,@JsonKey(name: 'new_clients') int? newClients,@JsonKey(name: 'existing_clients') int? existingClients,@JsonKey(name: 'oneshot_clients') int? oneshotClients,@JsonKey(name: 'oneshot_clients_all') int? oneshotClientsAll,@JsonKey(name: 'average_transactions') double? averageTransactions, double? occupancy,@JsonKey(name: 'income_by_day') List<AnalyticsIncomeByDay> incomeByDay
 });
 
 
@@ -2400,9 +2699,11 @@ class _$AnalyticsComparisonPeriodCopyWithImpl<$Res>
 
 /// Create a copy of AnalyticsComparisonPeriod
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? totalIncome = freezed,Object? totalClients = freezed,Object? completedAppointments = freezed,Object? totalAppointments = freezed,Object? newClients = freezed,Object? existingClients = freezed,Object? oneshotClients = freezed,Object? oneshotClientsAll = freezed,Object? averageTransactions = freezed,Object? occupancy = freezed,Object? incomeByDay = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? totalIncome = freezed,Object? performance = freezed,Object? payDue = freezed,Object? totalClients = freezed,Object? completedAppointments = freezed,Object? totalAppointments = freezed,Object? newClients = freezed,Object? existingClients = freezed,Object? oneshotClients = freezed,Object? oneshotClientsAll = freezed,Object? averageTransactions = freezed,Object? occupancy = freezed,Object? incomeByDay = null,}) {
   return _then(_self.copyWith(
 totalIncome: freezed == totalIncome ? _self.totalIncome : totalIncome // ignore: cast_nullable_to_non_nullable
+as double?,performance: freezed == performance ? _self.performance : performance // ignore: cast_nullable_to_non_nullable
+as double?,payDue: freezed == payDue ? _self.payDue : payDue // ignore: cast_nullable_to_non_nullable
 as double?,totalClients: freezed == totalClients ? _self.totalClients : totalClients // ignore: cast_nullable_to_non_nullable
 as int?,completedAppointments: freezed == completedAppointments ? _self.completedAppointments : completedAppointments // ignore: cast_nullable_to_non_nullable
 as int?,totalAppointments: freezed == totalAppointments ? _self.totalAppointments : totalAppointments // ignore: cast_nullable_to_non_nullable
@@ -2495,10 +2796,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'total_income')  double? totalIncome, @JsonKey(name: 'total_clients')  int? totalClients, @JsonKey(name: 'completed_appointments')  int? completedAppointments, @JsonKey(name: 'total_appointments')  int? totalAppointments, @JsonKey(name: 'new_clients')  int? newClients, @JsonKey(name: 'existing_clients')  int? existingClients, @JsonKey(name: 'oneshot_clients')  int? oneshotClients, @JsonKey(name: 'oneshot_clients_all')  int? oneshotClientsAll, @JsonKey(name: 'average_transactions')  double? averageTransactions,  double? occupancy, @JsonKey(name: 'income_by_day')  List<AnalyticsIncomeByDay> incomeByDay)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'total_income')  double? totalIncome,  double? performance, @JsonKey(name: 'pay_due')  double? payDue, @JsonKey(name: 'total_clients')  int? totalClients, @JsonKey(name: 'completed_appointments')  int? completedAppointments, @JsonKey(name: 'total_appointments')  int? totalAppointments, @JsonKey(name: 'new_clients')  int? newClients, @JsonKey(name: 'existing_clients')  int? existingClients, @JsonKey(name: 'oneshot_clients')  int? oneshotClients, @JsonKey(name: 'oneshot_clients_all')  int? oneshotClientsAll, @JsonKey(name: 'average_transactions')  double? averageTransactions,  double? occupancy, @JsonKey(name: 'income_by_day')  List<AnalyticsIncomeByDay> incomeByDay)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AnalyticsComparisonPeriod() when $default != null:
-return $default(_that.totalIncome,_that.totalClients,_that.completedAppointments,_that.totalAppointments,_that.newClients,_that.existingClients,_that.oneshotClients,_that.oneshotClientsAll,_that.averageTransactions,_that.occupancy,_that.incomeByDay);case _:
+return $default(_that.totalIncome,_that.performance,_that.payDue,_that.totalClients,_that.completedAppointments,_that.totalAppointments,_that.newClients,_that.existingClients,_that.oneshotClients,_that.oneshotClientsAll,_that.averageTransactions,_that.occupancy,_that.incomeByDay);case _:
   return orElse();
 
 }
@@ -2516,10 +2817,10 @@ return $default(_that.totalIncome,_that.totalClients,_that.completedAppointments
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'total_income')  double? totalIncome, @JsonKey(name: 'total_clients')  int? totalClients, @JsonKey(name: 'completed_appointments')  int? completedAppointments, @JsonKey(name: 'total_appointments')  int? totalAppointments, @JsonKey(name: 'new_clients')  int? newClients, @JsonKey(name: 'existing_clients')  int? existingClients, @JsonKey(name: 'oneshot_clients')  int? oneshotClients, @JsonKey(name: 'oneshot_clients_all')  int? oneshotClientsAll, @JsonKey(name: 'average_transactions')  double? averageTransactions,  double? occupancy, @JsonKey(name: 'income_by_day')  List<AnalyticsIncomeByDay> incomeByDay)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'total_income')  double? totalIncome,  double? performance, @JsonKey(name: 'pay_due')  double? payDue, @JsonKey(name: 'total_clients')  int? totalClients, @JsonKey(name: 'completed_appointments')  int? completedAppointments, @JsonKey(name: 'total_appointments')  int? totalAppointments, @JsonKey(name: 'new_clients')  int? newClients, @JsonKey(name: 'existing_clients')  int? existingClients, @JsonKey(name: 'oneshot_clients')  int? oneshotClients, @JsonKey(name: 'oneshot_clients_all')  int? oneshotClientsAll, @JsonKey(name: 'average_transactions')  double? averageTransactions,  double? occupancy, @JsonKey(name: 'income_by_day')  List<AnalyticsIncomeByDay> incomeByDay)  $default,) {final _that = this;
 switch (_that) {
 case _AnalyticsComparisonPeriod():
-return $default(_that.totalIncome,_that.totalClients,_that.completedAppointments,_that.totalAppointments,_that.newClients,_that.existingClients,_that.oneshotClients,_that.oneshotClientsAll,_that.averageTransactions,_that.occupancy,_that.incomeByDay);}
+return $default(_that.totalIncome,_that.performance,_that.payDue,_that.totalClients,_that.completedAppointments,_that.totalAppointments,_that.newClients,_that.existingClients,_that.oneshotClients,_that.oneshotClientsAll,_that.averageTransactions,_that.occupancy,_that.incomeByDay);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -2533,10 +2834,10 @@ return $default(_that.totalIncome,_that.totalClients,_that.completedAppointments
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'total_income')  double? totalIncome, @JsonKey(name: 'total_clients')  int? totalClients, @JsonKey(name: 'completed_appointments')  int? completedAppointments, @JsonKey(name: 'total_appointments')  int? totalAppointments, @JsonKey(name: 'new_clients')  int? newClients, @JsonKey(name: 'existing_clients')  int? existingClients, @JsonKey(name: 'oneshot_clients')  int? oneshotClients, @JsonKey(name: 'oneshot_clients_all')  int? oneshotClientsAll, @JsonKey(name: 'average_transactions')  double? averageTransactions,  double? occupancy, @JsonKey(name: 'income_by_day')  List<AnalyticsIncomeByDay> incomeByDay)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'total_income')  double? totalIncome,  double? performance, @JsonKey(name: 'pay_due')  double? payDue, @JsonKey(name: 'total_clients')  int? totalClients, @JsonKey(name: 'completed_appointments')  int? completedAppointments, @JsonKey(name: 'total_appointments')  int? totalAppointments, @JsonKey(name: 'new_clients')  int? newClients, @JsonKey(name: 'existing_clients')  int? existingClients, @JsonKey(name: 'oneshot_clients')  int? oneshotClients, @JsonKey(name: 'oneshot_clients_all')  int? oneshotClientsAll, @JsonKey(name: 'average_transactions')  double? averageTransactions,  double? occupancy, @JsonKey(name: 'income_by_day')  List<AnalyticsIncomeByDay> incomeByDay)?  $default,) {final _that = this;
 switch (_that) {
 case _AnalyticsComparisonPeriod() when $default != null:
-return $default(_that.totalIncome,_that.totalClients,_that.completedAppointments,_that.totalAppointments,_that.newClients,_that.existingClients,_that.oneshotClients,_that.oneshotClientsAll,_that.averageTransactions,_that.occupancy,_that.incomeByDay);case _:
+return $default(_that.totalIncome,_that.performance,_that.payDue,_that.totalClients,_that.completedAppointments,_that.totalAppointments,_that.newClients,_that.existingClients,_that.oneshotClients,_that.oneshotClientsAll,_that.averageTransactions,_that.occupancy,_that.incomeByDay);case _:
   return null;
 
 }
@@ -2548,10 +2849,12 @@ return $default(_that.totalIncome,_that.totalClients,_that.completedAppointments
 @JsonSerializable()
 
 class _AnalyticsComparisonPeriod implements AnalyticsComparisonPeriod {
-  const _AnalyticsComparisonPeriod({@JsonKey(name: 'total_income') this.totalIncome, @JsonKey(name: 'total_clients') this.totalClients, @JsonKey(name: 'completed_appointments') this.completedAppointments, @JsonKey(name: 'total_appointments') this.totalAppointments, @JsonKey(name: 'new_clients') this.newClients, @JsonKey(name: 'existing_clients') this.existingClients, @JsonKey(name: 'oneshot_clients') this.oneshotClients, @JsonKey(name: 'oneshot_clients_all') this.oneshotClientsAll, @JsonKey(name: 'average_transactions') this.averageTransactions, this.occupancy, @JsonKey(name: 'income_by_day') final  List<AnalyticsIncomeByDay> incomeByDay = const []}): _incomeByDay = incomeByDay;
+  const _AnalyticsComparisonPeriod({@JsonKey(name: 'total_income') this.totalIncome, this.performance, @JsonKey(name: 'pay_due') this.payDue, @JsonKey(name: 'total_clients') this.totalClients, @JsonKey(name: 'completed_appointments') this.completedAppointments, @JsonKey(name: 'total_appointments') this.totalAppointments, @JsonKey(name: 'new_clients') this.newClients, @JsonKey(name: 'existing_clients') this.existingClients, @JsonKey(name: 'oneshot_clients') this.oneshotClients, @JsonKey(name: 'oneshot_clients_all') this.oneshotClientsAll, @JsonKey(name: 'average_transactions') this.averageTransactions, this.occupancy, @JsonKey(name: 'income_by_day') final  List<AnalyticsIncomeByDay> incomeByDay = const []}): _incomeByDay = incomeByDay;
   factory _AnalyticsComparisonPeriod.fromJson(Map<String, dynamic> json) => _$AnalyticsComparisonPeriodFromJson(json);
 
 @override@JsonKey(name: 'total_income') final  double? totalIncome;
+@override final  double? performance;
+@override@JsonKey(name: 'pay_due') final  double? payDue;
 @override@JsonKey(name: 'total_clients') final  int? totalClients;
 @override@JsonKey(name: 'completed_appointments') final  int? completedAppointments;
 @override@JsonKey(name: 'total_appointments') final  int? totalAppointments;
@@ -2582,16 +2885,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AnalyticsComparisonPeriod&&(identical(other.totalIncome, totalIncome) || other.totalIncome == totalIncome)&&(identical(other.totalClients, totalClients) || other.totalClients == totalClients)&&(identical(other.completedAppointments, completedAppointments) || other.completedAppointments == completedAppointments)&&(identical(other.totalAppointments, totalAppointments) || other.totalAppointments == totalAppointments)&&(identical(other.newClients, newClients) || other.newClients == newClients)&&(identical(other.existingClients, existingClients) || other.existingClients == existingClients)&&(identical(other.oneshotClients, oneshotClients) || other.oneshotClients == oneshotClients)&&(identical(other.oneshotClientsAll, oneshotClientsAll) || other.oneshotClientsAll == oneshotClientsAll)&&(identical(other.averageTransactions, averageTransactions) || other.averageTransactions == averageTransactions)&&(identical(other.occupancy, occupancy) || other.occupancy == occupancy)&&const DeepCollectionEquality().equals(other._incomeByDay, _incomeByDay));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AnalyticsComparisonPeriod&&(identical(other.totalIncome, totalIncome) || other.totalIncome == totalIncome)&&(identical(other.performance, performance) || other.performance == performance)&&(identical(other.payDue, payDue) || other.payDue == payDue)&&(identical(other.totalClients, totalClients) || other.totalClients == totalClients)&&(identical(other.completedAppointments, completedAppointments) || other.completedAppointments == completedAppointments)&&(identical(other.totalAppointments, totalAppointments) || other.totalAppointments == totalAppointments)&&(identical(other.newClients, newClients) || other.newClients == newClients)&&(identical(other.existingClients, existingClients) || other.existingClients == existingClients)&&(identical(other.oneshotClients, oneshotClients) || other.oneshotClients == oneshotClients)&&(identical(other.oneshotClientsAll, oneshotClientsAll) || other.oneshotClientsAll == oneshotClientsAll)&&(identical(other.averageTransactions, averageTransactions) || other.averageTransactions == averageTransactions)&&(identical(other.occupancy, occupancy) || other.occupancy == occupancy)&&const DeepCollectionEquality().equals(other._incomeByDay, _incomeByDay));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,totalIncome,totalClients,completedAppointments,totalAppointments,newClients,existingClients,oneshotClients,oneshotClientsAll,averageTransactions,occupancy,const DeepCollectionEquality().hash(_incomeByDay));
+int get hashCode => Object.hash(runtimeType,totalIncome,performance,payDue,totalClients,completedAppointments,totalAppointments,newClients,existingClients,oneshotClients,oneshotClientsAll,averageTransactions,occupancy,const DeepCollectionEquality().hash(_incomeByDay));
 
 @override
 String toString() {
-  return 'AnalyticsComparisonPeriod(totalIncome: $totalIncome, totalClients: $totalClients, completedAppointments: $completedAppointments, totalAppointments: $totalAppointments, newClients: $newClients, existingClients: $existingClients, oneshotClients: $oneshotClients, oneshotClientsAll: $oneshotClientsAll, averageTransactions: $averageTransactions, occupancy: $occupancy, incomeByDay: $incomeByDay)';
+  return 'AnalyticsComparisonPeriod(totalIncome: $totalIncome, performance: $performance, payDue: $payDue, totalClients: $totalClients, completedAppointments: $completedAppointments, totalAppointments: $totalAppointments, newClients: $newClients, existingClients: $existingClients, oneshotClients: $oneshotClients, oneshotClientsAll: $oneshotClientsAll, averageTransactions: $averageTransactions, occupancy: $occupancy, incomeByDay: $incomeByDay)';
 }
 
 
@@ -2602,7 +2905,7 @@ abstract mixin class _$AnalyticsComparisonPeriodCopyWith<$Res> implements $Analy
   factory _$AnalyticsComparisonPeriodCopyWith(_AnalyticsComparisonPeriod value, $Res Function(_AnalyticsComparisonPeriod) _then) = __$AnalyticsComparisonPeriodCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'total_income') double? totalIncome,@JsonKey(name: 'total_clients') int? totalClients,@JsonKey(name: 'completed_appointments') int? completedAppointments,@JsonKey(name: 'total_appointments') int? totalAppointments,@JsonKey(name: 'new_clients') int? newClients,@JsonKey(name: 'existing_clients') int? existingClients,@JsonKey(name: 'oneshot_clients') int? oneshotClients,@JsonKey(name: 'oneshot_clients_all') int? oneshotClientsAll,@JsonKey(name: 'average_transactions') double? averageTransactions, double? occupancy,@JsonKey(name: 'income_by_day') List<AnalyticsIncomeByDay> incomeByDay
+@JsonKey(name: 'total_income') double? totalIncome, double? performance,@JsonKey(name: 'pay_due') double? payDue,@JsonKey(name: 'total_clients') int? totalClients,@JsonKey(name: 'completed_appointments') int? completedAppointments,@JsonKey(name: 'total_appointments') int? totalAppointments,@JsonKey(name: 'new_clients') int? newClients,@JsonKey(name: 'existing_clients') int? existingClients,@JsonKey(name: 'oneshot_clients') int? oneshotClients,@JsonKey(name: 'oneshot_clients_all') int? oneshotClientsAll,@JsonKey(name: 'average_transactions') double? averageTransactions, double? occupancy,@JsonKey(name: 'income_by_day') List<AnalyticsIncomeByDay> incomeByDay
 });
 
 
@@ -2619,9 +2922,11 @@ class __$AnalyticsComparisonPeriodCopyWithImpl<$Res>
 
 /// Create a copy of AnalyticsComparisonPeriod
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? totalIncome = freezed,Object? totalClients = freezed,Object? completedAppointments = freezed,Object? totalAppointments = freezed,Object? newClients = freezed,Object? existingClients = freezed,Object? oneshotClients = freezed,Object? oneshotClientsAll = freezed,Object? averageTransactions = freezed,Object? occupancy = freezed,Object? incomeByDay = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? totalIncome = freezed,Object? performance = freezed,Object? payDue = freezed,Object? totalClients = freezed,Object? completedAppointments = freezed,Object? totalAppointments = freezed,Object? newClients = freezed,Object? existingClients = freezed,Object? oneshotClients = freezed,Object? oneshotClientsAll = freezed,Object? averageTransactions = freezed,Object? occupancy = freezed,Object? incomeByDay = null,}) {
   return _then(_AnalyticsComparisonPeriod(
 totalIncome: freezed == totalIncome ? _self.totalIncome : totalIncome // ignore: cast_nullable_to_non_nullable
+as double?,performance: freezed == performance ? _self.performance : performance // ignore: cast_nullable_to_non_nullable
+as double?,payDue: freezed == payDue ? _self.payDue : payDue // ignore: cast_nullable_to_non_nullable
 as double?,totalClients: freezed == totalClients ? _self.totalClients : totalClients // ignore: cast_nullable_to_non_nullable
 as int?,completedAppointments: freezed == completedAppointments ? _self.completedAppointments : completedAppointments // ignore: cast_nullable_to_non_nullable
 as int?,totalAppointments: freezed == totalAppointments ? _self.totalAppointments : totalAppointments // ignore: cast_nullable_to_non_nullable
@@ -3731,7 +4036,7 @@ as int,
 /// @nodoc
 mixin _$AnalyticsSpecialist {
 
- double? get performance;
+ double? get performance;@JsonKey(name: 'pay_due') double? get payDue;
 /// Create a copy of AnalyticsSpecialist
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -3744,16 +4049,16 @@ $AnalyticsSpecialistCopyWith<AnalyticsSpecialist> get copyWith => _$AnalyticsSpe
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AnalyticsSpecialist&&(identical(other.performance, performance) || other.performance == performance));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AnalyticsSpecialist&&(identical(other.performance, performance) || other.performance == performance)&&(identical(other.payDue, payDue) || other.payDue == payDue));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,performance);
+int get hashCode => Object.hash(runtimeType,performance,payDue);
 
 @override
 String toString() {
-  return 'AnalyticsSpecialist(performance: $performance)';
+  return 'AnalyticsSpecialist(performance: $performance, payDue: $payDue)';
 }
 
 
@@ -3764,7 +4069,7 @@ abstract mixin class $AnalyticsSpecialistCopyWith<$Res>  {
   factory $AnalyticsSpecialistCopyWith(AnalyticsSpecialist value, $Res Function(AnalyticsSpecialist) _then) = _$AnalyticsSpecialistCopyWithImpl;
 @useResult
 $Res call({
- double? performance
+ double? performance,@JsonKey(name: 'pay_due') double? payDue
 });
 
 
@@ -3781,9 +4086,10 @@ class _$AnalyticsSpecialistCopyWithImpl<$Res>
 
 /// Create a copy of AnalyticsSpecialist
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? performance = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? performance = freezed,Object? payDue = freezed,}) {
   return _then(_self.copyWith(
 performance: freezed == performance ? _self.performance : performance // ignore: cast_nullable_to_non_nullable
+as double?,payDue: freezed == payDue ? _self.payDue : payDue // ignore: cast_nullable_to_non_nullable
 as double?,
   ));
 }
@@ -3866,10 +4172,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double? performance)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double? performance, @JsonKey(name: 'pay_due')  double? payDue)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AnalyticsSpecialist() when $default != null:
-return $default(_that.performance);case _:
+return $default(_that.performance,_that.payDue);case _:
   return orElse();
 
 }
@@ -3887,10 +4193,10 @@ return $default(_that.performance);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double? performance)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double? performance, @JsonKey(name: 'pay_due')  double? payDue)  $default,) {final _that = this;
 switch (_that) {
 case _AnalyticsSpecialist():
-return $default(_that.performance);}
+return $default(_that.performance,_that.payDue);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -3904,10 +4210,10 @@ return $default(_that.performance);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double? performance)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double? performance, @JsonKey(name: 'pay_due')  double? payDue)?  $default,) {final _that = this;
 switch (_that) {
 case _AnalyticsSpecialist() when $default != null:
-return $default(_that.performance);case _:
+return $default(_that.performance,_that.payDue);case _:
   return null;
 
 }
@@ -3919,10 +4225,11 @@ return $default(_that.performance);case _:
 @JsonSerializable()
 
 class _AnalyticsSpecialist implements AnalyticsSpecialist {
-  const _AnalyticsSpecialist({this.performance});
+  const _AnalyticsSpecialist({this.performance, @JsonKey(name: 'pay_due') this.payDue});
   factory _AnalyticsSpecialist.fromJson(Map<String, dynamic> json) => _$AnalyticsSpecialistFromJson(json);
 
 @override final  double? performance;
+@override@JsonKey(name: 'pay_due') final  double? payDue;
 
 /// Create a copy of AnalyticsSpecialist
 /// with the given fields replaced by the non-null parameter values.
@@ -3937,16 +4244,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AnalyticsSpecialist&&(identical(other.performance, performance) || other.performance == performance));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AnalyticsSpecialist&&(identical(other.performance, performance) || other.performance == performance)&&(identical(other.payDue, payDue) || other.payDue == payDue));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,performance);
+int get hashCode => Object.hash(runtimeType,performance,payDue);
 
 @override
 String toString() {
-  return 'AnalyticsSpecialist(performance: $performance)';
+  return 'AnalyticsSpecialist(performance: $performance, payDue: $payDue)';
 }
 
 
@@ -3957,7 +4264,7 @@ abstract mixin class _$AnalyticsSpecialistCopyWith<$Res> implements $AnalyticsSp
   factory _$AnalyticsSpecialistCopyWith(_AnalyticsSpecialist value, $Res Function(_AnalyticsSpecialist) _then) = __$AnalyticsSpecialistCopyWithImpl;
 @override @useResult
 $Res call({
- double? performance
+ double? performance,@JsonKey(name: 'pay_due') double? payDue
 });
 
 
@@ -3974,9 +4281,10 @@ class __$AnalyticsSpecialistCopyWithImpl<$Res>
 
 /// Create a copy of AnalyticsSpecialist
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? performance = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? performance = freezed,Object? payDue = freezed,}) {
   return _then(_AnalyticsSpecialist(
 performance: freezed == performance ? _self.performance : performance // ignore: cast_nullable_to_non_nullable
+as double?,payDue: freezed == payDue ? _self.payDue : payDue // ignore: cast_nullable_to_non_nullable
 as double?,
   ));
 }

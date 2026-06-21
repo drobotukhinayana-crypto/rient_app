@@ -564,10 +564,12 @@ class _AnalyticsViewData {
   static int _clientsServedCount(
     AnalyticsSummary summary, {
     int? filterWorkerId,
+    int? overviewClients,
   }) {
     final current = summary.comparison.current;
     final appointments = summary.summary.appointments;
     if (_isWorkerScoped(summary, filterWorkerId)) {
+      if (overviewClients != null) return overviewClients;
       if (current.totalClients != null) return current.totalClients!;
       final globalTotal = summary.global.clients.total;
       if (globalTotal > 0) return globalTotal;
@@ -593,15 +595,24 @@ class _AnalyticsViewData {
     final occupancyDays = _mergedOccupancyDays(summary);
     final appointments = summary.summary.appointments;
     final current = summary.comparison.current;
+    final overview = summary.overview;
 
     final fillRate = _occupancyPercent(
-      current.occupancy != null && current.occupancy! > 0
-          ? current.occupancy!
-          : summary.summary.occupancy,
+      overview?.occupancy ??
+          (current.occupancy != null && current.occupancy! > 0
+              ? current.occupancy!
+              : summary.summary.occupancy),
     );
-    final performance = summary.specialist?.performance ?? 0.0;
+    final performance = overview?.performance ??
+        summary.specialist?.performance ??
+        current.performance ??
+        0.0;
 
-    final served = _clientsServedCount(summary, filterWorkerId: filterWorkerId);
+    final served = _clientsServedCount(
+      summary,
+      filterWorkerId: filterWorkerId,
+      overviewClients: overview?.clients,
+    );
     final workerScoped = _isWorkerScoped(summary, filterWorkerId);
 
     final showIncome = summary.meta.canSeeIncome;
@@ -611,28 +622,44 @@ class _AnalyticsViewData {
     var income = 0.0;
     var payDue = 0.0;
     if (showIncome || showPayDue) {
-      final incomeDays = summary.summary.incomeByDay.isNotEmpty
-          ? summary.summary.incomeByDay
-          : current.incomeByDay;
-      for (final item in incomeDays) {
-        final d = _parseDate(item.date);
-        if (d == null || d.isBefore(start) || d.isAfter(end)) continue;
-        if (showIncome) income += item.incomeValue;
-        if (showPayDue) payDue += item.payDueValue;
+      if (showIncome) {
+        if (workerScoped && overview?.income != null) {
+          income = overview!.income!;
+        } else if (current.totalIncome != null) {
+          income = current.totalIncome!;
+        } else {
+          final incomeDays = summary.summary.incomeByDay.isNotEmpty
+              ? summary.summary.incomeByDay
+              : current.incomeByDay;
+          for (final item in incomeDays) {
+            final d = _parseDate(item.date);
+            if (d == null || d.isBefore(start) || d.isAfter(end)) continue;
+            income += item.incomeValue;
+          }
+        }
       }
-      if (showIncome && income == 0 && current.totalIncome != null) {
-        income = current.totalIncome!;
-      }
-      if (showPayDue && payDue == 0 && current.incomeByDay.isNotEmpty) {
-        for (final item in current.incomeByDay) {
-          final d = _parseDate(item.date);
-          if (d == null || d.isBefore(start) || d.isAfter(end)) continue;
-          payDue += item.payDueValue;
+
+      if (showPayDue) {
+        payDue = overview?.payDue ??
+            summary.specialist?.payDue ??
+            current.payDue ??
+            0.0;
+        if (payDue == 0) {
+          final incomeDays = summary.summary.incomeByDay.isNotEmpty
+              ? summary.summary.incomeByDay
+              : current.incomeByDay;
+          for (final item in incomeDays) {
+            final d = _parseDate(item.date);
+            if (d == null || d.isBefore(start) || d.isAfter(end)) continue;
+            payDue += item.payDueValue;
+          }
         }
       }
     }
 
-    final avgCheck = current.averageTransactions ?? 0.0;
+    final avgCheck = workerScoped && overview?.averageCheck != null
+        ? overview!.averageCheck!
+        : (current.averageTransactions ?? 0.0);
 
     final globalClients = summary.global.clients;
     final totalClients = workerScoped
