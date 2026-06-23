@@ -28,45 +28,37 @@ Future<int?> _resolveDeviceRecordId(WidgetRef ref, String deviceId) async {
   return settingsDevice?.id ?? await deviceStorage.getRegisteredDeviceApiId();
 }
 
-Future<void> setPushEnabled(WidgetRef ref, bool enabled) async {
+Future<void> syncPushSettingsWithSystemPermission(WidgetRef ref) async {
   final deviceStorage = ref.read(pushDeviceStorageProvider);
   final deviceId = await deviceStorage.getOrCreateDeviceId();
   final pushService = ref.read(mobilePushServiceProvider);
   final registration = ref.read(pushRegistrationServiceProvider);
+  final granted = await NotificationPermissionService.hasGrantedPermission();
 
   String? fcmToken;
-  if (enabled) {
-    if (!await NotificationPermissionService.hasGrantedPermission()) {
-      throw StateError('notification_permission_missing');
-    }
+  if (granted) {
+    await registration.registerForActiveSession();
     fcmToken = await registration.resolveFcmToken();
-    await registration.registerCurrentDevice(
-      fcmToken: fcmToken,
-      pushEnabled: true,
-      throwOnFailure: true,
-    );
   } else {
     fcmToken = await registration.resolveFcmToken();
   }
 
   var apiId = await _resolveDeviceRecordId(ref, deviceId);
+  apiId ??= await deviceStorage.getRegisteredDeviceApiId();
 
-  if (enabled) {
-    apiId ??= await deviceStorage.getRegisteredDeviceApiId();
-  } else {
-    await registration.registerCurrentDevice(
-      fcmToken: fcmToken,
-      pushEnabled: false,
-    );
-    apiId ??= await deviceStorage.getRegisteredDeviceApiId();
+  if (apiId == null && fcmToken == null) {
+    invalidatePushSettings(ref);
+    return;
   }
 
-  await pushService.updatePushSettings(
-    pushEnabled: enabled,
-    deviceRecordId: apiId,
-    deviceId: deviceId,
-    fcmToken: fcmToken,
-  );
+  try {
+    await pushService.updatePushSettings(
+      pushEnabled: granted,
+      deviceRecordId: apiId,
+      deviceId: deviceId,
+      fcmToken: fcmToken,
+    );
+  } catch (_) {}
 
   invalidatePushSettings(ref);
 }

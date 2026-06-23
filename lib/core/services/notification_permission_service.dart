@@ -35,9 +35,10 @@ class NotificationPermissionService {
         return AppNotificationPermissionStatus.granted;
       }
       // На Android 13+ areNotificationsEnabled() == false и до первого
-      // запроса, и после отказа — различаем по локальному флагу.
+      // запроса, и после отказа, и после выключения в настройках системы.
       final prefs = await SharedPreferences.getInstance();
-      if (prefs.getString(notificationPermissionSystemDeniedKey) == '1') {
+      if (prefs.getString(notificationPermissionSystemDeniedKey) == '1' ||
+          prefs.getString(notificationPermissionRequestedKey) == '1') {
         return AppNotificationPermissionStatus.denied;
       }
       return AppNotificationPermissionStatus.notDetermined;
@@ -73,8 +74,9 @@ class NotificationPermissionService {
       final androidPlugin =
           _localNotifications.resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
-      final granted = await androidPlugin?.requestNotificationsPermission();
       final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(notificationPermissionRequestedKey, '1');
+      final granted = await androidPlugin?.requestNotificationsPermission();
       if (granted == true) {
         await prefs.remove(notificationPermissionSystemDeniedKey);
       } else {
@@ -107,6 +109,7 @@ class NotificationPermissionService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(notificationExplainPromptDeclinedKey);
     await prefs.remove(notificationPermissionSystemDeniedKey);
+    await prefs.remove(notificationPermissionRequestedKey);
   }
 }
 
@@ -116,3 +119,7 @@ const notificationExplainPromptDeclinedKey =
 /// Пользователь отклонил системный диалог POST_NOTIFICATIONS (Android 13+).
 const notificationPermissionSystemDeniedKey =
     'notification_permission_system_denied';
+
+/// На Android 13+ уже показывали системный запрос POST_NOTIFICATIONS.
+const notificationPermissionRequestedKey =
+    'notification_permission_requested';

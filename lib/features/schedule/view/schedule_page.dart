@@ -1120,8 +1120,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         workingWeekdays: workerWeekdaysForSpecialist,
         daily: workerSchedulesData?.scheduleOn(date),
         shiftConfig: workerShiftConfigForSpecialist,
-        hasSchedulesInRange:
-            workerSchedulesData?.schedulesByDate.isNotEmpty ?? false,
       );
     }
     final slotsByDay = _slotsByDayFromActiveAppointments(

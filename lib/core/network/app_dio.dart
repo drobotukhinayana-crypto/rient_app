@@ -4,7 +4,7 @@ import 'package:dio/dio.dart';
 Dio createAppDio() {
   return Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 15),
+      connectTimeout: const Duration(seconds: 25),
       receiveTimeout: const Duration(seconds: 20),
       sendTimeout: const Duration(seconds: 20),
     ),

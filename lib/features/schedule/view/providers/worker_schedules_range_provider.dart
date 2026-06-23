@@ -75,7 +75,8 @@ final workerSchedulesRangeProvider =
     final keyId = shiftConfig?['id']?.toString();
     final daysInRange =
         query._endNorm.difference(query._startNorm).inDays.abs() + 1;
-    final pageSize = daysInRange.clamp(7, 500);
+    // На дату может быть несколько записей (auto + ручная).
+    final pageSize = (daysInRange * 4).clamp(31, 500);
 
     final keyIn = 'worker/${query.workerId}';
     List<ScheduleItemApi> schedules = const [];
@@ -85,12 +86,14 @@ final workerSchedulesRangeProvider =
         workerId: query.workerId,
         dateGte: query._startNorm,
         dateLte: query._endNorm,
+        pageSize: pageSize,
         bustCache: true,
       );
       final branchResponse = await schedulesService.getSchedules(
         branchId: branchId,
         dateGte: query._startNorm,
         dateLte: query._endNorm,
+        pageSize: pageSize,
         bustCache: true,
       );
       return mergeWorkerScheduleSources(

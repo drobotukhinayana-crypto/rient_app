@@ -67,7 +67,8 @@ class TopPanel extends StatefulWidget {
   /// Показывать [SpecialistSelectorPill] в расписании. Для аккаунта сотрудника обычно [false].
   final bool showSpecialistSelector;
 
-  /// Список специалистов для страницы расписания. Если передан и длина < 3, в режиме «День» в панели показывается [SpecialistSelectorPill].
+  /// Список специалистов для страницы расписания. В режиме «День» пилюля
+  /// показывается только при одном мастере; при двух и более — карточки в сетке.
   final List<SpecialistItem>? specialists;
 
   /// Выбранный по умолчанию специалист (например первый из списка). Если не передан, пилюля выберет первого из [specialists].
@@ -274,7 +275,7 @@ class _TopPanelState extends State<TopPanel> {
     if (!widget.showSpecialistSelector ||
         widget.specialists == null ||
         widget.specialists!.isEmpty ||
-        widget.specialists!.length >= 3) {
+        widget.specialists!.length >= 2) {
       return null;
     }
     return SpecialistSelectorPill(
