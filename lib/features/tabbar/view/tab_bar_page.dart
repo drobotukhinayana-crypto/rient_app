@@ -227,11 +227,13 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
       return;
     }
     _lastResumeRefreshAt = now;
-    await refreshTokenSilentlyIfPossible(ref as Ref);
     if (!mounted) return;
     await _ensurePushPermissionAndRegistration(
       showDeniedSettingsPrompt: false,
     );
+    if (!mounted) return;
+    await refreshTokenSilentlyIfPossible(ref);
+    if (!mounted) return;
     unawaited(
       ref.read(notificationsWebSocketControllerProvider).ensureConnected(),
     );

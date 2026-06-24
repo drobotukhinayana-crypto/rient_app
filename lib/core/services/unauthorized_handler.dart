@@ -47,7 +47,7 @@ DioException? dioExceptionFrom(Object? error) {
   return null;
 }
 
-Future<SessionData?> _readStoredSession(Ref ref) async {
+Future<SessionData?> _readStoredSession(dynamic ref) async {
   final inMemory = ref.read(sessionDataControllerProvider);
   if (inMemory != null) return inMemory;
   return ref.read(sessionDataStorageProvider).get();
@@ -72,7 +72,7 @@ bool _isAuthRefreshFailure(Object? error) {
   return code != null && code >= 400 && code < 500;
 }
 
-Future<_TokenRefreshOutcome> _refreshWithPassword(Ref ref, String password) async {
+Future<_TokenRefreshOutcome> _refreshWithPassword(dynamic ref, String password) async {
   try {
     await ref.read(authServiceProvider).getToken(
           password: password,
@@ -95,7 +95,7 @@ Future<_TokenRefreshOutcome> _refreshWithPassword(Ref ref, String password) asyn
   }
 }
 
-Future<_TokenRefreshOutcome> _tryRefreshTokenSilently(Ref ref) async {
+Future<_TokenRefreshOutcome> _tryRefreshTokenSilently(dynamic ref) async {
   final savedRole = ref.read(roleStorageProvider);
   final currentRole = ref.read(roleProvider);
   if (currentRole == 0 && savedRole > 0) {
@@ -148,7 +148,7 @@ Future<_TokenRefreshOutcome> _tryRefreshTokenSilently(Ref ref) async {
 }
 
 /// Публичный мягкий refresh токена (без logout), удобен для lifecycle-resume.
-Future<bool> refreshTokenSilentlyIfPossible(Ref ref) async {
+Future<bool> refreshTokenSilentlyIfPossible(dynamic ref) async {
   if (_isSilentRefreshInProgress || _isUnauthorizedHandlingInProgress) {
     return false;
   }
