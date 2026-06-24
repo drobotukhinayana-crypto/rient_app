@@ -41,7 +41,6 @@ class PushRegistrationService {
   StreamSubscription<String>? _tokenRefreshSubscription;
   Timer? _registerRetryTimer;
   int _registerRetryAttempt = 0;
-  bool _initialized = false;
 
   void dispose() {
     cancelPendingRetries();
@@ -74,13 +73,9 @@ class PushRegistrationService {
       }
       final messaging = FirebaseMessaging.instance;
       await messaging.setAutoInitEnabled(true);
-      if (Platform.isIOS && !_initialized) {
-        await _waitForApnsToken(messaging);
-      }
       _tokenRefreshSubscription ??= messaging.onTokenRefresh.listen((token) {
         unawaited(registerCurrentDevice(fcmToken: token));
       });
-      _initialized = true;
     } catch (e, st) {
       debugPrint('PushRegistrationService: Firebase init failed: $e\n$st');
     }
@@ -88,13 +83,13 @@ class PushRegistrationService {
 
   /// На iOS FCM token доступен только после APNS token (реальный девайс, не симулятор).
   Future<void> _waitForApnsToken(FirebaseMessaging messaging) async {
-    for (var attempt = 0; attempt < 20; attempt++) {
+    for (var attempt = 0; attempt < 40; attempt++) {
       final apns = await messaging.getAPNSToken();
       if (apns != null && apns.isNotEmpty) return;
-      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await Future<void>.delayed(const Duration(milliseconds: 500));
     }
     debugPrint(
-      'PushRegistrationService: APNS token not ready (simulator or no push capability)',
+      'PushRegistrationService: APNS token not ready (simulator, no permission, or no push capability)',
     );
   }
 
@@ -178,6 +173,10 @@ class PushRegistrationService {
           throw StateError('notification_permission_missing');
         }
         return;
+      }
+
+      if (Platform.isIOS) {
+        await _waitForApnsToken(FirebaseMessaging.instance);
       }
 
       final token = await resolveFcmToken(override: fcmToken);

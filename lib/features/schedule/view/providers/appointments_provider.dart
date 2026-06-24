@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
@@ -83,6 +85,16 @@ final scheduleAppointmentsProvider =
         );
         if (!ref.mounted) return fromCache();
         ref.read(scheduleServerReachableProvider.notifier).state = true;
+        final active = response.results.where((a) => a.isActive).toList();
+        unawaited(
+          cache.mergeWorkerAppointments(
+            branchId: branchId,
+            workerId: workerId,
+            appointments: active,
+            rangeFrom: fetchRange.gte,
+            rangeTo: fetchRange.lte,
+          ),
+        );
         return filterActiveAppointmentsForVisibleRange(
           response.results,
           query.dateTimeGte,

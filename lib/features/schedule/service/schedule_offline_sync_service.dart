@@ -51,7 +51,6 @@ class ScheduleOfflineSyncService {
     final rangeTo = fetchRange.lte;
     final service = ref.read(appointmentsServiceProvider);
     final cache = ref.read(scheduleAppointmentsCacheProvider);
-    final byWorker = <int, List<dynamic>>{};
 
     try {
       for (final workerId in workerIds) {
@@ -61,25 +60,15 @@ class ScheduleOfflineSyncService {
           dateTimeGte: rangeFrom,
           dateTimeLte: rangeTo,
         );
-        byWorker[workerId] = response.results
-            .where((a) => a.isActive)
-            .map(appointmentApiToCacheJson)
-            .toList();
+        await cache.mergeWorkerAppointments(
+          branchId: branchId,
+          workerId: workerId,
+          appointments: response.results.where((a) => a.isActive),
+          rangeFrom: rangeFrom,
+          rangeTo: rangeTo,
+        );
       }
       ref.read(scheduleServerReachableProvider.notifier).state = true;
-
-      final snapshot = ScheduleAppointmentsCacheSnapshot.fromJson({
-        'branchId': branchId,
-        'rangeFrom': rangeFrom.toUtc().toIso8601String(),
-        'rangeTo': rangeTo.toUtc().toIso8601String(),
-        'cachedAt': DateTime.now().toUtc().toIso8601String(),
-        'byWorker': byWorker.map(
-          (id, list) => MapEntry(id.toString(), list),
-        ),
-      });
-      if (snapshot != null) {
-        await cache.save(snapshot);
-      }
     } catch (e) {
       if (isClientHttpError(e)) return;
       if (isNetworkFailure(e)) {

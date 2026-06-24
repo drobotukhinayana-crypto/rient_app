@@ -952,9 +952,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final allBranchSpecialists =
         _allWorkersToSpecialists(allWorkers, workerLabels);
     final savedSelectedId = ref.watch(selectedSpecialistIdProvider);
-    // День: колонки только у мастеров, доступных на выбранную дату (как на сайте).
-    final isAdminMultiDayView =
-        isAdminDayView && specialistsOnSelectedDate.length > 1;
     var specialists = isWorkerRole
         ? specialistsOnSelectedDate
             .where((s) => s.id == currentWorkerId)
@@ -962,9 +959,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         : isAdminDayView
         ? specialistsOnSelectedDate
         : allBranchSpecialists;
-    // Один мастер в «День»: на выходной сохраняем контекст только после загрузки дня.
-    if (isAdminDayView &&
-        !isAdminMultiDayView &&
+    // Один мастер в «День»: на выходной сохраняем контекст только онлайн после загрузки дня.
+    if (!isScheduleOffline &&
+        isAdminDayView &&
+        specialistsOnSelectedDate.length <= 1 &&
         dayScheduleReady &&
         specialistsOnSelectedDate.isEmpty) {
       final persistId = _dayViewSingleWorkerId ?? savedSelectedId;
@@ -979,15 +977,35 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         }
       }
     }
-    if (isScheduleOffline && specialists.isEmpty) {
-      final fromCache = offlineSpecialistsAsync.value;
-      if (fromCache != null && fromCache.isNotEmpty) {
+    if (isScheduleOffline) {
+      if (isWorkerRole) {
         final workerFilterId = currentWorkerId ?? savedSelectedId;
-        specialists = isWorkerRole && workerFilterId != null
-            ? fromCache.where((s) => s.id == workerFilterId).toList()
-            : fromCache;
+        if (workerFilterId != null) {
+          specialists = allBranchSpecialists
+              .where((s) => s.id == workerFilterId)
+              .toList();
+        }
+      } else if (isAdminDayView) {
+        if (allBranchSpecialists.isNotEmpty) {
+          specialists = allBranchSpecialists;
+        } else {
+          final fromCache = offlineSpecialistsAsync.value;
+          if (fromCache != null && fromCache.isNotEmpty) {
+            specialists = fromCache;
+          }
+        }
+      } else if (specialists.isEmpty) {
+        final fromCache = offlineSpecialistsAsync.value;
+        if (fromCache != null && fromCache.isNotEmpty) {
+          specialists = fromCache;
+        }
       }
     }
+    // День: колонки только у мастеров, доступных на выбранную дату (онлайн) или всех из кэша (оффлайн).
+    final isAdminMultiDayView = isAdminDayView &&
+        (isScheduleOffline
+            ? specialists.length > 1
+            : specialistsOnSelectedDate.length > 1);
     SpecialistItem? initialSelected;
     if (isAdminDayView) {
       if (savedSelectedId != null &&
@@ -1010,7 +1028,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     }
     initialSelected ??=
         specialists.isNotEmpty ? specialists.first : null;
-    if (isAdminDayView && !isAdminMultiDayView && dayScheduleReady) {
+    if (!isScheduleOffline &&
+        isAdminDayView &&
+        !isAdminMultiDayView &&
+        dayScheduleReady) {
       final candidate = initialSelected?.id ??
           (savedSelectedId != null && savedSelectedId > 0
               ? savedSelectedId
@@ -1165,6 +1186,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     );
     final selectedWorkerHours = specialistIdForData != null
         ? (() {
+            if (isScheduleOffline && isAdminDayView) {
+              return (
+                start: dayWorkHours.startHour,
+                end: dayWorkHours.endHour,
+              );
+            }
             final byShift = _workerShiftHoursForId(
               availableWorkersAsync.value ?? const [],
               specialistIdForData,
@@ -1492,7 +1519,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                     selectedDate,
                                                   );
                                                   final effectiveHours =
-                                                      _adminMultiColumnWorkerHours(
+                                                      isScheduleOffline
+                                                      ? (
+                                                          start: dayWorkHours
+                                                              .startHour,
+                                                          end: dayWorkHours
+                                                              .endHour,
+                                                        )
+                                                      : _adminMultiColumnWorkerHours(
                                                     date: selectedDate,
                                                     workingWeekdays: weekdays,
                                                     daily: dailyForWorker,

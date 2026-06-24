@@ -162,6 +162,53 @@ class ScheduleAppointmentsCache {
     );
   }
 
+  /// Дополняет кэш записями мастера после успешной загрузки с API.
+  Future<void> mergeWorkerAppointments({
+    required int branchId,
+    required int workerId,
+    required Iterable<AppointmentApi> appointments,
+    required DateTime rangeFrom,
+    required DateTime rangeTo,
+  }) async {
+    final existing = await read();
+    final Map<int, List<AppointmentApi>> byWorker;
+    final DateTime mergedFrom;
+    final DateTime mergedTo;
+
+    if (existing != null && existing.branchId == branchId) {
+      byWorker = {
+        for (final entry in existing.byWorker.entries)
+          entry.key: List<AppointmentApi>.from(entry.value),
+      };
+      mergedFrom =
+          existing.rangeFrom.isBefore(rangeFrom) ? existing.rangeFrom : rangeFrom;
+      mergedTo = existing.rangeTo.isAfter(rangeTo) ? existing.rangeTo : rangeTo;
+    } else {
+      byWorker = {};
+      mergedFrom = rangeFrom;
+      mergedTo = rangeTo;
+    }
+
+    final byId = <int, AppointmentApi>{
+      for (final appointment in byWorker[workerId] ?? const <AppointmentApi>[])
+        appointment.id: appointment,
+    };
+    for (final appointment in appointments) {
+      byId[appointment.id] = appointment;
+    }
+    byWorker[workerId] = byId.values.toList();
+
+    await save(
+      ScheduleAppointmentsCacheSnapshot(
+        branchId: branchId,
+        rangeFrom: mergedFrom,
+        rangeTo: mergedTo,
+        cachedAt: DateTime.now(),
+        byWorker: byWorker,
+      ),
+    );
+  }
+
   static List<SpecialistItem> specialistsFromSnapshot(
     ScheduleAppointmentsCacheSnapshot? snapshot,
     WorkerEntityLabels labels,
