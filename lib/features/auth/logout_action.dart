@@ -57,6 +57,9 @@ Future<void> clearUserSession(dynamic ref) async {
 
   await NotificationPermissionService.resetPromptStateForNewUser();
 
+  final storage = ref.read(localStorageProvider);
+  await storage.removeValue(notificationExplainPromptDeclinedKey);
+
   await ref.read(sessionDataControllerProvider.notifier).deleteSessionData();
   await ref.read(tokenProvider.notifier).clearToken();
   await ref.read(emailStorageProvider.notifier).clearEmail();
@@ -68,7 +71,6 @@ Future<void> clearUserSession(dynamic ref) async {
   ref.read(selectedOrganizationMemberProvider.notifier).state = null;
   ref.read(selectedBranchProvider.notifier).state = null;
 
-  final storage = ref.read(localStorageProvider);
   await storage.removeValue(branchStorageKey);
   await storage.removeValue(selectedBranchIdStorageKey);
   await storage.removeValue(scheduleOfflineCacheStorageKey);

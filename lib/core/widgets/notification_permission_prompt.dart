@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
-import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/services/notification_permission_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
@@ -22,8 +22,8 @@ Future<bool> maybeRequestNotificationPermissionAfterLogin(
   }
 
   if (status == AppNotificationPermissionStatus.notDetermined) {
-    final storage = ref.read(localStorageProvider);
-    final declined = await storage.getString(notificationExplainPromptDeclinedKey);
+    final prefs = await SharedPreferences.getInstance();
+    final declined = prefs.getString(notificationExplainPromptDeclinedKey);
     if (declined == '1') {
       return false;
     }
@@ -35,7 +35,7 @@ Future<bool> maybeRequestNotificationPermissionAfterLogin(
       barrierDismissible: false,
       builder: (dialogContext) => _NotificationExplainDialog(
         onLater: () async {
-          await storage.saveString(notificationExplainPromptDeclinedKey, '1');
+          await prefs.setString(notificationExplainPromptDeclinedKey, '1');
           if (dialogContext.mounted) {
             Navigator.of(dialogContext).pop(false);
           }

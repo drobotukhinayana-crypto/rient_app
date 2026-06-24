@@ -226,6 +226,99 @@ class MobilePushService {
     }
   }
 
+  /// Перепривязка существующей записи устройства к текущему пользователю.
+  Future<PushDeviceApi> updateDevice({
+    required int id,
+    required RegisterPushDeviceRequest body,
+    bool activate = true,
+  }) async {
+    try {
+      final url = ApiConsts().createUrl('mobile-push/devices/$id/');
+      final payload = body.toJson()
+        ..removeWhere((_, value) => value == null)
+        ..['is_active'] = activate;
+      final response = await Dio().patch<Map<String, dynamic>>(
+        url,
+        data: payload,
+        options: Options(
+          headers: {
+            ...await _authHeaders(),
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        return PushDeviceApi.fromJson(response.data!);
+      }
+      throw CustomException(
+        causedError: Exception(
+          'Failed to update push device: ${response.statusCode}',
+        ),
+      );
+    } catch (e) {
+      throw CustomException(causedError: e);
+    }
+  }
+
+  /// Забрать устройство по FCM-токену на текущего пользователя (смена аккаунта).
+  Future<PushDeviceApi> claimDevice(RegisterPushDeviceRequest body) async {
+    try {
+      final url = ApiConsts().createUrl('mobile-push/devices/claim/');
+      final response = await Dio().post<Map<String, dynamic>>(
+        url,
+        data: body.toJson(),
+        options: Options(
+          headers: {
+            ...await _authHeaders(),
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if ((response.statusCode == 201 || response.statusCode == 200) &&
+          response.data != null) {
+        return PushDeviceApi.fromJson(response.data!);
+      }
+      throw CustomException(
+        causedError: Exception(
+          'Failed to claim push device: ${response.statusCode}',
+        ),
+      );
+    } catch (e) {
+      throw CustomException(causedError: e);
+    }
+  }
+
+  /// Реактивировать устройство по FCM-токену для текущего пользователя.
+  Future<PushDeviceApi> reactivateDevice(RegisterPushDeviceRequest body) async {
+    try {
+      final url = ApiConsts().createUrl('mobile-push/devices/reactivate/');
+      final response = await Dio().post<Map<String, dynamic>>(
+        url,
+        data: body.toJson(),
+        options: Options(
+          headers: {
+            ...await _authHeaders(),
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if ((response.statusCode == 201 || response.statusCode == 200) &&
+          response.data != null) {
+        return PushDeviceApi.fromJson(response.data!);
+      }
+      throw CustomException(
+        causedError: Exception(
+          'Failed to reactivate push device: ${response.statusCode}',
+        ),
+      );
+    } catch (e) {
+      throw CustomException(causedError: e);
+    }
+  }
+
   Future<DeactivatePushDeviceResponse> deactivateDevice({
     required int organizationId,
     int? id,

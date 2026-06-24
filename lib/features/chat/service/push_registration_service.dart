@@ -41,6 +41,7 @@ class PushRegistrationService {
   StreamSubscription<String>? _tokenRefreshSubscription;
   Timer? _registerRetryTimer;
   int _registerRetryAttempt = 0;
+  Future<void>? _registerInFlight;
 
   void dispose() {
     cancelPendingRetries();
@@ -99,10 +100,7 @@ class PushRegistrationService {
       if (Firebase.apps.isEmpty) return null;
       final messaging = FirebaseMessaging.instance;
       if (Platform.isIOS) {
-        final apns = await messaging.getAPNSToken();
-        if (apns == null || apns.isEmpty) {
-          return null;
-        }
+        await _waitForApnsToken(messaging);
       }
       return messaging.getToken();
     } catch (e) {
@@ -134,7 +132,115 @@ class PushRegistrationService {
     return 0;
   }
 
+  bool _isDuplicateTokenError(Object error) {
+    final caused = error is CustomException ? error.causedError : error;
+    if (caused is! DioException || caused.response?.statusCode != 400) {
+      return false;
+    }
+    final data = caused.response?.data;
+    final text = data?.toString().toLowerCase() ?? '';
+    return text.contains('token') &&
+        (text.contains('существует') ||
+            text.contains('exist') ||
+            text.contains('already'));
+  }
+
+  Future<PushDeviceApi> _registerOrReclaimDevice({
+    required RegisterPushDeviceRequest request,
+    required int? storedApiId,
+  }) async {
+    final pushService = ref.read(mobilePushServiceProvider);
+
+    try {
+      return await pushService.registerDevice(request);
+    } catch (e) {
+      if (!_isDuplicateTokenError(e)) rethrow;
+
+      debugPrint(
+        'PushRegistrationService: FCM token already registered, reclaiming',
+      );
+
+      if (storedApiId != null) {
+        try {
+          final device = await pushService.updateDevice(
+            id: storedApiId,
+            body: request,
+          );
+          debugPrint(
+            'PushRegistrationService: reclaimed device via PATCH id=$storedApiId',
+          );
+          return device;
+        } catch (patchError) {
+          debugPrint(
+            'PushRegistrationService: PATCH reclaim failed: $patchError',
+          );
+        }
+      }
+
+      for (final reclaim in <Future<PushDeviceApi> Function()>[
+        () => pushService.claimDevice(request),
+        () => pushService.reactivateDevice(request),
+      ]) {
+        try {
+          final device = await reclaim();
+          debugPrint(
+            'PushRegistrationService: reclaimed device via claim/reactivate',
+          );
+          return device;
+        } catch (reclaimError) {
+          debugPrint(
+            'PushRegistrationService: reclaim attempt failed: $reclaimError',
+          );
+        }
+      }
+
+      try {
+        await pushService.deactivateDevice(
+          organizationId: request.organization,
+          id: storedApiId,
+          token: request.token,
+          deviceId: request.deviceId,
+        );
+        debugPrint(
+          'PushRegistrationService: deactivated old binding before re-register',
+        );
+      } catch (deactivateError) {
+        debugPrint(
+          'PushRegistrationService: deactivate before re-register failed: '
+          '$deactivateError',
+        );
+      }
+
+      return pushService.registerDevice(request);
+    }
+  }
+
   Future<void> registerCurrentDevice({
+    String? fcmToken,
+    bool? pushEnabled,
+    bool isRetry = false,
+    bool throwOnFailure = false,
+  }) async {
+    if (_registerInFlight != null) {
+      await _registerInFlight;
+      return;
+    }
+
+    final registration = _registerCurrentDeviceImpl(
+      fcmToken: fcmToken,
+      pushEnabled: pushEnabled,
+      isRetry: isRetry,
+      throwOnFailure: throwOnFailure,
+    );
+    _registerInFlight = registration;
+    try {
+      await registration;
+    } finally {
+      _registerInFlight = null;
+    }
+  }
+
+  Future<void> _registerCurrentDeviceImpl({
     String? fcmToken,
     bool? pushEnabled,
     bool isRetry = false,
@@ -167,22 +273,19 @@ class PushRegistrationService {
 
       if (!await NotificationPermissionService.hasGrantedPermission()) {
         debugPrint(
-          'PushRegistrationService: notifications permission missing, skip register',
+          'PushRegistrationService: notifications permission missing, retry register',
         );
         if (throwOnFailure) {
           throw StateError('notification_permission_missing');
         }
+        _scheduleRegisterRetry();
         return;
-      }
-
-      if (Platform.isIOS) {
-        await _waitForApnsToken(FirebaseMessaging.instance);
       }
 
       final token = await resolveFcmToken(override: fcmToken);
       if (token == null || token.isEmpty) {
         debugPrint(
-          'PushRegistrationService: FCM token unavailable, skip register',
+          'PushRegistrationService: FCM token unavailable, retry register',
         );
         if (throwOnFailure) {
           throw StateError('fcm_token_unavailable');
@@ -192,11 +295,11 @@ class PushRegistrationService {
       }
       _registerRetryAttempt = 0;
       _registerRetryTimer?.cancel();
-      // Для теста в Firebase Console → Cloud Messaging → Send test message
       debugPrint('FCM token: $token');
 
       final deviceStorage = ref.read(pushDeviceStorageProvider);
       final deviceId = await deviceStorage.getOrCreateDeviceId();
+      final storedApiId = await deviceStorage.getRegisteredDeviceApiId();
       final branchId = await _resolveBranchId();
       final roleId = ref.read(roleProvider);
       if (roleId != UserRole.owner.value && branchId <= 0) {
@@ -220,20 +323,23 @@ class PushRegistrationService {
         timezoneName = DateTime.now().timeZoneName;
       }
 
-      final device = await ref.read(mobilePushServiceProvider).registerDevice(
-            RegisterPushDeviceRequest(
-              organization: organizationId,
-              branch: branchId > 0 ? branchId : null,
-              token: token,
-              deviceId: deviceId,
-              platform: _platformName(),
-              appVersion: packageInfo.version,
-              appBuild: packageInfo.buildNumber,
-              locale: localeTag,
-              timezoneName: timezoneName,
-              pushEnabled: pushEnabled ?? true,
-            ),
-          );
+      final request = RegisterPushDeviceRequest(
+        organization: organizationId,
+        branch: branchId > 0 ? branchId : null,
+        token: token,
+        deviceId: deviceId,
+        platform: _platformName(),
+        appVersion: packageInfo.version,
+        appBuild: packageInfo.buildNumber,
+        locale: localeTag,
+        timezoneName: timezoneName,
+        pushEnabled: pushEnabled ?? true,
+      );
+
+      final device = await _registerOrReclaimDevice(
+        request: request,
+        storedApiId: storedApiId,
+      );
 
       await deviceStorage.saveRegisteredDeviceApiId(device.id);
       debugPrint(
@@ -248,12 +354,6 @@ class PushRegistrationService {
           'PushRegistrationService: register HTTP $status '
           'body=${caused.response?.data}',
         );
-        // 401 при смене аккаунта или просроченном токене — не ретраим.
-        if (status == 401 || status == 403) {
-          cancelPendingRetries();
-          if (throwOnFailure) rethrow;
-          return;
-        }
       }
       debugPrint('PushRegistrationService: register failed: $e\n$st');
       if (throwOnFailure) rethrow;
@@ -292,10 +392,10 @@ class PushRegistrationService {
             token: fcmToken,
             deviceId: deviceId,
           );
+      debugPrint('PushRegistrationService: device deactivated on logout');
     } catch (e, st) {
       debugPrint('PushRegistrationService: deactivate failed: $e\n$st');
-    } finally {
-      await deviceStorage.clearRegisteredDeviceApiId();
     }
+    // id записи на сервере сохраняем — нужен для PATCH/claim при следующем входе.
   }
 }
