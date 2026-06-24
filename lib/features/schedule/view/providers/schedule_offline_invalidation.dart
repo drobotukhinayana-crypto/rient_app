@@ -19,6 +19,7 @@ bool _scheduleInvalidationScheduled = false;
 /// Сбрасывает зависшие онлайн-запросы расписания при входе в оффлайн.
 void invalidateScheduleNetworkProviders(dynamic ref) {
   ref.invalidate(scheduleAppointmentsProvider);
+  ref.invalidate(scheduleWorkerScheduleRowsProvider);
   ref.invalidate(scheduleWorkersProvider);
   ref.invalidate(availableWorkersForDateProvider);
   ref.invalidate(workerScheduleTemplatesByIdProvider);

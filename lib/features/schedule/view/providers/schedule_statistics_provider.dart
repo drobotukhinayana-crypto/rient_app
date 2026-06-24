@@ -72,11 +72,11 @@ final scheduleStatisticsForMonthProvider =
   final workerId = query.workerId;
   final mergedOccupancyByDay = <DateTime, OccupancyByDay>{};
   final mergedAppointmentsByDay = <String, AppointmentByDayItem>{};
-  Statistics? firstStats;
 
   DateTime currentWeekStart = monthStart.subtract(
     Duration(days: monthStart.weekday - 1),
   );
+  final weekRanges = <({DateTime start, DateTime end})>[];
 
   while (true) {
     final weekEnd = currentWeekStart.add(const Duration(days: 6));
@@ -85,13 +85,22 @@ final scheduleStatisticsForMonthProvider =
       continue;
     }
     if (_dateOnly(currentWeekStart).isAfter(monthEnd)) break;
+    weekRanges.add((start: currentWeekStart, end: weekEnd));
+    currentWeekStart = currentWeekStart.add(const Duration(days: 7));
+  }
 
-    final stats = await service.getStatistics(
-      startDate: currentWeekStart,
-      endDate: weekEnd,
-      branchId: branchId,
-      workerId: workerId,
-    );
+  final statsList = await Future.wait([
+    for (final range in weekRanges)
+      service.getStatistics(
+        startDate: range.start,
+        endDate: range.end,
+        branchId: branchId,
+        workerId: workerId,
+      ),
+  ]);
+
+  Statistics? firstStats;
+  for (final stats in statsList) {
     firstStats ??= stats;
     for (final o in stats.occupancyByDay) {
       final key = _dateOnly(o.date);
@@ -105,7 +114,6 @@ final scheduleStatisticsForMonthProvider =
       if (key.isBefore(monthStart) || key.isAfter(monthEnd)) continue;
       mergedAppointmentsByDay[a.date] = a;
     }
-    currentWeekStart = currentWeekStart.add(const Duration(days: 7));
   }
 
   final sortedOccupancy = mergedOccupancyByDay.values.toList()

@@ -61,6 +61,7 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
     this.onAppointmentTap,
     this.onEmptySlotTap,
     this.canTapEmptySlot,
+    this.workerHoursPending = false,
   });
 
   static const kDefaultTimeRulerSize = 50.0;
@@ -101,6 +102,9 @@ class ScheduleCalendarOneUserWidget extends StatefulWidget {
   final ValueChanged<ScheduleAppointmentItem>? onAppointmentTap;
   final ValueChanged<DateTime>? onEmptySlotTap;
   final bool Function(DateTime dateTime)? canTapEmptySlot;
+
+  /// Пока true — не штриховать день как выходной (часы смены ещё грузятся).
+  final bool workerHoursPending;
 
   @override
   State<ScheduleCalendarOneUserWidget> createState() =>
@@ -202,7 +206,9 @@ class _ScheduleCalendarOneUserWidgetState
       final wEnd = widget.workerEndHour;
 
       // Если у мастера нет смены в этот день — штрихуем весь рабочий диапазон.
-      if (wStart == null || wEnd == null || wEnd <= wStart) {
+      if (widget.workerHoursPending) {
+        // Часы смены ещё грузятся — не показываем штриховку «выходной».
+      } else if (wStart == null || wEnd == null || wEnd <= wStart) {
         regions.add(
           TimeRegion(
             startTime: at(widget.date, branchStart),

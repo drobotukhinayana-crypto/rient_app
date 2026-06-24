@@ -83,7 +83,22 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(ref.read(organizationSettingsProvider.future));
+      unawaited(_restoreSelectedSpecialistFromStorage());
     });
+  }
+
+  Future<void> _restoreSelectedSpecialistFromStorage() async {
+    if (ref.read(restoredSpecialistSelectionProvider)) return;
+    final storage = ref.read(localStorageProvider);
+    final idStr = await storage.getString(selectedSpecialistIdStorageKey);
+    final id = int.tryParse(idStr ?? '');
+    if (id != null && id > 0 && mounted) {
+      ref.read(selectedSpecialistIdProvider.notifier).state = id;
+      _dayViewSingleWorkerId = id;
+    }
+    if (mounted) {
+      ref.read(restoredSpecialistSelectionProvider.notifier).state = true;
+    }
   }
 
   @override
@@ -367,9 +382,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         ),
       );
     }
-    ref.invalidate(scheduleStatisticsForWeekProvider);
-    ref.invalidate(scheduleStatisticsForMonthProvider);
-    ref.invalidate(scheduleWorkersProvider);
+  ref.invalidate(scheduleStatisticsForWeekProvider);
+  ref.invalidate(scheduleStatisticsForMonthProvider);
+  ref.invalidate(scheduleWorkerScheduleRowsProvider);
+  ref.invalidate(scheduleWorkersProvider);
     ref.invalidate(workerScheduleTemplatesByIdProvider);
     ref.invalidate(workerWeekdaysByIdProvider);
     ref.invalidate(workerSchedulesRangeProvider);
@@ -856,6 +872,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
     final isScheduleOffline = ref.watch(scheduleOfflineModeProvider);
+    final branchesAsync = ref.watch(branchesProvider);
     final workersAsync = ref.watch(scheduleWorkersProvider);
     final offlineSpecialistsAsync = ref.watch(scheduleOfflineSpecialistsProvider);
     final roleId = ref.watch(roleProvider);
@@ -909,6 +926,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final dayScheduleReady = workerWeekdaysAsync.hasValue &&
         workerTemplatesAsync.hasValue &&
         scheduleForDayAsync.hasValue;
+    final isAdminDayView = !isWorkerRole && _viewMode == ViewMode.day;
+    final dayViewDetailsLoading =
+        !isScheduleOffline && isAdminDayView && !dayScheduleReady;
     final weekKey = scheduleWeekKey(
       _viewMode == ViewMode.day ? selectedDate : _weekStart,
     );
@@ -933,7 +953,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         _allWorkersToSpecialists(allWorkers, workerLabels);
     final savedSelectedId = ref.watch(selectedSpecialistIdProvider);
     // День: колонки только у мастеров, доступных на выбранную дату (как на сайте).
-    final isAdminDayView = !isWorkerRole && _viewMode == ViewMode.day;
     final isAdminMultiDayView =
         isAdminDayView && specialistsOnSelectedDate.length > 1;
     var specialists = isWorkerRole
@@ -943,9 +962,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         : isAdminDayView
         ? specialistsOnSelectedDate
         : allBranchSpecialists;
-    // Один мастер в «День»: на его выходной сохраняем контекст для полоски дат и графика.
+    // Один мастер в «День»: на выходной сохраняем контекст только после загрузки дня.
     if (isAdminDayView &&
         !isAdminMultiDayView &&
+        dayScheduleReady &&
         specialistsOnSelectedDate.isEmpty) {
       final persistId = _dayViewSingleWorkerId ?? savedSelectedId;
       if (persistId != null && persistId > 0) {
@@ -990,7 +1010,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     }
     initialSelected ??=
         specialists.isNotEmpty ? specialists.first : null;
-    if (isAdminDayView && !isAdminMultiDayView) {
+    if (isAdminDayView && !isAdminMultiDayView && dayScheduleReady) {
       final candidate = initialSelected?.id ??
           (savedSelectedId != null && savedSelectedId > 0
               ? savedSelectedId
@@ -1007,13 +1027,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final specialistIdForData = isWorkerRole
         ? (currentWorkerId != null && currentWorkerId > 0 ? currentWorkerId : null)
         : isAdminDayView
-        ? (isAdminMultiDayView
-              ? initialSelected?.id
-              : (_dayViewSingleWorkerId ??
-                  initialSelected?.id ??
-                  (savedSelectedId != null && savedSelectedId > 0
-                      ? savedSelectedId
-                      : null)))
+        ? (dayViewDetailsLoading
+              ? null
+              : (isAdminMultiDayView
+                    ? initialSelected?.id
+                    : (_dayViewSingleWorkerId ??
+                        initialSelected?.id ??
+                        (savedSelectedId != null && savedSelectedId > 0
+                            ? savedSelectedId
+                            : null))))
         : (savedSelectedId != null && savedSelectedId > 0
               ? savedSelectedId
               : selectedSpecialistId);
@@ -1239,6 +1261,35 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         (multiDayColumns
             ? dayAppsBySpecialistIndex.any((a) => a.isLoading)
             : dayAppointmentsSingleAsync.isLoading);
+    final workerHoursPending = !isScheduleOffline &&
+        _viewMode == ViewMode.day &&
+        specialistIdForData != null &&
+        (availableWorkersAsync.isLoading ||
+            workerSchedulesAsync?.isLoading == true);
+    final dayViewContentLoading = dayViewDetailsLoading ||
+        workerHoursPending ||
+        dayAppointmentsLoading;
+    final weekViewContentLoading = !isScheduleOffline &&
+        _viewMode == ViewMode.week &&
+        (weekStatisticsLoading ||
+            weekAppointmentsAsync.isLoading ||
+            (specialistIdForData != null &&
+                (workerSchedulesAsync?.isLoading == true ||
+                    workerWeekdaysAsync.isLoading)));
+    final monthViewContentLoading = !isScheduleOffline &&
+        _viewMode == ViewMode.month &&
+        (monthStatisticsLoading ||
+            monthAppointmentsLoading ||
+            (specialistIdForData != null &&
+                (workerSchedulesAsync?.isLoading == true ||
+                    workerWeekdaysAsync.isLoading)));
+    final scheduleViewContentLoading = !isScheduleOffline &&
+        (branchesAsync.isLoading ||
+            workersAsync.isLoading ||
+            (isWorkerRole && currentWorkerIdAsync.isLoading) ||
+            dayViewContentLoading ||
+            weekViewContentLoading ||
+            monthViewContentLoading);
     final Set<int>? workingWeekdaysForWeekCalendar =
         specialistIdForData == null
         ? null
@@ -1255,30 +1306,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         ? resolveWorkerNonWorkingDay
         : null;
 
-    final showScheduleBodyLoader = !isScheduleOffline &&
-        ((isWorkerRole && currentWorkerIdAsync.isLoading) ||
-            (_viewMode == ViewMode.day &&
-                isAdminDayView &&
-                !dayScheduleReady) ||
-            (_viewMode == ViewMode.day && dayAppointmentsLoading) ||
-            (_viewMode == ViewMode.week &&
-                weekAppointmentsAsync.isLoading) ||
-            (_viewMode == ViewMode.week && weekStatisticsLoading) ||
-            (_viewMode == ViewMode.month &&
-                (monthStatisticsLoading || monthAppointmentsLoading)));
-
     ref.listen(scheduleWorkersProvider, (prev, next) {
       next.whenData((_) async {
         if (ref.read(restoredSpecialistSelectionProvider)) return;
-        final storage = ref.read(localStorageProvider);
-        final idStr = await storage.getString(selectedSpecialistIdStorageKey);
-        final id = int.tryParse(idStr ?? '');
-        if (id != null && context.mounted) {
-          ref.read(selectedSpecialistIdProvider.notifier).state = id;
-        }
-        if (context.mounted) {
-          ref.read(restoredSpecialistSelectionProvider.notifier).state = true;
-        }
+        await _restoreSelectedSpecialistFromStorage();
       });
     });
     ref.listen<int>(workScheduleReloadTokenProvider, (previous, next) {
@@ -1332,8 +1363,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                 showSpecialistSelector: !isWorkerRole,
                 viewMode: _viewMode,
                 onScheduleStateChanged: _onScheduleStateChanged,
-                specialists: specialists,
-                initialSelectedSpecialist: initialSelected,
+                specialists: scheduleViewContentLoading ? const [] : specialists,
+                initialSelectedSpecialist:
+                    scheduleViewContentLoading ? null : initialSelected,
                 onSpecialistSelected: isWorkerRole
                     ? null
                     : (s) async {
@@ -1377,9 +1409,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                     AppRefreshable(
                   onRefresh: _onPullToRefresh,
                   hasScrollBody: true,
-                  child: (!isScheduleOffline && workersAsync.isLoading)
-                      ? const SizedBox.shrink()
-                      : (!isScheduleOffline && workersAsync.hasError)
+                  child: (!isScheduleOffline && workersAsync.hasError)
                       ? Center(
                           child: Padding(
                             padding: AppDecoration.padding16,
@@ -1404,7 +1434,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                           : Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (multiDayColumns)
+                                if (multiDayColumns && !dayViewContentLoading)
                                   Padding(
                                     padding: AppDecoration.padding16,
                                     child: SpecialistListView(
@@ -1539,6 +1569,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                           workerStartHour:
                                               selectedWorkerHours.start,
                                           workerEndHour: selectedWorkerHours.end,
+                                          workerHoursPending: workerHoursPending,
                                           onAppointmentTap: (item) async {
                                             final appointment = item.source;
                                             if (appointment == null) return;
@@ -1694,20 +1725,20 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                           ],
                         ),
                     ),
-                    if (showScheduleBodyLoader)
-                      Positioned.fill(
-                        child: Container(
-                          color: screenBackground.withValues(alpha: 0.35),
-                          child: const Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
             ],
           ),
+          if (scheduleViewContentLoading)
+            Positioned.fill(
+              child: ColoredBox(
+                color: screenBackground,
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            ),
         ],
       ),
     ),

@@ -213,6 +213,7 @@ void invalidateWorkScheduleCaches(
   int? workerId,
 }) {
   ref.invalidate(schedulePatternsProvider);
+  ref.invalidate(scheduleWorkerScheduleRowsProvider);
   ref.invalidate(scheduleWorkersProvider);
   if (branchId != null && branchId > 0) {
     ref.invalidate(branchSchedulePatternsBranchProvider(branchId));

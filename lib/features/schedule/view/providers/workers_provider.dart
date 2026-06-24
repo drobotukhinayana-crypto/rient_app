@@ -22,9 +22,98 @@ import 'package:rient_app/core/network/app_connectivity_provider.dart'
         scheduleServerReachableProvider;
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
+Future<int> resolveScheduleBranchId(Ref ref) async {
+  var branchId = ref.read(currentBranchIdProvider);
+  if (branchId > 0) return branchId;
+
+  final branchesAsync = ref.read(branchesProvider);
+  if (branchesAsync.isLoading) {
+    try {
+      await ref.read(branchesProvider.future);
+    } catch (_) {}
+    branchId = ref.read(currentBranchIdProvider);
+  }
+  return branchId;
+}
+
+WorkerApi workerApiFromScheduleRow(Map<String, dynamic> row) {
+  return WorkerApi(
+    id: (row['id'] as num?)?.toInt() ?? 0,
+    firstName: row['first_name'] as String?,
+    lastName: row['last_name'] as String?,
+    specialization: row['specialization'] as String?,
+    picture: row['picture'] as String?,
+    pictureThumbnail: row['picture_thumbnail'] as String?,
+  );
+}
+
+Map<String, dynamic>? workerScheduleRowById(
+  List<Map<String, dynamic>> rows,
+  int workerId,
+) {
+  for (final row in rows) {
+    if ((row['id'] as num?)?.toInt() == workerId) return row;
+  }
+  return null;
+}
+
+WorkersApiResponse workersApiResponseFromScheduleRows(
+  List<Map<String, dynamic>> rows,
+) {
+  final workers = [
+    for (final row in rows)
+      if (((row['id'] as num?)?.toInt() ?? 0) > 0) workerApiFromScheduleRow(row),
+  ];
+  return WorkersApiResponse(
+    count: workers.length,
+    next: null,
+    previous: null,
+    results: workers,
+  );
+}
+
+/// Сырые строки /workers/?with_schedules=1 — один запрос на экран расписания.
+final scheduleWorkerScheduleRowsProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final branchId = await resolveScheduleBranchId(ref);
+  if (branchId == 0) return const [];
+
+  if (ref.watch(appNoConnectionProvider) ||
+      !ref.watch(scheduleServerReachableProvider)) {
+    return const [];
+  }
+
+  final workersCache = ref.read(scheduleWorkersCacheProvider);
+  final service = ref.watch(workersServiceProvider);
+  try {
+    final rows = await service.getWorkerRowsWithSchedules(branchId: branchId);
+    final workers = workersApiResponseFromScheduleRows(rows).results;
+    if (workers.isNotEmpty) {
+      unawaited(
+        workersCache.saveForBranch(
+          branchId: branchId,
+          workers: workers,
+        ),
+      );
+    }
+    markScheduleServerReachable(ref);
+    return rows;
+  } catch (e) {
+    final caused = e is CustomException ? e.causedError : e;
+    if (isPermissionDenied(caused ?? e)) {
+      return const [];
+    }
+    if (isNetworkFailure(caused ?? e) && !isClientHttpError(caused ?? e)) {
+      onScheduleNetworkFailure(ref, caused ?? e);
+    }
+    return const [];
+  }
+});
+
 /// Список рабочих (специалистов) для текущего филиала на странице расписания.
 final scheduleWorkersProvider = FutureProvider<WorkersApiResponse>((ref) async {
-  final branchId = ref.watch(currentBranchIdProvider);
+  ref.watch(currentBranchIdProvider);
+  final branchId = await resolveScheduleBranchId(ref);
   if (branchId == 0) {
     return scheduleOfflineEmptyWorkers;
   }
@@ -39,33 +128,16 @@ final scheduleWorkersProvider = FutureProvider<WorkersApiResponse>((ref) async {
     return scheduleOfflineEmptyWorkers;
   }
 
-  final service = ref.watch(workersServiceProvider);
-  try {
-    final response = await service.getWorkers(branchId: branchId);
-    if (response.results.isNotEmpty) {
-      unawaited(
-        workersCache.saveForBranch(
-          branchId: branchId,
-          workers: response.results,
-        ),
-      );
-    }
-    markScheduleServerReachable(ref);
-    return response;
-  } catch (e) {
-    final caused = e is CustomException ? e.causedError : e;
-    if (isPermissionDenied(caused ?? e)) {
-      return scheduleOfflineEmptyWorkers;
-    }
-    if (isNetworkFailure(caused ?? e) && !isClientHttpError(caused ?? e)) {
-      onScheduleNetworkFailure(ref, caused ?? e);
-    }
-    final cached = await workersCache.readForBranch(branchId);
-    if (cached != null && cached.workers.isNotEmpty) {
-      return cached.toWorkersApiResponse();
-    }
-    return scheduleOfflineEmptyWorkers;
+  final rows = await ref.watch(scheduleWorkerScheduleRowsProvider.future);
+  if (rows.isNotEmpty) {
+    return workersApiResponseFromScheduleRows(rows);
   }
+
+  final cached = await workersCache.readForBranch(branchId);
+  if (cached != null && cached.workers.isNotEmpty) {
+    return cached.toWorkersApiResponse();
+  }
+  return scheduleOfflineEmptyWorkers;
 });
 
 /// Доступные сотрудники в конкретный день для текущего филиала.
@@ -110,16 +182,16 @@ final workerScheduleTemplatesByIdProvider =
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0) return const <int, WorkerScheduleTemplate>{};
 
-  final workersService = ref.watch(workersServiceProvider);
   final patternsService = ref.watch(schedulePatternsServiceProvider);
   try {
-    final patternsResponse =
-        await patternsService.getSchedulePatterns(branchId: branchId);
+    final patternsFuture =
+        patternsService.getSchedulePatterns(branchId: branchId);
+    final rowsFuture = ref.read(scheduleWorkerScheduleRowsProvider.future);
+    final results = await Future.wait([patternsFuture, rowsFuture]);
+    final patternsResponse = results[0] as SchedulePatternsApiResponse;
+    final rows = results[1] as List<Map<String, dynamic>>;
     final patternsByWorker =
         groupSchedulePatternsByWorker(patternsResponse.results);
-    final rows = await workersService.getWorkerRowsWithSchedules(
-      branchId: branchId,
-    );
 
     final templates = <int, WorkerScheduleTemplate>{};
     for (final row in rows) {
