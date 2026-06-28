@@ -33,16 +33,25 @@ final selectedBranchStorageKeyProvider = Provider<String>((ref) {
   );
 });
 
+/// Стабильный ключ сессии — один rebuild списка филиалов на вход,
+/// без «multiple times in the same frame» у FutureProvider.
+final branchesRequestKeyProvider = Provider<(int, String)?>((ref) {
+  final token = ref.watch(tokenProvider);
+  final organizationId = ref.watch(organizationIdProvider);
+  if (token == null || token.isEmpty || organizationId <= 0) {
+    return null;
+  }
+  return (organizationId, token);
+});
+
 // Provider для загрузки списка филиалов
 final branchesProvider = FutureProvider<BranchesApiResponse>((ref) async {
-  // Ждем, пока токен будет загружен
-  final token = ref.watch(tokenProvider);
-  if (token == null || token.isEmpty) {
-    throw Exception('Token not available');
+  final sessionKey = ref.watch(branchesRequestKeyProvider);
+  if (sessionKey == null) {
+    throw Exception('Session not ready');
   }
 
-  final service = ref.watch(branchesServiceProvider);
-  return service.getBranches();
+  return ref.read(branchesServiceProvider).getBranches();
 });
 
 // Provider для выбранного филиала (StateProvider для возможности изменения)

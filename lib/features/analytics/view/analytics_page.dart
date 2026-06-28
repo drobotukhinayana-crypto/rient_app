@@ -495,12 +495,10 @@ class _AnalyticsViewData {
     return DateTime(year, month, day);
   }
 
-  static int _percentFromApi(double value) =>
-      value > 1 ? value.round() : (value * 100).round();
+  static int _percentFromApi(double value) => value.round();
 
-  /// API отдаёт загруженность в процентах (0–100), не в долях.
-  static double _occupancyPercent(double value) =>
-      value > 1 ? value : value * 100;
+  /// API отдаёт загруженность уже в процентах (0–100), в т.ч. дробные (0.5 = 0.5%).
+  static double _occupancyPercent(double value) => value;
 
   static List<AnalyticsOccupancyDay> _mergedOccupancyDays(
     AnalyticsSummary summary,
