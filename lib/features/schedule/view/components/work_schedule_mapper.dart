@@ -24,6 +24,7 @@ bool preferDailyScheduleItem(
 /// Слияние `workers/{id}/schedules/` и `schedules/?branch=` (правки с веба).
 ///
 /// Записи `workers/{id}/schedules/` имеют приоритет на дату — там правки с сайта/мобилки.
+/// Записи филиала без `worker/N` в key — только часы филиала, в график сотрудника не попадают.
 List<ScheduleItemApi> mergeWorkerScheduleSources({
   required List<ScheduleItemApi> fromWorkerEndpoint,
   required List<ScheduleItemApi> fromBranchEndpoint,
@@ -35,7 +36,7 @@ List<ScheduleItemApi> mergeWorkerScheduleSources({
   for (final item in fromBranchEndpoint) {
     if (item.branch != branchId) continue;
     final itemWorkerId = item.workerId;
-    if (itemWorkerId != null && itemWorkerId != workerId) continue;
+    if (itemWorkerId == null || itemWorkerId != workerId) continue;
     final dateKey = item.canonicalDate;
     byDate.putIfAbsent(dateKey, () => item);
   }
@@ -432,9 +433,58 @@ String? _shortTimeFromDynamic(dynamic value) {
   return s.length >= 5 ? s.substring(0, 5) : s;
 }
 
+WorkScheduleDayCell _workScheduleCellFromWorkerDaily({
+  required ScheduleItemApi daily,
+  required WorkScheduleDayCell templateCell,
+  bool selected = false,
+}) {
+  final manual = !daily.auto ||
+      resolveManualWorkScheduleEdit(daily: daily, templateCell: templateCell);
+
+  if (!daily.active) {
+    return _dayOffFromDaily(daily, isManuallyEdited: manual);
+  }
+
+  final start = daily.timeStartShort;
+  final end = daily.timeEndShort;
+  if (start != null &&
+      end != null &&
+      start.isNotEmpty &&
+      end.isNotEmpty) {
+    return workScheduleCellFromScheduleItem(
+      daily,
+      selected: selected,
+      isManuallyEdited: manual,
+    );
+  }
+
+  // На сайте active: true без time_start/time_end — рабочий день, часы из шаблона.
+  if (templateCell.kind == WorkScheduleCellKind.shift) {
+    final ts = templateCell.timeStart ?? '09:00';
+    final te = templateCell.timeEnd ?? '20:00';
+    return WorkScheduleDayCell.shift(
+      timeStart: ts,
+      timeEnd: te,
+      tone: _toneForShiftHours(ts, te),
+      isSelected: selected,
+      isManuallyEdited: manual,
+      scheduleId: daily.id,
+      breakStart: daily.breakStartShort ?? templateCell.breakStart,
+      breakEnd: daily.breakEndShort ?? templateCell.breakEnd,
+    );
+  }
+
+  return workScheduleCellFromScheduleItem(
+    daily,
+    selected: selected,
+    isManuallyEdited: manual,
+  );
+}
+
 /// Ячейка дня — та же логика, что в [workScheduleEmployeeRow].
 WorkScheduleDayCell resolveWorkerWorkScheduleDayCell({
   required DateTime date,
+  required int workerId,
   required int branchId,
   required List<SchedulePatternItemApi> patterns,
   Map<String, dynamic>? workerRow,
@@ -457,14 +507,11 @@ WorkScheduleDayCell resolveWorkerWorkScheduleDayCell({
   );
 
   final WorkScheduleDayCell cell;
-  if (daily != null && (!daily.active || !daily.auto)) {
-    cell = workScheduleCellFromScheduleItem(
-      daily,
+  if (daily != null && daily.workerId == workerId) {
+    cell = _workScheduleCellFromWorkerDaily(
+      daily: daily,
+      templateCell: templateCell,
       selected: selected,
-      isManuallyEdited: resolveManualWorkScheduleEdit(
-        daily: daily,
-        templateCell: templateCell,
-      ),
     );
   } else {
     cell = _cellFromTemplate(
@@ -594,6 +641,7 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
           );
           return resolveWorkerWorkScheduleDayCell(
             date: date,
+            workerId: worker.id,
             branchId: branchId,
             patterns: resolvedPatterns,
             workerRow: workerRow,

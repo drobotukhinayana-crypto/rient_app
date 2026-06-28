@@ -2,9 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
+import 'package:rient_app/features/schedule/service/worker_daily_schedules_loader.dart';
 import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
 import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
-import 'package:rient_app/features/schedule/view/components/work_schedule_mapper.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
@@ -69,72 +69,16 @@ final workerSchedulesRangeProvider =
     final rows = await ref.read(scheduleWorkerScheduleRowsProvider.future);
     final workerRow = workerScheduleRowById(rows, query.workerId);
     final shiftConfig = workerScheduleConfigForBranch(workerRow, branchId);
-    final keyId = shiftConfig?['id']?.toString();
-    final daysInRange =
-        query._endNorm.difference(query._startNorm).inDays.abs() + 1;
-    // На дату может быть несколько записей (auto + ручная).
-    final pageSize = (daysInRange * 4).clamp(31, 500);
 
-    final keyIn = 'worker/${query.workerId}';
-    List<ScheduleItemApi> schedules = const [];
-
-    Future<List<ScheduleItemApi>> fetchMergedFallback() async {
-      final workerResponseFuture = schedulesService.getWorkerSchedules(
-        workerId: query.workerId,
-        dateGte: query._startNorm,
-        dateLte: query._endNorm,
-        pageSize: pageSize,
-        bustCache: true,
-      );
-      final branchResponseFuture = schedulesService.getSchedules(
-        branchId: branchId,
-        dateGte: query._startNorm,
-        dateLte: query._endNorm,
-        pageSize: pageSize,
-        bustCache: true,
-      );
-      final responses = await Future.wait([
-        workerResponseFuture,
-        branchResponseFuture,
-      ]);
-      final workerResponse = responses[0];
-      final branchResponse = responses[1];
-      return mergeWorkerScheduleSources(
-        fromWorkerEndpoint: workerResponse.results,
-        fromBranchEndpoint: branchResponse.results,
-        workerId: query.workerId,
-        branchId: branchId,
-      );
-    }
-
-    if (keyId != null && keyId.isNotEmpty) {
-      final response = await schedulesService.getSchedules(
-        branchId: branchId,
-        dateGte: query._startNorm,
-        dateLte: query._endNorm,
-        pageSize: pageSize,
-        keyIn: keyIn,
-        keyId: keyId,
-        ordering: 'date',
-        bustCache: true,
-      );
-      schedules = response.results;
-      if (schedules.isEmpty) {
-        final withoutKeyId = await schedulesService.getSchedules(
-          branchId: branchId,
-          dateGte: query._startNorm,
-          dateLte: query._endNorm,
-          pageSize: pageSize,
-          keyIn: keyIn,
-          ordering: 'date',
-          bustCache: true,
-        );
-        schedules = withoutKeyId.results;
-      }
-    }
-    if (schedules.isEmpty) {
-      schedules = await fetchMergedFallback();
-    }
+    final schedules = await fetchMergedWorkerDailySchedules(
+      schedulesService: schedulesService,
+      workerId: query.workerId,
+      branchId: branchId,
+      rangeStart: query._startNorm,
+      rangeEnd: query._endNorm,
+      workerRow: workerRow,
+      bustCache: true,
+    );
 
     return WorkerSchedulesRangeData(
       schedulesByDate: indexDailySchedulesByDate(schedules),

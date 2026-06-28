@@ -9,6 +9,7 @@ import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.
 import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
+import 'package:rient_app/features/schedule/service/worker_daily_schedules_loader.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mapper.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
 import 'package:rient_app/features/schedule/view/providers/branch_schedule_loader.dart';
@@ -119,13 +120,6 @@ Future<List<WorkScheduleEmployeeRow>> _loadWorkScheduleMonthRows(
   final patternsByWorker =
       groupSchedulePatternsByWorker(patternsResponse.results);
 
-  final branchSchedulesResponse = await schedulesService.getSchedules(
-    branchId: branchId,
-    dateGte: query.monthStart,
-    dateLte: query.monthEnd,
-    bustCache: bustCache,
-  );
-
   final workerRows = await Future.wait(
     workers.map(
       (worker) => workersService.getWorkerRow(
@@ -138,17 +132,14 @@ Future<List<WorkScheduleEmployeeRow>> _loadWorkScheduleMonthRows(
   final rows = <WorkScheduleEmployeeRow>[];
   for (var i = 0; i < workers.length; i++) {
     final worker = workers[i];
-    final schedules = await schedulesService.getWorkerSchedules(
-      workerId: worker.id,
-      dateGte: query.monthStart,
-      dateLte: query.monthEnd,
-      bustCache: bustCache,
-    );
-    final mergedSchedules = mergeWorkerScheduleSources(
-      fromWorkerEndpoint: schedules.results,
-      fromBranchEndpoint: branchSchedulesResponse.results,
+    final mergedSchedules = await fetchMergedWorkerDailySchedules(
+      schedulesService: schedulesService,
       workerId: worker.id,
       branchId: branchId,
+      rangeStart: query.monthStart,
+      rangeEnd: query.monthEnd,
+      workerRow: workerRows[i],
+      bustCache: bustCache,
     );
     rows.add(
       workScheduleEmployeeRow(
