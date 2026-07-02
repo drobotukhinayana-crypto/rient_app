@@ -12,6 +12,10 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
+import 'package:rient_app/core/widgets/offline_message.dart';
+import 'package:rient_app/core/network/app_offline.dart'
+    show shouldShowNoConnectionMessage;
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/analytics/data/models/analytics_summary/analytics_summary.dart';
 import 'package:rient_app/features/analytics/view/providers/analytics_statistics_provider.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
@@ -289,8 +293,13 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     );
     final statsAsync = ref.watch(analyticsSummaryProvider(analyticsQuery));
     final currentWorkerId = ref.watch(currentWorkerIdProvider).value;
+    final isOffline = ref.watch(scheduleOfflineModeProvider);
 
     Future<void> onRefresh() async {
+      if (isOffline) {
+        final recovered = await tryRecoverScheduleNetwork(ref);
+        if (!recovered) return;
+      }
       ref.invalidate(analyticsSummaryProvider(analyticsQuery));
       ref.invalidate(scheduleWorkersProvider);
       try {
@@ -336,7 +345,14 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 setState(() => _selectedSpecialist = selected),
           ),
           Expanded(
-            child: AppRefreshIndicator(
+            child: isOffline
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: OfflineMessage(),
+                    ),
+                  )
+                : AppRefreshIndicator(
               onRefresh: onRefresh,
               child: statsAsync.when(
                 loading: () => ListView(
@@ -348,7 +364,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                     ),
                   ],
                 ),
-                error: (_, __) => ListView(
+                error: (error, _) => ListView(
                   physics: AppRefreshIndicator.scrollPhysics,
                   children: [
                     SizedBox(
@@ -356,7 +372,9 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                       child: Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24),
-                          child: Column(
+                          child: shouldShowNoConnectionMessage(error)
+                              ? const OfflineMessage()
+                              : Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(

@@ -55,8 +55,11 @@ class PushHistoryListQuery {
 }
 
 final pushHistoryCountProvider = FutureProvider<PushHistoryCount>((ref) async {
+  final branchId = ref.watch(currentBranchIdProvider);
   final service = ref.watch(mobilePushServiceProvider);
-  return service.getHistoryCount();
+  return service.getHistoryCount(
+    branchId: branchId > 0 ? branchId : null,
+  );
 });
 
 final pushHistoryListProvider =
@@ -78,6 +81,10 @@ final pushHistoryListProvider =
 });
 
 void invalidatePushHistory(WidgetRef ref) {
+  invalidatePushHistoryCache(ref);
+}
+
+void invalidatePushHistoryCache(dynamic ref) {
   ref.invalidate(pushHistoryCountProvider);
   ref.invalidate(pushHistoryListProvider);
 }

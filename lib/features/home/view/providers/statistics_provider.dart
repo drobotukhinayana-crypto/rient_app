@@ -10,8 +10,13 @@ import 'package:rient_app/features/home/service/statistics_service.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
 import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
 final statisticsProvider = FutureProvider<Statistics>((ref) async {
+  if (ref.watch(scheduleOfflineModeProvider)) {
+    return scheduleOfflineEmptyStatistics();
+  }
+
   try {
     await ensureNetworkForRequest(ref);
 
@@ -45,7 +50,7 @@ final statisticsProvider = FutureProvider<Statistics>((ref) async {
     markScheduleServerReachable(ref);
     return stats;
   } on AppOfflineException {
-    rethrow;
+    return scheduleOfflineEmptyStatistics();
   } catch (e) {
     rethrow;
   }

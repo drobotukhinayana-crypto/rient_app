@@ -22,9 +22,16 @@ class RestoreSelectedBranch extends ConsumerStatefulWidget {
 
 class _RestoreSelectedBranchState extends ConsumerState<RestoreSelectedBranch> {
   bool _restored = false;
+  Object? _restoreScopeKey;
 
   @override
   Widget build(BuildContext context) {
+    final restoreScopeKey = ref.watch(selectedBranchStorageKeyProvider);
+    if (_restoreScopeKey != restoreScopeKey) {
+      _restoreScopeKey = restoreScopeKey;
+      _restored = false;
+    }
+
     ref.listen(branchesProvider, (prev, next) {
       next.whenData((branches) {
         if (_restored) return;

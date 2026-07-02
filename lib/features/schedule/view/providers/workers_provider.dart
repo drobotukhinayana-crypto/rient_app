@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/network/network_failure.dart';
+import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
@@ -25,6 +26,14 @@ import 'package:rient_app/features/schedule/view/providers/schedule_offline_prov
 Future<int> resolveScheduleBranchId(Ref ref) async {
   var branchId = ref.read(currentBranchIdProvider);
   if (branchId > 0) return branchId;
+
+  final selected = ref.read(selectedBranchProvider);
+  if (selected != null) return selected.id;
+
+  if (ref.read(appNoConnectionProvider) ||
+      !ref.read(scheduleServerReachableProvider)) {
+    return 0;
+  }
 
   final branchesAsync = ref.read(branchesProvider);
   if (branchesAsync.isLoading) {
@@ -75,6 +84,8 @@ WorkersApiResponse workersApiResponseFromScheduleRows(
 /// Сырые строки /workers/?with_schedules=1 — один запрос на экран расписания.
 final scheduleWorkerScheduleRowsProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  ref.watch(organizationIdProvider);
+  ref.watch(currentBranchIdProvider);
   final branchId = await resolveScheduleBranchId(ref);
   if (branchId == 0) return const [];
 

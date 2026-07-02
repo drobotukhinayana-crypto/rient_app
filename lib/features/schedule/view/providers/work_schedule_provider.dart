@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:rient_app/core/network/app_connectivity_provider.dart'
+    show appNoConnectionProvider, scheduleServerReachableProvider;
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
@@ -18,6 +20,7 @@ import 'package:rient_app/features/schedule/view/providers/schedule_patterns_pro
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/worker_schedules_range_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
 class WorkScheduleMonthQuery {
   const WorkScheduleMonthQuery({
@@ -74,6 +77,41 @@ Future<List<WorkScheduleEmployeeRow>> _loadWorkScheduleMonthRows(
     branchId = container.read(currentBranchIdProvider);
   }
   if (branchId <= 0) throw Exception('No valid branch selected');
+
+  final isOffline = container.read(appNoConnectionProvider) ||
+      !container.read(scheduleServerReachableProvider);
+  if (isOffline) {
+    final workersResponse = await container.read(scheduleWorkersProvider.future);
+    final workers = await _workersForWorkSchedule(
+      container,
+      workersResponse.results,
+    );
+    var branch = container.read(currentBranchProvider);
+    final branchName = branch?.name?.trim() ?? 'Филиал';
+    final branchPatternsByDay = branchSchedulePatternsMapFromList(
+      mergeBranchSchedulePatterns(
+        fromApi: const [],
+        fromBranch: branch?.schedulePatterns,
+        branchId: branchId,
+      ),
+    );
+    final rows = <WorkScheduleEmployeeRow>[
+      for (final worker in workers)
+        workScheduleEmployeeRow(
+          worker: worker,
+          monthStart: query.monthStart,
+          branchId: branchId,
+          schedules: const [],
+          branchPatternsByDay: branchPatternsByDay,
+        ),
+    ];
+    final branchRow = workScheduleBranchRow(
+      monthStart: query.monthStart,
+      branchName: branchName,
+      patternsByDay: branchPatternsByDay,
+    );
+    return [branchRow, ...rows];
+  }
 
   // Всегда свежий список сотрудников с API (не кэш .future после invalidate).
   final workersResponse =

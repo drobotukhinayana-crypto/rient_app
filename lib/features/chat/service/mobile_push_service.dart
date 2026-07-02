@@ -82,7 +82,7 @@ class MobilePushService {
     }
   }
 
-  Future<PushHistoryCount> getHistoryCount() async {
+  Future<PushHistoryCount> getHistoryCount({int? branchId}) async {
     final organizationId = _organizationId;
     if (organizationId <= 0) {
       throw CustomException(
@@ -90,11 +90,16 @@ class MobilePushService {
       );
     }
 
+    final query = <String, dynamic>{'organization': organizationId};
+    if (branchId != null && branchId > 0) {
+      query['branch'] = branchId;
+    }
+
     try {
       final url = ApiConsts().createUrl('mobile-push/history/count/');
       final response = await Dio().get<Map<String, dynamic>>(
         url,
-        queryParameters: {'organization': organizationId},
+        queryParameters: query,
         options: Options(headers: await _authHeaders()),
       );
 

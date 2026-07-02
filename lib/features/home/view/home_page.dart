@@ -20,6 +20,8 @@ import 'package:rient_app/features/home/view/providers/selected_date_provider.da
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_appointments_refresh.dart'
+    show syncScheduleDateFromHome;
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart'
     show scheduleOfflineModeProvider, tryRecoverScheduleNetwork;
 import 'package:rient_app/resources/resources.dart';
@@ -75,8 +77,10 @@ class _BodyWidget extends ConsumerWidget {
           occupancyByDay: occupancyByDay,
           showViewModeSwitcher: false,
           selectedDate: selectedDate,
-          onDateSelected: (date) =>
-              ref.read(selectedDateProvider.notifier).setDate(date),
+          onDateSelected: (date) {
+            ref.read(selectedDateProvider.notifier).setDate(date);
+            syncScheduleDateFromHome(ref);
+          },
         ),
         if (isOffline)
           const ScheduleOfflineBanner(message: appNoConnectionMessage),

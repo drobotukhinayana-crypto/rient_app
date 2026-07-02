@@ -14,6 +14,7 @@ import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/app_exit_handler.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/widgets/app_drawer.dart';
+import 'package:rient_app/core/providers/app_session_invalidation.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/widgets/logout_confirm_dialog.dart';
 import 'package:rient_app/features/auth/logout_request_provider.dart';
@@ -98,8 +99,7 @@ class TabBarPage extends ConsumerStatefulWidget {
       showCreateTab ? 4 : 3;
 
   static bool tabRequiresNetwork(int index, {required bool showCreateTab}) {
-    return index == 0 ||
-        index == chatTabIndex(showCreateTab: showCreateTab) ||
+    return index == chatTabIndex(showCreateTab: showCreateTab) ||
         index == linkTabIndex(showCreateTab: showCreateTab) ||
         (showCreateTab && index == 2);
   }
@@ -259,24 +259,36 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     // Просмотр записи в оффлайне — отдельный экран поверх табов, не сбрасывать.
     if (router.state.name == AddNewEntryPage.name) return;
 
-    if (widget.navigationShell.currentIndex == 1) return;
+    final shellIndex = widget.navigationShell.currentIndex;
+    // Расписание и главная доступны оффлайн (кэш).
+    if (shellIndex == 0 || shellIndex == 1) return;
 
     TabBarPage.goToScheduleTab(context);
   }
 
+  void _switchShellBranch(int shellIndex) {
+    widget.navigationShell.goBranch(shellIndex);
+    switch (shellIndex) {
+      case 0:
+        context.goNamed(HomePage.name);
+      case 1:
+        context.goNamed(SchedulePage.name);
+      case 2:
+        context.goNamed(ChatPage.name);
+    }
+  }
+
   void navigateOnTabIndexed(int index, {required bool showCreateTab}) {
     FocusManager.instance.primaryFocus?.unfocus();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _performTabNavigation(index, showCreateTab: showCreateTab);
-    });
+    _performTabNavigation(index, showCreateTab: showCreateTab);
   }
 
   void _performTabNavigation(int index, {required bool showCreateTab}) {
     if (!mounted) return;
     final offline = ref.read(appNoConnectionProvider) ||
         ref.read(scheduleOfflineModeProvider);
-    if (offline && index != 1) {
+    // Главная (0) и расписание (1) доступны оффлайн; остальные вкладки — нет.
+    if (offline && index != 0 && index != 1) {
       if (showCreateTab && index == 2) {
         final hostContext = appShellScaffoldKey.currentContext ?? context;
         if (hostContext.mounted) {
@@ -302,24 +314,16 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
       return;
     }
     final shellIndex = showCreateTab && index > 2 ? index - 1 : index;
-    final alreadyHere = shellIndex == widget.navigationShell.currentIndex;
 
-    if (alreadyHere) {
-      switch (shellIndex) {
-        case 0:
-          refreshAfterAppointmentMutation(ref);
-          context.goNamed(HomePage.name);
-        case 1:
-          context.goNamed(SchedulePage.name);
-        case 2:
-          context.goNamed(ChatPage.name);
-      }
-    } else {
-      if (shellIndex == 0) {
-        refreshAfterAppointmentMutation(ref);
-      }
-      widget.navigationShell.goBranch(shellIndex);
+    switch (shellIndex) {
+      case 0:
+        prepareHomeTabOnOpen(ref);
+      case 1:
+        prepareScheduleTabOnOpen(ref);
+      case 2:
+        break;
     }
+    _switchShellBranch(shellIndex);
   }
 
   @override
@@ -332,6 +336,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
 
     ref.watch(connectivityRecoveryListenerProvider);
     ref.watch(scheduleServerUnreachableListenerProvider);
+    ref.watch(appSessionContextListenerProvider);
 
     ref.listen<bool>(appNoConnectionProvider, (previous, next) {
       if (!mounted) return;
@@ -357,7 +362,6 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
 
     ref.listen<int>(organizationIdProvider, (previous, next) {
       if (next > 0 && previous != next) {
-        ref.invalidate(workerEntityLabelsProvider);
         unawaited(_registerPushForActiveSession());
         unawaited(
           ref.read(notificationsWebSocketControllerProvider).ensureConnected(),
@@ -410,9 +414,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
         drawer: const AppDrawer(),
         body: widget.navigationShell,
         bottomNavigationBar: _NavbarWidget(
-          currentIndex: offlineExceptSchedule
-              ? 1
-              : _navbarIndexFromShell(showCreateTab),
+          currentIndex: _navbarIndexFromShell(showCreateTab),
           showCreateTab: showCreateTab,
           offlineExceptSchedule: offlineExceptSchedule,
           onTabTapped: (idx) =>
@@ -456,7 +458,6 @@ class _NavbarWidget extends StatelessWidget {
                   isActive: currentIndex == 0,
                   imageAsset: AppImages.homeTab,
                   title: 'Главная',
-                  enabled: tabsEnabled,
                   onTap: () => onTabTapped(0),
                 ),
               ),

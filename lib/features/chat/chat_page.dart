@@ -28,6 +28,7 @@ import 'package:rient_app/features/chat/view/providers/push_history_provider.dar
 import 'package:rient_app/features/chat/view/push_history_mapper.dart';
 import 'package:rient_app/features/create/view/add_new_entry_page.dart';
 import 'package:rient_app/features/home/view/components/entity_selector_pill.dart';
+import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -287,6 +288,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     ref.listen<int>(pushHistoryRefreshTokenProvider, (previous, next) {
       if (previous == null || previous == next) return;
       if (ref.read(appNoConnectionProvider)) return;
+      unawaited(_loadFirstPage());
+    });
+
+    ref.listen<int>(currentBranchIdProvider, (previous, next) {
+      if (previous == null || previous <= 0 || next <= 0 || previous == next) {
+        return;
+      }
+      if (ref.read(appNoConnectionProvider)) return;
+      invalidatePushHistory(ref);
       unawaited(_loadFirstPage());
     });
 
