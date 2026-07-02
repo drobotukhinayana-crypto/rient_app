@@ -282,9 +282,10 @@ class ScheduleDayLoadCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final dayNumberColor =
-        isDark ? AppColors.primaryWhite : AppColors.primaryDark;
     final isEmpty = occupancyPercent <= 0;
+    final emptyFill = isDark
+        ? AppColors.primaryWhiteDark
+        : zeroOccupancyFill;
 
     return _DateCircleItem(
       date: date,
@@ -297,8 +298,7 @@ class ScheduleDayLoadCircle extends StatelessWidget {
       workScheduleWeekDates: false,
       isDark: isDark,
       circleFillOverride:
-          circleFill ?? (isEmpty ? zeroOccupancyFill : null),
-      dayNumberStyle: AppFonts.medium18.copyWith(color: dayNumberColor),
+          circleFill ?? (isEmpty ? emptyFill : null),
     );
   }
 }
@@ -316,7 +316,6 @@ class _DateCircleItem extends StatelessWidget {
     required this.isDark,
     this.isNonWorkingDay = false,
     this.circleFillOverride,
-    this.dayNumberStyle,
   });
 
   final double occupancyPercent;
@@ -330,7 +329,6 @@ class _DateCircleItem extends StatelessWidget {
   final bool isDark;
   final bool isNonWorkingDay;
   final Color? circleFillOverride;
-  final TextStyle? dayNumberStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -392,9 +390,7 @@ class _DateCircleItem extends StatelessWidget {
             child: Center(
               child: Text(
                 '${date.day}',
-                style:
-                    dayNumberStyle ??
-                    AppFonts.b1Medium.copyWith(color: dayNumberColor),
+                style: AppFonts.b1Medium.copyWith(color: dayNumberColor),
               ),
             ),
           ),

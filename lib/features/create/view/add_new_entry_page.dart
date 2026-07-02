@@ -141,6 +141,11 @@ String _maskPhoneLastFourDigitsForList(String phone) {
   return '${phone.substring(0, maskStartIndex)}****';
 }
 
+String _phoneForDisplay(String phone, bool canSeeContactData) {
+  if (phone.isEmpty || canSeeContactData) return phone;
+  return _maskPhoneLastFourDigitsForList(phone);
+}
+
 /// Пока в поле отображается номер с `****`, обычная маска не должна вырезать звёздочки.
 final _passthroughPhoneMaskFormatter = _PassthroughPhoneFormatter();
 
@@ -684,16 +689,17 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       ref.read(createEntryPaymentHandlerProvider.notifier).state =
           _runAppointmentPaymentFlow;
       _refreshPermissionsOnce();
+      _syncPhoneFieldForSelectedClientPrivacy(
+        _canSeeContactData(ref.read(workerPermissionsProvider).value),
+      );
     });
     ref.listenManual<AsyncValue<WorkerPermissions>>(
       workerPermissionsProvider,
       (previous, next) {
-        if (!mounted) return;
-        final prevSee = _canSeeContactData(previous?.value);
-        final nextSee = _canSeeContactData(next.value);
-        if (prevSee != nextSee) {
-          _syncPhoneFieldForSelectedClientPrivacy(nextSee);
-        }
+        if (!mounted || next.isLoading) return;
+        _syncPhoneFieldForSelectedClientPrivacy(
+          _canSeeContactData(next.value),
+        );
       },
     );
     ref.listenManual<bool>(seeContactDataBlockedProvider, (previous, next) {
@@ -739,17 +745,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   void _syncPhoneFieldForSelectedClientPrivacy(bool canSeeContactData) {
     final client = _selectedClient;
     if (client == null || client.phone.isEmpty) return;
-    final full = client.phone;
-    final masked = _maskPhoneLastFourDigitsForList(full);
-    final target = canSeeContactData ? full : masked;
+    final target = _phoneForDisplay(client.phone, canSeeContactData);
     if (_phoneController.text == target) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final c = _selectedClient;
       if (c == null || c.phone.isEmpty) return;
-      final t = canSeeContactData
-          ? c.phone
-          : _maskPhoneLastFourDigitsForList(c.phone);
+      final t = _phoneForDisplay(c.phone, canSeeContactData);
       if (_phoneController.text != t) {
         setState(() {
           _phoneController.text = t;
@@ -826,8 +828,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (_commentVisitController.text.trim().isNotEmpty) {
       _isCommentVisitExpanded = true;
     }
-    _phoneController.text = appointment.client?.phone ?? '';
-    _phoneSearchQuery = _phoneController.text;
+    final rawPhone = appointment.client?.phone ?? '';
+    final canSeeContactData = _canSeeContactData(
+      ref.read(workerPermissionsProvider).value,
+    );
+    final displayPhone = _phoneForDisplay(rawPhone, canSeeContactData);
+    _phoneController.text = displayPhone;
+    _phoneSearchQuery = rawPhone;
     _firstNameController.text = appointment.client?.firstName ?? '';
     _lastNameController.text = appointment.client?.lastName ?? '';
     final initialClient = appointment.client;

@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
+import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/models/worker_entity_labels.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
@@ -154,17 +156,53 @@ class _SettingsWorkerPickerSheetState
 
       if (!mounted) return;
       Navigator.of(context).pop();
-      _showMessage(widget.action.successMessage);
-    } catch (_) {
+      _showMessage(
+        widget.action.successMessage,
+        variant: AppServiceMessageVariant.success,
+      );
+    } catch (e) {
       if (!mounted) return;
-      _showMessage('Не удалось выполнить действие. Попробуйте позже.');
+      _showMessage(
+        _settingsActionErrorMessage(e),
+        variant: AppServiceMessageVariant.error,
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  void _showMessage(String text) {
-    showAppServiceMessage(context, message: text);
+  void _showMessage(
+    String text, {
+    AppServiceMessageVariant variant = AppServiceMessageVariant.success,
+  }) {
+    showAppServiceMessage(context, message: text, variant: variant);
+  }
+
+  String _settingsActionErrorMessage(Object error) {
+    final statusCode = _extractHttpStatusCode(error);
+    if (statusCode == 404) {
+      return 'Действие пока недоступно: на сервере нет такого API. '
+          'Нужно уточнить endpoint у бэкенда.';
+    }
+    if (statusCode == 403) {
+      return 'Недостаточно прав для этого действия.';
+    }
+    return 'Не удалось выполнить действие. Попробуйте позже.';
+  }
+
+  int? _extractHttpStatusCode(Object error) {
+    Object? current = error;
+    for (var depth = 0; depth < 4 && current != null; depth++) {
+      if (current is DioException) {
+        return current.response?.statusCode;
+      }
+      if (current is CustomException) {
+        current = current.causedError;
+        continue;
+      }
+      break;
+    }
+    return null;
   }
 
   @override
