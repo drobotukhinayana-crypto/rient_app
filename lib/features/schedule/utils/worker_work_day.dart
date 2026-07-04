@@ -197,10 +197,6 @@ double? _hourFromShortTime(String? value) {
     }
   }
 
-  if (workingWeekdays.contains(date.weekday)) {
-    return (start: branchStartHour, end: branchEndHour);
-  }
-
   return (start: null, end: null);
 }
 

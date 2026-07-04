@@ -21,6 +21,7 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
+import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
 import 'package:rient_app/features/create/data/models/clients_api.dart';
@@ -161,6 +162,7 @@ final createEntryDraftProvider = StateProvider<_CreateAppointmentDraft?>(
 );
 final createEntryAppointmentPaidProvider = StateProvider<bool>((ref) => false);
 final createEntryPaymentProcessingProvider = StateProvider<bool>((ref) => false);
+final createEntryClientDetailsLoadingProvider = StateProvider<bool>((ref) => false);
 final createEntryPaymentHandlerProvider =
     StateProvider<Future<void> Function({bool updateStatusOnSaveOnly})?>(
   (ref) => null,
@@ -664,10 +666,22 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   Future<void>? _datePickerPredicatePrefetch;
   bool _permissionsRefreshed = false;
   bool _limitSpecialistsToWorkingDay = false;
+  bool _isLoadingClientDetails = false;
 
   bool _canSeeContactData(WorkerPermissions? permissions) {
     final blocked = ref.read(seeContactDataBlockedProvider);
     return !blocked && (permissions?.seeContactData ?? true);
+  }
+
+  void _setClientDetailsLoading(bool loading) {
+    if (_isLoadingClientDetails == loading) return;
+    if (mounted) {
+      setState(() => _isLoadingClientDetails = loading);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(createEntryClientDetailsLoadingProvider.notifier).state = loading;
+    });
   }
 
   void _refreshPermissionsOnce() {
@@ -692,6 +706,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       _syncPhoneFieldForSelectedClientPrivacy(
         _canSeeContactData(ref.read(workerPermissionsProvider).value),
       );
+      final clientId = widget.initialAppointment?.client?.id;
+      if (!widget.viewOnly && clientId != null && clientId > 0) {
+        _setClientDetailsLoading(true);
+        unawaited(_loadSelectedClientDetails(clientId));
+      } else {
+        ref.read(createEntryClientDetailsLoadingProvider.notifier).state = false;
+      }
     });
     ref.listenManual<AsyncValue<WorkerPermissions>>(
       workerPermissionsProvider,
@@ -852,9 +873,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         transactionsSum: 0,
         commentText: null,
       );
-      if (!widget.viewOnly) {
-        unawaited(_loadSelectedClientDetails(initialClient.id));
-      }
     }
 
     final calendarDate = _appointmentCalendarDate(appointment);
@@ -1106,6 +1124,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }
 
   Future<void> _loadSelectedClientDetails(int clientId) async {
+    if (!mounted) return;
     try {
       final response = await ref
           .read(clientsServiceProvider)
@@ -1132,6 +1151,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         markSeeContactDataBlocked(ref);
       }
       // Игнорируем ошибку подгрузки деталей: форма редактирования должна оставаться рабочей.
+    } finally {
+      _setClientDetailsLoading(false);
     }
   }
 
@@ -1330,8 +1351,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           if (!mounted || !paid) return;
 
           ref.read(createEntryAppointmentPaidProvider.notifier).state = true;
-          showAppServiceMessage(context, message: 'Оплата проведена');
           setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
+          showAppServiceMessage(context, message: 'Оплата проведена');
+          refreshAfterAppointmentMutation(ref);
         } catch (e) {
           if (!mounted) return;
           showAppServiceMessage(
@@ -1345,6 +1367,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         try {
           await _saveAppointmentWithStatus(kClientArrivedStatusIndex);
           if (!mounted) return;
+          refreshAfterAppointmentMutation(ref);
           setState(() => _selectedStatusIndex = kClientArrivedStatusIndex);
         } on _AppointmentSaveCancelledException {
           return;
@@ -2644,26 +2667,29 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       _syncInitialServicesWithWorkerServices(workerServices);
     }
     final subtotal = _calculateSelectedServicesTotal(workerServices);
+    final isLoadingClientDetails = _isLoadingClientDetails;
     final selectedClientDiscount = _selectedClient?.discount ?? 0;
     final selectedServicesTotal = _applyDiscount(
       total: subtotal,
       discountPercent: selectedClientDiscount,
     );
-    final totalNotifier = ref.read(createEntryTotalPriceProvider.notifier);
-    if (totalNotifier.state != selectedServicesTotal) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ref.read(createEntryTotalPriceProvider.notifier).state =
-            selectedServicesTotal;
-      });
-    }
-    final discountNotifier = ref.read(createEntryDiscountProvider.notifier);
-    if (discountNotifier.state != selectedClientDiscount) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ref.read(createEntryDiscountProvider.notifier).state =
-            selectedClientDiscount;
-      });
+    if (!isLoadingClientDetails) {
+      final totalNotifier = ref.read(createEntryTotalPriceProvider.notifier);
+      if (totalNotifier.state != selectedServicesTotal) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.read(createEntryTotalPriceProvider.notifier).state =
+              selectedServicesTotal;
+        });
+      }
+      final discountNotifier = ref.read(createEntryDiscountProvider.notifier);
+      if (discountNotifier.state != selectedClientDiscount) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.read(createEntryDiscountProvider.notifier).state =
+              selectedClientDiscount;
+        });
+      }
     }
     final draft = _buildCreateDraft(
       workerServices: workerServices,
@@ -2685,7 +2711,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final canSave = selectedSpecialistId != null &&
         branchId != 0 &&
         hasCompleteService &&
-        hasClientPhone;
+        hasClientPhone &&
+        !(isEditingEntry && isLoadingClientDetails);
     final canSaveNotifier = ref.read(createEntryCanSaveProvider.notifier);
     if (canSaveNotifier.state != canSave) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2990,6 +3017,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     style: AppFonts.b1Medium.copyWith(color: primaryText),
                   ),
                   Gap(12),
+                  if (isLoadingClientDetails)
+                    const SizedBox(
+                      height: 108,
+                      child: Center(child: LoadingWidget(side: 28)),
+                    )
+                  else ...[
                   Row(
                     children: [
                       Expanded(
@@ -3107,6 +3140,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       ),
                     ],
                   ),
+                  ],
                 ],
               ),
             ),
@@ -3928,6 +3962,7 @@ class _BottomActionsBar extends ConsumerWidget {
 
     final totalPrice = ref.watch(createEntryTotalPriceProvider);
     final discount = ref.watch(createEntryDiscountProvider);
+    final isLoadingClientDetails = ref.watch(createEntryClientDetailsLoadingProvider);
     final canSave = ref.watch(createEntryCanSaveProvider);
     final isSaving = ref.watch(createEntrySavingProvider);
     final isPaymentProcessing = ref.watch(createEntryPaymentProcessingProvider);
@@ -4111,7 +4146,9 @@ class _BottomActionsBar extends ConsumerWidget {
                       Text('Скидка:', style: AppFonts.c1Regular),
                       const Gap(6),
                       Text(
-                        _formatDiscount(discount),
+                        isLoadingClientDetails && isEditMode
+                            ? '…'
+                            : _formatDiscount(discount),
                         style: AppFonts.c1Semi.copyWith(color: accent),
                       ),
                     ],
@@ -4130,7 +4167,9 @@ class _BottomActionsBar extends ConsumerWidget {
                       Text('Итого:', style: AppFonts.c1Regular),
                       const Gap(6),
                       Text(
-                        _formatMoney(totalPrice),
+                        isLoadingClientDetails && isEditMode
+                            ? '…'
+                            : _formatMoney(totalPrice),
                         style: AppFonts.c1Semi.copyWith(color: accent),
                       ),
                     ],

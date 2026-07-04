@@ -662,6 +662,26 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     return (startHour: start, endHour: end);
   }
 
+  /// Часы филиала на дату: дневная запись `/schedules/`, иначе шаблон недели.
+  static ({double startHour, double endHour}) _branchWorkHoursForDate({
+    required DateTime date,
+    required List<SchedulePattern> patterns,
+    required List<ScheduleItemApi> daySchedules,
+  }) {
+    final daily = pickPreferredDailySchedule(
+      daySchedules.where((s) => s.workerId == null),
+      date,
+    );
+    if (daily != null && daily.active) {
+      final start = _timeToHour(daily.timeStartShort);
+      final end = _timeToHour(daily.timeEndShort);
+      if (start > 0 && end > start) {
+        return (startHour: start, endHour: end);
+      }
+    }
+    return _workHoursForDate(date, patterns);
+  }
+
   static ({double startHour, double endHour}) _workHoursForWeek(
     List<SchedulePattern> patterns,
   ) {
@@ -787,14 +807,23 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     return (start: null, end: null);
   }
 
-  /// День «все мастера»: часы из `/schedules/` или филиала.
+  /// День «все мастера»: сначала смена из available_workers, затем `/schedules/`.
   static ({double? start, double? end}) _adminMultiColumnWorkerHours({
+    required int workerId,
+    required List<AvailableWorkerShift> shifts,
     required DateTime date,
     required Set<int> workingWeekdays,
     ScheduleItemApi? daily,
     Map<String, dynamic>? shiftConfig,
     required ({double startHour, double endHour}) branchHours,
   }) {
+    final byShift = _workerShiftHoursForId(
+      shifts,
+      workerId,
+      branchHours: branchHours,
+    );
+    if (byShift.start != null && byShift.end != null) return byShift;
+
     return workerShiftHoursForDate(
       date: date,
       workingWeekdays: workingWeekdays,
@@ -1040,8 +1069,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         _dayViewSingleWorkerId = candidate;
       }
     }
-    final dayWorkHours = isAdminMultiDayView
-        ? _workHoursForWeek(branchPatterns)
+    final dayWorkHours = dayScheduleReady
+        ? _branchWorkHoursForDate(
+            date: selectedDate,
+            patterns: branchPatterns,
+            daySchedules: dayBranchSchedules,
+          )
         : _workHoursForDate(selectedDate, branchPatterns);
     final selectedSpecialistId = initialSelected?.id;
     /// Id для графика/загруженности.
@@ -1527,6 +1560,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                               .endHour,
                                                         )
                                                       : _adminMultiColumnWorkerHours(
+                                                    workerId: workerId,
+                                                    shifts: shifts,
                                                     date: selectedDate,
                                                     workingWeekdays: weekdays,
                                                     daily: dailyForWorker,

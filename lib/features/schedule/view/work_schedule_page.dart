@@ -500,6 +500,18 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     return employee.monthCells[index];
   }
 
+  WorkScheduleBranchDayBounds _branchDayBoundsForDate(DateTime date) {
+    final employees = _employees.value;
+    if (employees == null || employees.isEmpty || !employees.first.isBranchRow) {
+      return const WorkScheduleBranchDayBounds.dayOff();
+    }
+    final branchCell = _cellForDate(employees.first, date);
+    if (branchCell == null) {
+      return const WorkScheduleBranchDayBounds.dayOff();
+    }
+    return WorkScheduleBranchDayBounds.fromCell(branchCell);
+  }
+
   String? _extractApiErrorMessage(dynamic data, [String? fieldPrefix]) {
     if (data == null) return null;
     if (data is String && data.trim().isNotEmpty) {
@@ -1177,6 +1189,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     final result = await showWorkScheduleDayEditDialog(
       rootNavigatorKey.currentContext ?? context,
       cell: cell,
+      branchDayBounds: _branchDayBoundsForDate(normalizedDate),
       validateBeforeSave: (draft) => validateWorkScheduleDayAgainstAppointments(
         ref: ref,
         branchId: branchId,

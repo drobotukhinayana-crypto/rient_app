@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
+import 'package:rient_app/features/schedule/data/models/schedule_patterns_branch_api/schedule_patterns_branch_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_branch_api/update_branch_schedule_patterns_request.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
 import 'package:rient_app/features/schedule/utils/schedule_day_key.dart';
@@ -26,6 +27,7 @@ class SpecialistScheduleFormState {
     this.shiftWorkStart = '09:00',
     this.shiftWorkEnd = '20:00',
     this.loadedPatterns = const [],
+    this.branchPatternsByDay = const {},
     this.employeeName = '',
     this.employeeSpecialization,
     this.employeePictureUrl,
@@ -48,6 +50,7 @@ class SpecialistScheduleFormState {
   final String shiftWorkStart;
   final String shiftWorkEnd;
   final List<SchedulePatternItemApi> loadedPatterns;
+  final Map<String, SchedulePatternBranchItemApi> branchPatternsByDay;
 
   bool get isShift => scheduleTypeLabel == 'Смена';
 }
@@ -99,8 +102,10 @@ class SpecialistDayDraft {
   }
 }
 
-const _weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri'];
-const _weekendKeys = ['sat', 'sun'];
+const specialistWeekdayDayKeys = ['mon', 'tue', 'wed', 'thu', 'fri'];
+const specialistWeekendDayKeys = ['sat', 'sun'];
+const _weekdayKeys = specialistWeekdayDayKeys;
+const _weekendKeys = specialistWeekendDayKeys;
 const _weekdayLabels = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ'];
 const _weekendLabels = ['СБ', 'ВС'];
 
@@ -133,6 +138,7 @@ SpecialistScheduleFormState buildSpecialistFormFromApi({
   required int branchId,
   Map<String, dynamic>? workerRow,
   List<SchedulePatternItemApi> loadedPatterns = const [],
+  Map<String, SchedulePatternBranchItemApi> branchPatternsByDay = const {},
 }) {
   final byDay = <String, SchedulePatternItemApi>{};
   for (final p in patterns) {
@@ -220,6 +226,7 @@ SpecialistScheduleFormState buildSpecialistFormFromApi({
     shiftWorkStart: configStart,
     shiftWorkEnd: configEnd,
     loadedPatterns: loadedPatterns.isNotEmpty ? loadedPatterns : patterns,
+    branchPatternsByDay: branchPatternsByDay,
     employeeName: () {
       final fromRow = specialistEmployeeNameFromWorkerRow(workerRow);
       return fromRow.isNotEmpty ? fromRow : 'Сотрудник';
@@ -266,8 +273,97 @@ int _timeToMinutes(String time) {
   return h * 60 + m;
 }
 
+SchedulePatternBranchItemApi? specialistBranchPatternForDayKey(
+  String dayKey,
+  Map<String, SchedulePatternBranchItemApi> patternsByDay,
+) {
+  return patternsByDay[canonicalScheduleDayKey(dayKey)];
+}
+
+/// Для группы дней: самое позднее открытие и самое раннее закрытие филиала.
+({String? minStart, String? maxEnd}) specialistGroupBranchBounds(
+  List<String> dayKeys,
+  Map<String, SchedulePatternBranchItemApi> patternsByDay,
+) {
+  String? minStart;
+  String? maxEnd;
+
+  for (final dayKey in dayKeys) {
+    final pattern = specialistBranchPatternForDayKey(dayKey, patternsByDay);
+    if (pattern == null || !pattern.active) continue;
+    final start = pattern.timeStartShort;
+    final end = pattern.timeEndShort;
+    if (start == null || end == null || start.isEmpty || end.isEmpty) {
+      continue;
+    }
+    if (minStart == null ||
+        _timeToMinutes(start) > _timeToMinutes(minStart)) {
+      minStart = start;
+    }
+    if (maxEnd == null || _timeToMinutes(end) < _timeToMinutes(maxEnd)) {
+      maxEnd = end;
+    }
+  }
+
+  return (minStart: minStart, maxEnd: maxEnd);
+}
+
+String? validateSpecialistDayAgainstBranch(
+  SpecialistDayDraft day,
+  Map<String, SchedulePatternBranchItemApi> patternsByDay,
+) {
+  if (!day.enabled) return null;
+
+  final pattern = specialistBranchPatternForDayKey(day.dayKey, patternsByDay);
+  if (pattern == null || !pattern.active) {
+    return 'филиал не работает в этот день';
+  }
+
+  final branchStart = pattern.timeStartShort;
+  final branchEnd = pattern.timeEndShort;
+  if (branchStart == null ||
+      branchEnd == null ||
+      branchStart.isEmpty ||
+      branchEnd.isEmpty) {
+    return null;
+  }
+
+  if (_timeToMinutes(day.start) < _timeToMinutes(branchStart)) {
+    return 'начало смены не раньше $branchStart (открытие филиала)';
+  }
+  if (_timeToMinutes(day.end) > _timeToMinutes(branchEnd)) {
+    return 'окончание смены не позже $branchEnd (закрытие филиала)';
+  }
+  return null;
+}
+
+String? validateSpecialistShiftTimesAgainstBranch({
+  required String workStart,
+  required String workEnd,
+  required Map<String, SchedulePatternBranchItemApi> patternsByDay,
+}) {
+  final bounds = specialistGroupBranchBounds(
+    [..._weekdayKeys, ..._weekendKeys],
+    patternsByDay,
+  );
+  final branchStart = bounds.minStart;
+  final branchEnd = bounds.maxEnd;
+  if (branchStart == null || branchEnd == null) return null;
+
+  if (_timeToMinutes(workStart) < _timeToMinutes(branchStart)) {
+    return 'Начало смены не раньше $branchStart (открытие филиала)';
+  }
+  if (_timeToMinutes(workEnd) > _timeToMinutes(branchEnd)) {
+    return 'Окончание смены не позже $branchEnd (закрытие филиала)';
+  }
+  return null;
+}
+
 /// Сообщение об ошибке валидации или null, если всё ок.
-String? validateSpecialistWeekScheduleDays(List<SpecialistDayDraft> days) {
+String? validateSpecialistWeekScheduleDays(
+  List<SpecialistDayDraft> days, {
+  Map<String, SchedulePatternBranchItemApi> branchPatternsByDay = const {},
+}) {
   for (final day in days) {
     if (!day.enabled) continue;
     if (day.start.trim().isEmpty || day.end.trim().isEmpty) {
@@ -285,6 +381,13 @@ String? validateSpecialistWeekScheduleDays(List<SpecialistDayDraft> days) {
         breakEnd.isNotEmpty &&
         _timeToMinutes(breakStart) >= _timeToMinutes(breakEnd)) {
       return '«${day.label}»: некорректное время перерыва';
+    }
+    if (branchPatternsByDay.isNotEmpty) {
+      final branchError =
+          validateSpecialistDayAgainstBranch(day, branchPatternsByDay);
+      if (branchError != null) {
+        return '«${day.label}»: $branchError';
+      }
     }
   }
   return null;

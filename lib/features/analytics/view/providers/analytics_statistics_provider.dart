@@ -1,6 +1,5 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:rient_app/core/network/app_offline.dart';
 import 'package:rient_app/core/network/ensure_network_for_request.dart';
 import 'package:rient_app/features/analytics/data/models/analytics_summary/analytics_summary.dart';
@@ -42,8 +41,15 @@ class AnalyticsQuery {
   int get hashCode => Object.hash(start, end, workerId, type);
 }
 
+final analyticsReloadTokenProvider = StateProvider<int>((ref) => 0);
+
+void bumpAnalyticsReloadToken(dynamic ref) {
+  ref.read(analyticsReloadTokenProvider.notifier).update((int v) => v + 1);
+}
+
 final analyticsSummaryProvider =
     FutureProvider.family<AnalyticsSummary, AnalyticsQuery>((ref, query) async {
+  ref.watch(analyticsReloadTokenProvider);
   if (ref.watch(scheduleOfflineModeProvider)) {
     throw const AppOfflineException();
   }

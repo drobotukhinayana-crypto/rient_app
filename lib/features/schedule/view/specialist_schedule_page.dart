@@ -19,6 +19,7 @@ import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
+import 'package:rient_app/features/schedule/data/models/schedule_patterns_branch_api/schedule_patterns_branch_api.dart';
 import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
 import 'package:rient_app/features/schedule/utils/work_schedule_appointment_conflict.dart'
     show
@@ -85,6 +86,7 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
   String _shiftWorkEnd = _defaultGroupEnd;
   String? _configUuid;
   List<SchedulePatternItemApi> _loadedPatterns = const [];
+  Map<String, SchedulePatternBranchItemApi> _branchPatternsByDay = const {};
   List<SpecialistDayDraft> _lastSavedWeekdays = const [];
   List<SpecialistDayDraft> _lastSavedWeekends = const [];
   String _lastSavedWeekdayGroupStart = _defaultGroupStart;
@@ -208,6 +210,7 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
             : _today);
     _shiftWorkStart = form.shiftWorkStart;
     _shiftWorkEnd = form.shiftWorkEnd;
+    _branchPatternsByDay = form.branchPatternsByDay;
     _employeeDisplayName = form.employeeName;
     _employeeSpecialization = form.employeeSpecialization;
     _employeePictureUrl = form.employeePictureUrl;
@@ -278,25 +281,54 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
       onDayEnabledChanged: (index, enabled) {
         onDayChanged(index, days[index].copyWith(enabled: enabled));
       },
-      onPickDayStart: (index) => _pickTime(
-        days[index].start,
-        (v) => onDayChanged(index, days[index].copyWith(start: v)),
-      ),
-      onPickDayEnd: (index) => _pickTime(
-        days[index].end,
-        (v) => onDayChanged(index, days[index].copyWith(end: v)),
-      ),
+      onPickDayStart: (index) {
+        final day = days[index];
+        final dayBounds = specialistBranchPatternForDayKey(
+          day.dayKey,
+          _branchPatternsByDay,
+        );
+        final branchStart = dayBounds?.timeStartShort;
+        final branchEnd = dayBounds?.timeEndShort;
+        _pickTime(
+          day.start,
+          (v) => onDayChanged(index, day.copyWith(start: v)),
+          minTime: branchStart,
+          maxTime: branchEnd ?? day.end,
+        );
+      },
+      onPickDayEnd: (index) {
+        final day = days[index];
+        final dayBounds = specialistBranchPatternForDayKey(
+          day.dayKey,
+          _branchPatternsByDay,
+        );
+        final branchEnd = dayBounds?.timeEndShort;
+        _pickTime(
+          day.end,
+          (v) => onDayChanged(index, day.copyWith(end: v)),
+          minTime: day.start,
+          maxTime: branchEnd,
+        );
+      },
       onPickBreakStart: (index) {
-        final current = days[index].breakStart ?? '13:00';
-        _pickTime(current, (v) {
-          onDayChanged(index, days[index].copyWith(breakStart: v));
-        });
+        final day = days[index];
+        final current = day.breakStart ?? '13:00';
+        _pickTime(
+          current,
+          (v) => onDayChanged(index, day.copyWith(breakStart: v)),
+          minTime: day.start,
+          maxTime: day.end,
+        );
       },
       onPickBreakEnd: (index) {
-        final current = days[index].breakEnd ?? '14:00';
-        _pickTime(current, (v) {
-          onDayChanged(index, days[index].copyWith(breakEnd: v));
-        });
+        final day = days[index];
+        final current = day.breakEnd ?? '14:00';
+        _pickTime(
+          current,
+          (v) => onDayChanged(index, day.copyWith(breakEnd: v)),
+          minTime: day.breakStart ?? day.start,
+          maxTime: day.end,
+        );
       },
       onClearBreak: (index) {
         onDayChanged(
@@ -307,23 +339,68 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
     );
   }
 
-  Future<void> _pickTime(String current, ValueChanged<String> onPicked) async {
+  Future<void> _pickTime(
+    String current,
+    ValueChanged<String> onPicked, {
+    String? minTime,
+    String? maxTime,
+  }) async {
     final picked = await showChangeTimePicker(
       context,
       initialTime: current,
+      minTime: minTime,
+      maxTime: maxTime,
     );
     if (picked == null || !mounted) return;
     onPicked(picked);
   }
 
+  void _pickGroupStart({
+    required List<String> groupDayKeys,
+    required String current,
+    required ValueChanged<String> onPicked,
+    required String groupEnd,
+  }) {
+    final bounds = specialistGroupBranchBounds(groupDayKeys, _branchPatternsByDay);
+    _pickTime(
+      current,
+      onPicked,
+      minTime: bounds.minStart,
+      maxTime: bounds.maxEnd ?? groupEnd,
+    );
+  }
+
+  void _pickGroupEnd({
+    required List<String> groupDayKeys,
+    required String current,
+    required ValueChanged<String> onPicked,
+    required String groupStart,
+  }) {
+    final bounds = specialistGroupBranchBounds(groupDayKeys, _branchPatternsByDay);
+    _pickTime(
+      current,
+      onPicked,
+      minTime: groupStart,
+      maxTime: bounds.maxEnd,
+    );
+  }
+
   String? _saveValidationError() {
     if (_isWeekSchedule) {
-      return validateSpecialistWeekScheduleDays([..._weekdays, ..._weekends]);
+      return validateSpecialistWeekScheduleDays(
+        [..._weekdays, ..._weekends],
+        branchPatternsByDay: _branchPatternsByDay,
+      );
     }
     if (_isShiftSchedule) {
       if (_timeToMinutes(_shiftWorkStart) >= _timeToMinutes(_shiftWorkEnd)) {
         return 'Время окончания смены должно быть позже начала';
       }
+      return validateSpecialistShiftTimesAgainstBranch(
+        workStart: _shiftWorkStart,
+        workEnd: _shiftWorkEnd,
+        patternsByDay: _branchPatternsByDay,
+      );
     }
     return null;
   }
@@ -627,15 +704,24 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
                               () => _weekdaysExpanded = !_weekdaysExpanded,
                             );
                           },
-                          onPickGroupStart: () =>
-                              _pickTime(_weekdayGroupStart, (v) {
-                            setState(() => _weekdayGroupStart = v);
-                            _applyGroupTimesToWeekdays();
-                          }),
-                          onPickGroupEnd: () => _pickTime(_weekdayGroupEnd, (v) {
-                            setState(() => _weekdayGroupEnd = v);
-                            _applyGroupTimesToWeekdays();
-                          }),
+                          onPickGroupStart: () => _pickGroupStart(
+                            groupDayKeys: specialistWeekdayDayKeys,
+                            current: _weekdayGroupStart,
+                            groupEnd: _weekdayGroupEnd,
+                            onPicked: (v) {
+                              setState(() => _weekdayGroupStart = v);
+                              _applyGroupTimesToWeekdays();
+                            },
+                          ),
+                          onPickGroupEnd: () => _pickGroupEnd(
+                            groupDayKeys: specialistWeekdayDayKeys,
+                            current: _weekdayGroupEnd,
+                            groupStart: _weekdayGroupStart,
+                            onPicked: (v) {
+                              setState(() => _weekdayGroupEnd = v);
+                              _applyGroupTimesToWeekdays();
+                            },
+                          ),
                           onDayChanged: (index, day) {
                             setState(() => _weekdays[index] = day);
                           },
@@ -652,15 +738,24 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
                               () => _weekendsExpanded = !_weekendsExpanded,
                             );
                           },
-                          onPickGroupStart: () =>
-                              _pickTime(_weekendGroupStart, (v) {
-                            setState(() => _weekendGroupStart = v);
-                            _applyGroupTimesToWeekends();
-                          }),
-                          onPickGroupEnd: () => _pickTime(_weekendGroupEnd, (v) {
-                            setState(() => _weekendGroupEnd = v);
-                            _applyGroupTimesToWeekends();
-                          }),
+                          onPickGroupStart: () => _pickGroupStart(
+                            groupDayKeys: specialistWeekendDayKeys,
+                            current: _weekendGroupStart,
+                            groupEnd: _weekendGroupEnd,
+                            onPicked: (v) {
+                              setState(() => _weekendGroupStart = v);
+                              _applyGroupTimesToWeekends();
+                            },
+                          ),
+                          onPickGroupEnd: () => _pickGroupEnd(
+                            groupDayKeys: specialistWeekendDayKeys,
+                            current: _weekendGroupEnd,
+                            groupStart: _weekendGroupStart,
+                            onPicked: (v) {
+                              setState(() => _weekendGroupEnd = v);
+                              _applyGroupTimesToWeekends();
+                            },
+                          ),
                           onDayChanged: (index, day) {
                             setState(() => _weekends[index] = day);
                           },
@@ -674,12 +769,36 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
                           workStart: _shiftWorkStart,
                           workEnd: _shiftWorkEnd,
                           onPickDate: _pickShiftStartDate,
-                          onPickWorkStart: () => _pickTime(_shiftWorkStart, (v) {
-                            setState(() => _shiftWorkStart = v);
-                          }),
-                          onPickWorkEnd: () => _pickTime(_shiftWorkEnd, (v) {
-                            setState(() => _shiftWorkEnd = v);
-                          }),
+                          onPickWorkStart: () {
+                            final bounds = specialistGroupBranchBounds(
+                              [
+                                ...specialistWeekdayDayKeys,
+                                ...specialistWeekendDayKeys,
+                              ],
+                              _branchPatternsByDay,
+                            );
+                            _pickTime(
+                              _shiftWorkStart,
+                              (v) => setState(() => _shiftWorkStart = v),
+                              minTime: bounds.minStart,
+                              maxTime: bounds.maxEnd ?? _shiftWorkEnd,
+                            );
+                          },
+                          onPickWorkEnd: () {
+                            final bounds = specialistGroupBranchBounds(
+                              [
+                                ...specialistWeekdayDayKeys,
+                                ...specialistWeekendDayKeys,
+                              ],
+                              _branchPatternsByDay,
+                            );
+                            _pickTime(
+                              _shiftWorkEnd,
+                              (v) => setState(() => _shiftWorkEnd = v),
+                              minTime: _shiftWorkStart,
+                              maxTime: bounds.maxEnd,
+                            );
+                          },
                           formatDate: _formatDate,
                         ),
                     ],

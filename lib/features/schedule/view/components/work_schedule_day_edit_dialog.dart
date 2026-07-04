@@ -23,6 +23,43 @@ class WorkScheduleDayEditResult {
   final String? breakEnd;
 }
 
+/// Рабочие часы филиала на конкретный день (для ограничения смены сотрудника).
+class WorkScheduleBranchDayBounds {
+  const WorkScheduleBranchDayBounds({
+    required this.isWorkingDay,
+    this.workStart,
+    this.workEnd,
+  });
+
+  const WorkScheduleBranchDayBounds.dayOff()
+      : isWorkingDay = false,
+        workStart = null,
+        workEnd = null;
+
+  factory WorkScheduleBranchDayBounds.fromCell(WorkScheduleDayCell cell) {
+    if (cell.kind != WorkScheduleCellKind.shift) {
+      return const WorkScheduleBranchDayBounds.dayOff();
+    }
+    final start = cell.timeStart;
+    final end = cell.timeEnd;
+    if (start == null ||
+        end == null ||
+        start.trim().isEmpty ||
+        end.trim().isEmpty) {
+      return const WorkScheduleBranchDayBounds.dayOff();
+    }
+    return WorkScheduleBranchDayBounds(
+      isWorkingDay: true,
+      workStart: start,
+      workEnd: end,
+    );
+  }
+
+  final bool isWorkingDay;
+  final String? workStart;
+  final String? workEnd;
+}
+
 int _timeToMinutes(String time) {
   final parts = time.split(':');
   final h = int.tryParse(parts.first) ?? 0;
@@ -36,6 +73,7 @@ String? _validate({
   required String workEnd,
   String? breakStart,
   String? breakEnd,
+  WorkScheduleBranchDayBounds? branchDayBounds,
 }) {
   if (!isWorkingDay) return null;
 
@@ -44,6 +82,25 @@ String? _validate({
   }
   if (_timeToMinutes(workStart) >= _timeToMinutes(workEnd)) {
     return 'Время окончания должно быть позже начала';
+  }
+
+  if (branchDayBounds != null) {
+    if (!branchDayBounds.isWorkingDay) {
+      return 'Филиал не работает в этот день';
+    }
+    final branchStart = branchDayBounds.workStart;
+    final branchEnd = branchDayBounds.workEnd;
+    if (branchStart != null &&
+        branchEnd != null &&
+        branchStart.isNotEmpty &&
+        branchEnd.isNotEmpty) {
+      if (_timeToMinutes(workStart) < _timeToMinutes(branchStart)) {
+        return 'Начало смены не раньше $branchStart (открытие филиала)';
+      }
+      if (_timeToMinutes(workEnd) > _timeToMinutes(branchEnd)) {
+        return 'Окончание смены не позже $branchEnd (закрытие филиала)';
+      }
+    }
   }
 
   final hasBreakStart = breakStart != null && breakStart.trim().isNotEmpty;
@@ -70,6 +127,7 @@ String? _validate({
 Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
   BuildContext context, {
   required WorkScheduleDayCell cell,
+  WorkScheduleBranchDayBounds? branchDayBounds,
   Future<String?> Function(WorkScheduleDayEditResult result)? validateBeforeSave,
 }) {
   final isWorkingDayInitial = cell.kind == WorkScheduleCellKind.shift;
@@ -99,13 +157,24 @@ Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
           bool breakIsSet() =>
               breakStart.trim().isNotEmpty || breakEnd.trim().isNotEmpty;
 
+          String? branchStartTime() => branchDayBounds?.isWorkingDay == true
+              ? branchDayBounds?.workStart
+              : null;
+          String? branchEndTime() => branchDayBounds?.isWorkingDay == true
+              ? branchDayBounds?.workEnd
+              : null;
+
           Future<void> pickTime(
             String current,
-            void Function(String) onPicked,
-          ) async {
+            void Function(String) onPicked, {
+            String? minTime,
+            String? maxTime,
+          }) async {
             final picked = await showChangeTimePicker(
               context,
               initialTime: current,
+              minTime: minTime,
+              maxTime: maxTime,
             );
             if (picked == null) return;
             setDialogState(() {
@@ -166,7 +235,12 @@ Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
                             label: workStart,
                             fillColor: fieldFill,
                             labelColor: labelColor,
-                            onTap: () => pickTime(workStart, (v) => workStart = v),
+                            onTap: () => pickTime(
+                              workStart,
+                              (v) => workStart = v,
+                              minTime: branchStartTime(),
+                              maxTime: branchEndTime() ?? workEnd,
+                            ),
                           ),
                         ),
                         Padding(
@@ -181,7 +255,12 @@ Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
                             label: workEnd,
                             fillColor: fieldFill,
                             labelColor: labelColor,
-                            onTap: () => pickTime(workEnd, (v) => workEnd = v),
+                            onTap: () => pickTime(
+                              workEnd,
+                              (v) => workEnd = v,
+                              minTime: workStart,
+                              maxTime: branchEndTime(),
+                            ),
                           ),
                         ),
                       ],
@@ -203,6 +282,8 @@ Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
                             onTap: () => pickTime(
                               breakStart.isEmpty ? workStart : breakStart,
                               (v) => breakStart = v,
+                              minTime: workStart,
+                              maxTime: workEnd,
                             ),
                           ),
                         ),
@@ -222,6 +303,8 @@ Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
                             onTap: () => pickTime(
                               breakEnd.isEmpty ? workEnd : breakEnd,
                               (v) => breakEnd = v,
+                              minTime: breakStart.isEmpty ? workStart : breakStart,
+                              maxTime: workEnd,
                             ),
                           ),
                         ),
@@ -277,6 +360,7 @@ Future<WorkScheduleDayEditResult?> showWorkScheduleDayEditDialog(
                               workEnd: workEnd,
                               breakStart: breakStart,
                               breakEnd: breakEnd,
+                              branchDayBounds: branchDayBounds,
                             );
                             if (validation != null) {
                               setDialogState(() => errorText = validation);

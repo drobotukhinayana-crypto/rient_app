@@ -45,6 +45,17 @@ SpecialistItem _allSpecialistsItem(WorkerEntityLabels labels) => SpecialistItem(
   role: '',
 );
 
+final settingsPickerWorkersProvider = FutureProvider.autoDispose
+    .family<List<WorkerApi>, SettingsWorkerAction>((ref, action) {
+  final service = ref.watch(settingsServiceProvider);
+  switch (action) {
+    case SettingsWorkerAction.resetAccess:
+      return service.loadAllBranchWorkersForPicker();
+    case SettingsWorkerAction.prohibitOnlineBooking:
+      return service.loadActiveBranchWorkersForPicker();
+  }
+});
+
 class SettingsWorkerPickerSheet extends ConsumerStatefulWidget {
   const SettingsWorkerPickerSheet({super.key, required this.action});
 
@@ -155,6 +166,8 @@ class _SettingsWorkerPickerSheetState
       }
 
       if (!mounted) return;
+      ref.invalidate(scheduleWorkersProvider);
+      ref.invalidate(settingsPickerWorkersProvider(widget.action));
       Navigator.of(context).pop();
       _showMessage(
         widget.action.successMessage,
@@ -179,15 +192,23 @@ class _SettingsWorkerPickerSheetState
   }
 
   String _settingsActionErrorMessage(Object error) {
+    final actionError = _unwrapSettingsActionException(error);
+    if (actionError != null) return actionError.message;
+
     final statusCode = _extractHttpStatusCode(error);
-    if (statusCode == 404) {
-      return 'Действие пока недоступно: на сервере нет такого API. '
-          'Нужно уточнить endpoint у бэкенда.';
-    }
     if (statusCode == 403) {
       return 'Недостаточно прав для этого действия.';
     }
     return 'Не удалось выполнить действие. Попробуйте позже.';
+  }
+
+  SettingsActionException? _unwrapSettingsActionException(Object error) {
+    if (error is SettingsActionException) return error;
+    if (error is CustomException) {
+      final caused = error.causedError;
+      if (caused is SettingsActionException) return caused;
+    }
+    return null;
   }
 
   int? _extractHttpStatusCode(Object error) {
@@ -216,7 +237,7 @@ class _SettingsWorkerPickerSheetState
     final secondaryText = isDark ? AppColors.tabbarGreyDark : AppColors.grey;
     final maxHeight = MediaQuery.sizeOf(context).height * 0.82;
 
-    final workersAsync = ref.watch(scheduleWorkersProvider);
+    final workersAsync = ref.watch(settingsPickerWorkersProvider(widget.action));
     final workerLabels =
         ref.watch(workerEntityLabelsProvider).value ??
         WorkerEntityLabels.defaults;
@@ -239,9 +260,8 @@ class _SettingsWorkerPickerSheetState
               secondaryText: secondaryText,
               onClose: () => Navigator.of(context).pop(),
             ),
-            data: (response) {
-              final specialists =
-                  _specialistsFromWorkers(response.results, workerLabels);
+            data: (workers) {
+              final specialists = _specialistsFromWorkers(workers, workerLabels);
               final filtered = _filter(specialists);
               final selectedIndex = specialists.indexWhere(
                 (s) => s.id == _selected.id && s.name == _selected.name,

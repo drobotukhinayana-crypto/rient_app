@@ -18,6 +18,14 @@ const _selectionBarHeight = 36.0;
   return (hour: hour.clamp(0, 23), minute: minute.clamp(0, 59));
 }
 
+int _timeToMinutes(int hour, int minute) => hour * 60 + minute;
+
+int? _parseTimeToMinutes(String? value) {
+  if (value == null || value.trim().isEmpty) return null;
+  final parsed = _parseTime(value);
+  return _timeToMinutes(parsed.hour, parsed.minute);
+}
+
 int _nearestMinuteStep(int minute) {
   final index = ((minute + 2) ~/ 5).clamp(0, _minuteStepValues.length - 1);
   return _minuteStepValues[index];
@@ -26,20 +34,109 @@ int _nearestMinuteStep(int minute) {
 String _formatTime(int hour, int minute) =>
     '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 
+List<int> _hoursInRange(int minMinutes, int maxMinutes) {
+  final minHour = minMinutes ~/ 60;
+  final maxHour = maxMinutes ~/ 60;
+  final hours = <int>[];
+  for (var hour = minHour; hour <= maxHour; hour++) {
+    if (_minutesInRangeForHour(hour, minMinutes, maxMinutes).isNotEmpty) {
+      hours.add(hour);
+    }
+  }
+  return hours;
+}
+
+List<int> _minutesInRangeForHour(int hour, int minMinutes, int maxMinutes) {
+  return _minuteStepValues.where((minute) {
+    final total = _timeToMinutes(hour, minute);
+    return total >= minMinutes && total <= maxMinutes;
+  }).toList();
+}
+
+({int hour, int minute}) _clampTimeToRange(
+  int hour,
+  int minute,
+  int minMinutes,
+  int maxMinutes,
+) {
+  final hours = _hoursInRange(minMinutes, maxMinutes);
+  if (hours.isEmpty) {
+    final minHour = minMinutes ~/ 60;
+    final minMinute = _nearestMinuteStep(minMinutes % 60);
+    return (hour: minHour, minute: minMinute);
+  }
+
+  var clampedHour = hour;
+  if (!hours.contains(clampedHour)) {
+    clampedHour = hours.firstWhere(
+      (h) => h >= hour,
+      orElse: () => hours.last,
+    );
+  }
+
+  final minutes = _minutesInRangeForHour(
+    clampedHour,
+    minMinutes,
+    maxMinutes,
+  );
+  if (minutes.isEmpty) {
+    return (hour: hours.first, minute: _minutesInRangeForHour(
+      hours.first,
+      minMinutes,
+      maxMinutes,
+    ).first);
+  }
+
+  var clampedMinute = _nearestMinuteStep(minute);
+  if (!minutes.contains(clampedMinute)) {
+    clampedMinute = minutes.firstWhere(
+      (m) => m >= clampedMinute,
+      orElse: () => minutes.last,
+    );
+  }
+
+  return (hour: clampedHour, minute: clampedMinute);
+}
+
 /// Модальное окно «Изменить время» с барабанным выбором часов и минут (шаг 5 мин).
 Future<String?> showChangeTimePicker(
   BuildContext context, {
   required String initialTime,
+  String? minTime,
+  String? maxTime,
 }) {
+  final minMinutes = _parseTimeToMinutes(minTime) ?? 0;
+  final maxMinutes = _parseTimeToMinutes(maxTime) ?? (23 * 60 + 55);
   final parsed = _parseTime(initialTime);
-  var selectedHour = parsed.hour.clamp(0, 23);
-  var selectedMinute = _nearestMinuteStep(parsed.minute);
-
-  final minuteIndex = _minuteStepValues.indexOf(selectedMinute);
-  final hourController = FixedExtentScrollController(initialItem: selectedHour);
-  final minuteController = FixedExtentScrollController(
-    initialItem: minuteIndex >= 0 ? minuteIndex : 0,
+  final clamped = _clampTimeToRange(
+    parsed.hour,
+    parsed.minute,
+    minMinutes,
+    maxMinutes,
   );
+  var selectedHour = clamped.hour;
+  var selectedMinute = clamped.minute;
+
+  final hours = _hoursInRange(minMinutes, maxMinutes);
+  final effectiveHours = hours.isEmpty ? [0] : hours;
+  final hourIndex = effectiveHours.indexOf(selectedHour).clamp(
+        0,
+        effectiveHours.length - 1,
+      );
+  selectedHour = effectiveHours[hourIndex];
+
+  final initialMinutes =
+      _minutesInRangeForHour(selectedHour, minMinutes, maxMinutes);
+  final minuteIndex = initialMinutes.indexOf(selectedMinute).clamp(
+        0,
+        initialMinutes.isEmpty ? 0 : initialMinutes.length - 1,
+      );
+  if (initialMinutes.isNotEmpty) {
+    selectedMinute = initialMinutes[minuteIndex];
+  }
+
+  final hourController = FixedExtentScrollController(initialItem: hourIndex);
+  final minuteController = FixedExtentScrollController(initialItem: minuteIndex);
 
   return showDialog<String>(
     context: context,
@@ -60,6 +157,12 @@ Future<String?> showChangeTimePicker(
 
       return StatefulBuilder(
         builder: (context, setDialogState) {
+          final minuteOptions =
+              _minutesInRangeForHour(selectedHour, minMinutes, maxMinutes);
+          if (minuteOptions.isNotEmpty &&
+              !minuteOptions.contains(selectedMinute)) {
+            selectedMinute = minuteOptions.first;
+          }
           final selectedTime = _formatTime(selectedHour, selectedMinute);
 
           return Dialog(
@@ -133,19 +236,44 @@ Future<String?> showChangeTimePicker(
                                 selectionOverlay:
                                     const SizedBox.shrink(),
                                 onSelectedItemChanged: (index) {
-                                  setDialogState(() => selectedHour = index);
+                                  final nextHour = effectiveHours[index];
+                                  final nextMinutes = _minutesInRangeForHour(
+                                    nextHour,
+                                    minMinutes,
+                                    maxMinutes,
+                                  );
+                                  if (nextMinutes.isEmpty) return;
+
+                                  var nextMinute = selectedMinute;
+                                  if (!nextMinutes.contains(nextMinute)) {
+                                    nextMinute = nextMinutes.first;
+                                  }
+                                  final minuteScrollIndex =
+                                      nextMinutes.indexOf(nextMinute);
+
+                                  setDialogState(() {
+                                    selectedHour = nextHour;
+                                    selectedMinute = nextMinute;
+                                  });
+
+                                  if (minuteScrollIndex >= 0 &&
+                                      minuteController.hasClients) {
+                                    minuteController.jumpToItem(
+                                      minuteScrollIndex,
+                                    );
+                                  }
                                 },
-                                children: List<Widget>.generate(
-                                  24,
-                                  (index) => Center(
-                                    child: Text(
-                                      index.toString().padLeft(2, '0'),
-                                      style: AppFonts.h2Regular.copyWith(
-                                        color: wheelColor,
+                                children: [
+                                  for (final hour in effectiveHours)
+                                    Center(
+                                      child: Text(
+                                        hour.toString().padLeft(2, '0'),
+                                        style: AppFonts.h2Regular.copyWith(
+                                          color: wheelColor,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
+                                ],
                               ),
                             ),
                             Expanded(
@@ -158,24 +286,22 @@ Future<String?> showChangeTimePicker(
                                 selectionOverlay:
                                     const SizedBox.shrink(),
                                 onSelectedItemChanged: (index) {
+                                  if (index >= minuteOptions.length) return;
                                   setDialogState(
-                                    () => selectedMinute =
-                                        _minuteStepValues[index],
+                                    () => selectedMinute = minuteOptions[index],
                                   );
                                 },
-                                children: List<Widget>.generate(
-                                  _minuteStepValues.length,
-                                  (index) => Center(
-                                    child: Text(
-                                      _minuteStepValues[index]
-                                          .toString()
-                                          .padLeft(2, '0'),
-                                      style: AppFonts.h2Regular.copyWith(
-                                        color: wheelColor,
+                                children: [
+                                  for (final minute in minuteOptions)
+                                    Center(
+                                      child: Text(
+                                        minute.toString().padLeft(2, '0'),
+                                        style: AppFonts.h2Regular.copyWith(
+                                          color: wheelColor,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
+                                ],
                               ),
                             ),
                           ],

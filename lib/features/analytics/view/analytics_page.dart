@@ -84,6 +84,55 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     _selectedSpecialist = _allSpecialistsItem(WorkerEntityLabels.defaults);
     final now = DateTime.now();
     _focusedMonth = DateTime(now.year, now.month, 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      bumpAnalyticsReloadToken(ref);
+      ref.invalidate(analyticsSummaryProvider);
+    });
+    ref.listenManual<int>(
+      currentBranchIdProvider,
+      (previous, next) {
+        if (!mounted || previous == next || next <= 0) return;
+        _resetSpecialistToAll();
+        bumpAnalyticsReloadToken(ref);
+        ref.invalidate(analyticsSummaryProvider);
+        ref.invalidate(scheduleWorkersProvider);
+      },
+    );
+    ref.listenManual<AsyncValue<WorkersApiResponse>>(
+      scheduleWorkersProvider,
+      (previous, next) {
+        next.whenData((response) {
+          if (!mounted) return;
+          final labels =
+              ref.read(workerEntityLabelsProvider).value ??
+              WorkerEntityLabels.defaults;
+          _ensureSelectedSpecialistInBranch(
+            _specialistsFromWorkers(response.results, labels),
+          );
+        });
+      },
+    );
+  }
+
+  void _resetSpecialistToAll() {
+    final labels =
+        ref.read(workerEntityLabelsProvider).value ??
+        WorkerEntityLabels.defaults;
+    setState(() => _selectedSpecialist = _allSpecialistsItem(labels));
+  }
+
+  void _ensureSelectedSpecialistInBranch(List<SpecialistItem> specialists) {
+    final selectedId = _selectedSpecialist.id;
+    if (selectedId == null) return;
+    if (specialists.any((s) => s.id == selectedId)) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _selectedSpecialist.id != selectedId) return;
+      _resetSpecialistToAll();
+      bumpAnalyticsReloadToken(ref);
+      ref.invalidate(analyticsSummaryProvider);
+    });
   }
 
   static const _monthsBeforeCurrent = 12;
@@ -300,6 +349,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
         final recovered = await tryRecoverScheduleNetwork(ref);
         if (!recovered) return;
       }
+      bumpAnalyticsReloadToken(ref);
       ref.invalidate(analyticsSummaryProvider(analyticsQuery));
       ref.invalidate(scheduleWorkersProvider);
       try {
