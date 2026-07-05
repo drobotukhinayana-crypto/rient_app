@@ -521,16 +521,20 @@ class _MessagesHeader extends StatelessWidget {
                 ),
               ),
               const Gap(12),
-              Text(
-                'Сообщения',
-                style: AppFonts.h3Medium.copyWith(
-                  color: isDark
-                      ? AppColors.primaryWhite
-                      : AppColors.primaryDark,
+              Expanded(
+                child: Text(
+                  'Сообщения',
+                  style: AppFonts.h3Medium.copyWith(
+                    color: isDark
+                        ? AppColors.primaryWhite
+                        : AppColors.primaryDark,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
-              const ProfileSelectorPill(),
+              const Gap(8),
+              const Flexible(child: ProfileSelectorPill()),
               const Gap(8),
               GestureDetector(
                 onTap: onCalendarTap,

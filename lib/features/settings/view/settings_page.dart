@@ -300,7 +300,7 @@ class _SettingsHeader extends StatelessWidget {
               ),
             ),
           ),
-          const ProfileSelectorPill(),
+          const Flexible(child: ProfileSelectorPill()),
         ],
       ),
     );

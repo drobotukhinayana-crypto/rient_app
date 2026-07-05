@@ -200,7 +200,7 @@ class _StatisticsWidgetState extends ConsumerState<_StatisticsWidget> {
               final totalAppointments = dayAppointments?.total ?? 0;
               final newCount = dayAppointments?.newCount ?? 0;
               final cancelled = dayAppointments?.cancelled ?? 0;
-              final dayIncomeValue = dayIncome?.income ?? 0.0;
+              final dayIncomeValue = dayIncome?.factualIncome ?? 0.0;
               final dayPayDueValue = dayIncome?.payDue ?? 0.0;
               final statTitleStyle = AppFonts.c1Medium;
               TextStyle statRublesStyle(Color color) =>

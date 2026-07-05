@@ -1065,7 +1065,7 @@ class _AnalyticsHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              const ProfileSelectorPill(),
+              const Flexible(child: ProfileSelectorPill()),
             ],
           ),
           const Gap(12),

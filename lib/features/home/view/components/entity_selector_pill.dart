@@ -93,58 +93,75 @@ class _ProfileSelectorPillState extends State<ProfileSelectorPill> {
 
             return Builder(
               builder: (ctx) {
-                return Material(
-                  color: isDark
-                      ? AppColors.secondaryDarkLight
-                      : AppColors.secondaryLight,
-                  borderRadius: BorderRadius.circular(300),
-                  child: InkWell(
-                    onTap: () => _showMenu(
-                      ctx,
-                      ref,
-                      branchesResponse.results,
-                      selectedBranch,
-                    ),
-                    borderRadius: BorderRadius.circular(300),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // текст
-                          Builder(
-                            builder: (context) {
-                              final branchName =
-                                  currentBranch.name ?? 'Без названия';
-                              final textWidth = branchName.length <= 10
-                                  ? 40.0
-                                  : 80.0;
+                final branchName = currentBranch.name ?? 'Без названия';
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxWidth = constraints.hasBoundedWidth &&
+                            constraints.maxWidth.isFinite
+                        ? constraints.maxWidth
+                        : 140.0;
+                    const horizontalPadding = 24.0;
+                    const trailingWidth = 22.0; // gap + arrow
+                    final maxTextWidth =
+                        (maxWidth - horizontalPadding - trailingWidth)
+                            .clamp(32.0, double.infinity);
 
-                              return SizedBox(
-                                width: textWidth,
-                                child: Text(
-                                  branchName,
-                                  style: AppFonts.b2Medium.copyWith(
-                                    color: isDark
-                                        ? Colors.white
-                                        : AppColors.primaryDark,
+                    return Align(
+                      alignment: Alignment.centerRight,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: maxWidth),
+                        child: Material(
+                          color: isDark
+                              ? AppColors.secondaryDarkLight
+                              : AppColors.secondaryLight,
+                          borderRadius: BorderRadius.circular(300),
+                          child: InkWell(
+                            onTap: () => _showMenu(
+                              ctx,
+                              ref,
+                              branchesResponse.results,
+                              selectedBranch,
+                            ),
+                            borderRadius: BorderRadius.circular(300),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth: maxTextWidth,
+                                    ),
+                                    child: Text(
+                                      branchName,
+                                      style: AppFonts.b2Medium.copyWith(
+                                        color: isDark
+                                            ? Colors.white
+                                            : AppColors.primaryDark,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: false,
+                                    ),
                                   ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            },
+                                  const Gap(6),
+                                  Image.asset(
+                                    AppImages.arrowOutlinedDown,
+                                    width: 16,
+                                    height: 16,
+                                    color: AppColors.themeAccent(ctx),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          Gap(6),
-
-                          // стрелка
-                          Image.asset(
-                            AppImages.arrowOutlinedDown,
-                            color: AppColors.themeAccent(ctx),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 );
               },
             );

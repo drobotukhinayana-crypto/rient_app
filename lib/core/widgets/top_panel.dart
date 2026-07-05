@@ -392,7 +392,7 @@ class _TopPanelState extends State<TopPanel> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const ProfileSelectorPill(),
+              const Flexible(child: ProfileSelectorPill()),
             ],
           ),
           if (dayHeaderOnly) ...[

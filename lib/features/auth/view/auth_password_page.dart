@@ -12,6 +12,7 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/error_label.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
+import 'package:rient_app/features/auth/service/auth_exception.dart';
 import 'package:rient_app/features/auth/service/get_auth_branches.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/controllers/get_token_controller.dart';
@@ -44,6 +45,7 @@ class AuthPasswordPage extends ConsumerStatefulWidget {
 class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
   final passwordController = TextEditingController();
   bool _isAutoSingleBranchLogin = false;
+  bool _isBranchesLoading = false;
 
   @override
   void dispose() {
@@ -68,8 +70,12 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
         },
         error: (error) {
           _isAutoSingleBranchLogin = false;
-          ref.read(_errorPasswordProvider.notifier).state =
-              'Произошла неизвестная ошибка. Проверьте ваш пароль и попробуйте снова';
+          if (mounted) {
+            setState(() => _isBranchesLoading = false);
+          }
+          ref.read(_errorPasswordProvider.notifier).state = authErrorMessageFrom(
+            error ?? Exception('Token request failed'),
+          );
         },
       );
     });
@@ -104,9 +110,10 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
               // кнопка
               MainButton(
                 title: 'Продолжить',
-                isLoading: isTokenLoading,
+                isLoading: isTokenLoading || _isBranchesLoading,
                 onTap: () async {
                       final password = passwordController.text;
+                      ref.read(_errorPasswordProvider.notifier).state = '';
                       final selectedMember = ref.read(
                         selectedOrganizationMemberProvider,
                       );
@@ -131,11 +138,17 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
                             );
                         return;
                       }
+                      setState(() => _isBranchesLoading = true);
                       try {
                         final branchMembers = await ref.read(
                           getAuthBranchesProvider.future,
                         );
                         if (!mounted) return;
+                        if (branchMembers.isEmpty) {
+                          ref.read(_errorPasswordProvider.notifier).state =
+                              'Нет доступных филиалов для этого аккаунта';
+                          return;
+                        }
                         if (branchMembers.length == 1 &&
                             branchMembers.first.branches.isNotEmpty) {
                           final branchId = branchMembers.first.branches.first.id;
@@ -157,12 +170,18 @@ class _AuthPasswordPageState extends ConsumerState<AuthPasswordPage> {
                               );
                           return;
                         }
-                      } catch (_) {
-                        // Если не удалось подгрузить филиалы, остаемся в стандартном сценарии.
+                        _isAutoSingleBranchLogin = false;
+                        if (!mounted) return;
+                        SelectBranchPage.navigate(this.context);
+                      } catch (error) {
+                        if (!mounted) return;
+                        ref.read(_errorPasswordProvider.notifier).state =
+                            authErrorMessageFrom(error);
+                      } finally {
+                        if (mounted) {
+                          setState(() => _isBranchesLoading = false);
+                        }
                       }
-                      _isAutoSingleBranchLogin = false;
-                      if (!mounted) return;
-                      SelectBranchPage.navigate(this.context);
                     },
               ),
               Gap(8),
