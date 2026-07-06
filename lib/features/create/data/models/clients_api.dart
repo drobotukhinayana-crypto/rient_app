@@ -36,23 +36,47 @@ class ClientItem {
     required this.numberOfVisits,
     required this.discount,
     required this.transactionsSum,
+    required this.appointmentSumAvg,
     required this.commentText,
   });
 
   factory ClientItem.fromJson(Map<String, dynamic> json) {
     return ClientItem(
-      id: json['id'] as int? ?? 0,
+      id: _readInt(json['id']),
       firstName: json['first_name'] as String? ?? '',
       lastName: json['last_name'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
-      status: json['status'] as int? ?? 0,
-      reliabilityFactor: (json['reliability_factor'] as num?)?.toDouble() ?? 0,
-      balance: (json['balance'] as num?)?.toDouble() ?? 0,
-      numberOfVisits: json['number_of_visits'] as int? ?? 0,
-      discount: (json['discount'] as num?)?.toDouble() ?? 0,
-      transactionsSum: (json['transactions_sum'] as num?)?.toDouble() ?? 0,
+      status: _readInt(json['status']),
+      reliabilityFactor: _readDouble(json['reliability_factor']),
+      balance: _readDouble(json['balance']),
+      numberOfVisits: _readInt(json['number_of_visits']),
+      discount: _readDouble(json['discount']),
+      transactionsSum: _readDouble(json['transactions_sum']),
+      appointmentSumAvg: _readDouble(json['appointment_sum_avg']),
       commentText: (json['comment'] as Map<String, dynamic>?)?['text'] as String?,
     );
+  }
+
+  static int _readInt(dynamic raw) {
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw.trim()) ?? 0;
+    return 0;
+  }
+
+  static double _readDouble(dynamic raw) {
+    if (raw is double) return raw;
+    if (raw is num) return raw.toDouble();
+    if (raw is String) {
+      return double.tryParse(raw.trim().replaceAll(',', '.')) ?? 0;
+    }
+    return 0;
+  }
+
+  double get averageCheck {
+    if (appointmentSumAvg > 0) return appointmentSumAvg;
+    if (numberOfVisits <= 0) return 0;
+    return transactionsSum / numberOfVisits;
   }
 
   final int id;
@@ -65,5 +89,6 @@ class ClientItem {
   final int numberOfVisits;
   final double discount;
   final double transactionsSum;
+  final double appointmentSumAvg;
   final String? commentText;
 }

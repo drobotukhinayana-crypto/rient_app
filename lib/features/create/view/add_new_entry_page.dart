@@ -871,6 +871,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         numberOfVisits: 0,
         discount: 0,
         transactionsSum: 0,
+        appointmentSumAvg: 0,
         commentText: null,
       );
     }
@@ -945,6 +946,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           numberOfVisits: 0,
           discount: 0,
           transactionsSum: 0,
+          appointmentSumAvg: 0,
           commentText: commentText.isEmpty ? null : commentText,
         );
       });
@@ -1126,20 +1128,16 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   Future<void> _loadSelectedClientDetails(int clientId) async {
     if (!mounted) return;
     try {
-      final response = await ref
+      final fullClient = await ref
           .read(clientsServiceProvider)
-          .getClients(search: _phoneSearchQuery);
-      ClientItem? fullClient;
-      for (final item in response.results) {
-        if (item.id == clientId) {
-          fullClient = item;
-          break;
-        }
-      }
-      if (fullClient == null || !mounted) return;
+          .getClientById(clientId);
+      if (!mounted) return;
       setState(() {
         _selectedClient = fullClient;
-        final clientComment = fullClient!.commentText ?? '';
+        if (_phoneSearchQuery.trim().isEmpty && fullClient.phone.isNotEmpty) {
+          _phoneSearchQuery = fullClient.phone;
+        }
+        final clientComment = fullClient.commentText ?? '';
         _commentClientController.text = clientComment;
         if (clientComment.trim().isNotEmpty) {
           _isCommentClientExpanded = true;
@@ -3124,12 +3122,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                               Text('Средний чек', style: AppFonts.c1Medium),
                               Gap(8),
                               Text(
-                                _formatMoney(
-                                  _selectedClient!.numberOfVisits > 0
-                                      ? _selectedClient!.transactionsSum /
-                                            _selectedClient!.numberOfVisits
-                                      : 0,
-                                ),
+                                _formatMoney(_selectedClient!.averageCheck),
                                 style: AppFonts.b1Medium.copyWith(
                                   color: accent,
                                 ),

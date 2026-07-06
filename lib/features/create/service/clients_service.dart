@@ -115,4 +115,35 @@ class ClientsService {
       throw CustomException(causedError: e);
     }
   }
+
+  Future<ClientItem> getClientById(int clientId) async {
+    if (clientId <= 0) {
+      throw CustomException(causedError: Exception('Client id is missing'));
+    }
+
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      throw CustomException(causedError: Exception('Token is missing'));
+    }
+
+    final url = ApiConsts().createUrl('clients/$clientId/');
+
+    try {
+      final response = await Dio().get<Map<String, dynamic>>(
+        url,
+        options: Options(headers: {'Authorization': 'JWT $token'}),
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        return ClientItem.fromJson(response.data!);
+      }
+      throw CustomException(
+        causedError: Exception(
+          'Failed to load client: ${response.statusCode}',
+        ),
+      );
+    } catch (e) {
+      await handleUnauthorizedIfNeeded(ref, e);
+      throw CustomException(causedError: e);
+    }
+  }
 }
