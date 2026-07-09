@@ -5,18 +5,24 @@ import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/resources/resources.dart';
 
 class ThemeSwitchPill extends ConsumerWidget {
-  const ThemeSwitchPill({super.key});
+  const ThemeSwitchPill({super.key, this.enabled = true});
+
+  final bool enabled;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Material(
-      color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight,
-      borderRadius: BorderRadius.circular(300),
-      child: InkWell(
-        onTap: () =>
-            ref.read(themeModeProvider.notifier).toggleBetweenLightDark(),
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: Material(
+        color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight,
+        borderRadius: BorderRadius.circular(300),
+        child: InkWell(
+          onTap: enabled
+              ? () =>
+                  ref.read(themeModeProvider.notifier).toggleBetweenLightDark()
+              : null,
         borderRadius: BorderRadius.circular(300),
         child: SizedBox(
           width: 95,
@@ -69,6 +75,7 @@ class ThemeSwitchPill extends ConsumerWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

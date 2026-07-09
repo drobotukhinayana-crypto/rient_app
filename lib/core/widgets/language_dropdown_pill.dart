@@ -37,9 +37,14 @@ const _languageNames = {
 };
 
 class LanguageDropdownPill extends ConsumerWidget {
-  const LanguageDropdownPill({super.key, this.showLeadingIcon = true});
+  const LanguageDropdownPill({
+    super.key,
+    this.showLeadingIcon = true,
+    this.enabled = true,
+  });
 
   final bool showLeadingIcon;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -47,14 +52,15 @@ class LanguageDropdownPill extends ConsumerWidget {
     final locale = ref.watch(localeProvider);
     final code = locale.languageCode;
     final name = _languageNames[code] ?? _languageNames['ru']!;
+    final canOpenMenu = enabled && kLanguageSelectionEnabled;
 
-    return Material(
-      color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight,
-      borderRadius: BorderRadius.circular(300),
-      child: InkWell(
-        onTap: kLanguageSelectionEnabled
-            ? () => _showMenu(context, ref, code)
-            : null,
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: Material(
+        color: isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight,
+        borderRadius: BorderRadius.circular(300),
+        child: InkWell(
+          onTap: canOpenMenu ? () => _showMenu(context, ref, code) : null,
         borderRadius: BorderRadius.circular(300),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -70,6 +76,7 @@ class LanguageDropdownPill extends ConsumerWidget {
           ),
         ),
       ),
+    ),
     );
   }
 

@@ -247,59 +247,47 @@ class AppDrawer extends ConsumerWidget {
                       _DrawerTile(
                         icon: Icons.settings_outlined,
                         label: 'Настройки',
-                        onTap: () => closeThen(
-                          () => context.pushNamed(SettingsPage.name),
+                        enabled: !offlineExceptSchedule,
+                        onTap: () => onDrawerItemTap(
+                          enabled: !offlineExceptSchedule,
+                          action: () =>
+                              context.pushNamed(SettingsPage.name),
                         ),
                       ),
                     ],
                     const Gap(5),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+                    _DrawerOptionRow(
+                      enabled: !offlineExceptSchedule,
+                      onDisabledTap: () => onDrawerItemTap(
+                        enabled: false,
+                        action: () {},
                       ),
-                      child: Row(
-                        children: [
-                          Image.asset(
-                            AppImages.themeBurger,
-                            width: 24,
-                            height: 24,
-                          ),
-                          const Gap(6),
-                          Text(
-                            'Тема',
-                            style: AppFonts.b2Medium.copyWith(
-                              color: onSurface,
-                            ),
-                          ),
-                          const Spacer(),
-                          const ThemeSwitchPill(),
-                        ],
+                      icon: Image.asset(
+                        AppImages.themeBurger,
+                        width: 24,
+                        height: 24,
                       ),
+                      label: 'Тема',
+                      labelColor: onSurface,
+                      trailing: ThemeSwitchPill(enabled: !offlineExceptSchedule),
                     ),
                     const Gap(5),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            AppImages.languageBurger,
-                            width: 24,
-                            height: 24,
-                          ),
-                          const Gap(6),
-                          Text(
-                            'Локализация',
-                            style: AppFonts.b2Medium.copyWith(
-                              color: onSurface,
-                            ),
-                          ),
-                          const Spacer(),
-                          const LanguageDropdownPill(
-                            showLeadingIcon: false,
-                          ),
-                        ],
+                    _DrawerOptionRow(
+                      enabled: !offlineExceptSchedule,
+                      onDisabledTap: () => onDrawerItemTap(
+                        enabled: false,
+                        action: () {},
+                      ),
+                      icon: Image.asset(
+                        AppImages.languageBurger,
+                        width: 24,
+                        height: 24,
+                      ),
+                      label: 'Локализация',
+                      labelColor: onSurface,
+                      trailing: LanguageDropdownPill(
+                        showLeadingIcon: false,
+                        enabled: !offlineExceptSchedule,
                       ),
                     ),
                   ],
@@ -308,12 +296,62 @@ class AppDrawer extends ConsumerWidget {
             ),
             _DrawerFooter(
               isDark: isDark,
-              onLogout: () {
-                Navigator.of(context).pop();
-                requestLogout(ref);
-              },
+              offlineExceptSchedule: offlineExceptSchedule,
+              onDrawerItemTap: onDrawerItemTap,
+              onLogout: () => requestLogout(ref),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerOptionRow extends StatelessWidget {
+  const _DrawerOptionRow({
+    required this.enabled,
+    required this.onDisabledTap,
+    required this.icon,
+    required this.label,
+    required this.labelColor,
+    required this.trailing,
+  });
+
+  final bool enabled;
+  final VoidCallback onDisabledTap;
+  final Widget icon;
+  final String label;
+  final Color labelColor;
+  final Widget trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final contentColor = enabled
+        ? labelColor
+        : (Theme.of(context).brightness == Brightness.dark
+                ? AppColors.tabbarGreyDark
+                : AppColors.tabbarGrey)
+            .withValues(alpha: 0.45);
+
+    return InkWell(
+      onTap: enabled ? null : onDisabledTap,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.55,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              icon,
+              const Gap(6),
+              Text(
+                label,
+                style: AppFonts.b2Medium.copyWith(color: contentColor),
+              ),
+              const Spacer(),
+              AbsorbPointer(absorbing: !enabled, child: trailing),
+            ],
+          ),
         ),
       ),
     );
@@ -323,10 +361,15 @@ class AppDrawer extends ConsumerWidget {
 class _DrawerFooter extends StatelessWidget {
   const _DrawerFooter({
     required this.isDark,
+    required this.offlineExceptSchedule,
+    required this.onDrawerItemTap,
     required this.onLogout,
   });
 
   final bool isDark;
+  final bool offlineExceptSchedule;
+  final void Function({required bool enabled, required VoidCallback action})
+      onDrawerItemTap;
   final VoidCallback onLogout;
 
   @override
@@ -343,6 +386,11 @@ class _DrawerFooter extends StatelessWidget {
                 child: _DrawerSocialPill(
                   iconAsset: AppImages.whatsappIconBurger,
                   uri: supportWhatsAppUri,
+                  enabled: !offlineExceptSchedule,
+                  onDisabledTap: () => onDrawerItemTap(
+                    enabled: false,
+                    action: () {},
+                  ),
                 ),
               ),
               const Gap(12),
@@ -350,6 +398,11 @@ class _DrawerFooter extends StatelessWidget {
                 child: _DrawerSocialPill(
                   iconAsset: AppImages.telegramBurger,
                   uri: supportTelegramUri,
+                  enabled: !offlineExceptSchedule,
+                  onDisabledTap: () => onDrawerItemTap(
+                    enabled: false,
+                    action: () {},
+                  ),
                 ),
               ),
             ],
@@ -362,14 +415,22 @@ class _DrawerFooter extends StatelessWidget {
           labelStyle: AppFonts.c1Regular.copyWith(
             color: isDark ? AppColors.mainAccentDark : AppColors.mainAccent,
           ),
-          onTap: () {},
+          enabled: !offlineExceptSchedule,
+          onTap: () => onDrawerItemTap(
+            enabled: !offlineExceptSchedule,
+            action: () {},
+          ),
         ),
         _DrawerTile(
           iconAsset: AppImages.logoutBurger,
           iconColor: Colors.red,
           label: 'Выйти из аккаунта',
           labelStyle: AppFonts.c1Regular.copyWith(color: Colors.red),
-          onTap: onLogout,
+          enabled: !offlineExceptSchedule,
+          onTap: () => onDrawerItemTap(
+            enabled: !offlineExceptSchedule,
+            action: onLogout,
+          ),
         ),
         const Gap(8),
         Center(
@@ -393,25 +454,37 @@ class _DrawerFooter extends StatelessWidget {
 
 /// Две кнопки-соцсети внизу drawer (как на экране входа).
 class _DrawerSocialPill extends StatelessWidget {
-  const _DrawerSocialPill({required this.iconAsset, required this.uri});
+  const _DrawerSocialPill({
+    required this.iconAsset,
+    required this.uri,
+    this.enabled = true,
+    this.onDisabledTap,
+  });
 
   final String iconAsset;
   final Uri uri;
+  final bool enabled;
+  final VoidCallback? onDisabledTap;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight;
 
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(300),
-      child: InkWell(
-        onTap: () => openSupportLink(uri, context: context),
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: Material(
+        color: bg,
         borderRadius: BorderRadius.circular(300),
-        child: SizedBox(
-          height: 48,
-          child: Center(child: Image.asset(iconAsset, height: 28)),
+        child: InkWell(
+          onTap: enabled
+              ? () => openSupportLink(uri, context: context)
+              : onDisabledTap,
+          borderRadius: BorderRadius.circular(300),
+          child: SizedBox(
+            height: 48,
+            child: Center(child: Image.asset(iconAsset, height: 28)),
+          ),
         ),
       ),
     );
