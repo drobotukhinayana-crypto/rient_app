@@ -62,7 +62,7 @@ sealed class IncomeByDay with _$IncomeByDay {
 
   double get projectedIncomeValue => projectedIncome ?? payDue;
 
-  double get factualIncomeValue => factualIncome ?? income;
+  double get factualIncomeValue => factualIncome ?? 0;
 
   double get averageCheckValue => averageCheck ?? 0;
 

@@ -84,7 +84,8 @@ class NotificationService {
 
   void _onNotificationTap(NotificationResponse response) {
     debugPrint('Notification tap: ${response.payload}');
-    PushNotificationNavigation.openMessagesTab();
+    final branchId = parseBranchIdFromNotificationPayload(response.payload);
+    PushNotificationNavigation.openMessagesTab(branchId: branchId);
   }
 
   void _handleOpenedMessage(RemoteMessage? message) {
@@ -92,7 +93,9 @@ class NotificationService {
     debugPrint(
       'FCM opened: ${message.notification?.title} ${message.notification?.body}',
     );
-    PushNotificationNavigation.openMessagesTab();
+    PushNotificationNavigation.openMessagesTab(
+      branchId: parseBranchIdFromRemoteMessage(message),
+    );
   }
 
   void _showForegroundNotification(RemoteMessage message) {
@@ -113,6 +116,7 @@ class NotificationService {
       id: id,
       title: content.title,
       body: content.body,
+      payload: buildPushNavigationPayload(message.data),
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           _androidChannel.id,

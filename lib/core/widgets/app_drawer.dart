@@ -10,6 +10,7 @@ import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/features/auth/logout_request_provider.dart';
 import 'package:rient_app/core/widgets/theme_switch_pill.dart';
 import 'package:rient_app/features/analytics/view/analytics_page.dart';
+import 'package:rient_app/features/analytics/view/providers/analytics_statistics_provider.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/providers/account_profile_provider.dart';
@@ -234,8 +235,10 @@ class AppDrawer extends ConsumerWidget {
                         enabled: !offlineExceptSchedule,
                         onTap: () => onDrawerItemTap(
                           enabled: !offlineExceptSchedule,
-                          action: () =>
-                              context.pushNamed(AnalyticsPage.name),
+                          action: () {
+                            prepareAnalyticsOnOpen(ref);
+                            context.pushNamed(AnalyticsPage.name);
+                          },
                         ),
                       ),
                     ],

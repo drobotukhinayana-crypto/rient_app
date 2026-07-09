@@ -47,6 +47,12 @@ void bumpAnalyticsReloadToken(dynamic ref) {
   ref.read(analyticsReloadTokenProvider.notifier).update((int v) => v + 1);
 }
 
+/// Перед открытием аналитики из меню или при возврате на экран.
+void prepareAnalyticsOnOpen(dynamic ref) {
+  bumpAnalyticsReloadToken(ref);
+  ref.invalidate(analyticsSummaryProvider);
+}
+
 final analyticsSummaryProvider =
     FutureProvider.family<AnalyticsSummary, AnalyticsQuery>((ref, query) async {
   ref.watch(analyticsReloadTokenProvider);

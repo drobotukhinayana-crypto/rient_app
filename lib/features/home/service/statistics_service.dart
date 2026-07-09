@@ -86,25 +86,20 @@ class StatisticsService {
         .whereType<Map>()
         .map((item) {
           final row = item.map((k, v) => MapEntry(k.toString(), v));
-          final income = ((row['income'] ?? row['sum']) as num?)?.toDouble() ?? 0.0;
-          final payDue = ((row['pay_due'] ?? row['payDue'] ?? row['sum']) as num?)
-                  ?.toDouble() ??
-              0.0;
+          final income = (row['income'] as num?)?.toDouble() ?? 0.0;
+          final payDue = (row['pay_due'] as num?)?.toDouble() ?? 0.0;
           final projectedIncome =
-              ((row['projected_income'] ?? row['projected']) as num?)
-                  ?.toDouble();
+              (row['projected_income'] as num?)?.toDouble();
           final factualIncome =
-              ((row['factual_income'] ?? row['income'] ?? row['income_paid'])
-                      as num?)
-                  ?.toDouble();
+              (row['factual_income'] as num?)?.toDouble() ?? 0.0;
           final averageCheck =
               (row['average_check'] as num?)?.toDouble();
           return <String, dynamic>{
             'date': row['date']?.toString() ?? '',
             'income': income,
             'pay_due': payDue,
+            'factual_income': factualIncome,
             if (projectedIncome != null) 'projected_income': projectedIncome,
-            if (factualIncome != null) 'factual_income': factualIncome,
             if (averageCheck != null) 'average_check': averageCheck,
           };
         })

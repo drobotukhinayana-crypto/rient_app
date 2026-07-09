@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:rient_app/features/analytics/view/providers/analytics_statistics_provider.dart';
 import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
+import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart'
     show beginScheduleNetworkRecovery;
@@ -37,6 +38,7 @@ void prepareScheduleTabOnOpen(dynamic ref) {
 /// Перед открытием вкладки «Главная» из таббара.
 void prepareHomeTabOnOpen(dynamic ref) {
   syncHomeDateFromSchedule(ref);
+  refreshWorkerPermissions(ref);
   refreshAfterAppointmentMutation(ref);
 }
 

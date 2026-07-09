@@ -77,6 +77,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
   bool _clientsExpanded = true;
   bool _topServicesExpanded = true;
   late SpecialistItem _selectedSpecialist;
+  bool _wasCovered = false;
 
   @override
   void initState() {
@@ -86,8 +87,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     _focusedMonth = DateTime(now.year, now.month, 1);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      bumpAnalyticsReloadToken(ref);
-      ref.invalidate(analyticsSummaryProvider);
+      prepareAnalyticsOnOpen(ref);
     });
     ref.listenManual<int>(
       currentBranchIdProvider,
@@ -113,6 +113,23 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
         });
       },
     );
+  }
+
+  @override
+  void deactivate() {
+    _wasCovered = true;
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    if (!_wasCovered) return;
+    _wasCovered = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      prepareAnalyticsOnOpen(ref);
+    });
   }
 
   void _resetSpecialistToAll() {
@@ -349,8 +366,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
         final recovered = await tryRecoverScheduleNetwork(ref);
         if (!recovered) return;
       }
-      bumpAnalyticsReloadToken(ref);
-      ref.invalidate(analyticsSummaryProvider(analyticsQuery));
+      prepareAnalyticsOnOpen(ref);
       ref.invalidate(scheduleWorkersProvider);
       try {
         await ref.read(analyticsSummaryProvider(analyticsQuery).future);

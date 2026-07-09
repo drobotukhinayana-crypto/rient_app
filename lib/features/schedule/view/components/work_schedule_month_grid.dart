@@ -35,8 +35,11 @@ class WorkScheduleMonthGrid extends StatefulWidget {
     required     this.horizontalScrollController,
     this.savingEmployeeId,
     this.savingDate,
+    this.loadingEmployeeId,
+    this.loadingDate,
     this.onCellTap,
     this.onEmployeeMoreTap,
+    this.hideBranchMoreButton = false,
   });
 
   final DateTime month;
@@ -45,9 +48,12 @@ class WorkScheduleMonthGrid extends StatefulWidget {
   final ScrollController horizontalScrollController;
   final String? savingEmployeeId;
   final DateTime? savingDate;
+  final String? loadingEmployeeId;
+  final DateTime? loadingDate;
   final void Function(WorkScheduleEmployeeRow employee, DateTime date)?
   onCellTap;
   final void Function(WorkScheduleEmployeeRow employee)? onEmployeeMoreTap;
+  final bool hideBranchMoreButton;
 
   @override
   State<WorkScheduleMonthGrid> createState() => _WorkScheduleMonthGridState();
@@ -119,12 +125,16 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
           name: employee.name,
           pictureUrl: employee.pictureUrl,
           isBranchRow: employee.isBranchRow,
-          onMoreTap: widget.onEmployeeMoreTap == null
-              ? null
-              : () => widget.onEmployeeMoreTap!(employee),
+          onMoreTap: _employeeMoreTap(employee),
         ),
       ),
     );
+  }
+
+  VoidCallback? _employeeMoreTap(WorkScheduleEmployeeRow employee) {
+    if (widget.onEmployeeMoreTap == null) return null;
+    if (widget.hideBranchMoreButton && employee.isBranchRow) return null;
+    return () => widget.onEmployeeMoreTap!(employee);
   }
 
   WorkScheduleDayCell _cellAt(WorkScheduleEmployeeRow employee, int index) {
@@ -153,7 +163,7 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
                 child: _DayCell(
                   date: monthDays[j],
                   cell: _cellAt(employee, j),
-                  isSaving: _isSavingCell(employee.id, monthDays[j]),
+                  isSaving: _isBusyCell(employee.id, monthDays[j]),
                   onTap: widget.onCellTap == null
                       ? null
                       : () => widget.onCellTap!(employee, monthDays[j]),
@@ -166,14 +176,31 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
     );
   }
 
-  bool _isSavingCell(String employeeId, DateTime date) {
-    final savingDate = widget.savingDate;
-    if (widget.savingEmployeeId != employeeId || savingDate == null) {
-      return false;
-    }
-    return savingDate.year == date.year &&
-        savingDate.month == date.month &&
-        savingDate.day == date.day;
+  bool _isBusyCell(String employeeId, DateTime date) {
+    return _matchesCellState(
+          employeeId: employeeId,
+          date: date,
+          stateEmployeeId: widget.savingEmployeeId,
+          stateDate: widget.savingDate,
+        ) ||
+        _matchesCellState(
+          employeeId: employeeId,
+          date: date,
+          stateEmployeeId: widget.loadingEmployeeId,
+          stateDate: widget.loadingDate,
+        );
+  }
+
+  bool _matchesCellState({
+    required String employeeId,
+    required DateTime date,
+    required String? stateEmployeeId,
+    required DateTime? stateDate,
+  }) {
+    if (stateEmployeeId != employeeId || stateDate == null) return false;
+    return stateDate.year == date.year &&
+        stateDate.month == date.month &&
+        stateDate.day == date.day;
   }
 
   Widget _scheduleTable(
@@ -352,7 +379,7 @@ class _EmployeeColumn extends StatelessWidget {
               ),
             ],
           ),
-          _EmployeeMoreButton(onTap: onMoreTap),
+          if (onMoreTap != null) _EmployeeMoreButton(onTap: onMoreTap),
         ],
       ),
     );

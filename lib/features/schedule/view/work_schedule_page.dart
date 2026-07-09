@@ -70,6 +70,8 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
   int? _rowsResyncForEpoch;
   String? _savingEmployeeId;
   DateTime? _savingDate;
+  String? _loadingCellEmployeeId;
+  DateTime? _loadingCellDate;
   Map<String, SchedulePatternBranchItemApi> _branchPatternsByDay = const {};
   AsyncValue<List<WorkScheduleEmployeeRow>> _employees =
       const AsyncValue.loading();
@@ -1018,6 +1020,21 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     _showWorkScheduleNoPermissionMessage();
   }
 
+  void _setCellLoading(String employeeId, DateTime date) {
+    setState(() {
+      _loadingCellEmployeeId = employeeId;
+      _loadingCellDate = DateTime(date.year, date.month, date.day);
+    });
+  }
+
+  void _clearCellLoading() {
+    if (_loadingCellEmployeeId == null && _loadingCellDate == null) return;
+    setState(() {
+      _loadingCellEmployeeId = null;
+      _loadingCellDate = null;
+    });
+  }
+
   Future<void> _onBranchDayCellTap(DateTime date) async {
     if (!_canChangeBranchWorkSchedule()) {
       if (!mounted) return;
@@ -1171,29 +1188,43 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
       return;
     }
 
-    if (!await _canChangeWorkSchedule()) {
-      _showWorkScheduleNoPermissionMessage();
-      return;
-    }
-    if (isPastWorkScheduleDate(date)) return;
-
-    final cell = _cellForDate(employee, date);
-    if (cell == null) return;
-
-    final workerId = int.tryParse(employee.id);
-    final branchId = ref.read(currentBranchIdProvider);
-    if (workerId == null || workerId <= 0 || branchId <= 0) return;
-
     final normalizedDate = DateTime(date.year, date.month, date.day);
+    _setCellLoading(employee.id, normalizedDate);
+    WorkScheduleDayCell? cell;
+    int? workerId;
+    var branchId = 0;
+    try {
+      if (!await _canChangeWorkSchedule()) {
+        _showWorkScheduleNoPermissionMessage();
+        return;
+      }
+      if (isPastWorkScheduleDate(date)) return;
+
+      cell = _cellForDate(employee, date);
+      if (cell == null) return;
+
+      workerId = int.tryParse(employee.id);
+      branchId = ref.read(currentBranchIdProvider);
+      if (workerId == null || workerId <= 0 || branchId <= 0) return;
+      if (!mounted) return;
+    } finally {
+      if (mounted) _clearCellLoading();
+    }
+
+    if (!mounted) return;
+
+    final resolvedCell = cell;
+    final resolvedWorkerId = workerId;
 
     final result = await showWorkScheduleDayEditDialog(
       rootNavigatorKey.currentContext ?? context,
-      cell: cell,
+      cell: resolvedCell,
       branchDayBounds: _branchDayBoundsForDate(normalizedDate),
-      validateBeforeSave: (draft) => validateWorkScheduleDayAgainstAppointments(
+      validateBeforeSave: (draft) =>
+          validateWorkScheduleDayAgainstAppointments(
         ref: ref,
         branchId: branchId,
-        workerId: workerId,
+        workerId: resolvedWorkerId,
         date: normalizedDate,
         proposed: WorkScheduleDayBounds(
           isWorkingDay: draft.isWorkingDay,
@@ -1205,14 +1236,14 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
       ),
     );
     if (result == null || !mounted) return;
-    final fallbackStart = cell.timeStart ?? '09:00';
-    final fallbackEnd = cell.timeEnd ?? '20:00';
+    final fallbackStart = resolvedCell.timeStart ?? '09:00';
+    final fallbackEnd = resolvedCell.timeEnd ?? '20:00';
     final body = CreateWorkerScheduleRequest.forWorker(
       date: normalizedDate,
       timeStart: result.isWorkingDay ? result.workStart : fallbackStart,
       timeEnd: result.isWorkingDay ? result.workEnd : fallbackEnd,
       active: result.isWorkingDay,
-      workerId: workerId,
+      workerId: resolvedWorkerId,
       branchId: branchId,
       breakStart: result.isWorkingDay ? result.breakStart : null,
       breakEnd: result.isWorkingDay ? result.breakEnd : null,
@@ -1222,7 +1253,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     final snapshot = _employees.value;
     final optimisticCell = _cellFromEditResult(
       result: result,
-      previous: cell,
+      previous: resolvedCell,
     );
     final scrollOffsetBeforeSave = _readHorizontalScrollOffset();
 
@@ -1238,8 +1269,8 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
 
     try {
       final saved = await _saveWorkerScheduleDay(
-        workerId: workerId,
-        scheduleId: cell.scheduleId,
+        workerId: resolvedWorkerId,
+        scheduleId: resolvedCell.scheduleId,
         date: normalizedDate,
         branchId: branchId,
         body: body,
@@ -1250,7 +1281,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
         date: normalizedDate,
         cell: _cellFromEditResult(
           result: result,
-          previous: cell,
+          previous: resolvedCell,
           scheduleId: saved.id,
         ),
       );
@@ -1428,7 +1459,10 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
                     horizontalScrollController: _gridHorizontalScroll,
                     savingEmployeeId: _savingEmployeeId,
                     savingDate: _savingDate,
+                    loadingEmployeeId: _loadingCellEmployeeId,
+                    loadingDate: _loadingCellDate,
                     onEmployeeMoreTap: _onEmployeeMoreTap,
+                    hideBranchMoreButton: isWorkerRole,
                     onCellTap: _onDayCellTap,
                   ),
                 );

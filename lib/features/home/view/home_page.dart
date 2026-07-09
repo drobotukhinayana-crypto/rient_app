@@ -63,6 +63,7 @@ class _BodyWidget extends ConsumerWidget {
       final recovered = await tryRecoverScheduleNetwork(ref);
       if (!recovered) return;
       ref.invalidate(connectivityCheckProvider);
+      refreshWorkerPermissions(ref);
       ref.invalidate(statisticsProvider);
       ref.invalidate(scheduleAppointmentsProvider);
       try {
