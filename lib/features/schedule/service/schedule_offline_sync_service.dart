@@ -27,7 +27,12 @@ class ScheduleOfflineSyncService {
   final Ref ref;
 
   Future<void> syncIfOnline() async {
-    if (ref.read(scheduleOfflineModeProvider)) return;
+    try {
+      if (ref.read(scheduleOfflineModeProvider)) return;
+    } catch (_) {
+      // Провайдер может быть mid-rebuild при выходе из оффлайна.
+      return;
+    }
 
     final branchId = ref.read(currentBranchIdProvider);
     if (branchId <= 0) return;

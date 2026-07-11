@@ -1396,10 +1396,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         }());
       }
       if (previous == true && next == false) {
-        ref.read(scheduleServerReachableProvider.notifier).state = true;
-        unawaited(ref.read(scheduleOfflineSyncServiceProvider).syncIfOnline());
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
+          try {
+            ref.read(scheduleServerReachableProvider.notifier).state = true;
+          } catch (_) {}
+          unawaited(
+            ref.read(scheduleOfflineSyncServiceProvider).syncIfOnline(),
+          );
           ref.invalidate(scheduleAppointmentsProvider);
           _forceRefreshScheduleScreen();
         });

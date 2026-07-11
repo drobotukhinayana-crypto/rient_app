@@ -3,16 +3,15 @@ import 'dart:async';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
+import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
-import 'package:rient_app/features/schedule/view/providers/schedule_network_recovery.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_network_recovery.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/worker_schedules_range_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
-
-import 'package:rient_app/core/services/token_storage.dart';
 
 bool _scheduleInvalidationScheduled = false;
 
@@ -72,9 +71,6 @@ final scheduleServerUnreachableListenerProvider = Provider<void>((ref) {
     unawaited(confirmScheduleServerWhenBranchReady(ref));
   });
 
-  ref.listen<bool>(appNoConnectionProvider, (previous, next) {
-    if (previous == true && !next) {
-      unawaited(tryRecoverScheduleNetwork(ref));
-    }
-  });
+  // Recovery при появлении сети — только в connectivityRecoveryListenerProvider,
+  // иначе двойной вызов tryRecover ломает Riverpod в одном кадре.
 });

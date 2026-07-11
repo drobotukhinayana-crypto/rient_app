@@ -211,15 +211,22 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
   Future<void> _handleAppResumed() async {
     if (!mounted) return;
     ref.invalidate(workerEntityLabelsProvider);
-    if (ref.read(scheduleOfflineModeProvider) &&
-        ref.read(appHasNetworkProvider)) {
-      unawaited(tryRecoverScheduleNetwork(ref));
-    }
-    if (ref.read(appHasNetworkProvider) &&
-        ref.read(scheduleServerReachableProvider)) {
-      ref.invalidate(connectivityCheckProvider);
-      invalidateScheduleNetworkProvidersDeferred(ref);
-      refreshWorkerPermissions(ref);
+    try {
+      final offline = ref.read(scheduleOfflineModeProvider);
+      final hasNetwork = ref.read(appHasNetworkProvider);
+      if (offline && hasNetwork) {
+        unawaited(tryRecoverScheduleNetwork(ref));
+      }
+      if (hasNetwork && ref.read(scheduleServerReachableProvider)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.invalidate(connectivityCheckProvider);
+          invalidateScheduleNetworkProvidersDeferred(ref);
+          refreshWorkerPermissions(ref);
+        });
+      }
+    } catch (_) {
+      // Derived connectivity-провайдеры могут быть mid-rebuild.
     }
     final now = DateTime.now();
     final lastAt = _lastResumeRefreshAt;
@@ -260,8 +267,8 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     if (router.state.name == AddNewEntryPage.name) return;
 
     final shellIndex = widget.navigationShell.currentIndex;
-    // Расписание и главная доступны оффлайн (кэш).
-    if (shellIndex == 0 || shellIndex == 1) return;
+    // В оффлайне доступно только расписание.
+    if (shellIndex == 1) return;
 
     TabBarPage.goToScheduleTab(context);
   }
@@ -287,8 +294,8 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     if (!mounted) return;
     final offline = ref.read(appNoConnectionProvider) ||
         ref.read(scheduleOfflineModeProvider);
-    // Главная (0) и расписание (1) доступны оффлайн; остальные вкладки — нет.
-    if (offline && index != 0 && index != 1) {
+    // В оффлайне доступна только вкладка «Расписание» (1).
+    if (offline && index != 1) {
       if (showCreateTab && index == 2) {
         final hostContext = appShellScaffoldKey.currentContext ?? context;
         if (hostContext.mounted) {
@@ -458,6 +465,7 @@ class _NavbarWidget extends StatelessWidget {
                   isActive: currentIndex == 0,
                   imageAsset: AppImages.homeTab,
                   title: 'Главная',
+                  enabled: tabsEnabled,
                   onTap: () => onTabTapped(0),
                 ),
               ),
