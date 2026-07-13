@@ -30,6 +30,9 @@ Future<int> resolveScheduleBranchId(Ref ref) async {
   final selected = ref.read(selectedBranchProvider);
   if (selected != null) return selected.id;
 
+  final restored = await ensureSelectedBranchRestored(ref);
+  if (restored != null && restored.id > 0) return restored.id;
+
   if (ref.read(appNoConnectionProvider) ||
       !ref.read(scheduleServerReachableProvider)) {
     return 0;

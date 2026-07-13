@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:rient_app/core/services/email_storage.dart';
+import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/network/app_connectivity_provider.dart'
     show appNoConnectionProvider, scheduleServerReachableProvider;
@@ -8,6 +9,7 @@ import 'package:rient_app/features/auth/view/providers/organization_id_provider.
 import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/service/branches_service.dart';
+import 'package:rient_app/features/schedule/data/schedule_appointments_cache.dart';
 
 /// Ключ для сохранения id выбранного филиала в локальное хранилище.
 const selectedBranchIdStorageKey = 'selected_branch_id';
@@ -46,6 +48,38 @@ final branchesRequestKeyProvider = Provider<(int, String)?>((ref) {
   return (organizationId, token);
 });
 
+/// Id филиала из SharedPreferences / кэша записей — для холодного старта оффлайн.
+Future<int?> readPersistedBranchId(dynamic ref) async {
+  final storage = ref.read(localStorageProvider);
+  final storageKey = ref.read(selectedBranchStorageKeyProvider);
+  final idStr = await storage.getString(storageKey);
+  final id = int.tryParse(idStr ?? '');
+  if (id != null && id > 0) return id;
+
+  final legacy = int.tryParse(
+    await storage.getString(selectedBranchIdStorageKey) ?? '',
+  );
+  if (legacy != null && legacy > 0) return legacy;
+
+  final snapshot =
+      await ScheduleAppointmentsCache(storage).read();
+  if (snapshot != null && snapshot.branchId > 0) return snapshot.branchId;
+  return null;
+}
+
+/// Подставляет филиал из локального хранилища, если ещё не выбран (оффлайн-старт).
+Future<BranchApi?> ensureSelectedBranchRestored(dynamic ref) async {
+  final current = ref.read(selectedBranchProvider);
+  if (current != null && current.id > 0) return current;
+
+  final branchId = await readPersistedBranchId(ref);
+  if (branchId == null || branchId <= 0) return null;
+
+  final stub = offlineStubBranch(id: branchId, name: 'Филиал');
+  ref.read(selectedBranchProvider.notifier).state = stub;
+  return stub;
+}
+
 // Provider для загрузки списка филиалов
 final branchesProvider = FutureProvider<BranchesApiResponse>((ref) async {
   final sessionKey = ref.watch(branchesRequestKeyProvider);
@@ -53,10 +87,11 @@ final branchesProvider = FutureProvider<BranchesApiResponse>((ref) async {
     throw Exception('Session not ready');
   }
 
-  final selectedBranch = ref.read(selectedBranchProvider);
+  var selectedBranch = ref.read(selectedBranchProvider);
   final isOffline = ref.watch(appNoConnectionProvider) ||
       !ref.watch(scheduleServerReachableProvider);
   if (isOffline) {
+    selectedBranch ??= await ensureSelectedBranchRestored(ref);
     if (selectedBranch != null) {
       return BranchesApiResponse(
         count: 1,

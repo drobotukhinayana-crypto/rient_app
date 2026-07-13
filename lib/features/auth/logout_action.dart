@@ -29,6 +29,7 @@ import 'package:rient_app/features/home/view/providers/statistics_provider.dart'
 import 'package:rient_app/features/home/view/providers/today_revenue_metrics_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/data/schedule_appointments_cache.dart';
+import 'package:rient_app/features/schedule/data/schedule_workers_cache.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
 Future<void> _remoteLogoutCleanup(dynamic ref) async {
@@ -75,6 +76,7 @@ Future<void> clearUserSession(dynamic ref) async {
   await storage.removeValue(selectedBranchIdStorageKey);
   await storage.removeValue(scheduleOfflineCacheStorageKey);
   await storage.removeValue(scheduleOfflineCurrentWorkerIdKey);
+  await storage.removeValue(scheduleWorkersCacheStorageKey);
 
   await ref.read(appLockServiceProvider).clearAll();
   await ref.read(appLockUiProvider.notifier).onSessionEnded();
@@ -116,6 +118,7 @@ Future<void> _clearUserSessionLocalFallback(dynamic ref) async {
     await storage.removeValue(selectedBranchIdStorageKey);
     await storage.removeValue(scheduleOfflineCacheStorageKey);
     await storage.removeValue(scheduleOfflineCurrentWorkerIdKey);
+    await storage.removeValue(scheduleWorkersCacheStorageKey);
 
     resetScheduleNetworkStateForSession(ref);
     invalidateScheduleNetworkProviders(ref);

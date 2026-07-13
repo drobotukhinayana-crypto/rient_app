@@ -25,6 +25,23 @@ class _RestoreSelectedBranchState extends ConsumerState<RestoreSelectedBranch> {
   Object? _restoreScopeKey;
 
   @override
+  void initState() {
+    super.initState();
+    // Холодный старт оффлайн: филиал нужен до ответа branches API.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _restored) return;
+      unawaited(_restoreFromStorageEvenIfOffline());
+    });
+  }
+
+  Future<void> _restoreFromStorageEvenIfOffline() async {
+    final branch = await ensureSelectedBranchRestored(ref);
+    if (branch != null && mounted) {
+      _restored = true;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final restoreScopeKey = ref.watch(selectedBranchStorageKeyProvider);
     if (_restoreScopeKey != restoreScopeKey) {
@@ -34,6 +51,13 @@ class _RestoreSelectedBranchState extends ConsumerState<RestoreSelectedBranch> {
 
     ref.listen(branchesProvider, (prev, next) {
       next.whenData((branches) {
+        if (_restored &&
+            ref.read(selectedBranchProvider) != null &&
+            branches.results.isNotEmpty) {
+          // Уже восстановили stub — заменим на полный объект из API при появлении сети.
+          unawaited(_upgradeStubFromApiList(branches));
+          return;
+        }
         if (_restored) return;
         _restored = true;
         _doRestore(branches);
@@ -42,12 +66,28 @@ class _RestoreSelectedBranchState extends ConsumerState<RestoreSelectedBranch> {
     return widget.child;
   }
 
+  Future<void> _upgradeStubFromApiList(BranchesApiResponse branches) async {
+    final current = ref.read(selectedBranchProvider);
+    if (current == null) return;
+    for (final b in branches.results) {
+      if (b.id == current.id && b.name != current.name) {
+        if (!mounted) return;
+        ref.read(selectedBranchProvider.notifier).state = b;
+        return;
+      }
+    }
+  }
+
   Future<void> _doRestore(BranchesApiResponse branches) async {
     final storage = ref.read(localStorageProvider);
     final storageKey = ref.read(selectedBranchStorageKeyProvider);
     final idStr = await storage.getString(storageKey);
     final id = int.tryParse(idStr ?? '');
-    if (id == null) return;
+    if (id == null) {
+      // Fallback: кэш записей / stub
+      await ensureSelectedBranchRestored(ref);
+      return;
+    }
     BranchApi? branch;
     for (final b in branches.results) {
       if (b.id == id) {
@@ -55,11 +95,14 @@ class _RestoreSelectedBranchState extends ConsumerState<RestoreSelectedBranch> {
         break;
       }
     }
-    if (branch != null && mounted) {
+    branch ??= offlineStubBranch(id: id, name: 'Филиал');
+    if (mounted) {
       ref.read(selectedBranchProvider.notifier).state = branch;
-      unawaited(
-        ref.read(pushRegistrationServiceProvider).registerForActiveSession(),
-      );
+      if (branches.results.isNotEmpty) {
+        unawaited(
+          ref.read(pushRegistrationServiceProvider).registerForActiveSession(),
+        );
+      }
     }
   }
 }

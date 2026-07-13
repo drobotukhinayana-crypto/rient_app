@@ -44,6 +44,29 @@ sealed class BranchApi with _$BranchApi {
       _$BranchApiFromJson(json);
 }
 
+/// Минимальный филиал для оффлайн-старта (только id из локального кэша).
+BranchApi offlineStubBranch({required int id, String? name}) => BranchApi(
+      id: id,
+      isMain: null,
+      name: name,
+      country: null,
+      region: null,
+      city: null,
+      address: null,
+      location: null,
+      timezone: null,
+      workspaces: null,
+      phone: null,
+      email: null,
+      schedulePatterns: null,
+      hasChatSettings: null,
+      isBlocked: null,
+      isAvailable: null,
+      yandexable: null,
+      numberOfWorkers: null,
+      hasChatPushSettings: null,
+    );
+
 @freezed
 sealed class Location with _$Location {
   const factory Location({required double lat, required double lon}) =

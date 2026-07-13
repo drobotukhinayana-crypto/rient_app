@@ -34,7 +34,11 @@ class ScheduleOfflineSyncService {
       return;
     }
 
-    final branchId = ref.read(currentBranchIdProvider);
+    var branchId = ref.read(currentBranchIdProvider);
+    if (branchId <= 0) {
+      final restored = await ensureSelectedBranchRestored(ref);
+      branchId = restored?.id ?? 0;
+    }
     if (branchId <= 0) return;
 
     final workersResponse = await ref.read(scheduleWorkersProvider.future);
@@ -58,6 +62,7 @@ class ScheduleOfflineSyncService {
     final cache = ref.read(scheduleAppointmentsCacheProvider);
 
     try {
+      final byWorker = <int, List<AppointmentApi>>{};
       for (final workerId in workerIds) {
         final response = await service.getAppointments(
           branchId: branchId,
@@ -65,14 +70,19 @@ class ScheduleOfflineSyncService {
           dateTimeGte: rangeFrom,
           dateTimeLte: rangeTo,
         );
-        await cache.mergeWorkerAppointments(
-          branchId: branchId,
-          workerId: workerId,
-          appointments: response.results.where((a) => a.isActive),
-          rangeFrom: rangeFrom,
-          rangeTo: rangeTo,
-        );
+        byWorker[workerId] =
+            response.results.where((a) => a.isActive).toList();
       }
+      // Полный снимок на ±2 недели — чтобы холодный старт оффлайн показывал записи.
+      await cache.save(
+        ScheduleAppointmentsCacheSnapshot(
+          branchId: branchId,
+          rangeFrom: offlineFrom,
+          rangeTo: offlineTo,
+          cachedAt: DateTime.now(),
+          byWorker: byWorker,
+        ),
+      );
       ref.read(scheduleServerReachableProvider.notifier).state = true;
     } catch (e) {
       if (isClientHttpError(e)) return;

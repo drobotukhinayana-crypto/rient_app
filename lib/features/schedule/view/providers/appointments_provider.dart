@@ -34,7 +34,11 @@ class AppointmentsQuery {
 
 final scheduleAppointmentsProvider =
     FutureProvider.family<List<AppointmentApi>, AppointmentsQuery>((ref, query) async {
-      final branchId = ref.watch(currentBranchIdProvider);
+      var branchId = ref.watch(currentBranchIdProvider);
+      if (branchId == 0) {
+        final restored = await ensureSelectedBranchRestored(ref);
+        branchId = restored?.id ?? 0;
+      }
       if (branchId == 0 || query.workerId == null) {
         return const <AppointmentApi>[];
       }
@@ -46,17 +50,14 @@ final scheduleAppointmentsProvider =
 
       List<AppointmentApi> fromCache() {
         if (snapshot == null) return const [];
-        final fetchRange = expandAppointmentsFetchRange(
-          query.dateTimeGte,
-          query.dateTimeLte,
-        );
-        if (fetchRange.lte.isBefore(snapshot.rangeFrom) ||
-            fetchRange.gte.isAfter(snapshot.rangeTo)) {
-          return const [];
-        }
+        final effectiveBranchId =
+            branchId > 0 ? branchId : snapshot.branchId;
+        if (effectiveBranchId <= 0) return const [];
+        // В оффлайне отдаём всё, что есть в кэше для воркера в видимом диапазоне,
+        // даже если границы snapshot чуть уже/шире запроса.
         return cache.appointmentsForQuery(
           snapshot: snapshot,
-          branchId: branchId,
+          branchId: effectiveBranchId,
           workerId: workerId,
           dateTimeGte: query.dateTimeGte,
           dateTimeLte: query.dateTimeLte,
