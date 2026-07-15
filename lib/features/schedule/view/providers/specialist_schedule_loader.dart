@@ -139,10 +139,18 @@ SpecialistScheduleFormState buildSpecialistFormFromApi({
   Map<String, dynamic>? workerRow,
   List<SchedulePatternItemApi> loadedPatterns = const [],
   Map<String, SchedulePatternBranchItemApi> branchPatternsByDay = const {},
+  int? workerId,
 }) {
+  final scoped = workerId == null
+      ? patterns
+      : patterns.where((p) => p.worker == workerId).toList();
   final byDay = <String, SchedulePatternItemApi>{};
-  for (final p in patterns) {
-    byDay[canonicalScheduleDayKey(p.day)] = p;
+  for (final p in scoped) {
+    final key = canonicalScheduleDayKey(p.day);
+    final existing = byDay[key];
+    if (existing == null || p.id > existing.id) {
+      byDay[key] = p;
+    }
   }
 
   SpecialistDayDraft draftFor(String dayKey, String label) {
@@ -225,7 +233,23 @@ SpecialistScheduleFormState buildSpecialistFormFromApi({
     shiftStartDate: shiftStart,
     shiftWorkStart: configStart,
     shiftWorkEnd: configEnd,
-    loadedPatterns: loadedPatterns.isNotEmpty ? loadedPatterns : patterns,
+    loadedPatterns: () {
+      final source =
+          loadedPatterns.isNotEmpty ? loadedPatterns : scoped;
+      final deduped = <String, SchedulePatternItemApi>{};
+      for (final p in source) {
+        final key = canonicalScheduleDayKey(p.day);
+        final existing = deduped[key];
+        if (existing == null || p.id > existing.id) {
+          deduped[key] = p;
+        }
+      }
+      // Дни из byDay (свитчи формы) имеют приоритет по active/часам.
+      for (final entry in byDay.entries) {
+        deduped[entry.key] = entry.value;
+      }
+      return deduped.values.toList();
+    }(),
     branchPatternsByDay: branchPatternsByDay,
     employeeName: () {
       final fromRow = specialistEmployeeNameFromWorkerRow(workerRow);

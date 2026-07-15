@@ -59,8 +59,10 @@ bool preferSchedulePattern(
   SchedulePatternItemApi candidate,
   SchedulePatternItemApi current,
 ) {
-  if (candidate.active != current.active) return candidate.active;
-  return candidate.id > current.id;
+  // Новее по id важнее: иначе stale active:true из workerRow
+  // перекрывает свежий active:false из API (и наоборот).
+  if (candidate.id != current.id) return candidate.id > current.id;
+  return candidate.active && !current.active;
 }
 
 List<SchedulePatternItemApi> dedupeSchedulePatternsByDay(
@@ -103,10 +105,19 @@ List<SchedulePatternItemApi> mergeSchedulePatternsForWorker({
   required List<SchedulePatternItemApi> fromBranchApi,
   Map<String, dynamic>? workerRow,
 }) {
-  return dedupeSchedulePatternsByDay([
-    ...fromBranchApi,
-    ...schedulePatternsFromWorkerRow(workerRow),
-  ]);
+  // API — источник правды; workerRow только закрывает дни, которых нет в API.
+  final fromApi = dedupeSchedulePatternsByDay(fromBranchApi);
+  final fromRow = dedupeSchedulePatternsByDay(
+    schedulePatternsFromWorkerRow(workerRow),
+  );
+  final byDay = <String, SchedulePatternItemApi>{
+    for (final pattern in fromRow)
+      canonicalScheduleDayKey(pattern.day): pattern,
+  };
+  for (final pattern in fromApi) {
+    byDay[canonicalScheduleDayKey(pattern.day)] = pattern;
+  }
+  return byDay.values.toList();
 }
 
 Map<int, List<SchedulePatternItemApi>> groupSchedulePatternsByWorker(
@@ -122,27 +133,9 @@ Map<int, List<SchedulePatternItemApi>> groupSchedulePatternsByWorker(
   };
 }
 
-/// Фиолетовый цвет — только если вручную изменили рабочий/выходной день или часы.
-/// Правка одного перерыва (в т.ч. через «…») не считается ручной правкой графика.
-bool resolveManualWorkScheduleEdit({
-  required ScheduleItemApi daily,
-  required WorkScheduleDayCell templateCell,
-}) {
-  final templateIsWorking = templateCell.kind == WorkScheduleCellKind.shift;
-  final dailyIsWorking = daily.active;
-
-  if (templateIsWorking != dailyIsWorking) return true;
-
-  if (!dailyIsWorking) return false;
-
-  final dailyStart = daily.timeStartShort ?? '';
-  final dailyEnd = daily.timeEndShort ?? '';
-  final templateStart = templateCell.timeStart ?? '';
-  final templateEnd = templateCell.timeEnd ?? '';
-  if (dailyStart != templateStart || dailyEnd != templateEnd) return true;
-
-  return false;
-}
+/// Фиолетовый — только ручная правка дня в сетке (`auto: false`).
+/// Смена шаблона через «…» оставляет `auto: true` → обычный цвет.
+bool isManualWorkScheduleDaily(ScheduleItemApi daily) => !daily.auto;
 
 WorkScheduleShiftTone _toneForShiftHours(String start, String end) {
   final startH = int.tryParse(start.split(':').first) ?? 0;
@@ -351,20 +344,13 @@ WorkScheduleDayCell workScheduleCellFromPattern(
       return workScheduleCellFromScheduleItem(
         daily,
         selected: selected,
-        isManuallyEdited: resolveManualWorkScheduleEdit(
-          daily: daily,
-          templateCell: const WorkScheduleDayCell.dayOff(),
-        ),
+        isManuallyEdited: isManualWorkScheduleDaily(daily),
       );
     }
     return _dayOffFromDaily(
       daily,
-      isManuallyEdited: daily != null
-          ? resolveManualWorkScheduleEdit(
-              daily: daily,
-              templateCell: const WorkScheduleDayCell.dayOff(),
-            )
-          : false,
+      isManuallyEdited:
+          daily != null ? isManualWorkScheduleDaily(daily) : false,
     );
   }
   final start = pattern.timeStartShort;
@@ -438,8 +424,7 @@ WorkScheduleDayCell _workScheduleCellFromWorkerDaily({
   required WorkScheduleDayCell templateCell,
   bool selected = false,
 }) {
-  final manual = !daily.auto ||
-      resolveManualWorkScheduleEdit(daily: daily, templateCell: templateCell);
+  final manual = !daily.auto;
 
   if (!daily.active) {
     return _dayOffFromDaily(daily, isManuallyEdited: manual);
@@ -540,13 +525,14 @@ WorkScheduleDayCell _cellFromTemplate({
         return workScheduleCellFromScheduleItem(
           daily,
           selected: selected,
-          isManuallyEdited: resolveManualWorkScheduleEdit(
-            daily: daily,
-            templateCell: const WorkScheduleDayCell.dayOff(),
-          ),
+          isManuallyEdited: isManualWorkScheduleDaily(daily),
         );
       }
-      return _dayOffFromDaily(daily);
+      return _dayOffFromDaily(
+        daily,
+        isManuallyEdited:
+            daily != null ? isManualWorkScheduleDaily(daily) : false,
+      );
     }
     final start = _shortTimeFromDynamic(configMap?['time_start']) ?? '09:00';
     final end = _shortTimeFromDynamic(configMap?['time_end']) ?? '20:00';

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,8 +11,9 @@ import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
-import 'package:rient_app/core/widgets/app_service_message.dart';
+import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
+import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/change_time_picker_dialog.dart';
 import 'package:rient_app/core/widgets/custom_switch_widget.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
@@ -21,16 +25,15 @@ import 'package:rient_app/features/home/view/providers/worker_permissions_provid
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_branch_api/schedule_patterns_branch_api.dart';
 import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
+import 'package:rient_app/features/schedule/service/worker_schedule_configs_service.dart';
+import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/features/schedule/utils/work_schedule_appointment_conflict.dart'
     show
         humanizeScheduleApiError,
         isScheduleAppointmentConflictError,
         isWorkSchedulePermissionError,
         workScheduleNoPermissionMessage;
-import 'package:rient_app/features/schedule/service/worker_schedule_configs_service.dart';
-import 'package:rient_app/features/schedule/service/workers_service.dart';
-import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
-import 'package:dio/dio.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_patterns_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/specialist_schedule_loader.dart';
 import 'package:rient_app/features/schedule/view/providers/specialist_schedule_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
@@ -70,6 +73,7 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
   bool _weekendsExpanded = true;
   bool _formInitialized = false;
   bool _isSaving = false;
+  bool _loadFailed = false;
 
   late String _weekdayGroupStart;
   late String _weekdayGroupEnd;
@@ -114,7 +118,10 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       refreshWorkerPermissions(ref);
+      // Always reload from API — session cache can keep old day switches.
+      unawaited(_reloadFormFromNetwork());
     });
     _weekdayGroupStart = _defaultGroupStart;
     _weekdayGroupEnd = _defaultGroupEnd;
@@ -125,6 +132,49 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
     _workDaysController = TextEditingController(text: '1');
     _offDaysController = TextEditingController(text: '1');
     _shiftStartDate = _today;
+  }
+
+  void _invalidateSpecialistCaches(SpecialistScheduleLoadQuery loadQuery) {
+    final branchId = ref.read(currentBranchIdProvider);
+    if (branchId > 0) {
+      ref.invalidate(
+        schedulePatternsProvider(
+          SchedulePatternsQuery(
+            branchId: branchId,
+            workerId: loadQuery.workerId,
+          ),
+        ),
+      );
+    }
+    ref.invalidate(specialistScheduleFormProvider(loadQuery));
+  }
+
+  Future<void> _reloadFormFromNetwork({bool preferLastSaved = true}) async {
+    final loadQuery = _loadQuery;
+    if (loadQuery == null) return;
+    _invalidateSpecialistCaches(loadQuery);
+    if (mounted) {
+      setState(() {
+        _formInitialized = false;
+        _loadFailed = false;
+      });
+    }
+    try {
+      final form = await loadSpecialistScheduleForm(
+        ref: ref,
+        workerId: loadQuery.workerId,
+        preferLastSaved: preferLastSaved,
+      );
+      if (!mounted) return;
+      setState(() {
+        _applyLoadedForm(form);
+        _loadedPatterns = form.loadedPatterns;
+        _formInitialized = true;
+        _loadFailed = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadFailed = true);
+    }
   }
 
   @override
@@ -181,6 +231,33 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
     _lastSavedWeekdayGroupEnd = _weekdayGroupEnd;
     _lastSavedWeekendGroupStart = _weekendGroupStart;
     _lastSavedWeekendGroupEnd = _weekendGroupEnd;
+  }
+
+  SpecialistScheduleFormState _currentFormStateForSave() {
+    return SpecialistScheduleFormState(
+      scheduleTypeLabel: _scheduleType,
+      weekdays: _cloneDayDrafts(_weekdays),
+      weekends: _cloneDayDrafts(_weekends),
+      weekdayGroupStart: _weekdayGroupStart,
+      weekdayGroupEnd: _weekdayGroupEnd,
+      weekendGroupStart: _weekendGroupStart,
+      weekendGroupEnd: _weekendGroupEnd,
+      configUuid: _configUuid,
+      workDays: _workDaysController.text.trim().isEmpty
+          ? '1'
+          : _workDaysController.text.trim(),
+      offDays: _offDaysController.text.trim().isEmpty
+          ? '1'
+          : _offDaysController.text.trim(),
+      shiftStartDate: _shiftStartDate,
+      shiftWorkStart: _shiftWorkStart,
+      shiftWorkEnd: _shiftWorkEnd,
+      loadedPatterns: _loadedPatterns,
+      branchPatternsByDay: _branchPatternsByDay,
+      employeeName: _headerEmployeeName,
+      employeeSpecialization: _employeeSpecialization,
+      employeePictureUrl: _headerEmployeePictureUrl,
+    );
   }
 
   void _restoreSavedWeekSchedule() {
@@ -556,7 +633,13 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
 
       final loadQuery = _loadQuery;
       if (loadQuery != null) {
-        ref.invalidate(specialistScheduleFormProvider(loadQuery));
+        // Drop cached patterns/form so the next "..." open shows saved switches.
+        _invalidateSpecialistCaches(loadQuery);
+        rememberSpecialistScheduleSave(
+          ref,
+          workerId: loadQuery.workerId,
+          form: _currentFormStateForSave(),
+        );
       }
       bumpWorkScheduleReloadToken(ref);
 
@@ -597,14 +680,10 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
       );
     }
 
-    final formAsync = ref.watch(specialistScheduleFormProvider(loadQuery));
-
-    return formAsync.when(
-      loading: () => Scaffold(
-        backgroundColor: screenBackground,
-        body: const Center(child: LoadingWidget()),
-      ),
-      error: (_, __) => Scaffold(
+    // Данные формы берём только из _reloadFormFromNetwork / last-saved snapshot,
+    // а не из кэша FutureProvider — иначе свитчи отстают после сохранения.
+    if (_loadFailed) {
+      return Scaffold(
         backgroundColor: screenBackground,
         body: Center(
           child: Padding(
@@ -616,40 +695,19 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
             ),
           ),
         ),
-      ),
-      data: (form) {
-        if (!_formInitialized) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            setState(() {
-              _applyLoadedForm(form);
-              _loadedPatterns = form.loadedPatterns;
-              _formInitialized = true;
-            });
-          });
-          return Scaffold(
-            backgroundColor: screenBackground,
-            body: const Center(child: LoadingWidget()),
-          );
-        }
-        return _buildForm(context, isDark, screenBackground, accent);
-      },
-    );
+      );
+    }
+    if (!_formInitialized) {
+      return Scaffold(
+        backgroundColor: screenBackground,
+        body: const Center(child: LoadingWidget()),
+      );
+    }
+    return _buildForm(context, isDark, screenBackground, accent);
   }
 
   Future<void> _onPullToRefresh() async {
-    final loadQuery = _loadQuery;
-    if (loadQuery == null) return;
-    ref.invalidate(specialistScheduleFormProvider(loadQuery));
-    try {
-      final form =
-          await ref.read(specialistScheduleFormProvider(loadQuery).future);
-      if (!mounted) return;
-      setState(() {
-        _applyLoadedForm(form);
-        _loadedPatterns = form.loadedPatterns;
-      });
-    } catch (_) {}
+    await _reloadFormFromNetwork(preferLastSaved: false);
   }
 
   Widget _buildForm(

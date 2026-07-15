@@ -34,10 +34,11 @@ class SchedulePatternsService {
     final url = ApiConsts().createUrl(
       'organizations/$organizationId/schedule_patterns/',
     );
+    // Как на сайте: worker__id__in + branch__id__in.
     final queryParams = <String, dynamic>{
       'branch__id__in': branchId.toString(),
       'page_size': pageSize,
-      if (workerId != null) 'worker__id': workerId,
+      if (workerId != null) 'worker__id__in': workerId,
     };
 
     try {

@@ -1364,26 +1364,26 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
       _showWorkScheduleNoPermissionMessage();
       return;
     }
-    try {
-      final saved = await hostContext.pushNamed<bool>(
-        SpecialistSchedulePage.name,
-        extra: SpecialistSchedulePageArgs(
-          employeeId: employee.id,
-          employeeName: employee.name,
-          pictureUrl: employee.pictureUrl,
-        ),
+    final saved = await hostContext.pushNamed<bool>(
+      SpecialistSchedulePage.name,
+      extra: SpecialistSchedulePageArgs(
+        employeeId: employee.id,
+        employeeName: employee.name,
+        pictureUrl: employee.pictureUrl,
+      ),
+    );
+    if (!mounted) return;
+    if (saved == true) {
+      final workerLabel = (ref.read(workerEntityLabelsProvider).value ??
+              WorkerEntityLabels.defaults)
+          .name1;
+      showAppServiceMessage(
+        context,
+        message: 'График работы $workerLabel обновлен',
       );
-      if (!mounted) return;
-      if (saved == true) {
-        showAppServiceMessage(
-          context,
-          message: 'График работы филиала обновлен',
-        );
-      }
-    } finally {
-      if (mounted) {
-        _scheduleReloadAfterReturn(employeeId: employee.id);
-      }
+      _scheduleReloadAfterReturn(employeeId: employee.id, force: true);
+    } else {
+      _scheduleReloadAfterReturn(employeeId: employee.id);
     }
   }
 
