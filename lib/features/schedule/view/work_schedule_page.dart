@@ -42,6 +42,8 @@ import 'package:rient_app/features/schedule/utils/work_schedule_appointment_conf
         WorkScheduleDayBounds,
         workScheduleNoPermissionMessage;
 import 'package:rient_app/features/schedule/view/branch_schedule_page.dart';
+import 'package:rient_app/features/schedule/view/providers/specialist_schedule_loader.dart';
+import 'package:rient_app/features/schedule/view/providers/specialist_schedule_provider.dart';
 import 'package:rient_app/features/schedule/view/specialist_schedule_page.dart';
 
 class WorkSchedulePage extends ConsumerStatefulWidget {
@@ -257,9 +259,9 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
           : const <String, SchedulePatternBranchItemApi>{};
       if (!mounted || generation != _fetchGeneration) return;
       setState(() {
-        _employees = AsyncValue.data(rows);
         _branchPatternsByDay = branchPatternsByDay;
         _displayedBranchId = branchId;
+        _employees = AsyncValue.data(_overlayLastSavedSpecialistForms(rows));
       });
     } catch (error, stackTrace) {
       if (!mounted || generation != _fetchGeneration) return;
@@ -268,9 +270,108 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
     }
   }
 
+  /// После «…» GET часто ещё отдаёт старый шаблон — накладываем только что
+  /// сохранённую форму, чтобы сетка обновилась без смены месяца.
+  List<WorkScheduleEmployeeRow> _overlayLastSavedSpecialistForms(
+    List<WorkScheduleEmployeeRow> rows,
+  ) {
+    final savedByWorker = ref.read(specialistScheduleLastSavedProvider);
+    if (savedByWorker.isEmpty) return rows;
+
+    return [
+      for (final row in rows)
+        if (row.isBranchRow)
+          row
+        else
+          () {
+            final workerId = int.tryParse(row.id);
+            if (workerId == null) return row;
+            final form = savedByWorker[workerId];
+            if (form == null || form.isShift) return row;
+            return _rowApplyingSpecialistWeekForm(row: row, form: form);
+          }(),
+    ];
+  }
+
+  WorkScheduleEmployeeRow _rowApplyingSpecialistWeekForm({
+    required WorkScheduleEmployeeRow row,
+    required SpecialistScheduleFormState form,
+  }) {
+    final byWeekday = <int, SpecialistDayDraft>{};
+    for (final day in [...form.weekdays, ...form.weekends]) {
+      final weekday = scheduleDayKeyToWeekday(day.dayKey);
+      if (weekday != null) byWeekday[weekday] = day;
+    }
+
+    return WorkScheduleEmployeeRow(
+      id: row.id,
+      name: row.name,
+      pictureUrl: row.pictureUrl,
+      monthCells: [
+        for (var i = 0; i < row.monthCells.length; i++)
+          _cellFromSpecialistWeekDraft(
+            previous: row.monthCells[i],
+            draft: byWeekday[_dateForDayIndex(i).weekday],
+            date: _dateForDayIndex(i),
+          ),
+      ],
+    );
+  }
+
+  WorkScheduleDayCell _cellFromSpecialistWeekDraft({
+    required WorkScheduleDayCell previous,
+    required SpecialistDayDraft? draft,
+    required DateTime date,
+  }) {
+    if (draft == null) return previous;
+    // Ручные правки по ячейке не затираем шаблоном из «…».
+    if (previous.isManuallyEdited) return previous;
+
+    final WorkScheduleDayCell cell;
+    if (!draft.enabled) {
+      cell = WorkScheduleDayCell.dayOff(
+        scheduleId: previous.scheduleId,
+        breakStart: draft.breakStart,
+        breakEnd: draft.breakEnd,
+      );
+    } else {
+      final startH = int.tryParse(draft.start.split(':').first) ?? 9;
+      final endH = int.tryParse(draft.end.split(':').first) ?? 20;
+      cell = WorkScheduleDayCell.shift(
+        timeStart: draft.start,
+        timeEnd: draft.end,
+        tone: (endH - startH) >= 10
+            ? WorkScheduleShiftTone.full
+            : WorkScheduleShiftTone.short,
+        isSelected: previous.isSelected,
+        scheduleId: previous.scheduleId,
+        breakStart: draft.breakStart,
+        breakEnd: draft.breakEnd,
+      );
+    }
+
+    return clampWorkScheduleCellToBranchPattern(
+      cell,
+      branchSchedulePatternForDate(_branchPatternsByDay, date),
+    );
+  }
+
+  void _applyLastSavedSpecialistFormsNow() {
+    final employees = _employees.value;
+    if (employees == null) return;
+    final overlaid = _overlayLastSavedSpecialistForms(employees);
+    final offset = _readHorizontalScrollOffset();
+    setState(() {
+      _employees = AsyncValue.data(overlaid);
+      _gridVersion++;
+    });
+    _restoreHorizontalScrollOffset(offset);
+  }
+
   void _scheduleReloadAfterReturn({
     String? employeeId,
     bool force = false,
+    bool invalidateBeforeLoad = false,
   }) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -278,7 +379,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
         _reloadWorkSchedule(
           employeeId: employeeId,
           forceLoading: force,
-          invalidateBeforeLoad: force,
+          invalidateBeforeLoad: force || invalidateBeforeLoad,
         ),
       );
     });
@@ -1381,7 +1482,12 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
         context,
         message: 'График работы $workerLabel обновлен',
       );
-      _scheduleReloadAfterReturn(employeeId: employee.id, force: true);
+      // Сразу рисуем сохранённый шаблон — не ждём смены месяца / свежего GET.
+      _applyLastSavedSpecialistFormsNow();
+      _scheduleReloadAfterReturn(
+        employeeId: employee.id,
+        invalidateBeforeLoad: true,
+      );
     } else {
       _scheduleReloadAfterReturn(employeeId: employee.id);
     }
@@ -1415,7 +1521,12 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
           ),
           Expanded(
             child: AppRefreshable(
-              onRefresh: _reloadWorkSchedule,
+              onRefresh: () async {
+                // Полный refresh — сбрасываем локальный snapshot «…».
+                ref.read(specialistScheduleLastSavedProvider.notifier).state =
+                    const {};
+                await _reloadWorkSchedule();
+              },
               hasScrollBody: true,
               child: _employees.when(
               loading: () => const Center(child: LoadingWidget()),
