@@ -645,7 +645,8 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
 
       if (!mounted) return;
       _snapshotSavedWeekSchedule();
-      context.pop(true);
+      // Не pop'аем «График работы», если «…» уже закрыли во время await.
+      _popSpecialistPageIfCurrent(true);
     } catch (e) {
       if (!mounted) return;
       if (isScheduleAppointmentConflictError(e)) {
@@ -662,6 +663,16 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  /// Один pop только пока этот экран ещё верхний в стеке.
+  /// Иначе после свайпа «назад» во время save второй pop закрывает график работы.
+  void _popSpecialistPageIfCurrent([Object? result]) {
+    if (!mounted) return;
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return;
+    if (!context.canPop()) return;
+    context.pop(result);
   }
 
   @override
@@ -716,13 +727,15 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
     Color screenBackground,
     Color accent,
   ) {
-    return Scaffold(
+    return PopScope(
+      canPop: !_isSaving,
+      child: Scaffold(
       backgroundColor: screenBackground,
       appBar: null,
       body: Column(
         children: [
           _SpecialistScheduleHeader(
-            onBack: () => context.pop(),
+            onBack: _isSaving ? () {} : () => _popSpecialistPageIfCurrent(),
             scheduleTitle:
                 ref.watch(workerEntityLabelsProvider).value?.scheduleOfWorker ??
                 WorkerEntityLabels.defaults.scheduleOfWorker,
@@ -889,7 +902,8 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
                       ? AppColors.secondaryDarkLight
                       : AppColors.secondaryLight,
                   textColor: accent,
-                  onTap: () => context.pop(),
+                  isActive: !_isSaving,
+                  onTap: () => _popSpecialistPageIfCurrent(),
                 ),
                 const Gap(12),
                 MainButton(
@@ -902,6 +916,7 @@ class _SpecialistSchedulePageState extends ConsumerState<SpecialistSchedulePage>
             ),
           ),
         ],
+      ),
       ),
     );
   }

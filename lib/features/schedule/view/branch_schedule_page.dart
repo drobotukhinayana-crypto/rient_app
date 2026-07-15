@@ -260,7 +260,10 @@ class _BranchSchedulePageState extends ConsumerState<BranchSchedulePage> {
       invalidateWorkScheduleCaches(ref, branchId: branchId);
 
       if (!mounted) return;
-      context.pop(BranchScheduleSaveResult(patterns: savedPatterns));
+      final route = ModalRoute.of(context);
+      if (route != null && route.isCurrent && context.canPop()) {
+        context.pop(BranchScheduleSaveResult(patterns: savedPatterns));
+      }
     } catch (e) {
       if (!mounted) return;
       if (isWorkSchedulePermissionError(e)) {
