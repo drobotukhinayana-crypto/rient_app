@@ -340,17 +340,17 @@ WorkScheduleDayCell workScheduleCellFromPattern(
   ScheduleItemApi? daily,
 }) {
   if (pattern == null || !pattern.active) {
-    if (daily != null && daily.active) {
+    // Ручной рабочий день поверх шаблонного выходного.
+    if (daily != null && daily.active && !daily.auto) {
       return workScheduleCellFromScheduleItem(
         daily,
         selected: selected,
-        isManuallyEdited: isManualWorkScheduleDaily(daily),
+        isManuallyEdited: true,
       );
     }
     return _dayOffFromDaily(
       daily,
-      isManuallyEdited:
-          daily != null ? isManualWorkScheduleDaily(daily) : false,
+      isManuallyEdited: daily != null && isManualWorkScheduleDaily(daily),
     );
   }
   final start = pattern.timeStartShort;
@@ -366,6 +366,19 @@ WorkScheduleDayCell workScheduleCellFromPattern(
   final tone = hours >= 10
       ? WorkScheduleShiftTone.full
       : WorkScheduleShiftTone.short;
+  // Ручная правка дня перекрывает часы шаблона.
+  if (daily != null && !daily.auto) {
+    return _workScheduleCellFromWorkerDaily(
+      daily: daily,
+      templateCell: WorkScheduleDayCell.shift(
+        timeStart: start,
+        timeEnd: end,
+        tone: tone,
+        isSelected: selected,
+      ),
+      selected: selected,
+    );
+  }
   final resolvedBreak = resolveWorkerBreakForDate(
     daily: daily,
     fallbackBreakStart: pattern.breakStartShort,
@@ -424,10 +437,35 @@ WorkScheduleDayCell _workScheduleCellFromWorkerDaily({
   required WorkScheduleDayCell templateCell,
   bool selected = false,
 }) {
-  final manual = !daily.auto;
+  // auto: true — день из недельного шаблона («…»). Дальние даты часто
+  // остаются со старой дневной записью; шаблон важнее, иначе 10 авг.
+  // остаётся «рабочим», когда пн уже выходной.
+  if (daily.auto) {
+    if (templateCell.kind == WorkScheduleCellKind.shift) {
+      final ts = templateCell.timeStart ?? '09:00';
+      final te = templateCell.timeEnd ?? '20:00';
+      return WorkScheduleDayCell.shift(
+        timeStart: ts,
+        timeEnd: te,
+        tone: _toneForShiftHours(ts, te),
+        isSelected: selected,
+        isManuallyEdited: false,
+        scheduleId: daily.id,
+        breakStart: daily.breakStartShort ?? templateCell.breakStart,
+        breakEnd: daily.breakEndShort ?? templateCell.breakEnd,
+      );
+    }
+    return WorkScheduleDayCell.dayOff(
+      isManuallyEdited: false,
+      scheduleId: daily.id,
+      breakStart: daily.breakStartShort,
+      breakEnd: daily.breakEndShort,
+    );
+  }
 
+  // auto: false — ручная правка по ячейке.
   if (!daily.active) {
-    return _dayOffFromDaily(daily, isManuallyEdited: manual);
+    return _dayOffFromDaily(daily, isManuallyEdited: true);
   }
 
   final start = daily.timeStartShort;
@@ -439,7 +477,7 @@ WorkScheduleDayCell _workScheduleCellFromWorkerDaily({
     return workScheduleCellFromScheduleItem(
       daily,
       selected: selected,
-      isManuallyEdited: manual,
+      isManuallyEdited: true,
     );
   }
 
@@ -452,7 +490,7 @@ WorkScheduleDayCell _workScheduleCellFromWorkerDaily({
       timeEnd: te,
       tone: _toneForShiftHours(ts, te),
       isSelected: selected,
-      isManuallyEdited: manual,
+      isManuallyEdited: true,
       scheduleId: daily.id,
       breakStart: daily.breakStartShort ?? templateCell.breakStart,
       breakEnd: daily.breakEndShort ?? templateCell.breakEnd,
@@ -462,7 +500,7 @@ WorkScheduleDayCell _workScheduleCellFromWorkerDaily({
   return workScheduleCellFromScheduleItem(
     daily,
     selected: selected,
-    isManuallyEdited: manual,
+    isManuallyEdited: true,
   );
 }
 
