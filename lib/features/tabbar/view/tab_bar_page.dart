@@ -33,7 +33,9 @@ import 'package:rient_app/features/home/view/providers/worker_permissions_provid
 import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/link/view/widget_link_share.dart';
 import 'package:rient_app/core/network/app_offline.dart';
+import 'package:rient_app/core/network/app_vpn_provider.dart';
 import 'package:rient_app/core/network/connectivity_recovery_listener.dart';
+import 'package:rient_app/core/widgets/vpn_banner.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_appointments_refresh.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/schedule/view/schedule_page.dart';
@@ -210,6 +212,9 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
 
   Future<void> _handleAppResumed() async {
     if (!mounted) return;
+    // При каждом возврате в приложение — снова показать VPN-плашку, если VPN включён.
+    ref.read(vpnBannerDismissedThisSessionProvider.notifier).state = false;
+    ref.invalidate(vpnCheckProvider);
     ref.invalidate(workerEntityLabelsProvider);
     try {
       final offline = ref.read(scheduleOfflineModeProvider);
@@ -340,6 +345,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     final noConnection = ref.watch(appNoConnectionProvider);
     final scheduleOffline = ref.watch(scheduleOfflineModeProvider);
     final offlineExceptSchedule = noConnection || scheduleOffline;
+    final showVpnBanner = ref.watch(showVpnBannerProvider);
 
     ref.watch(connectivityRecoveryListenerProvider);
     ref.watch(scheduleServerUnreachableListenerProvider);
@@ -419,7 +425,26 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
             ? AppColors.secondaryDarkLight
             : AppColors.tabBarScreenBackground,
         drawer: const AppDrawer(),
-        body: widget.navigationShell,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (showVpnBanner)
+              const ColoredBox(
+                color: Color(0xFF2C2C2E),
+                child: SafeArea(
+                  bottom: false,
+                  child: VpnBanner(),
+                ),
+              ),
+            Expanded(
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: showVpnBanner,
+                child: widget.navigationShell,
+              ),
+            ),
+          ],
+        ),
         bottomNavigationBar: _NavbarWidget(
           currentIndex: _navbarIndexFromShell(showCreateTab),
           showCreateTab: showCreateTab,

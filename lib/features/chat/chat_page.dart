@@ -506,7 +506,12 @@ class _MessagesHeader extends StatelessWidget {
     return DefaultContainerWidget(
       borderRadius: BorderRadius.circular(24),
       hasShadow: false,
-      padding: const EdgeInsets.only(top: 52, bottom: 12, left: 16, right: 16),
+      padding: EdgeInsets.only(
+        top: MediaQuery.paddingOf(context).top + 8,
+        bottom: 12,
+        left: 16,
+        right: 16,
+      ),
       color: isDark ? AppColors.primaryWhiteDark : Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

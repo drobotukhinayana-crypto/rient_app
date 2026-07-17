@@ -165,10 +165,10 @@ packages:
     dependency: "direct main"
     description:
       name: connectivity_plus
-      sha256: "62ffa266d9a23b79fb3fcbc206afc00bb979417ba57b1324c546b5aab95ba057"
+      sha256: "25cebb79dfe304022550e0c3c893ae051ded07183d2607f7b88473cb3ade33cb"
       url: "https://pub.dev"
     source: hosted
-    version: "7.1.1"
+    version: "7.3.0"
   connectivity_plus_platform_interface:
     dependency: transitive
     description:
@@ -1330,6 +1330,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "15.0.2"
+  vpn_connection_detector:
+    dependency: "direct main"
+    description:
+      name: vpn_connection_detector
+      sha256: "1ead0166ff7d4706423ed86ab06ff4846893a6286ef7dd6cd53caaa6891e8b6e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.0"
   watcher:
     dependency: transitive
     description:

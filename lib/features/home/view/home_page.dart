@@ -4,6 +4,7 @@ import 'package:gap/gap.dart';
 import 'package:rient_app/core/network/app_connectivity_provider.dart';
 import 'package:rient_app/core/network/app_offline.dart'
     show appNoConnectionMessage, shouldShowNoConnectionMessage;
+import 'package:rient_app/core/network/app_vpn_provider.dart';
 import 'package:rient_app/core/network/connectivity_recovery_listener.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
@@ -63,6 +64,7 @@ class _BodyWidget extends ConsumerWidget {
       final recovered = await tryRecoverScheduleNetwork(ref);
       if (!recovered) return;
       ref.invalidate(connectivityCheckProvider);
+      ref.invalidate(vpnCheckProvider);
       refreshWorkerPermissions(ref);
       ref.invalidate(statisticsProvider);
       ref.invalidate(scheduleAppointmentsProvider);

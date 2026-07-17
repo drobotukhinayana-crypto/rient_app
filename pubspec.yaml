@@ -43,6 +43,7 @@ dependencies:
   local_auth: ^3.0.1
   flutter_secure_storage: ^10.3.1
   app_settings: ^7.0.0
+  vpn_connection_detector: ^2.1.0
 
 dev_dependencies:
   flutter_test:

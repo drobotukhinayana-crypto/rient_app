@@ -345,10 +345,16 @@ class _TopPanelState extends State<TopPanel> {
         !weekHeaderOnly &&
         !monthHeaderOnly;
     final daySpecialistSelector = _buildDaySpecialistSelector();
+    final topInset = MediaQuery.paddingOf(context).top;
     return DefaultContainerWidget(
       borderRadius: BorderRadius.circular(24),
       hasShadow: false,
-      padding: const EdgeInsets.only(top: 52, bottom: 8, left: 16, right: 16),
+      padding: EdgeInsets.only(
+        top: topInset + 8,
+        bottom: 8,
+        left: 16,
+        right: 16,
+      ),
       color: isDark ? AppColors.primaryWhiteDark : Colors.white,
       child: Column(
         mainAxisSize: MainAxisSize.min,
