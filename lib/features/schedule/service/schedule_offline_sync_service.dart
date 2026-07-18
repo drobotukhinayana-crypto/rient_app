@@ -1,11 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
+import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
 import 'package:rient_app/features/schedule/data/schedule_appointments_cache.dart';
+import 'package:rient_app/features/schedule/data/schedule_worker_templates_cache.dart';
 import 'package:rient_app/features/schedule/data/schedule_workers_cache.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
-import 'package:rient_app/core/network/network_failure.dart';
+import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
+import 'package:rient_app/features/schedule/service/workers_service.dart';
+import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
+import 'package:rient_app/features/schedule/utils/worker_schedule_template.dart';
+import 'package:rient_app/features/schedule/view/components/work_schedule_mapper.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
 
@@ -15,6 +22,11 @@ final scheduleAppointmentsCacheProvider = Provider<ScheduleAppointmentsCache>(
 
 final scheduleWorkersCacheProvider = Provider<ScheduleWorkersCache>(
   (ref) => ScheduleWorkersCache(ref.watch(localStorageProvider)),
+);
+
+final scheduleWorkerTemplatesCacheProvider =
+    Provider<ScheduleWorkerTemplatesCache>(
+  (ref) => ScheduleWorkerTemplatesCache(ref.watch(localStorageProvider)),
 );
 
 final scheduleOfflineSyncServiceProvider = Provider<ScheduleOfflineSyncService>(
@@ -51,6 +63,8 @@ class ScheduleOfflineSyncService {
     }
     final workerIds = workers.map((w) => w.id).where((id) => id > 0).toList();
     if (workerIds.isEmpty) return;
+
+    await _cacheWorkerTemplates(branchId);
 
     final anchor = DateTime.now();
     final offlineFrom = ScheduleAppointmentsCache.offlineRangeStart(anchor);
@@ -89,6 +103,43 @@ class ScheduleOfflineSyncService {
       if (isNetworkFailure(e)) {
         onScheduleNetworkFailure(ref, e);
       }
+    }
+  }
+
+  Future<void> _cacheWorkerTemplates(int branchId) async {
+    try {
+      final patternsService = ref.read(schedulePatternsServiceProvider);
+      final workersService = ref.read(workersServiceProvider);
+      final patternsFuture =
+          patternsService.getSchedulePatterns(branchId: branchId);
+      final rowsFuture =
+          workersService.getWorkerRowsWithSchedules(branchId: branchId);
+      final results = await Future.wait([patternsFuture, rowsFuture]);
+      final patternsResponse = results[0] as SchedulePatternsApiResponse;
+      final rows = results[1] as List<Map<String, dynamic>>;
+      final patternsByWorker =
+          groupSchedulePatternsByWorker(patternsResponse.results);
+
+      final templates = <int, WorkerScheduleTemplate>{};
+      for (final row in rows) {
+        final workerId = (row['id'] as num?)?.toInt();
+        if (workerId == null) continue;
+        templates[workerId] = WorkerScheduleTemplate(
+          patterns: mergeSchedulePatternsForWorker(
+            fromBranchApi: patternsByWorker[workerId] ?? const [],
+            workerRow: row,
+          ),
+          shiftConfig: workerScheduleConfigForBranch(row, branchId),
+        );
+      }
+      if (templates.isNotEmpty) {
+        await ref.read(scheduleWorkerTemplatesCacheProvider).saveForBranch(
+              branchId: branchId,
+              templates: templates,
+            );
+      }
+    } catch (_) {
+      // Шаблоны опциональны для оффлайна — записи всё равно кэшируются.
     }
   }
 }

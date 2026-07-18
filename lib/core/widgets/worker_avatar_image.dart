@@ -21,20 +21,19 @@ class WorkerAvatarImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = pictureUrl?.trim();
     if (url != null && url.isNotEmpty) {
-      if (url.startsWith('file://')) {
-        final file = File(url.substring(7));
-        if (file.existsSync()) {
-          return ClipOval(
-            child: Image.file(
-              file,
-              width: size,
-              height: size,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _defaultPlaceholder(context),
-            ),
-          );
-        }
-      } else {
+      final localFile = _localImageFile(url);
+      if (localFile != null) {
+        return ClipOval(
+          child: Image.file(
+            localFile,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _defaultPlaceholder(context),
+          ),
+        );
+      }
+      if (!url.startsWith('file:')) {
         return ClipOval(
           child: Image.network(
             url,
@@ -47,6 +46,19 @@ class WorkerAvatarImage extends StatelessWidget {
       }
     }
     return placeholder ?? _defaultPlaceholder(context);
+  }
+
+  static File? _localImageFile(String url) {
+    String path;
+    if (url.startsWith('file://')) {
+      path = Uri.parse(url).toFilePath();
+    } else if (url.startsWith('/')) {
+      path = url;
+    } else {
+      return null;
+    }
+    final file = File(path);
+    return file.existsSync() ? file : null;
   }
 
   Widget _defaultPlaceholder(BuildContext context) {

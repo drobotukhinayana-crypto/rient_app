@@ -212,8 +212,8 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
 
   Future<void> _handleAppResumed() async {
     if (!mounted) return;
-    // При каждом возврате в приложение — снова показать VPN-плашку, если VPN включён.
-    ref.read(vpnBannerDismissedThisSessionProvider.notifier).state = false;
+    // Не сбрасываем «Понятно»: на iOS resumed часто приходит сразу после тапа
+    // (шторка/фокус) и плашка всплывала второй раз.
     ref.invalidate(vpnCheckProvider);
     ref.invalidate(workerEntityLabelsProvider);
     try {

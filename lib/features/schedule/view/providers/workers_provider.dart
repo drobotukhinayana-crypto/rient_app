@@ -9,6 +9,7 @@ import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
+import 'package:rient_app/features/schedule/data/schedule_workers_cache.dart';
 import 'package:rient_app/features/schedule/service/schedule_offline_sync_service.dart';
 import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
@@ -144,7 +145,11 @@ final scheduleWorkersProvider = FutureProvider<WorkersApiResponse>((ref) async {
 
   final rows = await ref.watch(scheduleWorkerScheduleRowsProvider.future);
   if (rows.isNotEmpty) {
-    return workersApiResponseFromScheduleRows(rows);
+    return _workersWithCachedLocalPictures(
+      workersCache,
+      branchId,
+      workersApiResponseFromScheduleRows(rows),
+    );
   }
 
   final cached = await workersCache.readForBranch(branchId);
@@ -153,6 +158,24 @@ final scheduleWorkersProvider = FutureProvider<WorkersApiResponse>((ref) async {
   }
   return scheduleOfflineEmptyWorkers;
 });
+
+Future<WorkersApiResponse> _workersWithCachedLocalPictures(
+  ScheduleWorkersCache cache,
+  int branchId,
+  WorkersApiResponse response,
+) async {
+  if (response.results.isEmpty) return response;
+  final snapshot = await cache.readForBranch(branchId);
+  if (snapshot == null || snapshot.localPictures.isEmpty) return response;
+  return WorkersApiResponse(
+    count: response.count,
+    next: response.next,
+    previous: response.previous,
+    results: [
+      for (final worker in response.results) snapshot.withLocalPicture(worker),
+    ],
+  );
+}
 
 /// Доступные сотрудники в конкретный день для текущего филиала.
 final availableWorkersForDateProvider =
@@ -189,12 +212,15 @@ final availableWorkersForDateProvider =
 /// Шаблоны графика сотрудников — те же данные, что в сетке «График работы».
 final workerScheduleTemplatesByIdProvider =
     FutureProvider<Map<int, WorkerScheduleTemplate>>((ref) async {
-  if (ref.watch(appNoConnectionProvider) ||
-      !ref.watch(scheduleServerReachableProvider)) {
-    return const <int, WorkerScheduleTemplate>{};
-  }
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0) return const <int, WorkerScheduleTemplate>{};
+
+  final templatesCache = ref.read(scheduleWorkerTemplatesCacheProvider);
+  if (ref.watch(appNoConnectionProvider) ||
+      !ref.watch(scheduleServerReachableProvider)) {
+    final cached = await templatesCache.readForBranch(branchId);
+    return cached?.templates ?? const <int, WorkerScheduleTemplate>{};
+  }
 
   final patternsService = ref.watch(schedulePatternsServiceProvider);
   try {
@@ -219,9 +245,18 @@ final workerScheduleTemplatesByIdProvider =
         shiftConfig: workerScheduleConfigForBranch(row, branchId),
       );
     }
+    if (templates.isNotEmpty) {
+      unawaited(
+        templatesCache.saveForBranch(
+          branchId: branchId,
+          templates: templates,
+        ),
+      );
+    }
     return templates;
   } catch (_) {
-    return const <int, WorkerScheduleTemplate>{};
+    final cached = await templatesCache.readForBranch(branchId);
+    return cached?.templates ?? const <int, WorkerScheduleTemplate>{};
   }
 });
 

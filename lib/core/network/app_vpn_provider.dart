@@ -32,7 +32,7 @@ final Provider<bool> appVpnActiveProvider = Provider<bool>((ref) {
   return streamActive || checkActive;
 });
 
-/// Плашку закрыли «Понятно» в этой сессии (сбрасывается при перезапуске приложения).
+/// Плашку закрыли «Понятно» в этой сессии (до перезапуска приложения).
 final vpnBannerDismissedThisSessionProvider =
     StateProvider<bool>((ref) => false);
 

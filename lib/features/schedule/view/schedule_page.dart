@@ -183,6 +183,36 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     ];
   }
 
+  /// В оффлайне оставляем состав списка, но берём локальные аватарки из кэша.
+  static List<SpecialistItem> _withOfflineLocalPictures(
+    List<SpecialistItem> specialists,
+    List<SpecialistItem>? cachedSpecialists,
+  ) {
+    if (specialists.isEmpty ||
+        cachedSpecialists == null ||
+        cachedSpecialists.isEmpty) {
+      return specialists;
+    }
+    final localById = <int, String>{};
+    for (final item in cachedSpecialists) {
+      final id = item.id;
+      final url = item.pictureUrl?.trim();
+      if (id == null || id <= 0 || url == null || url.isEmpty) continue;
+      localById[id] = url;
+    }
+    if (localById.isEmpty) return specialists;
+    return [
+      for (final item in specialists)
+        SpecialistItem(
+          name: item.name,
+          role: item.role,
+          id: item.id,
+          pictureUrl: (item.id != null ? localById[item.id!] : null) ??
+              item.pictureUrl,
+        ),
+    ];
+  }
+
   static SpecialistItem? _specialistById(
     int? workerId,
     List<WorkerApi> allWorkers,
@@ -1014,27 +1044,23 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
               .where((s) => s.id == workerFilterId)
               .toList();
         }
-      } else if (isAdminDayView) {
-        if (allBranchSpecialists.isNotEmpty) {
-          specialists = allBranchSpecialists;
-        } else {
-          final fromCache = offlineSpecialistsAsync.value;
-          if (fromCache != null && fromCache.isNotEmpty) {
-            specialists = fromCache;
-          }
-        }
-      } else if (specialists.isEmpty) {
+      } else if (!isAdminDayView && specialists.isEmpty) {
+        // Неделя/месяц: список мастеров из кэша для выбора.
+        // День: только работающие по шаблону (_daySpecialistsFromSchedule).
         final fromCache = offlineSpecialistsAsync.value;
         if (fromCache != null && fromCache.isNotEmpty) {
           specialists = fromCache;
         }
       }
+      // Оффлайн: https-аватарки не грузятся — подставляем file:// из кэша.
+      specialists = _withOfflineLocalPictures(
+        specialists,
+        offlineSpecialistsAsync.value,
+      );
     }
-    // День: колонки только у мастеров, доступных на выбранную дату (онлайн) или всех из кэша (оффлайн).
-    final isAdminMultiDayView = isAdminDayView &&
-        (isScheduleOffline
-            ? specialists.length > 1
-            : specialistsOnSelectedDate.length > 1);
+    // День: колонки только у мастеров, работающих в выбранную дату.
+    final isAdminMultiDayView =
+        isAdminDayView && specialistsOnSelectedDate.length > 1;
     SpecialistItem? initialSelected;
     if (isAdminDayView) {
       if (savedSelectedId != null &&

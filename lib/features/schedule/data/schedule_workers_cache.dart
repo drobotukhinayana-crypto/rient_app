@@ -76,12 +76,13 @@ class ScheduleWorkersCacheSnapshot {
       next: null,
       previous: null,
       results: [
-        for (final worker in workers) _workerWithLocalPicture(worker),
+        for (final worker in workers) withLocalPicture(worker),
       ],
     );
   }
 
-  WorkerApi _workerWithLocalPicture(WorkerApi worker) {
+  /// Подставляет локальный `file://` путь, если аватар скачан в кэш.
+  WorkerApi withLocalPicture(WorkerApi worker) {
     final localUrl = ScheduleWorkersCache.localPictureUrl(
       worker.id,
       localPictures,
@@ -93,6 +94,13 @@ class ScheduleWorkersCacheSnapshot {
     );
   }
 
+  /// URL аватарки: локальный файл важнее remote (оффлайн).
+  String? pictureUrlFor(WorkerApi worker) {
+    return ScheduleWorkersCache.localPictureUrl(worker.id, localPictures) ??
+        worker.pictureThumbnail ??
+        worker.picture;
+  }
+
   List<SpecialistItem> toSpecialistItems(WorkerEntityLabels labels) {
     return [
       for (final worker in workers)
@@ -102,12 +110,7 @@ class ScheduleWorkersCacheSnapshot {
           ),
           role: worker.specialization ?? '',
           id: worker.id,
-          pictureUrl: ScheduleWorkersCache.localPictureUrl(
-                worker.id,
-                localPictures,
-              ) ??
-              worker.pictureThumbnail ??
-              worker.picture,
+          pictureUrl: pictureUrlFor(worker),
         ),
     ];
   }
