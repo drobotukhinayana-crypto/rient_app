@@ -87,7 +87,12 @@ class TabBarPage extends ConsumerStatefulWidget {
       showOfflineSnackBar(context);
       return;
     }
-    context.pushNamed(AddNewEntryPage.name);
+    unawaited(() async {
+      final changed = await context.pushNamed<bool>(AddNewEntryPage.name);
+      if (changed == true) {
+        refreshAfterAppointmentMutation(ref);
+      }
+    }());
   }
 
   static void goToScheduleTab(BuildContext context) {
@@ -279,10 +284,16 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
   }
 
   void _switchShellBranch(int shellIndex) {
+    final previous = widget.navigationShell.currentIndex;
     widget.navigationShell.goBranch(shellIndex);
     switch (shellIndex) {
       case 0:
         context.goNamed(HomePage.name);
+        // Повторно при реальном переходе с другой вкладки — IndexedStack
+        // может показать уже смонтированную главную со старыми данными.
+        if (previous != 0) {
+          prepareHomeTabOnOpen(ref);
+        }
       case 1:
         context.goNamed(SchedulePage.name);
       case 2:
@@ -328,10 +339,9 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     final shellIndex = showCreateTab && index > 2 ? index - 1 : index;
 
     switch (shellIndex) {
-      case 0:
-        prepareHomeTabOnOpen(ref);
       case 1:
         prepareScheduleTabOnOpen(ref);
+      case 0:
       case 2:
         break;
     }

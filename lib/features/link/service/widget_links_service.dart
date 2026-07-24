@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:rient_app/core/network/app_dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
@@ -55,7 +56,7 @@ class WidgetLinksService {
         'forms/scripts/appointments/widget_links/',
       );
 
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         queryParameters: queryParameters,
         options: Options(headers: {'Authorization': 'JWT $token'}),
@@ -115,7 +116,7 @@ class WidgetLinksService {
         'forms/scripts/appointments/widget_links/',
       );
 
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         queryParameters: <String, dynamic>{
           'organization': organizationId,

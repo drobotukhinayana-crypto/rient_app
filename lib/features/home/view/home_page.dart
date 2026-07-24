@@ -20,9 +20,8 @@ import 'package:rient_app/features/home/view/components/services_today_grid_view
 import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
-import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_appointments_refresh.dart'
-    show syncScheduleDateFromHome;
+    show prepareHomeTabOnOpen, syncScheduleDateFromHome;
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart'
     show scheduleOfflineModeProvider, tryRecoverScheduleNetwork;
 import 'package:rient_app/resources/resources.dart';
@@ -65,9 +64,7 @@ class _BodyWidget extends ConsumerWidget {
       if (!recovered) return;
       ref.invalidate(connectivityCheckProvider);
       ref.invalidate(vpnCheckProvider);
-      refreshWorkerPermissions(ref);
-      ref.invalidate(statisticsProvider);
-      ref.invalidate(scheduleAppointmentsProvider);
+      prepareHomeTabOnOpen(ref);
       try {
         await ref.read(statisticsProvider.future);
       } catch (_) {}

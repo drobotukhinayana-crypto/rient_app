@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:rient_app/core/network/app_dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/email_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
@@ -39,7 +40,7 @@ class _GetAuthOrganiztionsImpl implements GetAuthOrganiztionsFetcher {
         'accounts/organizations/?token=$token&email=$email&page_size=100',
       );
 
-      final response = await Dio().get<Map<String, dynamic>>(url);
+      final response = await createAppDio().get<Map<String, dynamic>>(url);
 
       final results = response.data?['results'] as List<dynamic>? ?? [];
 

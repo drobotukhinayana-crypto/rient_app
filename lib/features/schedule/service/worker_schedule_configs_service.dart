@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:rient_app/core/network/app_dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
@@ -36,7 +37,7 @@ class WorkerScheduleConfigsService {
     }
 
     try {
-      final response = await Dio().patch<Map<String, dynamic>>(
+      final response = await createAppDio().patch<Map<String, dynamic>>(
         url,
         data: body.toJson(),
         options: Options(

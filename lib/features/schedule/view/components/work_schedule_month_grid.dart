@@ -3,6 +3,7 @@ import 'package:gap/gap.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
+import 'package:rient_app/core/widgets/worker_avatar_image.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -455,18 +456,12 @@ class _Avatar extends StatelessWidget {
         child: _branchIcon(isDark),
       );
     }
-    if (pictureUrl != null && pictureUrl!.isNotEmpty) {
-      return ClipOval(
-        child: Image.network(
-          pictureUrl!,
-          width: 32,
-          height: 32,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _placeholder(isDark),
-        ),
-      );
-    }
-    return _placeholder(isDark);
+    return WorkerAvatarImage(
+      pictureUrl: pictureUrl,
+      name: name,
+      size: 32,
+      placeholder: _placeholder(isDark),
+    );
   }
 
   Widget _placeholder(bool isDark) {

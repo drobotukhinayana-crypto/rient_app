@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:rient_app/core/network/app_offline.dart';
 import 'package:rient_app/core/network/ensure_network_for_request.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
@@ -12,7 +13,15 @@ import 'package:rient_app/features/home/view/providers/current_worker_id_provide
 import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
+/// Инкремент принудительно перезагружает [statisticsProvider] (как аналитика).
+final homeReloadTokenProvider = StateProvider<int>((ref) => 0);
+
+void bumpHomeReloadToken(dynamic ref) {
+  ref.read(homeReloadTokenProvider.notifier).update((int v) => v + 1);
+}
+
 final statisticsProvider = FutureProvider<Statistics>((ref) async {
+  ref.watch(homeReloadTokenProvider);
   if (ref.watch(scheduleOfflineModeProvider)) {
     return scheduleOfflineEmptyStatistics();
   }

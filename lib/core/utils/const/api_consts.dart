@@ -3,17 +3,21 @@ import 'dart:convert';
 class ApiConsts {
   factory ApiConsts() => ApiConsts._();
   ApiConsts._();
+
   final bool _isProd = false;
-  late final _apiUrl = _isProd ? _prodUrl : _testUrl;
+
+  final _stageUrl = 'https://apistage.triobot.ru/';
   final _prodUrl = '';
+  // Старый тест с префиксом /api/.
+  // ignore: unused_field
   final _testUrl = 'https://apptest.triobot.ru/api/';
 
+  late final _apiUrl = _isProd ? _prodUrl : _stageUrl;
+
   String createUrl(String endpoint) {
-    // Убираем начальный слэш из endpoint, если он есть
     final cleanEndpoint = endpoint.startsWith('/')
         ? endpoint.substring(1)
         : endpoint;
-    // Убеждаемся, что _apiUrl заканчивается слэшем
     final baseUrl = _apiUrl.endsWith('/') ? _apiUrl : '$_apiUrl/';
     return baseUrl + cleanEndpoint;
   }

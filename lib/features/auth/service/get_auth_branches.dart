@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:rient_app/core/network/app_dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/email_storage.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
@@ -47,7 +48,7 @@ class _GetAuthBranchesFetcherImpl implements GetAuthBranchesFetcher {
     try {
       final url = ApiConsts().createUrl('accounts/branches/');
 
-      final response = await Dio().post<Map<String, dynamic>>(
+      final response = await createAppDio().post<Map<String, dynamic>>(
         url,
         data: FormData.fromMap({
           'email': email,

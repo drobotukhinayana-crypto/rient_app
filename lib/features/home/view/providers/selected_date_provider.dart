@@ -7,9 +7,16 @@ final selectedDateProvider = StateNotifierProvider<SelectedDateNotifier, DateTim
 );
 
 class SelectedDateNotifier extends StateNotifier<DateTime> {
-  SelectedDateNotifier() : super(DateTime.now());
+  SelectedDateNotifier()
+      : super(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day));
 
   void setDate(DateTime date) {
-    state = date;
+    final next = DateTime(date.year, date.month, date.day);
+    if (state.year == next.year &&
+        state.month == next.month &&
+        state.day == next.day) {
+      return;
+    }
+    state = next;
   }
 }

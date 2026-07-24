@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:rient_app/core/network/app_dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
@@ -62,7 +63,7 @@ class MobilePushService {
 
     try {
       final url = ApiConsts().createUrl('mobile-push/history/');
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         queryParameters: query,
         options: Options(headers: await _authHeaders()),
@@ -97,7 +98,7 @@ class MobilePushService {
 
     try {
       final url = ApiConsts().createUrl('mobile-push/history/count/');
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         queryParameters: query,
         options: Options(headers: await _authHeaders()),
@@ -130,7 +131,7 @@ class MobilePushService {
 
     try {
       final url = ApiConsts().createUrl('mobile-push/history/$id/');
-      final response = await Dio().patch<Map<String, dynamic>>(
+      final response = await createAppDio().patch<Map<String, dynamic>>(
         url,
         queryParameters: {'organization': organizationId},
         data: {'is_read': isRead},
@@ -177,7 +178,7 @@ class MobilePushService {
 
     try {
       final url = ApiConsts().createUrl('mobile-push/history/mark_all_read/');
-      final response = await Dio().post<Map<String, dynamic>>(
+      final response = await createAppDio().post<Map<String, dynamic>>(
         url,
         data: body,
         options: Options(
@@ -205,7 +206,7 @@ class MobilePushService {
   Future<PushDeviceApi> registerDevice(RegisterPushDeviceRequest body) async {
     try {
       final url = ApiConsts().createUrl('mobile-push/devices/');
-      final response = await Dio().post<Map<String, dynamic>>(
+      final response = await createAppDio().post<Map<String, dynamic>>(
         url,
         data: body.toJson(),
         options: Options(
@@ -242,7 +243,7 @@ class MobilePushService {
       final payload = body.toJson()
         ..removeWhere((_, value) => value == null)
         ..['is_active'] = activate;
-      final response = await Dio().patch<Map<String, dynamic>>(
+      final response = await createAppDio().patch<Map<String, dynamic>>(
         url,
         data: payload,
         options: Options(
@@ -270,7 +271,7 @@ class MobilePushService {
   Future<PushDeviceApi> claimDevice(RegisterPushDeviceRequest body) async {
     try {
       final url = ApiConsts().createUrl('mobile-push/devices/claim/');
-      final response = await Dio().post<Map<String, dynamic>>(
+      final response = await createAppDio().post<Map<String, dynamic>>(
         url,
         data: body.toJson(),
         options: Options(
@@ -299,7 +300,7 @@ class MobilePushService {
   Future<PushDeviceApi> reactivateDevice(RegisterPushDeviceRequest body) async {
     try {
       final url = ApiConsts().createUrl('mobile-push/devices/reactivate/');
-      final response = await Dio().post<Map<String, dynamic>>(
+      final response = await createAppDio().post<Map<String, dynamic>>(
         url,
         data: body.toJson(),
         options: Options(
@@ -332,7 +333,7 @@ class MobilePushService {
   }) async {
     try {
       final url = ApiConsts().createUrl('mobile-push/devices/deactivate/');
-      final response = await Dio().post<Map<String, dynamic>>(
+      final response = await createAppDio().post<Map<String, dynamic>>(
         url,
         data: DeactivatePushDeviceRequest(
           organization: organizationId,
@@ -372,7 +373,7 @@ class MobilePushService {
 
     try {
       final url = ApiConsts().createUrl('mobile-push/settings/');
-      final response = await Dio().get<dynamic>(
+      final response = await createAppDio().get<dynamic>(
         url,
         queryParameters: {'organization': organizationId},
         options: Options(headers: await _authHeaders()),
@@ -426,7 +427,7 @@ class MobilePushService {
         deviceId: deviceId,
       ).toJson()
         ..removeWhere((_, value) => value == null);
-      final response = await Dio().patch<Map<String, dynamic>>(
+      final response = await createAppDio().patch<Map<String, dynamic>>(
         url,
         data: payload,
         options: Options(

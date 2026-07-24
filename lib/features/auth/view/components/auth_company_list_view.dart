@@ -7,6 +7,7 @@ import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/features/auth/data/models/organization/organization.dart';
 import 'package:rient_app/features/auth/data/models/organization_member/organization_member.dart';
 import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/resources/resources.dart';
 
 class AuthCompanyListView extends StatefulWidget {
   const AuthCompanyListView({
@@ -92,13 +93,7 @@ class _AuthCompanyItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(300),
         child: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: AppColors.secondaryLight,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(300),
-                child: Image.network(organization.logo ?? ''),
-              ),
-            ),
+            _OrganizationLogo(logoUrl: organization.logo, isDark: isDark),
             Gap(6),
             Expanded(
               child: Column(
@@ -122,6 +117,52 @@ class _AuthCompanyItem extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _OrganizationLogo extends StatelessWidget {
+  const _OrganizationLogo({required this.logoUrl, required this.isDark});
+
+  final String? logoUrl;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = logoUrl?.trim();
+    if (url != null && url.isNotEmpty) {
+      return CircleAvatar(
+        backgroundColor: AppColors.secondaryLight,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(300),
+          child: Image.network(
+            url,
+            width: 40,
+            height: 40,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _placeholder(),
+          ),
+        ),
+      );
+    }
+    return _placeholder();
+  }
+
+  /// Тот же плейсхолдер, что при выборе филиала ([AuthBranchListView]).
+  Widget _placeholder() {
+    final image = Image.asset(
+      AppImages.branch,
+      width: 40,
+      height: 40,
+      fit: BoxFit.contain,
+    );
+    if (!isDark) return image;
+    return ColorFiltered(
+      colorFilter: const ColorFilter.mode(
+        AppColors.primaryWhite,
+        BlendMode.srcIn,
+      ),
+      child: image,
     );
   }
 }

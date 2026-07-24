@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:rient_app/core/network/app_dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
@@ -33,7 +34,7 @@ class ClientsService {
     final url = ApiConsts().createUrl('clients/clients-full/');
 
     try {
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         queryParameters: {
           'organization': organizationId,
@@ -93,7 +94,7 @@ class ClientsService {
     };
 
     try {
-      final response = await Dio().post<Map<String, dynamic>>(
+      final response = await createAppDio().post<Map<String, dynamic>>(
         url,
         data: payload,
         options: Options(
@@ -129,7 +130,7 @@ class ClientsService {
     final url = ApiConsts().createUrl('clients/$clientId/');
 
     try {
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         options: Options(headers: {'Authorization': 'JWT $token'}),
       );

@@ -7,6 +7,7 @@ import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/language_dropdown_pill.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
+import 'package:rient_app/core/widgets/worker_avatar_image.dart';
 import 'package:rient_app/features/auth/logout_request_provider.dart';
 import 'package:rient_app/core/widgets/theme_switch_pill.dart';
 import 'package:rient_app/features/analytics/view/analytics_page.dart';
@@ -154,25 +155,22 @@ class AppDrawer extends ConsumerWidget {
                           : Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                CircleAvatar(
-                                  radius: 25,
-                                  backgroundColor: AppColors.themeAccent(
-                                    context,
-                                  ).withValues(alpha: 0.2),
-                                  backgroundImage: avatarUrl != null &&
-                                          avatarUrl.isNotEmpty
-                                      ? NetworkImage(avatarUrl)
-                                      : null,
-                                  child: avatarUrl == null || avatarUrl.isEmpty
-                                      ? Text(
-                                          avatarInitial,
-                                          style: AppFonts.b1Medium.copyWith(
-                                            color: AppColors.themeAccent(
-                                              context,
-                                            ),
-                                          ),
-                                        )
-                                      : null,
+                                WorkerAvatarImage(
+                                  pictureUrl: avatarUrl,
+                                  name: userName,
+                                  size: 50,
+                                  placeholder: CircleAvatar(
+                                    radius: 25,
+                                    backgroundColor: AppColors.themeAccent(
+                                      context,
+                                    ).withValues(alpha: 0.2),
+                                    child: Text(
+                                      avatarInitial,
+                                      style: AppFonts.b1Medium.copyWith(
+                                        color: AppColors.themeAccent(context),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                                 const Gap(12),
                                 Expanded(

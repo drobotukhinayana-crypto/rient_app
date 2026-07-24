@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:rient_app/core/network/app_dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
@@ -42,7 +43,7 @@ class SchedulePatternsService {
     };
 
     try {
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         queryParameters: queryParams,
         options: Options(headers: {'Authorization': 'JWT $token'}),
@@ -83,7 +84,7 @@ class SchedulePatternsService {
     };
 
     try {
-      final response = await Dio().get<Map<String, dynamic>>(
+      final response = await createAppDio().get<Map<String, dynamic>>(
         url,
         queryParameters: queryParams,
         options: Options(headers: {'Authorization': 'JWT $token'}),
@@ -127,7 +128,7 @@ class SchedulePatternsService {
     );
 
     try {
-      final response = await Dio().post<dynamic>(
+      final response = await createAppDio().post<dynamic>(
         url,
         data: body.toJson(),
         options: Options(
@@ -176,7 +177,7 @@ class SchedulePatternsService {
     );
 
     try {
-      final response = await Dio().post<dynamic>(
+      final response = await createAppDio().post<dynamic>(
         url,
         data: body.toJson(),
         options: Options(

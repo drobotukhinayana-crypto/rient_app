@@ -19,6 +19,7 @@ import 'package:rient_app/core/widgets/custom_switch_widget.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
+import 'package:rient_app/core/widgets/worker_avatar_image.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
@@ -1114,19 +1115,12 @@ class _SpecialistEmployeeAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = pictureUrl?.trim();
-    if (url != null && url.isNotEmpty) {
-      return ClipOval(
-        child: Image.network(
-          url,
-          width: _size,
-          height: _size,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _placeholder(context),
-        ),
-      );
-    }
-    return _placeholder(context);
+    return WorkerAvatarImage(
+      pictureUrl: pictureUrl,
+      name: name,
+      size: _size,
+      placeholder: _placeholder(context),
+    );
   }
 
   Widget _placeholder(BuildContext context) {

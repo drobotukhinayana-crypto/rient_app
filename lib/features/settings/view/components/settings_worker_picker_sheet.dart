@@ -11,6 +11,7 @@ import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/app_radio.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
+import 'package:rient_app/core/widgets/worker_avatar_image.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
@@ -480,19 +481,12 @@ class _WorkerAvatarPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    if (pictureUrl != null && pictureUrl!.isNotEmpty) {
-      return ClipOval(
-        child: Image.network(
-          pictureUrl!,
-          width: 30,
-          height: 30,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _emptyCircle(isDark),
-        ),
-      );
-    }
-    return _emptyCircle(isDark);
+    return WorkerAvatarImage(
+      pictureUrl: pictureUrl,
+      name: name,
+      size: 30,
+      placeholder: _emptyCircle(isDark),
+    );
   }
 
   Widget _emptyCircle(bool isDark) {

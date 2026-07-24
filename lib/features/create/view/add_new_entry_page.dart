@@ -24,6 +24,7 @@ import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
+import 'package:rient_app/core/widgets/worker_avatar_image.dart';
 import 'package:rient_app/features/create/data/models/clients_api.dart';
 import 'package:rient_app/features/create/data/models/worker_services_api.dart';
 import 'package:rient_app/features/create/service/clients_service.dart';
@@ -4292,26 +4293,13 @@ class _SpecialistAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (avatarUrl != null && avatarUrl!.isNotEmpty) {
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.grey),
-        ),
-        child: ClipOval(
-          child: Image.network(
-            avatarUrl!,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            errorBuilder: (ctx, __, ___) => _placeholder(ctx),
-          ),
-        ),
-      );
-    }
-    return _placeholder(context);
+    // Те же локальные file:// из кэша расписания, что и WorkerAvatarImage.
+    return WorkerAvatarImage(
+      pictureUrl: avatarUrl,
+      name: fullName ?? '',
+      size: size,
+      placeholder: _placeholder(context),
+    );
   }
 
   Widget _placeholder(BuildContext context) {

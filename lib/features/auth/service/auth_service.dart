@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/network/app_dio.dart';
 import 'package:rient_app/core/services/email_storage.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
@@ -17,10 +18,7 @@ import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 final authServiceProvider = Provider<AuthService>((ref) => AuthService(ref));
 
 class AuthTokenPair {
-  const AuthTokenPair({
-    required this.access,
-    this.refresh,
-  });
+  const AuthTokenPair({required this.access, this.refresh});
 
   final String access;
   final String? refresh;
@@ -51,7 +49,8 @@ class AuthService {
     var password = ref.read(passwordProvider).trim();
     String? refreshToken = tokens.refresh;
     if (password.isEmpty || refreshToken == null) {
-      final stored = ref.read(sessionDataControllerProvider) ??
+      final stored =
+          ref.read(sessionDataControllerProvider) ??
           await ref.read(sessionDataStorageProvider).get();
       if (password.isEmpty) {
         password = stored?.password.trim() ?? '';
@@ -61,7 +60,9 @@ class AuthService {
     if (password.isEmpty) return;
 
     ref.read(passwordProvider.notifier).state = password;
-    await ref.read(sessionDataControllerProvider.notifier).saveSessionData(
+    await ref
+        .read(sessionDataControllerProvider.notifier)
+        .saveSessionData(
           SessionData(
             email: email,
             password: password,
@@ -75,7 +76,7 @@ class AuthService {
   Future<void> refreshAccessToken(String refreshToken) async {
     final url = ApiConsts().createUrl('accounts/token/refresh/');
     try {
-      final response = await Dio().post<Map<String, dynamic>>(
+      final response = await createAppDio().post<Map<String, dynamic>>(
         url,
         data: {'refresh': refreshToken},
         options: Options(
@@ -113,7 +114,7 @@ class AuthService {
     required String captcha,
   }) async {
     final url = ApiConsts().createUrl('accounts/request_verification_code/');
-    final response = await Dio().post<Map<String, dynamic>>(
+    final response = await createAppDio().post<Map<String, dynamic>>(
       url,
       data: FormData.fromMap({'email': email, 'captcha': captcha}),
     );
@@ -131,7 +132,7 @@ class AuthService {
     required String verificationCode,
   }) async {
     final url = ApiConsts().createUrl('accounts/verify/');
-    final response = await Dio().post<Map<String, dynamic>>(
+    final response = await createAppDio().post<Map<String, dynamic>>(
       url,
       data: FormData.fromMap({
         'email': email,
@@ -166,7 +167,7 @@ class AuthService {
         organizationId: organizationId,
       );
     }
-    final response = await Dio().post<Map<String, dynamic>>(
+    final response = await createAppDio().post<Map<String, dynamic>>(
       url,
       data: FormData.fromMap({
         'email': email,
@@ -218,7 +219,7 @@ class AuthService {
     }
 
     final url = ApiConsts().createUrl('accounts/branches/');
-    final response = await Dio().post<Map<String, dynamic>>(
+    final response = await createAppDio().post<Map<String, dynamic>>(
       url,
       data: FormData.fromMap({
         'email': email,
@@ -232,7 +233,8 @@ class AuthService {
     if (branches.isEmpty) {
       return null;
     }
-    final firstBranchId = (branches.first as Map<String, dynamic>)['id'] as int?;
+    final firstBranchId =
+        (branches.first as Map<String, dynamic>)['id'] as int?;
     return firstBranchId;
   }
 }

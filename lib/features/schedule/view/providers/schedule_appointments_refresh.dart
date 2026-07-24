@@ -35,11 +35,15 @@ void prepareScheduleTabOnOpen(dynamic ref) {
   ref.invalidate(scheduleStatisticsForMonthProvider);
 }
 
-/// Перед открытием вкладки «Главная» из таббара.
+/// Перед открытием вкладки «Главная» из таббара — сразу тянем свежую статистику.
 void prepareHomeTabOnOpen(dynamic ref) {
   syncHomeDateFromSchedule(ref);
   refreshWorkerPermissions(ref);
-  refreshAfterAppointmentMutation(ref);
+  beginScheduleNetworkRecovery(ref);
+  bumpHomeReloadToken(ref);
+  ref.invalidate(statisticsProvider);
+  ref.invalidate(scheduleAppointmentsProvider);
+  unawaited(_prefetchHomeData(ref));
 }
 
 Future<void> _prefetchHomeData(dynamic ref) async {
@@ -56,6 +60,7 @@ Future<void> _prefetchAnalyticsData(dynamic ref) async {
 /// После создания, изменения или удаления записи — обновить расписание, главную и аналитику.
 void refreshAfterAppointmentMutation(dynamic ref) {
   beginScheduleNetworkRecovery(ref);
+  bumpHomeReloadToken(ref);
   ref.invalidate(scheduleAppointmentsProvider);
   ref.invalidate(statisticsProvider);
   ref.invalidate(scheduleStatisticsForWeekProvider);
@@ -67,6 +72,7 @@ void refreshAfterAppointmentMutation(dynamic ref) {
   unawaited(_prefetchAnalyticsData(ref));
   unawaited(
     Future<void>.delayed(const Duration(milliseconds: 600), () async {
+      bumpHomeReloadToken(ref);
       ref.invalidate(statisticsProvider);
       bumpAnalyticsReloadToken(ref);
       ref.invalidate(analyticsSummaryProvider);

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:rient_app/core/network/app_dio.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 
 class WorkerAvatarImage extends StatelessWidget {
@@ -29,7 +30,7 @@ class WorkerAvatarImage extends StatelessWidget {
             width: size,
             height: size,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _defaultPlaceholder(context),
+            errorBuilder: (_, __, ___) => _fallback(context),
           ),
         );
       }
@@ -40,13 +41,17 @@ class WorkerAvatarImage extends StatelessWidget {
             width: size,
             height: size,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _defaultPlaceholder(context),
+            headers: const {'X-MOBILE-TOKEN': appMobileToken},
+            errorBuilder: (_, __, ___) => _fallback(context),
           ),
         );
       }
     }
-    return placeholder ?? _defaultPlaceholder(context);
+    return _fallback(context);
   }
+
+  Widget _fallback(BuildContext context) =>
+      placeholder ?? _defaultPlaceholder(context);
 
   static File? _localImageFile(String url) {
     String path;
