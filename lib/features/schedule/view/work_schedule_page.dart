@@ -1137,15 +1137,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
   }
 
   Future<void> _onBranchDayCellTap(DateTime date) async {
-    if (!_canChangeBranchWorkSchedule()) {
-      if (!mounted) return;
-      showAppServiceMessage(
-        _scaffoldKey.currentContext ?? context,
-        message: _branchWorkScheduleNoPermissionMessage,
-        variant: AppServiceMessageVariant.error,
-      );
-      return;
-    }
+    if (!_canChangeBranchWorkSchedule()) return;
 
     final employees = _employees.value;
     if (employees == null || employees.isEmpty || !employees.first.isBranchRow) {
@@ -1574,6 +1566,7 @@ class _WorkSchedulePageState extends ConsumerState<WorkSchedulePage>
                     loadingDate: _loadingCellDate,
                     onEmployeeMoreTap: _onEmployeeMoreTap,
                     hideBranchMoreButton: isWorkerRole,
+                    branchCellsInteractive: !isWorkerRole,
                     onCellTap: _onDayCellTap,
                   ),
                 );

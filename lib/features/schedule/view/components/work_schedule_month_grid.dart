@@ -41,6 +41,7 @@ class WorkScheduleMonthGrid extends StatefulWidget {
     this.onCellTap,
     this.onEmployeeMoreTap,
     this.hideBranchMoreButton = false,
+    this.branchCellsInteractive = true,
   });
 
   final DateTime month;
@@ -55,6 +56,8 @@ class WorkScheduleMonthGrid extends StatefulWidget {
   onCellTap;
   final void Function(WorkScheduleEmployeeRow employee)? onEmployeeMoreTap;
   final bool hideBranchMoreButton;
+  /// Строка филиала: клик по ячейкам времени (у воркера — только просмотр).
+  final bool branchCellsInteractive;
 
   @override
   State<WorkScheduleMonthGrid> createState() => _WorkScheduleMonthGridState();
@@ -165,7 +168,8 @@ class _WorkScheduleMonthGridState extends State<WorkScheduleMonthGrid> {
                   date: monthDays[j],
                   cell: _cellAt(employee, j),
                   isSaving: _isBusyCell(employee.id, monthDays[j]),
-                  onTap: widget.onCellTap == null
+                  onTap: widget.onCellTap == null ||
+                          (employee.isBranchRow && !widget.branchCellsInteractive)
                       ? null
                       : () => widget.onCellTap!(employee, monthDays[j]),
                 ),

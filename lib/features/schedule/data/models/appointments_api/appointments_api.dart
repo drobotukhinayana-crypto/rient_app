@@ -285,14 +285,21 @@ class AppointmentServiceApi {
     int? parsedServiceId;
     var hasInventory = false;
     if (rawService is num) {
+      // Обычно id привязки услуги мастера (worker-service), реже catalog id.
       parsedServiceId = rawService.toInt();
-    } else if (rawService is Map<String, dynamic>) {
-      parsedServiceId = (rawService['id'] as num?)?.toInt();
-      hasInventory = _parseServiceHasInventory(rawService);
     } else if (rawService is Map) {
-      final map = rawService.map((k, v) => MapEntry(k.toString(), v));
-      parsedServiceId = (map['id'] as num?)?.toInt();
+      final map = rawService is Map<String, dynamic>
+          ? rawService
+          : rawService.map((k, v) => MapEntry(k.toString(), v));
       hasInventory = _parseServiceHasInventory(map);
+      final nested = map['service'];
+      if (nested is Map) {
+        // Обёртка worker-service: внешний id — привязка, вложенный — каталог.
+        // Для синхронизации в карточке нужен именно id привязки.
+        parsedServiceId = (map['id'] as num?)?.toInt();
+      } else {
+        parsedServiceId = (map['id'] as num?)?.toInt();
+      }
     }
     return AppointmentServiceApi(
       id: (json['id'] as num?)?.toInt(),

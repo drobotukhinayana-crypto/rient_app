@@ -2197,39 +2197,48 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         }
       }
 
-      WorkerServiceItem? matched;
-      final catalogId = block.catalogServiceId;
-      if (catalogId != null && catalogId > 0) {
+      final storedId = block.catalogServiceId;
+      WorkerServiceItem? byWorkerServiceId;
+      WorkerServiceItem? byCatalogServiceId;
+      if (storedId != null && storedId > 0) {
         for (final service in workerServices) {
-          if (service.service.id == catalogId) {
+          if (byWorkerServiceId == null && service.id == storedId) {
+            byWorkerServiceId = service;
+          }
+          if (byCatalogServiceId == null && service.service.id == storedId) {
+            byCatalogServiceId = service;
+          }
+        }
+      }
+
+      final initialServiceName = block.initialServiceName?.trim();
+      final initialNameLower = initialServiceName?.toLowerCase();
+
+      WorkerServiceItem? matched;
+      // Если есть имя из записи — предпочитаем id-матч с тем же названием
+      // (у worker-service id и catalog id разные пространства, возможны коллизии).
+      if (initialNameLower != null && initialNameLower.isNotEmpty) {
+        if (byWorkerServiceId != null &&
+            byWorkerServiceId.service.name.toLowerCase() == initialNameLower) {
+          matched = byWorkerServiceId;
+        } else if (byCatalogServiceId != null &&
+            byCatalogServiceId.service.name.toLowerCase() == initialNameLower) {
+          matched = byCatalogServiceId;
+        }
+      }
+      matched ??= byWorkerServiceId ?? byCatalogServiceId;
+
+      if (matched == null &&
+          initialNameLower != null &&
+          initialNameLower.isNotEmpty) {
+        for (final service in workerServices) {
+          if (service.service.name.toLowerCase() == initialNameLower) {
             matched = service;
             break;
           }
         }
       }
 
-      final initialServiceName = block.initialServiceName;
-      if (matched == null &&
-          initialServiceName != null &&
-          initialServiceName.isNotEmpty) {
-        for (final service in workerServices) {
-          if (service.service.name.toLowerCase() ==
-              initialServiceName.toLowerCase()) {
-            matched = service;
-            break;
-          }
-        }
-        if (matched == null) {
-          for (final service in workerServices) {
-            if (service.service.name.toLowerCase().contains(
-              initialServiceName.toLowerCase(),
-            )) {
-              matched = service;
-              break;
-            }
-          }
-        }
-      }
       if (matched != null) {
         block.selectedServiceId = matched.id;
         block.catalogServiceId = matched.service.id;
@@ -2487,16 +2496,21 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final isWorkerRole = roleId == UserRole.worker.value;
     final currentWorkerIdAsync = ref.watch(currentWorkerIdProvider);
     final currentWorkerId = currentWorkerIdAsync.value;
-    final workerCanPickTransferTarget =
-        isWorkerRole && isEditingEntry && canTransferSchedule;
+    /// change_worker — перенос записи на другого сотрудника (только мастер).
+    /// transfer_schedule — перенос по дате/времени (canPickEntryDateTime).
+    final workerCanPickAnotherSpecialist =
+        isWorkerRole && isEditingEntry && canChangeWorker;
+    final lockedSpecialistIdForWorker = isEditingEntry
+        ? (widget.initialAppointment?.worker?.id ?? currentWorkerId)
+        : currentWorkerId;
     final useWorkerReadOnlySpecialistTile =
-        isWorkerRole && !workerCanPickTransferTarget;
+        isWorkerRole && !workerCanPickAnotherSpecialist;
     if (isWorkerRole &&
-        !workerCanPickTransferTarget &&
-        currentWorkerId != null &&
-        currentWorkerId > 0 &&
-        _selectedSpecialistId != currentWorkerId) {
-      final wid = currentWorkerId;
+        !workerCanPickAnotherSpecialist &&
+        lockedSpecialistIdForWorker != null &&
+        lockedSpecialistIdForWorker > 0 &&
+        _selectedSpecialistId != lockedSpecialistIdForWorker) {
+      final wid = lockedSpecialistIdForWorker;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _ensureSpecialistLockedToCurrentWorker(wid);
@@ -2525,10 +2539,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       final cid = item?.service.id;
       if (cid != null && cid != 0) requiredCatalogServiceIds.add(cid);
     }
-    /// Новая запись у воркера — только на себя. Редактирование с transfer_schedule —
+    /// Новая запись у воркера — только на себя. Редактирование с change_worker —
     /// подбор специалистов по тем же услугам каталога, что и у администратора.
     final specialistFilterKeyForWatch =
-        (isWorkerRole && !workerCanPickTransferTarget)
+        (isWorkerRole && !workerCanPickAnotherSpecialist)
         ? '$branchId|all'
         : (requiredCatalogServiceIds.isEmpty
               ? '$branchId|all'
@@ -2556,7 +2570,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final List<_SpecialistOption> specialistsBeforeWorkingDayFilter;
     if (isWorkerRole) {
       if (currentWorkerId != null && currentWorkerId > 0) {
-        if (workerCanPickTransferTarget) {
+        if (workerCanPickAnotherSpecialist) {
           specialistsBeforeWorkingDayFilter = eligibleSpecialistIdsAsync.when(
             data: (eligible) => specialistsBase
                 .where((s) => eligible.contains(s.id))
@@ -2571,9 +2585,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             },
           );
         } else {
-          specialistsBeforeWorkingDayFilter = specialistsBase
-              .where((s) => s.id == currentWorkerId)
-              .toList();
+          final keepId = lockedSpecialistIdForWorker;
+          specialistsBeforeWorkingDayFilter = keepId != null && keepId > 0
+              ? specialistsBase.where((s) => s.id == keepId).toList()
+              : const <_SpecialistOption>[];
         }
       } else {
         specialistsBeforeWorkingDayFilter = const [];
@@ -3304,8 +3319,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                         ),
                       )
                       .toList(),
-                  onChanged: ((!canChangeWorker && !workerCanPickTransferTarget) ||
-                          specialists.isEmpty)
+                  onChanged: (!canChangeWorker || specialists.isEmpty)
                       ? null
                       : _onSpecialistChanged,
                 ),

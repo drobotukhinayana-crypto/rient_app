@@ -9,9 +9,9 @@ const appMobileToken =
 Dio createAppDio() {
   final dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 25),
-      receiveTimeout: const Duration(seconds: 20),
-      sendTimeout: const Duration(seconds: 20),
+      connectTimeout: const Duration(seconds: 60),
+      receiveTimeout: const Duration(seconds: 60),
+      sendTimeout: const Duration(seconds: 60),
       preserveHeaderCase: true,
       headers: {
         'X-MOBILE-TOKEN': appMobileToken,
