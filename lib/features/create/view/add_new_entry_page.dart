@@ -313,6 +313,7 @@ class _CreateAppointmentServiceDraft {
     required this.durationMinutes,
     required this.addDurationMinutes,
     required this.price,
+    this.linkedToPrevious = false,
   });
 
   final int? appointmentServiceId;
@@ -321,6 +322,9 @@ class _CreateAppointmentServiceDraft {
   final int durationMinutes;
   final int addDurationMinutes;
   final double price;
+
+  /// Время выставлено как продолжение предыдущей услуги (одна запись).
+  final bool linkedToPrevious;
 
   @override
   bool operator ==(Object other) {
@@ -331,7 +335,8 @@ class _CreateAppointmentServiceDraft {
             other.dateTime == dateTime &&
             other.durationMinutes == durationMinutes &&
             other.addDurationMinutes == addDurationMinutes &&
-            other.price == price);
+            other.price == price &&
+            other.linkedToPrevious == linkedToPrevious);
   }
 
   @override
@@ -342,6 +347,7 @@ class _CreateAppointmentServiceDraft {
     durationMinutes,
     addDurationMinutes,
     price,
+    linkedToPrevious,
   );
 
   Map<String, dynamic> toJson() {
@@ -363,8 +369,25 @@ class _CreateAppointmentServiceDraft {
       durationMinutes: durationMinutes,
       addDurationMinutes: addDurationMinutes,
       price: price,
+      linkedToPrevious: linkedToPrevious,
     );
   }
+}
+
+/// Длительность позиции как в UI/цепочке слотов.
+int _serviceDraftTotalMinutes(_CreateAppointmentServiceDraft service) {
+  final total = service.durationMinutes + service.addDurationMinutes;
+  return total <= 0 ? 10 : total;
+}
+
+bool _isSequentialServiceFollow(
+  _CreateAppointmentServiceDraft previous,
+  _CreateAppointmentServiceDraft next,
+) {
+  final expectedStart = previous.dateTime.add(
+    Duration(minutes: _serviceDraftTotalMinutes(previous)),
+  );
+  return next.dateTime.difference(expectedStart).inSeconds.abs() <= 60;
 }
 
 /// Группирует услуги в цепочки подряд идущих по времени.
@@ -379,19 +402,40 @@ List<List<_CreateAppointmentServiceDraft>> _groupServicesIntoSequentialChains(
   ];
 
   for (var i = 1; i < sorted.length; i++) {
-    final previous = groups.last.last;
-    final expectedStart = previous.dateTime.add(
-      Duration(
-        minutes: previous.durationMinutes + previous.addDurationMinutes,
-      ),
-    );
-    if (sorted[i].dateTime.isAtSameMomentAs(expectedStart)) {
+    if (_isSequentialServiceFollow(groups.last.last, sorted[i])) {
       groups.last.add(sorted[i]);
     } else {
       groups.add([sorted[i]]);
     }
   }
   return groups;
+}
+
+/// Новые позиции продолжают цепочку (одна запись), а не отдельный визит.
+bool _addedServicesContinueSequentially(
+  List<_CreateAppointmentServiceDraft> services,
+) {
+  final newServices = services
+      .where((service) => service.appointmentServiceId == null)
+      .toList();
+  if (newServices.isEmpty) return false;
+  // Явный флаг с UI надёжнее, чем сверка duration/add с каталогом.
+  if (newServices.every((service) => service.linkedToPrevious)) {
+    return true;
+  }
+  if (services.length < 2) return true;
+  final sorted = [...services]..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+  final firstNewIndex = sorted.indexWhere(
+    (service) => service.appointmentServiceId == null,
+  );
+  if (firstNewIndex <= 0) return firstNewIndex == 0;
+  for (var i = firstNewIndex; i < sorted.length; i++) {
+    if (sorted[i].appointmentServiceId != null) return false;
+    if (!_isSequentialServiceFollow(sorted[i - 1], sorted[i])) {
+      return false;
+    }
+  }
+  return true;
 }
 
 _CreateAppointmentDraft _draftForServiceChain(
@@ -1686,48 +1730,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return block.totalDurationMinutes <= 0 ? 10 : block.totalDurationMinutes;
   }
 
-  bool _followsPreviousService(int index) {
-    if (index < 1 || index >= _services.length) return false;
-    final previous = _services[index - 1];
-    final current = _services[index];
-    final prevStart = _dateTimeFromTimeOfDayString(
-      date: _dateOnly(_selectedDate),
-      value: previous.selectedTime,
-    );
-    final curStart = _dateTimeFromTimeOfDayString(
-      date: _dateOnly(_selectedDate),
-      value: current.selectedTime,
-    );
-    if (prevStart == null || curStart == null) return false;
-    final expected = prevStart.add(
-      Duration(minutes: _blockDurationMinutes(previous)),
-    );
-    return curStart.isAtSameMomentAs(expected);
-  }
-
-  bool _isInContiguousChainFrom(int fromIndex, int targetIndex) {
-    if (targetIndex < fromIndex || targetIndex >= _services.length) {
-      return false;
-    }
-    if (targetIndex == fromIndex) return true;
-    for (var i = fromIndex + 1; i <= targetIndex; i++) {
-      if (!_followsPreviousService(i)) return false;
-    }
-    return true;
-  }
-
-  /// Длительность непрерывной цепочки, начиная с [index] (для проверки слота).
-  int _slotDurationForServiceIndex(int index) {
-    if (index < 0 || index >= _services.length) return 10;
-    var total = _blockDurationMinutes(_services[index]);
-    for (var i = index + 1; i < _services.length; i++) {
-      if (_services[i].selectedServiceId == null) break;
-      if (!_followsPreviousService(i)) break;
-      total += _blockDurationMinutes(_services[i]);
-    }
-    return total;
-  }
-
   void _recalculateChainedServiceTimes({int fromIndex = 1}) {
     if (_services.length > 1 &&
         fromIndex >= 1 &&
@@ -1740,6 +1742,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         );
         if (previousStart == null) {
           _services[i].selectedTime = null;
+          _services[i].linkedToPrevious = false;
           continue;
         }
         _services[i].selectedTime = _formatSlot(
@@ -1747,9 +1750,28 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             Duration(minutes: _blockDurationMinutes(previous)),
           ),
         );
+        _services[i].linkedToPrevious = true;
       }
     }
     _sortServiceBlocksByTime();
+  }
+
+  bool _blockFollowsPrevious(int index) {
+    if (index < 1 || index >= _services.length) return false;
+    final previousStart = _serviceStartDateTime(index - 1);
+    final currentStart = _serviceStartDateTime(index);
+    if (previousStart == null || currentStart == null) return false;
+    final expected = previousStart.add(
+      Duration(minutes: _blockDurationMinutes(_services[index - 1])),
+    );
+    return currentStart.difference(expected).inSeconds.abs() <= 60;
+  }
+
+  void _applyServiceTimeSelection(int index, String time) {
+    _services[index].selectedTime = time;
+    _services[index].linkedToPrevious =
+        index > 0 && _blockFollowsPrevious(index);
+    _recalculateChainedServiceTimes(fromIndex: index + 1);
   }
 
   /// Держит блоки услуг в карточке по возрастанию времени.
@@ -1870,7 +1892,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     ];
     for (var i = 0; i < _services.length; i++) {
       if (i == currentServiceIndex) continue;
-      if (_isInContiguousChainFrom(currentServiceIndex, i)) continue;
       final siblingStart = _serviceStartDateTime(i);
       if (siblingStart == null) continue;
       final siblingEnd = siblingStart.add(
@@ -2074,18 +2095,23 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         value: selectedTime,
       );
       if (startTime == null) continue;
+      var durationMinutes = block.durationMinutes;
+      var addDurationMinutes =
+          block.addDurationMinutes < 0 ? 0 : block.addDurationMinutes;
+      if (durationMinutes < 0) durationMinutes = 0;
+      if (durationMinutes + addDurationMinutes <= 0) {
+        durationMinutes = 10;
+        addDurationMinutes = 0;
+      }
       completeServices.add(
         _CreateAppointmentServiceDraft(
           appointmentServiceId: block.appointmentServiceId,
           serviceId: workerService.id,
           dateTime: startTime,
-          durationMinutes: block.durationMinutes <= 0
-              ? 10
-              : block.durationMinutes,
-          addDurationMinutes: block.addDurationMinutes <= 0
-              ? 0
-              : block.addDurationMinutes,
+          durationMinutes: durationMinutes,
+          addDurationMinutes: addDurationMinutes,
           price: workerService.price,
+          linkedToPrevious: block.linkedToPrevious,
         ),
       );
     }
@@ -2423,9 +2449,24 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }
 
   void _addServiceBlock() {
+    final newBlock = _ServiceBlockState()..isTimeExpanded = true;
     setState(() {
-      _services.add(_ServiceBlockState()..isTimeExpanded = true);
+      for (final service in _services) {
+        service.isTimeExpanded = false;
+      }
+      _services.add(newBlock);
       _recalculateChainedServiceTimes(fromIndex: _services.length - 1);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final ctx = newBlock.sectionKey.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+        alignment: 0.05,
+      );
     });
   }
 
@@ -2584,10 +2625,16 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       if (matched != null) {
         block.selectedServiceId = matched.id;
         block.catalogServiceId = matched.service.id;
-        if (block.durationMinutes <= 0) {
+        // Для уже сохранённых позиций не перезаписываем duration/add из каталога —
+        // иначе разъезжается цепочка времени и новая услуга уходит отдельной записью.
+        if (block.appointmentServiceId == null) {
+          if (block.durationMinutes <= 0) {
+            block.durationMinutes = matched.duration;
+          }
+          block.addDurationMinutes = matched.addDuration;
+        } else if (block.durationMinutes <= 0) {
           block.durationMinutes = matched.duration;
         }
-        block.addDurationMinutes = matched.addDuration;
         block.initialServiceName = null;
         hasChanges = true;
       }
@@ -3725,193 +3772,226 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
                   for (var index = 0; index < _services.length; index++) ...[
                     Divider(height: 32, color: divider),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Услуга ${index + 1}', style: AppFonts.c1Medium),
-                        GestureDetector(
-                          onTap: () => _removeServiceBlock(index),
-                          behavior: HitTestBehavior.opaque,
-                          child: const Icon(
-                            Icons.delete_outline,
-                            size: 20,
-                            color: AppColors.red,
+                    KeyedSubtree(
+                      key: _services[index].sectionKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Услуга ${index + 1}',
+                                style: AppFonts.c1Medium,
+                              ),
+                              GestureDetector(
+                                onTap: () => _removeServiceBlock(index),
+                                behavior: HitTestBehavior.opaque,
+                                child: const Icon(
+                                  Icons.delete_outline,
+                                  size: 20,
+                                  color: AppColors.red,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                    const Gap(12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField2<int>(
-                            valueListenable: ValueNotifier<int?>(
-                              _services[index].selectedServiceId,
-                            ),
-                            isExpanded: true,
-                            onMenuStateChange: (isOpen) {
-                              if (!isOpen) {
-                                _services[index].serviceSearchController
-                                    .clear();
-                              }
-                            },
-                            style: AppFonts.c1Regular.copyWith(
-                              color: primaryText,
-                            ),
-                            hint: Text(
-                              selectedSpecialistId == null
-                                  ? workerLabels.selectWorkerFirst
-                                  : (workerServicesAsync.isLoading
-                                        ? 'Загрузка услуг...'
-                                        : 'Название услуги'),
-                              style: AppFonts.c1Regular.copyWith(
-                                color: primaryText,
-                              ),
-                            ),
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: mutedFill,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(300),
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(300),
-                                borderSide: BorderSide.none,
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(300),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                            iconStyleData: IconStyleData(
-                              icon: Image.asset(AppImages.arrowOutlinedDown),
-                            ),
-                            buttonStyleData: const FormFieldButtonStyleData(
-                              padding: EdgeInsets.zero,
-                            ),
-                            dropdownStyleData: DropdownStyleData(
-                              offset: const Offset(0, 8),
-                              padding: EdgeInsets.zero,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
-                                color: mutedFill,
-                              ),
-                            ),
-                            menuItemStyleData: const MenuItemStyleData(
-                              useDecorationHorizontalPadding: true,
-                            ),
-                            dropdownSearchData: DropdownSearchData<int>(
-                              searchController:
-                                  _services[index].serviceSearchController,
-                              searchBarWidgetHeight: 52,
-                              searchBarWidget: Padding(
-                                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                                child: TextField(
-                                  controller:
-                                      _services[index].serviceSearchController,
+                          const Gap(12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField2<int>(
+                                  valueListenable: ValueNotifier<int?>(
+                                    _services[index].selectedServiceId,
+                                  ),
+                                  isExpanded: true,
+                                  onMenuStateChange: (isOpen) {
+                                    if (!isOpen) {
+                                      _services[index].serviceSearchController
+                                          .clear();
+                                    }
+                                  },
+                                  style: AppFonts.c1Regular.copyWith(
+                                    color: primaryText,
+                                  ),
+                                  hint: Text(
+                                    selectedSpecialistId == null
+                                        ? workerLabels.selectWorkerFirst
+                                        : (workerServicesAsync.isLoading
+                                              ? 'Загрузка услуг...'
+                                              : 'Название услуги'),
+                                    style: AppFonts.c1Regular.copyWith(
+                                      color: primaryText,
+                                    ),
+                                  ),
                                   decoration: InputDecoration(
-                                    isDense: true,
-                                    hintText: 'Поиск услуги',
+                                    filled: true,
+                                    fillColor: mutedFill,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
                                     border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: divider),
+                                      borderRadius: BorderRadius.circular(300),
+                                      borderSide: BorderSide.none,
                                     ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: divider),
+                                      borderRadius: BorderRadius.circular(300),
+                                      borderSide: BorderSide.none,
                                     ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(300),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                  iconStyleData: IconStyleData(
+                                    icon: Image.asset(
+                                      AppImages.arrowOutlinedDown,
+                                    ),
+                                  ),
+                                  buttonStyleData:
+                                      const FormFieldButtonStyleData(
+                                        padding: EdgeInsets.zero,
+                                      ),
+                                  dropdownStyleData: DropdownStyleData(
+                                    offset: const Offset(0, 8),
+                                    padding: EdgeInsets.zero,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                      color: mutedFill,
+                                    ),
+                                  ),
+                                  menuItemStyleData: const MenuItemStyleData(
+                                    useDecorationHorizontalPadding: true,
+                                  ),
+                                  dropdownSearchData: DropdownSearchData<int>(
+                                    searchController: _services[index]
+                                        .serviceSearchController,
+                                    searchBarWidgetHeight: 52,
+                                    searchBarWidget: Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        8,
+                                        8,
+                                        8,
+                                        0,
+                                      ),
+                                      child: TextField(
+                                        controller: _services[index]
+                                            .serviceSearchController,
+                                        decoration: InputDecoration(
+                                          isDense: true,
+                                          hintText: 'Поиск услуги',
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: divider,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: divider,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    searchMatchFn: (item, searchValue) {
+                                      final service = workerServices.firstWhere(
+                                        (s) => s.id == item.value,
+                                        orElse: () => WorkerServiceItem(
+                                          id: 0,
+                                          branch: 0,
+                                          worker: 0,
+                                          price: 0,
+                                          duration: 0,
+                                          addDuration: 0,
+                                          service: WorkerServiceInfo(
+                                            id: 0,
+                                            name: '',
+                                            price: 0,
+                                            duration: 0,
+                                          ),
+                                        ),
+                                      );
+                                      return service.service.name
+                                          .toLowerCase()
+                                          .contains(searchValue.toLowerCase());
+                                    },
+                                  ),
+                                  items: workerServices
+                                      .map(
+                                        (service) => DropdownItem<int>(
+                                          value: service.id,
+                                          child: _ServiceDropdownLabel(
+                                            name: service.service.name,
+                                            hasInventory:
+                                                service.service.hasInventory,
+                                            textColor: primaryText,
+                                            accent: accent,
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: selectedSpecialistId == null
+                                      ? null
+                                      : (value) {
+                                          final selected =
+                                              _selectedWorkerService(
+                                                workerServices,
+                                                value,
+                                              );
+                                          setState(() {
+                                            _services[index].selectedServiceId =
+                                                value;
+                                            if (selected != null) {
+                                              _services[index].catalogServiceId =
+                                                  selected.service.id;
+                                              _services[index].durationMinutes =
+                                                  selected.duration;
+                                              _services[index]
+                                                      .addDurationMinutes =
+                                                  selected.addDuration;
+                                            }
+                                            // id строки услуги в записи сохраняем — API обновляет
+                                            // существующую позицию, а не создаёт новую без id.
+                                            _recalculateChainedServiceTimes(
+                                              fromIndex: index + 1,
+                                            );
+                                          });
+                                        },
+                                ),
+                              ),
+                              const Gap(12),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                child: Text(
+                                  () {
+                                    final selected = _selectedWorkerService(
+                                      workerServices,
+                                      _services[index].selectedServiceId,
+                                    );
+                                    if (selected == null) return '0 ₽';
+                                    final p = selected.price;
+                                    final formatted = p % 1 == 0
+                                        ? p.toInt().toString()
+                                        : p.toStringAsFixed(2);
+                                    return '$formatted ₽';
+                                  }(),
+                                  style: AppFonts.c1Medium.copyWith(
+                                    color: accent,
                                   ),
                                 ),
                               ),
-                              searchMatchFn: (item, searchValue) {
-                                final service = workerServices.firstWhere(
-                                  (s) => s.id == item.value,
-                                  orElse: () => WorkerServiceItem(
-                                    id: 0,
-                                    branch: 0,
-                                    worker: 0,
-                                    price: 0,
-                                    duration: 0,
-                                    addDuration: 0,
-                                    service: WorkerServiceInfo(
-                                      id: 0,
-                                      name: '',
-                                      price: 0,
-                                      duration: 0,
-                                    ),
-                                  ),
-                                );
-                                return service.service.name
-                                    .toLowerCase()
-                                    .contains(searchValue.toLowerCase());
-                              },
-                            ),
-                            items: workerServices
-                                .map(
-                                  (service) => DropdownItem<int>(
-                                    value: service.id,
-                                    child: _ServiceDropdownLabel(
-                                      name: service.service.name,
-                                      hasInventory:
-                                          service.service.hasInventory,
-                                      textColor: primaryText,
-                                      accent: accent,
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: selectedSpecialistId == null
-                                ? null
-                                : (value) {
-                                    final selected = _selectedWorkerService(
-                                      workerServices,
-                                      value,
-                                    );
-                                    setState(() {
-                                      _services[index].selectedServiceId =
-                                          value;
-                                      if (selected != null) {
-                                        _services[index].catalogServiceId =
-                                            selected.service.id;
-                                        _services[index].durationMinutes =
-                                            selected.duration;
-                                        _services[index].addDurationMinutes =
-                                            selected.addDuration;
-                                      }
-                                      // id строки услуги в записи сохраняем — API обновляет
-                                      // существующую позицию, а не создаёт новую без id.
-                                      _recalculateChainedServiceTimes(
-                                        fromIndex: index + 1,
-                                      );
-                                    });
-                                  },
+                            ],
                           ),
-                        ),
-                        const Gap(12),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            () {
-                              final selected = _selectedWorkerService(
-                                workerServices,
-                                _services[index].selectedServiceId,
-                              );
-                              if (selected == null) return '0 ₽';
-                              final p = selected.price;
-                              final formatted = p % 1 == 0
-                                  ? p.toInt().toString()
-                                  : p.toStringAsFixed(2);
-                              return '$formatted ₽';
-                            }(),
-                            style: AppFonts.c1Medium.copyWith(color: accent),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     const Gap(16),
                     GestureDetector(
@@ -3951,8 +4031,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                           builder: (context) {
                             final hasSelectedService =
                                 _services[index].selectedServiceId != null;
-                            final slotDuration =
-                                _slotDurationForServiceIndex(index);
+                            final slotDuration = _blockDurationMinutes(
+                              _services[index],
+                            );
                             final availableSlots = _availableSlotsForService(
                               date: selectedDateOnly,
                               durationMinutes: slotDuration,
@@ -3974,10 +4055,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                   index,
                                   selectedTime,
                                 );
+                            // Не сбрасываем всю цепочку: при 3+ услугах суммарная
+                            // длительность раньше «ломала» слот первой и чистила форму.
                             if (hasSelectedService &&
                                 selectedTime != null &&
                                 !availableSlots.contains(selectedTime) &&
-                                !preserveEditTime) {
+                                !preserveEditTime &&
+                                index > 0) {
                               WidgetsBinding.instance.addPostFrameCallback((
                                 _,
                               ) {
@@ -3988,29 +4072,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                       _services[index].selectedTime,
                                     )) {
                                   setState(() {
-                                    if (index == 0) {
-                                      _services[index].selectedTime = null;
-                                      _recalculateChainedServiceTimes(
-                                        fromIndex: 1,
-                                      );
-                                    } else {
-                                      // Вернуть к следующему за предыдущей.
-                                      _recalculateChainedServiceTimes(
-                                        fromIndex: index,
-                                      );
-                                    }
+                                    _recalculateChainedServiceTimes(
+                                      fromIndex: index,
+                                    );
                                   });
-                                  if (!mounted) return;
-                                  final messenger = ScaffoldMessenger.maybeOf(
-                                    this.context,
-                                  );
-                                  showAppServiceMessage(
-                                    this.context,
-                                    message:
-                                        'Временной слот не подходит. Выберите другой',
-                                    variant: AppServiceMessageVariant.info,
-                                    messenger: messenger,
-                                  );
                                 }
                               });
                             }
@@ -4061,9 +4126,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                     onSelect: (time) {
                                       if (!canPickEntryDateTime) return;
                                       setState(() {
-                                        _services[index].selectedTime = time;
-                                        _recalculateChainedServiceTimes(
-                                          fromIndex: index + 1,
+                                        _applyServiceTimeSelection(
+                                          index,
+                                          time,
                                         );
                                       });
                                     },
@@ -4074,10 +4139,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                         onSelect: (time) {
                                           if (!canPickEntryDateTime) return;
                                           setState(() {
-                                            _services[index].selectedTime =
-                                                time;
-                                            _recalculateChainedServiceTimes(
-                                              fromIndex: index + 1,
+                                            _applyServiceTimeSelection(
+                                              index,
+                                              time,
                                             );
                                           });
                                         },
@@ -4372,6 +4436,27 @@ class _BottomActionsBar extends ConsumerWidget {
               throw Exception('Appointment id is missing');
             }
             final addedServices = draft.services.length > initialServiceCount;
+            // Добавили услугу подряд — PATCH той же записи со всеми услугами.
+            // POST /appointments/ с id на стороне API снова выносил новую
+            // позицию в отдельный визит.
+            if (addedServices &&
+                _addedServicesContinueSequentially(draft.services)) {
+              await ref
+                  .read(appointmentsServiceProvider)
+                  .updateAppointment(
+                    appointmentId: appointmentId,
+                    payload: {
+                      ...draft.toUpdateRequestBody(
+                        overrideClientId: resolvedClientId,
+                      ),
+                      'has_edited_services': true,
+                    },
+                    createAnyway: createAnyway,
+                  );
+              createdId = appointmentId;
+              return;
+            }
+
             final splitIntoMultipleVisits = serviceChains.length > 1;
 
             for (var i = 0; i < serviceChains.length; i++) {
@@ -4629,6 +4714,7 @@ class _SpecialistOption {
 class _ServiceBlockState {
   _ServiceBlockState();
 
+  final GlobalKey sectionKey = GlobalKey();
   final TextEditingController serviceSearchController = TextEditingController();
   int? appointmentServiceId;
   int? selectedServiceId;
@@ -4636,6 +4722,7 @@ class _ServiceBlockState {
   String? initialServiceName;
   bool isTimeExpanded = true;
   String? selectedTime;
+  bool linkedToPrevious = false;
   int durationMinutes = 10;
   int addDurationMinutes = 0;
 
