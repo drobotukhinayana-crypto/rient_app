@@ -354,6 +354,81 @@ class _CreateAppointmentServiceDraft {
       'service': serviceId,
     };
   }
+
+  _CreateAppointmentServiceDraft copyWithoutLineId() {
+    return _CreateAppointmentServiceDraft(
+      appointmentServiceId: null,
+      serviceId: serviceId,
+      dateTime: dateTime,
+      durationMinutes: durationMinutes,
+      addDurationMinutes: addDurationMinutes,
+      price: price,
+    );
+  }
+}
+
+/// Группирует услуги в цепочки подряд идущих по времени.
+/// Разрыв во времени → отдельная запись при сохранении.
+List<List<_CreateAppointmentServiceDraft>> _groupServicesIntoSequentialChains(
+  List<_CreateAppointmentServiceDraft> services,
+) {
+  if (services.isEmpty) return const [];
+  final sorted = [...services]..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+  final groups = <List<_CreateAppointmentServiceDraft>>[
+    [sorted.first],
+  ];
+
+  for (var i = 1; i < sorted.length; i++) {
+    final previous = groups.last.last;
+    final expectedStart = previous.dateTime.add(
+      Duration(
+        minutes: previous.durationMinutes + previous.addDurationMinutes,
+      ),
+    );
+    if (sorted[i].dateTime.isAtSameMomentAs(expectedStart)) {
+      groups.last.add(sorted[i]);
+    } else {
+      groups.add([sorted[i]]);
+    }
+  }
+  return groups;
+}
+
+_CreateAppointmentDraft _draftForServiceChain(
+  _CreateAppointmentDraft source,
+  List<_CreateAppointmentServiceDraft> services, {
+  int? appointmentId,
+  bool clearServiceLineIds = false,
+  bool? paid,
+}) {
+  final chainServices = clearServiceLineIds
+      ? services.map((s) => s.copyWithoutLineId()).toList()
+      : services;
+  final subtotal = chainServices.fold<double>(
+    0,
+    (sum, service) => sum + service.price,
+  );
+  final discounted = subtotal * (1 - source.discountPercent / 100);
+  return _CreateAppointmentDraft(
+    appointmentId: appointmentId,
+    commentId: source.commentId,
+    clientId: source.clientId,
+    workerId: source.workerId,
+    branchId: source.branchId,
+    status: source.status,
+    commentText: source.commentText,
+    totalSum: discounted < 0 ? 0 : discounted,
+    discountPercent: source.discountPercent,
+    services: chainServices,
+    startDateTime: chainServices.first.dateTime,
+    clientPhone: source.clientPhone,
+    clientFirstName: source.clientFirstName,
+    clientLastName: source.clientLastName,
+    clientCommentText: source.clientCommentText,
+    shouldCreateClient: source.shouldCreateClient,
+    paid: paid ?? false,
+    hasEditedServices: source.hasEditedServices,
+  );
 }
 
 class AddNewEntryInitialData {
@@ -903,7 +978,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       ..addAll(
         appointment.services.isEmpty
             ? [_ServiceBlockState()]
-            : appointment.services.map(_createInitialServiceBlock),
+            : () {
+                final ordered = [...appointment.services];
+                sortAppointmentServicesByDatetime(ordered);
+                return ordered.map(_createInitialServiceBlock);
+              }(),
       );
   }
 
@@ -1603,50 +1682,102 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     return '${_formatSlot(start)} – ${_formatSlot(end)}';
   }
 
-  int _chainedServicesTotalMinutes() {
-    var total = 0;
-    var hasSelected = false;
-    for (final block in _services) {
-      if (block.selectedServiceId == null) continue;
-      hasSelected = true;
-      total += block.totalDurationMinutes <= 0
-          ? 10
-          : block.totalDurationMinutes;
+  int _blockDurationMinutes(_ServiceBlockState block) {
+    return block.totalDurationMinutes <= 0 ? 10 : block.totalDurationMinutes;
+  }
+
+  bool _followsPreviousService(int index) {
+    if (index < 1 || index >= _services.length) return false;
+    final previous = _services[index - 1];
+    final current = _services[index];
+    final prevStart = _dateTimeFromTimeOfDayString(
+      date: _dateOnly(_selectedDate),
+      value: previous.selectedTime,
+    );
+    final curStart = _dateTimeFromTimeOfDayString(
+      date: _dateOnly(_selectedDate),
+      value: current.selectedTime,
+    );
+    if (prevStart == null || curStart == null) return false;
+    final expected = prevStart.add(
+      Duration(minutes: _blockDurationMinutes(previous)),
+    );
+    return curStart.isAtSameMomentAs(expected);
+  }
+
+  bool _isInContiguousChainFrom(int fromIndex, int targetIndex) {
+    if (targetIndex < fromIndex || targetIndex >= _services.length) {
+      return false;
     }
-    if (!hasSelected && _services.isNotEmpty) {
-      final first = _services.first;
-      return first.totalDurationMinutes <= 0 ? 10 : first.totalDurationMinutes;
+    if (targetIndex == fromIndex) return true;
+    for (var i = fromIndex + 1; i <= targetIndex; i++) {
+      if (!_followsPreviousService(i)) return false;
     }
-    return total > 0 ? total : 10;
+    return true;
+  }
+
+  /// Длительность непрерывной цепочки, начиная с [index] (для проверки слота).
+  int _slotDurationForServiceIndex(int index) {
+    if (index < 0 || index >= _services.length) return 10;
+    var total = _blockDurationMinutes(_services[index]);
+    for (var i = index + 1; i < _services.length; i++) {
+      if (_services[i].selectedServiceId == null) break;
+      if (!_followsPreviousService(i)) break;
+      total += _blockDurationMinutes(_services[i]);
+    }
+    return total;
   }
 
   void _recalculateChainedServiceTimes({int fromIndex = 1}) {
-    if (_services.length <= 1 || fromIndex < 1) return;
-    final startIndex = fromIndex.clamp(1, _services.length - 1);
-    for (var i = startIndex; i < _services.length; i++) {
-      final previous = _services[i - 1];
-      final previousStart = _dateTimeFromTimeOfDayString(
-        date: _dateOnly(_selectedDate),
-        value: previous.selectedTime,
-      );
-      if (previousStart == null) {
-        _services[i].selectedTime = null;
-        continue;
+    if (_services.length > 1 &&
+        fromIndex >= 1 &&
+        fromIndex < _services.length) {
+      for (var i = fromIndex; i < _services.length; i++) {
+        final previous = _services[i - 1];
+        final previousStart = _dateTimeFromTimeOfDayString(
+          date: _dateOnly(_selectedDate),
+          value: previous.selectedTime,
+        );
+        if (previousStart == null) {
+          _services[i].selectedTime = null;
+          continue;
+        }
+        _services[i].selectedTime = _formatSlot(
+          previousStart.add(
+            Duration(minutes: _blockDurationMinutes(previous)),
+          ),
+        );
       }
-      final previousTotal = previous.totalDurationMinutes <= 0
-          ? 10
-          : previous.totalDurationMinutes;
-      _services[i].selectedTime = _formatSlot(
-        previousStart.add(Duration(minutes: previousTotal)),
-      );
     }
+    _sortServiceBlocksByTime();
+  }
+
+  /// Держит блоки услуг в карточке по возрастанию времени.
+  void _sortServiceBlocksByTime() {
+    if (_services.length <= 1) return;
+    _services.sort((a, b) {
+      final aStart = _dateTimeFromTimeOfDayString(
+        date: _dateOnly(_selectedDate),
+        value: a.selectedTime,
+      );
+      final bStart = _dateTimeFromTimeOfDayString(
+        date: _dateOnly(_selectedDate),
+        value: b.selectedTime,
+      );
+      if (aStart == null && bStart == null) return 0;
+      if (aStart == null) return 1;
+      if (bStart == null) return -1;
+      return aStart.compareTo(bStart);
+    });
   }
 
   bool _allServicesReadyForSave() {
     if (_services.isEmpty) return false;
-    if (_services.first.selectedServiceId == null) return false;
-    if (_services.first.selectedTime?.isEmpty ?? true) return false;
-    return _services.every((service) => service.selectedServiceId != null);
+    return _services.every(
+      (service) =>
+          service.selectedServiceId != null &&
+          (service.selectedTime?.isNotEmpty ?? false),
+    );
   }
 
   int _slotGridStepMinutes(int durationMinutes) {
@@ -1737,6 +1868,18 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         ignoreAppointmentId: widget.initialAppointment?.id,
       ),
     ];
+    for (var i = 0; i < _services.length; i++) {
+      if (i == currentServiceIndex) continue;
+      if (_isInContiguousChainFrom(currentServiceIndex, i)) continue;
+      final siblingStart = _serviceStartDateTime(i);
+      if (siblingStart == null) continue;
+      final siblingEnd = siblingStart.add(
+        Duration(minutes: _blockDurationMinutes(_services[i])),
+      );
+      if (siblingEnd.isAfter(siblingStart)) {
+        busyRanges.add(_DateTimeRange(start: siblingStart, end: siblingEnd));
+      }
+    }
     final workerBreak = resolveWorkerBreakForDate(
       daily: daily,
       fallbackBreakStart: shift.breakStart,
@@ -3771,229 +3914,204 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       ],
                     ),
                     const Gap(16),
-                    if (index == 0) ...[
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _services[index].isTimeExpanded =
-                                !_services[index].isTimeExpanded;
-                          });
-                        },
-                        behavior: HitTestBehavior.opaque,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('Время', style: AppFonts.c1Medium),
-                            Image.asset(
-                              _services[index].isTimeExpanded
-                                  ? AppImages.arrowOutlinedDown
-                                  : AppImages.arrowOutlinedTop,
-                            ),
-                          ],
-                        ),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _services[index].isTimeExpanded =
+                              !_services[index].isTimeExpanded;
+                        });
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Время', style: AppFonts.c1Medium),
+                          Image.asset(
+                            _services[index].isTimeExpanded
+                                ? AppImages.arrowOutlinedDown
+                                : AppImages.arrowOutlinedTop,
+                          ),
+                        ],
                       ),
-                      if (_services[index].isTimeExpanded) ...[
-                        const Gap(12),
-                        if (selectedSpecialistId == null)
-                          Text(
-                            workerLabels.selectWorkerFirst,
-                            style: AppFonts.c1Regular.copyWith(
-                              color: AppColors.grey,
-                            ),
-                          )
-                        else if (selectedShiftAsync.isLoading ||
-                            specialistAppointmentsAsync.isLoading)
-                          const Center(child: CircularProgressIndicator())
-                        else
-                          Builder(
-                            builder: (context) {
-                              final hasSelectedService =
-                                  _services[index].selectedServiceId != null;
-                              final slotDuration = _services.length > 1
-                                  ? _chainedServicesTotalMinutes()
-                                  : _services[index].totalDurationMinutes;
-                              final availableSlots = _availableSlotsForService(
-                                date: selectedDateOnly,
-                                durationMinutes: slotDuration,
-                                shift: selectedShift,
-                                daily: workerDailySchedule,
-                                appointments: specialistAppointments,
-                                currentServiceIndex: index,
-                              );
+                    ),
+                    if (_services[index].isTimeExpanded) ...[
+                      const Gap(12),
+                      if (selectedSpecialistId == null)
+                        Text(
+                          workerLabels.selectWorkerFirst,
+                          style: AppFonts.c1Regular.copyWith(
+                            color: AppColors.grey,
+                          ),
+                        )
+                      else if (selectedShiftAsync.isLoading ||
+                          specialistAppointmentsAsync.isLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else
+                        Builder(
+                          builder: (context) {
+                            final hasSelectedService =
+                                _services[index].selectedServiceId != null;
+                            final slotDuration =
+                                _slotDurationForServiceIndex(index);
+                            final availableSlots = _availableSlotsForService(
+                              date: selectedDateOnly,
+                              durationMinutes: slotDuration,
+                              shift: selectedShift,
+                              daily: workerDailySchedule,
+                              appointments: specialistAppointments,
+                              currentServiceIndex: index,
+                            );
 
-                              final selectedTime =
-                                  _services[index].selectedTime;
-                              final initialAppointment =
-                                  widget.initialAppointment;
-                              final preserveEditTime =
-                                  initialAppointment != null &&
-                                  selectedTime != null &&
-                                  _isInitialServiceTime(
-                                    initialAppointment,
-                                    index,
-                                    selectedTime,
-                                  );
-                              if (hasSelectedService &&
-                                  selectedTime != null &&
-                                  !availableSlots.contains(selectedTime) &&
-                                  !preserveEditTime) {
-                                WidgetsBinding.instance.addPostFrameCallback((
-                                  _,
-                                ) {
-                                  if (!mounted) return;
-                                  if (index >= _services.length) return;
-                                  if (_services[index].selectedTime != null &&
-                                      !availableSlots.contains(
-                                        _services[index].selectedTime,
-                                      )) {
-                                    setState(() {
+                            final selectedTime =
+                                _services[index].selectedTime;
+                            final initialAppointment =
+                                widget.initialAppointment;
+                            final preserveEditTime =
+                                initialAppointment != null &&
+                                selectedTime != null &&
+                                _isInitialServiceTime(
+                                  initialAppointment,
+                                  index,
+                                  selectedTime,
+                                );
+                            if (hasSelectedService &&
+                                selectedTime != null &&
+                                !availableSlots.contains(selectedTime) &&
+                                !preserveEditTime) {
+                              WidgetsBinding.instance.addPostFrameCallback((
+                                _,
+                              ) {
+                                if (!mounted) return;
+                                if (index >= _services.length) return;
+                                if (_services[index].selectedTime != null &&
+                                    !availableSlots.contains(
+                                      _services[index].selectedTime,
+                                    )) {
+                                  setState(() {
+                                    if (index == 0) {
                                       _services[index].selectedTime = null;
                                       _recalculateChainedServiceTimes(
                                         fromIndex: 1,
                                       );
-                                    });
-                                    if (!mounted) return;
-                                    final messenger = ScaffoldMessenger.maybeOf(
-                                      this.context,
-                                    );
-                                    showAppServiceMessage(
-                                      this.context,
-                                      message:
-                                          'Временной слот не подходит. Выберите другой',
-                                      variant: AppServiceMessageVariant.info,
-                                      messenger: messenger,
-                                    );
-                                  }
-                                });
-                              }
+                                    } else {
+                                      // Вернуть к следующему за предыдущей.
+                                      _recalculateChainedServiceTimes(
+                                        fromIndex: index,
+                                      );
+                                    }
+                                  });
+                                  if (!mounted) return;
+                                  final messenger = ScaffoldMessenger.maybeOf(
+                                    this.context,
+                                  );
+                                  showAppServiceMessage(
+                                    this.context,
+                                    message:
+                                        'Временной слот не подходит. Выберите другой',
+                                    variant: AppServiceMessageVariant.info,
+                                    messenger: messenger,
+                                  );
+                                }
+                              });
+                            }
 
-                              if (availableSlots.isEmpty) {
-                                return Text(
-                                  'Нет свободного времени на выбранную длительность',
-                                  style: AppFonts.c1Regular.copyWith(
-                                    color: AppColors.grey,
-                                  ),
-                                );
-                              }
-
-                              final morning = _slotsByHourRange(
-                                availableSlots,
-                                fromHourInclusive: 0,
-                                toHourExclusive: 12,
+                            if (availableSlots.isEmpty) {
+                              return Text(
+                                'Нет свободного времени на выбранную длительность',
+                                style: AppFonts.c1Regular.copyWith(
+                                  color: AppColors.grey,
+                                ),
                               );
-                              final day = _slotsByHourRange(
-                                availableSlots,
-                                fromHourInclusive: 12,
-                                toHourExclusive: 17,
-                              );
-                              final evening = _slotsByHourRange(
-                                availableSlots,
-                                fromHourInclusive: 17,
-                                toHourExclusive: 24,
-                              );
+                            }
 
-                              Widget section(String title, List<String> slots) {
-                                if (slots.isEmpty)
-                                  return const SizedBox.shrink();
-                                return Column(
-                                  children: [
-                                    Center(
-                                      child: Text(
-                                        title,
-                                        style: AppFonts.c1Regular,
-                                      ),
-                                    ),
-                                    const Gap(8),
-                                    _buildTimeRows(
-                                      context: context,
-                                      slots: slots,
-                                      selectedTime:
-                                          _services[index].selectedTime,
-                                      onSelect: (time) {
-                                        if (!canPickEntryDateTime) return;
-                                        setState(() {
-                                          _services[index].selectedTime = time;
-                                          _recalculateChainedServiceTimes(
-                                            fromIndex: 1,
-                                          );
-                                        });
-                                      },
-                                      onLongPressSlot: (initialTime) {
-                                        _showManualTimePickerDialog(
-                                          availableSlots: availableSlots,
-                                          initialTime: initialTime,
-                                          onSelect: (time) {
-                                            if (!canPickEntryDateTime) return;
-                                            setState(() {
-                                              _services[index].selectedTime =
-                                                  time;
-                                              _recalculateChainedServiceTimes(
-                                                fromIndex: 1,
-                                              );
-                                            });
-                                          },
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                );
+                            final morning = _slotsByHourRange(
+                              availableSlots,
+                              fromHourInclusive: 0,
+                              toHourExclusive: 12,
+                            );
+                            final day = _slotsByHourRange(
+                              availableSlots,
+                              fromHourInclusive: 12,
+                              toHourExclusive: 17,
+                            );
+                            final evening = _slotsByHourRange(
+                              availableSlots,
+                              fromHourInclusive: 17,
+                              toHourExclusive: 24,
+                            );
+
+                            Widget section(String title, List<String> slots) {
+                              if (slots.isEmpty) {
+                                return const SizedBox.shrink();
                               }
-
                               return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (!hasSelectedService) ...[
-                                    Text(
-                                      'Сначала выберите услугу',
-                                      style: AppFonts.c1Regular.copyWith(
-                                        color: AppColors.grey,
-                                      ),
+                                  Center(
+                                    child: Text(
+                                      title,
+                                      style: AppFonts.c1Regular,
                                     ),
-                                    const Gap(8),
-                                  ],
-                                  section('Утро', morning),
-                                  if (morning.isNotEmpty &&
-                                      (day.isNotEmpty || evening.isNotEmpty))
-                                    const Gap(12),
-                                  section('День', day),
-                                  if (day.isNotEmpty && evening.isNotEmpty)
-                                    const Gap(12),
-                                  section('Вечер', evening),
+                                  ),
+                                  const Gap(8),
+                                  _buildTimeRows(
+                                    context: context,
+                                    slots: slots,
+                                    selectedTime:
+                                        _services[index].selectedTime,
+                                    onSelect: (time) {
+                                      if (!canPickEntryDateTime) return;
+                                      setState(() {
+                                        _services[index].selectedTime = time;
+                                        _recalculateChainedServiceTimes(
+                                          fromIndex: index + 1,
+                                        );
+                                      });
+                                    },
+                                    onLongPressSlot: (initialTime) {
+                                      _showManualTimePickerDialog(
+                                        availableSlots: availableSlots,
+                                        initialTime: initialTime,
+                                        onSelect: (time) {
+                                          if (!canPickEntryDateTime) return;
+                                          setState(() {
+                                            _services[index].selectedTime =
+                                                time;
+                                            _recalculateChainedServiceTimes(
+                                              fromIndex: index + 1,
+                                            );
+                                          });
+                                        },
+                                      );
+                                    },
+                                  ),
                                 ],
                               );
-                            },
-                          ),
-                        const Gap(12),
-                        _buildServiceDurationControls(
-                          index: index,
-                          mutedFill: mutedFill,
-                          divider: divider,
+                            }
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (!hasSelectedService) ...[
+                                  Text(
+                                    'Сначала выберите услугу',
+                                    style: AppFonts.c1Regular.copyWith(
+                                      color: AppColors.grey,
+                                    ),
+                                  ),
+                                  const Gap(8),
+                                ],
+                                section('Утро', morning),
+                                if (morning.isNotEmpty &&
+                                    (day.isNotEmpty || evening.isNotEmpty))
+                                  const Gap(12),
+                                section('День', day),
+                                if (day.isNotEmpty && evening.isNotEmpty)
+                                  const Gap(12),
+                                section('Вечер', evening),
+                              ],
+                            );
+                          },
                         ),
-                      ],
-                    ] else ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Время', style: AppFonts.c1Medium),
-                          Text(
-                            _formatServiceTimeRange(index) ?? '—',
-                            style: AppFonts.c1Regular.copyWith(
-                              color: _formatServiceTimeRange(index) != null
-                                  ? accent
-                                  : AppColors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_formatServiceTimeRange(index) == null) ...[
-                        const Gap(8),
-                        Text(
-                          'Сначала выберите время для первой услуги',
-                          style: AppFonts.c1Regular.copyWith(
-                            color: AppColors.grey,
-                          ),
-                        ),
-                      ],
                       const Gap(12),
                       _buildServiceDurationControls(
                         index: index,
@@ -4214,51 +4332,96 @@ class _BottomActionsBar extends ConsumerWidget {
         int? createdId;
 
         Future<void> persistAppointment({required bool createAnyway}) async {
+          final serviceChains = _groupServicesIntoSequentialChains(
+            draft.services,
+          );
+          if (serviceChains.isEmpty) {
+            throw Exception('Не удалось подготовить услуги к сохранению');
+          }
+
+          Future<void> saveChainDraft(
+            _CreateAppointmentDraft chainDraft, {
+            required bool usePatch,
+            int? patchAppointmentId,
+          }) async {
+            if (usePatch && patchAppointmentId != null) {
+              await ref
+                  .read(appointmentsServiceProvider)
+                  .updateAppointment(
+                    appointmentId: patchAppointmentId,
+                    payload: chainDraft.toUpdateRequestBody(
+                      overrideClientId: resolvedClientId,
+                    ),
+                    createAnyway: createAnyway,
+                  );
+              return;
+            }
+            await ref
+                .read(appointmentsServiceProvider)
+                .createAppointment(
+                  payload: chainDraft.toRequestBody(
+                    overrideClientId: resolvedClientId,
+                  ),
+                  createAnyway: createAnyway,
+                );
+          }
+
           if (isEditMode) {
             final appointmentId = initialAppointmentId ?? draft.appointmentId;
             if (appointmentId == null) {
               throw Exception('Appointment id is missing');
             }
-            // Добавление услуги: POST с id записи (как на сайте) — иначе
-            // новая позиция без id уходит отдельной записью.
-            // Смена/удаление услуги: PATCH — иначе POST создаёт дубликат.
-            final servicesAdded =
-                draft.services.length > initialServiceCount;
-            if (servicesAdded) {
-              await ref
-                  .read(appointmentsServiceProvider)
-                  .createAppointment(
-                    payload: draft.toRequestBody(
-                      overrideClientId: resolvedClientId,
-                    ),
-                    createAnyway: createAnyway,
-                  );
-            } else {
-              await ref
-                  .read(appointmentsServiceProvider)
-                  .updateAppointment(
-                    appointmentId: appointmentId,
-                    payload: draft.toUpdateRequestBody(
-                      overrideClientId: resolvedClientId,
-                    ),
-                    createAnyway: createAnyway,
-                  );
+            final addedServices = draft.services.length > initialServiceCount;
+            final splitIntoMultipleVisits = serviceChains.length > 1;
+
+            for (var i = 0; i < serviceChains.length; i++) {
+              final chainDraft = _draftForServiceChain(
+                draft,
+                serviceChains[i],
+                appointmentId: i == 0 ? appointmentId : null,
+                clearServiceLineIds: i > 0,
+                paid: i == 0 ? draft.paid : false,
+              );
+              if (i == 0) {
+                // Добавление подряд: POST с id. Смена/разрыв: PATCH.
+                final usePostWithExistingId =
+                    addedServices && !splitIntoMultipleVisits;
+                await saveChainDraft(
+                  chainDraft,
+                  usePatch: !usePostWithExistingId,
+                  patchAppointmentId: appointmentId,
+                );
+              } else {
+                await saveChainDraft(
+                  chainDraft,
+                  usePatch: false,
+                  patchAppointmentId: null,
+                );
+              }
             }
             createdId = appointmentId;
             return;
           }
 
-          final created = await ref
-              .read(appointmentsServiceProvider)
-              .createAppointment(
-                payload: draft.toRequestBody(
-                  overrideClientId: resolvedClientId,
-                ),
-                createAnyway: createAnyway,
-              );
-          createdId = created.isNotEmpty
-              ? (created.first['id'] as num?)?.toInt()
-              : null;
+          for (final chain in serviceChains) {
+            final chainDraft = _draftForServiceChain(
+              draft,
+              chain,
+              appointmentId: null,
+            );
+            final created = await ref
+                .read(appointmentsServiceProvider)
+                .createAppointment(
+                  payload: chainDraft.toRequestBody(
+                    overrideClientId: resolvedClientId,
+                  ),
+                  createAnyway: createAnyway,
+                );
+            final newId = created.isNotEmpty
+                ? (created.first['id'] as num?)?.toInt()
+                : null;
+            createdId ??= newId;
+          }
         }
 
         try {

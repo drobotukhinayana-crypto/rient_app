@@ -238,13 +238,15 @@ class AppointmentApi {
     final rawText = comment?['text'];
     final commentText = rawText == null ? null : rawText.toString();
     final commentId = (comment?['id'] as num?)?.toInt();
+    final services = (json['services'] as List<dynamic>? ?? const [])
+        .map((e) => AppointmentServiceApi.fromJson(e as Map<String, dynamic>))
+        .toList();
+    sortAppointmentServicesByDatetime(services);
     return AppointmentApi(
       id: (json['id'] as num?)?.toInt() ?? 0,
       datetime: (json['datetime'] ?? '').toString(),
       status: (json['status'] as num?)?.toInt() ?? -1,
-      services: (json['services'] as List<dynamic>? ?? const [])
-          .map((e) => AppointmentServiceApi.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      services: services,
       worker: json['worker'] == null
           ? null
           : AppointmentWorkerApi.fromJson(json['worker'] as Map<String, dynamic>),
@@ -257,6 +259,22 @@ class AppointmentApi {
       paid: json['paid'] as bool? ?? false,
     );
   }
+}
+
+/// Сортирует услуги записи по времени начала (раньше → выше в карточке).
+void sortAppointmentServicesByDatetime(List<AppointmentServiceApi> services) {
+  services.sort((a, b) {
+    final aDt = DateTime.tryParse(a.datetime ?? '');
+    final bDt = DateTime.tryParse(b.datetime ?? '');
+    if (aDt == null && bDt == null) return 0;
+    if (aDt == null) return 1;
+    if (bDt == null) return -1;
+    final byTime = aDt.compareTo(bDt);
+    if (byTime != 0) return byTime;
+    final aId = a.id ?? 0;
+    final bId = b.id ?? 0;
+    return aId.compareTo(bId);
+  });
 }
 
 class AppointmentServiceApi {
