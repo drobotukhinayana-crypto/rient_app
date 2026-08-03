@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/models/worker_entity_labels.dart';
+import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/appointment_backdate.dart';
@@ -20,11 +21,14 @@ import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/widgets/app_service_message.dart';
+import 'package:rient_app/core/widgets/appointment_source_icon.dart';
 import 'package:rient_app/core/widgets/default_container.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
 import 'package:rient_app/core/widgets/worker_avatar_image.dart';
+import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/create/data/models/clients_api.dart';
 import 'package:rient_app/features/create/data/models/worker_services_api.dart';
 import 'package:rient_app/features/create/service/clients_service.dart';
@@ -34,31 +38,26 @@ import 'package:rient_app/features/create/view/components/client_status_selector
 import 'package:rient_app/features/create/view/providers/clients_provider.dart';
 import 'package:rient_app/features/create/view/providers/worker_services_provider.dart';
 import 'package:rient_app/features/create/view/providers/workers_offering_catalog_services_provider.dart';
-import 'package:rient_app/features/auth/data/models/user_role/user_role.dart';
-import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
-import 'package:rient_app/features/home/view/providers/organization_settings_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
-import 'package:rient_app/features/schedule/view/providers/schedule_appointments_refresh.dart';
+import 'package:rient_app/features/home/view/providers/organization_settings_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
-import 'package:rient_app/features/schedule/utils/appointment_inventory_conflict_utils.dart';
-import 'package:rient_app/features/schedule/utils/appointment_transaction_utils.dart';
-import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
-import 'package:rient_app/features/schedule/view/schedule_page.dart';
-import 'package:rient_app/core/network/app_connectivity_provider.dart';
-import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
+import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
+import 'package:rient_app/features/schedule/utils/appointment_inventory_conflict_utils.dart';
+import 'package:rient_app/features/schedule/utils/appointment_source.dart';
+import 'package:rient_app/features/schedule/utils/appointment_transaction_utils.dart';
+import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
 import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
-import 'package:rient_app/features/schedule/utils/worker_schedule_config_map.dart';
-import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_appointments_refresh.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/worker_schedules_range_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
-import 'package:rient_app/core/widgets/appointment_source_icon.dart';
-import 'package:rient_app/features/schedule/utils/appointment_source.dart';
+import 'package:rient_app/features/schedule/view/schedule_page.dart';
 import 'package:rient_app/resources/resources.dart';
 
 DateTime _dateOnlyForScheduleStats(DateTime d) =>
@@ -162,12 +161,16 @@ final createEntryDraftProvider = StateProvider<_CreateAppointmentDraft?>(
   (ref) => null,
 );
 final createEntryAppointmentPaidProvider = StateProvider<bool>((ref) => false);
-final createEntryPaymentProcessingProvider = StateProvider<bool>((ref) => false);
-final createEntryClientDetailsLoadingProvider = StateProvider<bool>((ref) => false);
+final createEntryPaymentProcessingProvider = StateProvider<bool>(
+  (ref) => false,
+);
+final createEntryClientDetailsLoadingProvider = StateProvider<bool>(
+  (ref) => false,
+);
 final createEntryPaymentHandlerProvider =
     StateProvider<Future<void> Function({bool updateStatusOnSaveOnly})?>(
-  (ref) => null,
-);
+      (ref) => null,
+    );
 const _rememberedClientStorageKey = 'create_entry_remembered_client';
 
 class _AppointmentSaveCancelledException implements Exception {}
@@ -287,9 +290,9 @@ class _CreateAppointmentDraft {
       'datetime': startDateTime.toUtc().toIso8601String(),
       'discount': discountPercent,
       'sum': totalSum,
-      'paid': false,
+      'paid': paid,
       'pay_due': totalSum,
-      'has_edited_services': false,
+      'has_edited_services': hasEditedServices,
       'branch': branchId,
       'captcha': 'dummy',
     };
@@ -505,17 +508,18 @@ class _AddNewEntryPageState extends ConsumerState<AddNewEntryPage> {
     final appBarSurface = _entryAppBarSurface(context);
     final cardSurface = _entryCardSurface(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final permissions = ref.watch(workerPermissionsProvider).maybeWhen(
-          data: (v) => v,
-          orElse: () => null,
-        );
+    final permissions = ref
+        .watch(workerPermissionsProvider)
+        .maybeWhen(data: (v) => v, orElse: () => null);
     final canDeleteSchedule = permissions?.deleteSchedule ?? true;
     final isScheduleOffline = ref.watch(scheduleOfflineModeProvider);
     final noConnection = ref.watch(appNoConnectionProvider);
-    final viewOnly = widget.initialAppointment != null &&
+    final viewOnly =
+        widget.initialAppointment != null &&
         (isScheduleOffline || noConnection);
     final offlineNewEntryBlocked =
-        widget.initialAppointment == null && (noConnection || isScheduleOffline);
+        widget.initialAppointment == null &&
+        (noConnection || isScheduleOffline);
     if (offlineNewEntryBlocked) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) {
@@ -574,7 +578,8 @@ class _AddNewEntryPageState extends ConsumerState<AddNewEntryPage> {
                   }
                   if (value == 'delete' &&
                       canDeleteSchedule &&
-                      (widget.isEditMode || widget.initialAppointment != null)) {
+                      (widget.isEditMode ||
+                          widget.initialAppointment != null)) {
                     _showDeleteDialog(context);
                   }
                 },
@@ -595,7 +600,9 @@ class _AddNewEntryPageState extends ConsumerState<AddNewEntryPage> {
                       ),
                     ),
                 ],
-                child: Image.asset(isDark ? AppImages.moreDark : AppImages.more),
+                child: Image.asset(
+                  isDark ? AppImages.moreDark : AppImages.more,
+                ),
               )
             else
               const SizedBox(width: 40),
@@ -603,17 +610,20 @@ class _AddNewEntryPageState extends ConsumerState<AddNewEntryPage> {
         ),
       ),
       body: _BodyWidget(
-          key: _bodyKey,
-          viewOnly: viewOnly,
-          initialAppointment: widget.initialAppointment,
-          initialData: widget.initialData,
-        ),
+        key: _bodyKey,
+        viewOnly: viewOnly,
+        initialAppointment: widget.initialAppointment,
+        initialData: widget.initialData,
+      ),
       bottomNavigationBar: viewOnly
           ? null
           : _BottomActionsBar(
-              isEditMode: widget.isEditMode || widget.initialAppointment != null,
+              isEditMode:
+                  widget.isEditMode || widget.initialAppointment != null,
               initialAppointmentId: widget.initialAppointment?.id,
               initialAppointmentDatetime: widget.initialAppointment?.datetime,
+              initialServiceCount:
+                  widget.initialAppointment?.services.length ?? 0,
             ),
     );
   }
@@ -684,7 +694,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(createEntryClientDetailsLoadingProvider.notifier).state = loading;
+      ref.read(createEntryClientDetailsLoadingProvider.notifier).state =
+          loading;
     });
   }
 
@@ -715,18 +726,17 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         _setClientDetailsLoading(true);
         unawaited(_loadSelectedClientDetails(clientId));
       } else {
-        ref.read(createEntryClientDetailsLoadingProvider.notifier).state = false;
+        ref.read(createEntryClientDetailsLoadingProvider.notifier).state =
+            false;
       }
     });
-    ref.listenManual<AsyncValue<WorkerPermissions>>(
-      workerPermissionsProvider,
-      (previous, next) {
-        if (!mounted || next.isLoading) return;
-        _syncPhoneFieldForSelectedClientPrivacy(
-          _canSeeContactData(next.value),
-        );
-      },
-    );
+    ref.listenManual<AsyncValue<WorkerPermissions>>(workerPermissionsProvider, (
+      previous,
+      next,
+    ) {
+      if (!mounted || next.isLoading) return;
+      _syncPhoneFieldForSelectedClientPrivacy(_canSeeContactData(next.value));
+    });
     ref.listenManual<bool>(seeContactDataBlockedProvider, (previous, next) {
       if (!mounted || previous == next) return;
       _syncPhoneFieldForSelectedClientPrivacy(
@@ -762,8 +772,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }) {
     if (isEditingEntry) return true;
     if (_selectedClient?.id != null) return true;
-    final digits = _effectiveClientPhoneForSubmit(canSeeContactData)
-        .replaceAll(RegExp(r'\D'), '');
+    final digits = _effectiveClientPhoneForSubmit(
+      canSeeContactData,
+    ).replaceAll(RegExp(r'\D'), '');
     return digits.length >= 10;
   }
 
@@ -838,7 +849,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       return false;
     }
     final service = appointment.services[serviceIndex];
-    final serviceDateTime = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+    final serviceDateTime = DateTime.tryParse(
+      service.datetime ?? '',
+    )?.toLocal();
     if (serviceDateTime == null) return false;
     return _formatSlot(serviceDateTime) == selectedTime;
   }
@@ -987,17 +1000,18 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   void _prefetchDatePickerPredicate(int specialistId) {
     final branchId = ref.read(currentBranchIdProvider);
     if (branchId == 0) return;
-    _datePickerPredicatePrefetch = _buildDateSelectablePredicate(
-      specialistId: specialistId,
-      branchId: branchId,
-    ).then((predicate) {
-      if (!mounted) return;
-      _datePickerPredicateCache = _EntryDatePickerPredicateCache(
-        specialistId: specialistId,
-        branchId: branchId,
-        predicate: predicate,
-      );
-    });
+    _datePickerPredicatePrefetch =
+        _buildDateSelectablePredicate(
+          specialistId: specialistId,
+          branchId: branchId,
+        ).then((predicate) {
+          if (!mounted) return;
+          _datePickerPredicateCache = _EntryDatePickerPredicateCache(
+            specialistId: specialistId,
+            branchId: branchId,
+            predicate: predicate,
+          );
+        });
   }
 
   void _onSpecialistChanged(int? value) {
@@ -1220,13 +1234,17 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     required Map<String, dynamic> payload,
   }) async {
     try {
-      return await ref.read(appointmentsServiceProvider).updateAppointment(
+      return await ref
+          .read(appointmentsServiceProvider)
+          .updateAppointment(
             appointmentId: appointmentId,
             payload: payload,
             createAnyway: false,
           );
     } on AppointmentInventoryConflictException {
-      return ref.read(appointmentsServiceProvider).updateAppointment(
+      return ref
+          .read(appointmentsServiceProvider)
+          .updateAppointment(
             appointmentId: appointmentId,
             payload: payload,
             createAnyway: true,
@@ -1239,7 +1257,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     required Map<String, dynamic> payload,
   }) async {
     try {
-      return await ref.read(appointmentsServiceProvider).updateAppointment(
+      return await ref
+          .read(appointmentsServiceProvider)
+          .updateAppointment(
             appointmentId: appointmentId,
             payload: payload,
             createAnyway: false,
@@ -1253,7 +1273,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       if (bookAnyway != true) {
         throw _AppointmentSaveCancelledException();
       }
-      return ref.read(appointmentsServiceProvider).updateAppointment(
+      return ref
+          .read(appointmentsServiceProvider)
+          .updateAppointment(
             appointmentId: appointmentId,
             payload: payload,
             createAnyway: true,
@@ -1517,7 +1539,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         if ((_services[index].selectedTime ?? '').isNotEmpty) ...[
           const Gap(8),
           Text(
-            'Время: ${_services[index].selectedTime}',
+            'Время: ${_formatServiceTimeRange(index) ?? _services[index].selectedTime}',
             style: AppFonts.c1Regular.copyWith(color: accent),
           ),
         ],
@@ -1554,6 +1576,77 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final h = dateTime.hour.toString().padLeft(2, '0');
     final m = dateTime.minute.toString().padLeft(2, '0');
     return '$h:$m';
+  }
+
+  DateTime? _serviceStartDateTime(int index) {
+    if (index < 0 || index >= _services.length) return null;
+    return _dateTimeFromTimeOfDayString(
+      date: _dateOnly(_selectedDate),
+      value: _services[index].selectedTime,
+    );
+  }
+
+  DateTime? _serviceDisplayEndDateTime(int index) {
+    if (index < 0 || index >= _services.length) return null;
+    final start = _serviceStartDateTime(index);
+    if (start == null) return null;
+    final duration = _services[index].durationMinutes <= 0
+        ? 10
+        : _services[index].durationMinutes;
+    return start.add(Duration(minutes: duration));
+  }
+
+  String? _formatServiceTimeRange(int index) {
+    final start = _serviceStartDateTime(index);
+    final end = _serviceDisplayEndDateTime(index);
+    if (start == null || end == null) return null;
+    return '${_formatSlot(start)} – ${_formatSlot(end)}';
+  }
+
+  int _chainedServicesTotalMinutes() {
+    var total = 0;
+    var hasSelected = false;
+    for (final block in _services) {
+      if (block.selectedServiceId == null) continue;
+      hasSelected = true;
+      total += block.totalDurationMinutes <= 0
+          ? 10
+          : block.totalDurationMinutes;
+    }
+    if (!hasSelected && _services.isNotEmpty) {
+      final first = _services.first;
+      return first.totalDurationMinutes <= 0 ? 10 : first.totalDurationMinutes;
+    }
+    return total > 0 ? total : 10;
+  }
+
+  void _recalculateChainedServiceTimes({int fromIndex = 1}) {
+    if (_services.length <= 1 || fromIndex < 1) return;
+    final startIndex = fromIndex.clamp(1, _services.length - 1);
+    for (var i = startIndex; i < _services.length; i++) {
+      final previous = _services[i - 1];
+      final previousStart = _dateTimeFromTimeOfDayString(
+        date: _dateOnly(_selectedDate),
+        value: previous.selectedTime,
+      );
+      if (previousStart == null) {
+        _services[i].selectedTime = null;
+        continue;
+      }
+      final previousTotal = previous.totalDurationMinutes <= 0
+          ? 10
+          : previous.totalDurationMinutes;
+      _services[i].selectedTime = _formatSlot(
+        previousStart.add(Duration(minutes: previousTotal)),
+      );
+    }
+  }
+
+  bool _allServicesReadyForSave() {
+    if (_services.isEmpty) return false;
+    if (_services.first.selectedServiceId == null) return false;
+    if (_services.first.selectedTime?.isEmpty ?? true) return false;
+    return _services.every((service) => service.selectedServiceId != null);
   }
 
   int _slotGridStepMinutes(int durationMinutes) {
@@ -1606,8 +1699,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     required int currentServiceIndex,
   }) {
     final editingAppointment = widget.initialAppointment;
-    final currentTime = currentServiceIndex >= 0 &&
-            currentServiceIndex < _services.length
+    final currentTime =
+        currentServiceIndex >= 0 && currentServiceIndex < _services.length
         ? _services[currentServiceIndex].selectedTime
         : null;
 
@@ -1662,23 +1755,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         breakEndDt.isAfter(breakStartDt)) {
       busyRanges.add(_DateTimeRange(start: breakStartDt, end: breakEndDt));
     }
-    for (var i = 0; i < _services.length; i++) {
-      if (i == currentServiceIndex) continue;
-      final block = _services[i];
-      final selectedTime = block.selectedTime;
-      if (selectedTime == null || selectedTime.isEmpty) continue;
-      final blockStart = _dateTimeFromTimeOfDayString(
-        date: date,
-        value: selectedTime,
-      );
-      if (blockStart == null) continue;
-      final blockDuration = block.totalDurationMinutes <= 0
-          ? 10
-          : block.totalDurationMinutes;
-      final blockEnd = blockStart.add(Duration(minutes: blockDuration));
-      if (!blockEnd.isAfter(blockStart)) continue;
-      busyRanges.add(_DateTimeRange(start: blockStart, end: blockEnd));
-    }
 
     final slots = <String>[];
     final now = DateTime.now();
@@ -1708,7 +1784,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         final ownEnd = ownStart.add(Duration(minutes: durationMinutes));
         if (!ownStart.isBefore(shiftStart) &&
             !ownEnd.isAfter(shiftEnd) &&
-            _isRangeFree(start: ownStart, end: ownEnd, busyRanges: busyRanges)) {
+            _isRangeFree(
+              start: ownStart,
+              end: ownEnd,
+              busyRanges: busyRanges,
+            )) {
           slots.add(currentTime);
           slots.sort((a, b) {
             final ah = int.tryParse(a.split(':').first) ?? 0;
@@ -1754,6 +1834,69 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       chunks.add(slots.sublist(i, end));
     }
     return chunks;
+  }
+
+  Widget _buildServiceDurationControls({
+    required int index,
+    required Color mutedFill,
+    required Color divider,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Text(
+          '${_services[index].totalDurationMinutes} минут',
+          style: AppFonts.c1Regular,
+        ),
+        const Gap(12),
+        Container(
+          decoration: BoxDecoration(
+            color: mutedFill,
+            borderRadius: BorderRadius.circular(300),
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    final current = _services[index].durationMinutes;
+                    _services[index].durationMinutes = (current - 10) < 0
+                        ? 0
+                        : current - 10;
+                    _recalculateChainedServiceTimes(fromIndex: index + 1);
+                  });
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  child: Image.asset(AppImages.minus),
+                ),
+              ),
+              Container(width: 1, height: 20, color: divider),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _services[index].durationMinutes += 10;
+                    _recalculateChainedServiceTimes(fromIndex: index + 1);
+                  });
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  child: Image.asset(AppImages.plus),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   _CreateAppointmentDraft? _buildCreateDraft({
@@ -1807,8 +1950,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (completeServices.isEmpty) return null;
     completeServices.sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
-    final effectivePhone =
-        _effectiveClientPhoneForSubmit(canSeeContactData).trim();
+    final effectivePhone = _effectiveClientPhoneForSubmit(
+      canSeeContactData,
+    ).trim();
     final hasRequiredManualClientData =
         effectivePhone.isNotEmpty &&
         _firstNameController.text.trim().isNotEmpty &&
@@ -1940,10 +2084,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       final anchor = _dateOnly(_selectedDate);
       final initialDate = isDaySelectable(anchor)
           ? anchor
-          : resolveNextWorkerWorkDate(
-              from: anchor,
-              isWorkDay: isDaySelectable,
-            );
+          : resolveNextWorkerWorkDate(from: anchor, isWorkDay: isDaySelectable);
 
       final picked = await showDatePicker(
         context: context,
@@ -2139,13 +2280,21 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   }
 
   void _addServiceBlock() {
-    setState(() => _services.add(_ServiceBlockState()));
+    setState(() {
+      _services.add(_ServiceBlockState()..isTimeExpanded = true);
+      _recalculateChainedServiceTimes(fromIndex: _services.length - 1);
+    });
   }
 
   void _removeServiceBlock(int index) {
     if (_services.length <= 1) return;
     setState(() {
       _services.removeAt(index);
+      if (index <= 1) {
+        _recalculateChainedServiceTimes(fromIndex: 1);
+      } else {
+        _recalculateChainedServiceTimes(fromIndex: index);
+      }
     });
   }
 
@@ -2520,7 +2669,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   Widget build(BuildContext context) {
     final isScheduleOffline = ref.watch(scheduleOfflineModeProvider);
     final noConnection = ref.watch(appNoConnectionProvider);
-    final effectiveViewOnly = widget.viewOnly ||
+    final effectiveViewOnly =
+        widget.viewOnly ||
         (widget.initialAppointment != null &&
             (isScheduleOffline || noConnection));
     if (effectiveViewOnly) {
@@ -2529,10 +2679,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final workerLabels =
         ref.watch(workerEntityLabelsProvider).value ??
         WorkerEntityLabels.defaults;
-    final permissions = ref.watch(workerPermissionsProvider).maybeWhen(
-          data: (v) => v,
-          orElse: () => null,
-        );
+    final permissions = ref
+        .watch(workerPermissionsProvider)
+        .maybeWhen(data: (v) => v, orElse: () => null);
     ref.watch(seeContactDataBlockedProvider);
     final canSeeContactData = _canSeeContactData(permissions);
     final canChangeStatus = permissions?.changeStatus ?? true;
@@ -2540,12 +2689,14 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final canTransferSchedule = permissions?.transferSchedule ?? true;
     final canCreateSchedule = permissions?.createSchedule ?? true;
     final isEditingEntry = widget.initialAppointment != null;
-    final canPickEntryDateTime =
-        isEditingEntry ? canTransferSchedule : canCreateSchedule;
+    final canPickEntryDateTime = isEditingEntry
+        ? canTransferSchedule
+        : canCreateSchedule;
     final roleId = ref.watch(roleProvider);
     final isWorkerRole = roleId == UserRole.worker.value;
     final currentWorkerIdAsync = ref.watch(currentWorkerIdProvider);
     final currentWorkerId = currentWorkerIdAsync.value;
+
     /// change_worker — перенос записи на другого сотрудника (только мастер).
     /// transfer_schedule — перенос по дате/времени (canPickEntryDateTime).
     final workerCanPickAnotherSpecialist =
@@ -2569,6 +2720,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
     final workersAsync = ref.watch(scheduleWorkersProvider);
     final branchId = ref.watch(currentBranchIdProvider);
+
     /// Услуги текущего выбранного воркера (по состоянию формы), чтобы сопоставить
     /// выбранные позиции с id услуги в каталоге — без цикла «список специалистов».
     final workerServicesForCatalogAsync = _selectedSpecialistId == null
@@ -2589,6 +2741,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       final cid = item?.service.id;
       if (cid != null && cid != 0) requiredCatalogServiceIds.add(cid);
     }
+
     /// Новая запись у воркера — только на себя. Редактирование с change_worker —
     /// подбор специалистов по тем же услугам каталога, что и у администратора.
     final specialistFilterKeyForWatch =
@@ -2622,9 +2775,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       if (currentWorkerId != null && currentWorkerId > 0) {
         if (workerCanPickAnotherSpecialist) {
           specialistsBeforeWorkingDayFilter = eligibleSpecialistIdsAsync.when(
-            data: (eligible) => specialistsBase
-                .where((s) => eligible.contains(s.id))
-                .toList(),
+            data: (eligible) =>
+                specialistsBase.where((s) => eligible.contains(s.id)).toList(),
             loading: () {
               final keepId = _selectedSpecialistId ?? currentWorkerId;
               return specialistsBase.where((s) => s.id == keepId).toList();
@@ -2647,14 +2799,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       specialistsBeforeWorkingDayFilter = specialistsBase;
     } else {
       specialistsBeforeWorkingDayFilter = eligibleSpecialistIdsAsync.when(
-        data: (eligible) => specialistsBase
-            .where((s) => eligible.contains(s.id))
-            .toList(),
+        data: (eligible) =>
+            specialistsBase.where((s) => eligible.contains(s.id)).toList(),
         loading: () {
           final keepId = _selectedSpecialistId;
           if (keepId != null && keepId > 0) {
-            final match =
-                specialistsBase.where((s) => s.id == keepId).toList();
+            final match = specialistsBase.where((s) => s.id == keepId).toList();
             if (match.isNotEmpty) return match;
           }
           return const <_SpecialistOption>[];
@@ -2723,8 +2873,9 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
               ),
             ),
           );
-    final workerDailySchedule =
-        workerDailyScheduleAsync?.value?.scheduleOn(selectedDateOnly);
+    final workerDailySchedule = workerDailyScheduleAsync?.value?.scheduleOn(
+      selectedDateOnly,
+    );
     final workerServices =
         workerServicesAsync.value ?? const <WorkerServiceItem>[];
     if (selectedSpecialistId != null && workerServices.isNotEmpty) {
@@ -2763,16 +2914,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       selectedClientDiscount: selectedClientDiscount,
       canSeeContactData: canSeeContactData,
     );
-    final hasCompleteService = _services.any(
-      (service) =>
-          service.selectedServiceId != null &&
-          (service.selectedTime?.isNotEmpty ?? false),
-    );
+    final hasCompleteService = _allServicesReadyForSave();
     final hasClientPhone = _hasClientPhoneForSave(
       canSeeContactData,
       isEditingEntry: isEditingEntry,
     );
-    final canSave = selectedSpecialistId != null &&
+    final canSave =
+        selectedSpecialistId != null &&
         branchId != 0 &&
         hasCompleteService &&
         hasClientPhone &&
@@ -2911,85 +3059,84 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                   },
                 ),
                 if (!widget.viewOnly && _showClientSuggestions) ...[
-                    const Gap(8),
-                    DefaultContainerWidget(
-                      color: mutedFill,
-                      borderRadius: BorderRadius.circular(16),
-                      hasShadow: false,
-                      hasBorder: true,
-                      borderColor: divider,
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: clientsAsync.isLoading
-                          ? const Padding(
-                              padding: EdgeInsets.all(8),
-                              child: Center(child: CircularProgressIndicator()),
-                            )
-                          : clientsByPhone.isEmpty
-                          ? Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: Text(
-                                'Клиент не найден',
-                                style: AppFonts.c1Regular.copyWith(
-                                  color: AppColors.grey,
-                                ),
+                  const Gap(8),
+                  DefaultContainerWidget(
+                    color: mutedFill,
+                    borderRadius: BorderRadius.circular(16),
+                    hasShadow: false,
+                    hasBorder: true,
+                    borderColor: divider,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: clientsAsync.isLoading
+                        ? const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        : clientsByPhone.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Text(
+                              'Клиент не найден',
+                              style: AppFonts.c1Regular.copyWith(
+                                color: AppColors.grey,
                               ),
-                            )
-                          : Column(
-                              children: [
-                                for (
-                                  var i = 0;
-                                  i < clientsByPhone.length;
-                                  i++
-                                ) ...[
-                                  ListTile(
-                                    dense: true,
-                                    title: Text(
-                                      '${clientsByPhone[i].firstName} ${clientsByPhone[i].lastName}'
-                                          .trim(),
-                                      style: AppFonts.c1Regular,
+                            ),
+                          )
+                        : Column(
+                            children: [
+                              for (
+                                var i = 0;
+                                i < clientsByPhone.length;
+                                i++
+                              ) ...[
+                                ListTile(
+                                  dense: true,
+                                  title: Text(
+                                    '${clientsByPhone[i].firstName} ${clientsByPhone[i].lastName}'
+                                        .trim(),
+                                    style: AppFonts.c1Regular,
+                                  ),
+                                  subtitle: Text(
+                                    canSeeContactData
+                                        ? clientsByPhone[i].phone
+                                        : _maskPhoneLastFourDigitsForList(
+                                            clientsByPhone[i].phone,
+                                          ),
+                                    style: AppFonts.c2Tabbar.copyWith(
+                                      color: AppColors.grey,
                                     ),
-                                    subtitle: Text(
-                                      canSeeContactData
+                                  ),
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedClient = clientsByPhone[i];
+                                      _phoneController.text = canSeeContactData
                                           ? clientsByPhone[i].phone
                                           : _maskPhoneLastFourDigitsForList(
                                               clientsByPhone[i].phone,
-                                            ),
-                                      style: AppFonts.c2Tabbar.copyWith(
-                                        color: AppColors.grey,
-                                      ),
-                                    ),
-                                    onTap: () {
-                                      setState(() {
-                                        _selectedClient = clientsByPhone[i];
-                                        _phoneController.text =
-                                            canSeeContactData
-                                            ? clientsByPhone[i].phone
-                                            : _maskPhoneLastFourDigitsForList(
-                                                clientsByPhone[i].phone,
-                                              );
-                                        _firstNameController.text =
-                                            clientsByPhone[i].firstName;
-                                        _lastNameController.text =
-                                            clientsByPhone[i].lastName;
-                                        _commentClientController.text =
-                                            clientsByPhone[i].commentText ?? '';
-                                        _phoneSearchQuery =
-                                            clientsByPhone[i].phone;
-                                        _showClientSuggestions = false;
-                                        if ((clientsByPhone[i].commentText ?? '')
-                                            .trim()
-                                            .isNotEmpty) {
-                                          _isCommentClientExpanded = true;
-                                        }
-                                      });
-                                    },
-                                  ),
-                                  if (i < clientsByPhone.length - 1)
-                                    Divider(height: 1, color: divider),
-                                ],
+                                            );
+                                      _firstNameController.text =
+                                          clientsByPhone[i].firstName;
+                                      _lastNameController.text =
+                                          clientsByPhone[i].lastName;
+                                      _commentClientController.text =
+                                          clientsByPhone[i].commentText ?? '';
+                                      _phoneSearchQuery =
+                                          clientsByPhone[i].phone;
+                                      _showClientSuggestions = false;
+                                      if ((clientsByPhone[i].commentText ?? '')
+                                          .trim()
+                                          .isNotEmpty) {
+                                        _isCommentClientExpanded = true;
+                                      }
+                                    });
+                                  },
+                                ),
+                                if (i < clientsByPhone.length - 1)
+                                  Divider(height: 1, color: divider),
                               ],
-                            ),
-                    ),
+                            ],
+                          ),
+                  ),
                 ],
                 Gap(12),
                 Row(
@@ -3087,118 +3234,118 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                       child: Center(child: LoadingWidget(side: 28)),
                     )
                   else ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DefaultContainerWidget(
-                          color: mutedFill,
-                          borderRadius: BorderRadius.circular(16),
-                          hasShadow: false,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Баланс', style: AppFonts.c1Medium),
-                              Gap(8),
-                              Text(
-                                _formatMoney(_selectedClient!.balance),
-                                style: AppFonts.b1Medium.copyWith(
-                                  color: accent,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DefaultContainerWidget(
+                            color: mutedFill,
+                            borderRadius: BorderRadius.circular(16),
+                            hasShadow: false,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Баланс', style: AppFonts.c1Medium),
+                                Gap(8),
+                                Text(
+                                  _formatMoney(_selectedClient!.balance),
+                                  style: AppFonts.b1Medium.copyWith(
+                                    color: accent,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      Gap(12),
-                      Expanded(
-                        child: DefaultContainerWidget(
-                          color: mutedFill,
-                          borderRadius: BorderRadius.circular(16),
-                          hasShadow: false,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('КНК', style: AppFonts.c1Medium),
-                              Gap(8),
-                              Text(
-                                _selectedClient!.reliabilityFactor.toString(),
-                                style: AppFonts.b1Medium.copyWith(
-                                  color: accent,
+                        Gap(12),
+                        Expanded(
+                          child: DefaultContainerWidget(
+                            color: mutedFill,
+                            borderRadius: BorderRadius.circular(16),
+                            hasShadow: false,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('КНК', style: AppFonts.c1Medium),
+                                Gap(8),
+                                Text(
+                                  _selectedClient!.reliabilityFactor.toString(),
+                                  style: AppFonts.b1Medium.copyWith(
+                                    color: accent,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      Gap(12),
-                      Expanded(
-                        child: DefaultContainerWidget(
-                          color: mutedFill,
-                          borderRadius: BorderRadius.circular(16),
-                          hasShadow: false,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Визитов', style: AppFonts.c1Medium),
-                              Gap(8),
-                              Text(
-                                _selectedClient!.numberOfVisits.toString(),
-                                style: AppFonts.b1Medium.copyWith(
-                                  color: accent,
+                        Gap(12),
+                        Expanded(
+                          child: DefaultContainerWidget(
+                            color: mutedFill,
+                            borderRadius: BorderRadius.circular(16),
+                            hasShadow: false,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Визитов', style: AppFonts.c1Medium),
+                                Gap(8),
+                                Text(
+                                  _selectedClient!.numberOfVisits.toString(),
+                                  style: AppFonts.b1Medium.copyWith(
+                                    color: accent,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  Gap(12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DefaultContainerWidget(
-                          color: mutedFill,
-                          borderRadius: BorderRadius.circular(16),
-                          hasShadow: false,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Скидка', style: AppFonts.c1Medium),
-                              Gap(8),
-                              Text(
-                                '${_selectedClient!.discount.round()}%',
-                                style: AppFonts.b1Medium.copyWith(
-                                  color: accent,
+                      ],
+                    ),
+                    Gap(12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DefaultContainerWidget(
+                            color: mutedFill,
+                            borderRadius: BorderRadius.circular(16),
+                            hasShadow: false,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Скидка', style: AppFonts.c1Medium),
+                                Gap(8),
+                                Text(
+                                  '${_selectedClient!.discount.round()}%',
+                                  style: AppFonts.b1Medium.copyWith(
+                                    color: accent,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      Gap(12),
-                      Expanded(
-                        child: DefaultContainerWidget(
-                          color: mutedFill,
-                          borderRadius: BorderRadius.circular(16),
-                          hasShadow: false,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Средний чек', style: AppFonts.c1Medium),
-                              Gap(8),
-                              Text(
-                                _formatMoney(_selectedClient!.averageCheck),
-                                style: AppFonts.b1Medium.copyWith(
-                                  color: accent,
+                        Gap(12),
+                        Expanded(
+                          child: DefaultContainerWidget(
+                            color: mutedFill,
+                            borderRadius: BorderRadius.circular(16),
+                            hasShadow: false,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Средний чек', style: AppFonts.c1Medium),
+                                Gap(8),
+                                Text(
+                                  _formatMoney(_selectedClient!.averageCheck),
+                                  style: AppFonts.b1Medium.copyWith(
+                                    color: accent,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                   ],
                 ],
               ),
@@ -3223,658 +3370,677 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                     isWorkerRole: isWorkerRole,
                   )
                 else ...[
-                Text(workerLabels.sectionAndServices, style: AppFonts.b1Medium),
-                Gap(16),
-                Text(
-                  workerLabels.workerFieldLabel(isWorkerRole: isWorkerRole),
-                  style: AppFonts.c1Medium,
-                ),
-                Gap(8),
-                if (useWorkerReadOnlySpecialistTile)
-                  DefaultContainerWidget(
-                    color: mutedFill,
-                    borderRadius: BorderRadius.circular(300),
-                    hasShadow: false,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: currentWorkerIdAsync.isLoading
-                        ? Text(
-                            'Загрузка профиля…',
-                            style: AppFonts.c1Regular.copyWith(
-                              color: AppColors.grey,
-                            ),
-                          )
-                        : workersAsync.isLoading
-                        ? Text(
-                            workerLabels.loadingWorkers,
-                            style: AppFonts.c1Regular.copyWith(
-                              color: AppColors.grey,
-                            ),
-                          )
-                        : specialists.isNotEmpty
-                        ? _SpecialistDropdownTile(
-                            fullName: specialists.first.fullName,
-                            avatarUrl: specialists.first.avatarUrl,
-                          )
-                        : Text(
-                            'Сотрудник не найден в филиале',
-                            style: AppFonts.c1Regular.copyWith(
-                              color: AppColors.grey,
-                            ),
-                          ),
-                  )
-                else
-                  DropdownButtonFormField2<int>(
-                  valueListenable: ValueNotifier<int?>(selectedSpecialistId),
-                  isExpanded: true,
-                  alignment: AlignmentDirectional.centerStart,
-                  onMenuStateChange: (isOpen) {
-                    if (!isOpen) _specialistDropdownSearchController.clear();
-                  },
-                  style: AppFonts.c1Regular.copyWith(color: primaryText),
-                  hint: Text(
-                    workersAsync.isLoading
-                        ? workerLabels.loadingWorkers
-                        : (requiredCatalogServiceIds.isNotEmpty &&
-                              eligibleSpecialistIdsAsync.isLoading)
-                        ? workerLabels.matchingWorkersByService
-                        : workerLabels.hintSelect,
-                    style: AppFonts.c1Regular.copyWith(color: primaryText),
+                  Text(
+                    workerLabels.sectionAndServices,
+                    style: AppFonts.b1Medium,
                   ),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: mutedFill,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(300),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(300),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(300),
-                      borderSide: BorderSide.none,
-                    ),
+                  Gap(16),
+                  Text(
+                    workerLabels.workerFieldLabel(isWorkerRole: isWorkerRole),
+                    style: AppFonts.c1Medium,
                   ),
-                  iconStyleData: IconStyleData(
-                    icon: Image.asset(AppImages.arrowOutlinedDown),
-                  ),
-                  buttonStyleData: const FormFieldButtonStyleData(
-                    padding: EdgeInsets.zero,
-                  ),
-                  dropdownStyleData: DropdownStyleData(
-                    offset: const Offset(0, 8),
-                    padding: EdgeInsets.only(left: 16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
+                  Gap(8),
+                  if (useWorkerReadOnlySpecialistTile)
+                    DefaultContainerWidget(
                       color: mutedFill,
-                    ),
-                  ),
-                  menuItemStyleData: const MenuItemStyleData(
-                    useDecorationHorizontalPadding: true,
-                  ),
-                  dropdownSearchData: DropdownSearchData<int>(
-                    searchController: _specialistDropdownSearchController,
-                    searchBarWidgetHeight: 52,
-                    noResultsWidget: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Text(
-                        workerLabels.notFound,
-                        style: AppFonts.c1Regular.copyWith(
-                          color: AppColors.grey,
-                        ),
+                      borderRadius: BorderRadius.circular(300),
+                      hasShadow: false,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
                       ),
-                    ),
-                    searchBarWidget: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                      child: TextField(
-                        controller: _specialistDropdownSearchController,
-                        decoration: InputDecoration(
-                          isDense: true,
-                          hintText: workerLabels.searchByWorker,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: divider),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: divider),
-                          ),
-                        ),
-                      ),
-                    ),
-                    searchMatchFn: (item, searchValue) {
-                      final specialist = specialists.firstWhere(
-                        (s) => s.id == item.value,
-                        orElse: () =>
-                            const _SpecialistOption(id: 0, fullName: ''),
-                      );
-                      return specialist.fullName.toLowerCase().contains(
-                        searchValue.toLowerCase(),
-                      );
-                    },
-                  ),
-                  items: specialists
-                      .map(
-                        (specialist) => DropdownItem<int>(
-                          value: specialist.id,
-                          child: _SpecialistDropdownTile(
-                            fullName: specialist.fullName,
-                            avatarUrl: specialist.avatarUrl,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (!canChangeWorker || specialists.isEmpty)
-                      ? null
-                      : _onSpecialistChanged,
-                ),
-                Gap(16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Дата', style: AppFonts.c1Medium),
-                    GestureDetector(
-                      onTap: (selectedSpecialistId == null ||
-                              !canPickEntryDateTime ||
-                              _datePickerInFlight)
-                          ? null
-                          : () => unawaited(_pickDate()),
-                      behavior: HitTestBehavior.opaque,
-                      child: SizedBox(
-                        width: 120,
-                        child: DefaultContainerWidget(
-                          color: mutedFill,
-                          borderRadius: BorderRadius.circular(300),
-                          hasShadow: false,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _formatDate(_selectedDate),
-                                  style: AppFonts.c1Regular.copyWith(
-                                    color: selectedSpecialistId == null
-                                        ? AppColors.grey
-                                        : primaryText,
-                                  ),
-                                ),
-                              ),
-
-                              Image.asset(
-                                AppImages.calendarTab,
-                                width: 18,
-                                height: 18,
-                                color: selectedSpecialistId == null
-                                    ? AppColors.grey
-                                    : accent,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                for (var index = 0; index < _services.length; index++) ...[
-                  Divider(height: 32, color: divider),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Услуга ${index + 1}', style: AppFonts.c1Medium),
-                      GestureDetector(
-                        onTap: () => _removeServiceBlock(index),
-                        behavior: HitTestBehavior.opaque,
-                        child: const Icon(
-                          Icons.delete_outline,
-                          size: 20,
-                          color: AppColors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Gap(12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField2<int>(
-                          valueListenable: ValueNotifier<int?>(
-                            _services[index].selectedServiceId,
-                          ),
-                          isExpanded: true,
-                          onMenuStateChange: (isOpen) {
-                            if (!isOpen) {
-                              _services[index].serviceSearchController.clear();
-                            }
-                          },
-                          style: AppFonts.c1Regular.copyWith(
-                            color: primaryText,
-                          ),
-                          hint: Text(
-                            selectedSpecialistId == null
-                                ? workerLabels.selectWorkerFirst
-                                : (workerServicesAsync.isLoading
-                                      ? 'Загрузка услуг...'
-                                      : 'Название услуги'),
-                            style: AppFonts.c1Regular.copyWith(
-                              color: primaryText,
-                            ),
-                          ),
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: mutedFill,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(300),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(300),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(300),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          iconStyleData: IconStyleData(
-                            icon: Image.asset(AppImages.arrowOutlinedDown),
-                          ),
-                          buttonStyleData: const FormFieldButtonStyleData(
-                            padding: EdgeInsets.zero,
-                          ),
-                          dropdownStyleData: DropdownStyleData(
-                            offset: const Offset(0, 8),
-                            padding: EdgeInsets.zero,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              color: mutedFill,
-                            ),
-                          ),
-                          menuItemStyleData: const MenuItemStyleData(
-                            useDecorationHorizontalPadding: true,
-                          ),
-                          dropdownSearchData: DropdownSearchData<int>(
-                            searchController:
-                                _services[index].serviceSearchController,
-                            searchBarWidgetHeight: 52,
-                            searchBarWidget: Padding(
-                              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                              child: TextField(
-                                controller:
-                                    _services[index].serviceSearchController,
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  hintText: 'Поиск услуги',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: divider),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: divider),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            searchMatchFn: (item, searchValue) {
-                              final service = workerServices.firstWhere(
-                                (s) => s.id == item.value,
-                                orElse: () => WorkerServiceItem(
-                                  id: 0,
-                                  branch: 0,
-                                  worker: 0,
-                                  price: 0,
-                                  duration: 0,
-                                  addDuration: 0,
-                                  service: WorkerServiceInfo(
-                                    id: 0,
-                                    name: '',
-                                    price: 0,
-                                    duration: 0,
-                                  ),
-                                ),
-                              );
-                              return service.service.name
-                                  .toLowerCase()
-                                  .contains(searchValue.toLowerCase());
-                            },
-                          ),
-                          items: workerServices
-                              .map(
-                                (service) => DropdownItem<int>(
-                                  value: service.id,
-                                  child: _ServiceDropdownLabel(
-                                    name: service.service.name,
-                                    hasInventory: service.service.hasInventory,
-                                    textColor: primaryText,
-                                    accent: accent,
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: selectedSpecialistId == null
-                              ? null
-                              : (value) {
-                                  final selected = _selectedWorkerService(
-                                    workerServices,
-                                    value,
-                                  );
-                                  setState(() {
-                                    _services[index].selectedServiceId = value;
-                                    if (selected != null) {
-                                      _services[index].catalogServiceId =
-                                          selected.service.id;
-                                      _services[index].durationMinutes =
-                                          selected.duration;
-                                      _services[index].addDurationMinutes =
-                                          selected.addDuration;
-                                    }
-                                    // id строки услуги в записи сохраняем — API обновляет
-                                    // существующую позицию, а не создаёт новую без id.
-                                  });
-                                },
-                        ),
-                      ),
-                      const Gap(12),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(() {
-                          final selected = _selectedWorkerService(
-                            workerServices,
-                            _services[index].selectedServiceId,
-                          );
-                          if (selected == null) return '0 ₽';
-                          final p = selected.price;
-                          final formatted = p % 1 == 0
-                              ? p.toInt().toString()
-                              : p.toStringAsFixed(2);
-                          return '$formatted ₽';
-                        }(), style: AppFonts.c1Medium.copyWith(color: accent)),
-                      ),
-                    ],
-                  ),
-                  const Gap(16),
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _services[index].isTimeExpanded =
-                            !_services[index].isTimeExpanded;
-                      });
-                    },
-                    behavior: HitTestBehavior.opaque,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Время', style: AppFonts.c1Medium),
-                        Image.asset(
-                          _services[index].isTimeExpanded
-                              ? AppImages.arrowOutlinedDown
-                              : AppImages.arrowOutlinedTop,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (_services[index].isTimeExpanded) ...[
-                    const Gap(12),
-                    if (selectedSpecialistId == null)
-                      Text(
-                        workerLabels.selectWorkerFirst,
-                        style: AppFonts.c1Regular.copyWith(
-                          color: AppColors.grey,
-                        ),
-                      )
-                    else if (selectedShiftAsync.isLoading ||
-                        specialistAppointmentsAsync.isLoading)
-                      const Center(child: CircularProgressIndicator())
-                    else ...[
-                      Builder(
-                        builder: (context) {
-                          final hasSelectedService =
-                              _services[index].selectedServiceId != null;
-                          final availableSlots = _availableSlotsForService(
-                            date: selectedDateOnly,
-                            durationMinutes:
-                                _services[index].totalDurationMinutes,
-                            shift: selectedShift,
-                            daily: workerDailySchedule,
-                            appointments: specialistAppointments,
-                            currentServiceIndex: index,
-                          );
-
-                          final selectedTime = _services[index].selectedTime;
-                          final initialAppointment = widget.initialAppointment;
-                          final preserveEditTime =
-                              initialAppointment != null &&
-                              selectedTime != null &&
-                              _isInitialServiceTime(
-                                initialAppointment,
-                                index,
-                                selectedTime,
-                              );
-                          if (hasSelectedService &&
-                              selectedTime != null &&
-                              !availableSlots.contains(selectedTime) &&
-                              !preserveEditTime) {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (!mounted) return;
-                              if (index >= _services.length) return;
-                              if (_services[index].selectedTime != null &&
-                                  !availableSlots.contains(
-                                    _services[index].selectedTime,
-                                  )) {
-                                setState(() {
-                                  _services[index].selectedTime = null;
-                                });
-                                if (!mounted) return;
-                                final messenger = ScaffoldMessenger.maybeOf(
-                                  this.context,
-                                );
-                                showAppServiceMessage(
-                                  this.context,
-                                  message:
-                                      'Временной слот не подходит. Выберите другой',
-                                  variant: AppServiceMessageVariant.info,
-                                  messenger: messenger,
-                                );
-                              }
-                            });
-                          }
-
-                          if (availableSlots.isEmpty) {
-                            return Text(
-                              'Нет свободного времени на выбранную длительность',
+                      child: currentWorkerIdAsync.isLoading
+                          ? Text(
+                              'Загрузка профиля…',
                               style: AppFonts.c1Regular.copyWith(
                                 color: AppColors.grey,
                               ),
-                            );
-                          }
-
-                          final morning = _slotsByHourRange(
-                            availableSlots,
-                            fromHourInclusive: 0,
-                            toHourExclusive: 12,
+                            )
+                          : workersAsync.isLoading
+                          ? Text(
+                              workerLabels.loadingWorkers,
+                              style: AppFonts.c1Regular.copyWith(
+                                color: AppColors.grey,
+                              ),
+                            )
+                          : specialists.isNotEmpty
+                          ? _SpecialistDropdownTile(
+                              fullName: specialists.first.fullName,
+                              avatarUrl: specialists.first.avatarUrl,
+                            )
+                          : Text(
+                              'Сотрудник не найден в филиале',
+                              style: AppFonts.c1Regular.copyWith(
+                                color: AppColors.grey,
+                              ),
+                            ),
+                    )
+                  else
+                    DropdownButtonFormField2<int>(
+                      valueListenable: ValueNotifier<int?>(
+                        selectedSpecialistId,
+                      ),
+                      isExpanded: true,
+                      alignment: AlignmentDirectional.centerStart,
+                      onMenuStateChange: (isOpen) {
+                        if (!isOpen)
+                          _specialistDropdownSearchController.clear();
+                      },
+                      style: AppFonts.c1Regular.copyWith(color: primaryText),
+                      hint: Text(
+                        workersAsync.isLoading
+                            ? workerLabels.loadingWorkers
+                            : (requiredCatalogServiceIds.isNotEmpty &&
+                                  eligibleSpecialistIdsAsync.isLoading)
+                            ? workerLabels.matchingWorkersByService
+                            : workerLabels.hintSelect,
+                        style: AppFonts.c1Regular.copyWith(color: primaryText),
+                      ),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: mutedFill,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(300),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(300),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(300),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      iconStyleData: IconStyleData(
+                        icon: Image.asset(AppImages.arrowOutlinedDown),
+                      ),
+                      buttonStyleData: const FormFieldButtonStyleData(
+                        padding: EdgeInsets.zero,
+                      ),
+                      dropdownStyleData: DropdownStyleData(
+                        offset: const Offset(0, 8),
+                        padding: EdgeInsets.only(left: 16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: mutedFill,
+                        ),
+                      ),
+                      menuItemStyleData: const MenuItemStyleData(
+                        useDecorationHorizontalPadding: true,
+                      ),
+                      dropdownSearchData: DropdownSearchData<int>(
+                        searchController: _specialistDropdownSearchController,
+                        searchBarWidgetHeight: 52,
+                        noResultsWidget: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text(
+                            workerLabels.notFound,
+                            style: AppFonts.c1Regular.copyWith(
+                              color: AppColors.grey,
+                            ),
+                          ),
+                        ),
+                        searchBarWidget: Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                          child: TextField(
+                            controller: _specialistDropdownSearchController,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              hintText: workerLabels.searchByWorker,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: divider),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: divider),
+                              ),
+                            ),
+                          ),
+                        ),
+                        searchMatchFn: (item, searchValue) {
+                          final specialist = specialists.firstWhere(
+                            (s) => s.id == item.value,
+                            orElse: () =>
+                                const _SpecialistOption(id: 0, fullName: ''),
                           );
-                          final day = _slotsByHourRange(
-                            availableSlots,
-                            fromHourInclusive: 12,
-                            toHourExclusive: 17,
-                          );
-                          final evening = _slotsByHourRange(
-                            availableSlots,
-                            fromHourInclusive: 17,
-                            toHourExclusive: 24,
-                          );
-
-                          Widget section(String title, List<String> slots) {
-                            if (slots.isEmpty) return const SizedBox.shrink();
-                            return Column(
-                              children: [
-                                Center(
-                                  child: Text(title, style: AppFonts.c1Regular),
-                                ),
-                                const Gap(8),
-                                _buildTimeRows(
-                                  context: context,
-                                  slots: slots,
-                                  selectedTime: _services[index].selectedTime,
-                                  onSelect: (time) {
-                                    if (!canPickEntryDateTime) return;
-                                    setState(
-                                      () =>
-                                          _services[index].selectedTime = time,
-                                    );
-                                  },
-                                  onLongPressSlot: (initialTime) {
-                                    _showManualTimePickerDialog(
-                                      availableSlots: availableSlots,
-                                      initialTime: initialTime,
-                                      onSelect: (time) {
-                                        if (!canPickEntryDateTime) return;
-                                        setState(
-                                          () => _services[index].selectedTime =
-                                              time,
-                                        );
-                                      },
-                                    );
-                                  },
-                                ),
-                              ],
-                            );
-                          }
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (!hasSelectedService) ...[
-                                Text(
-                                  'Сначала выберите услугу',
-                                  style: AppFonts.c1Regular.copyWith(
-                                    color: AppColors.grey,
-                                  ),
-                                ),
-                                const Gap(8),
-                              ],
-                              section('Утро', morning),
-                              if (morning.isNotEmpty &&
-                                  (day.isNotEmpty || evening.isNotEmpty))
-                                const Gap(12),
-                              section('День', day),
-                              if (day.isNotEmpty && evening.isNotEmpty)
-                                const Gap(12),
-                              section('Вечер', evening),
-                            ],
+                          return specialist.fullName.toLowerCase().contains(
+                            searchValue.toLowerCase(),
                           );
                         },
                       ),
+                      items: specialists
+                          .map(
+                            (specialist) => DropdownItem<int>(
+                              value: specialist.id,
+                              child: _SpecialistDropdownTile(
+                                fullName: specialist.fullName,
+                                avatarUrl: specialist.avatarUrl,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (!canChangeWorker || specialists.isEmpty)
+                          ? null
+                          : _onSpecialistChanged,
+                    ),
+                  Gap(16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Дата', style: AppFonts.c1Medium),
+                      GestureDetector(
+                        onTap:
+                            (selectedSpecialistId == null ||
+                                !canPickEntryDateTime ||
+                                _datePickerInFlight)
+                            ? null
+                            : () => unawaited(_pickDate()),
+                        behavior: HitTestBehavior.opaque,
+                        child: SizedBox(
+                          width: 120,
+                          child: DefaultContainerWidget(
+                            color: mutedFill,
+                            borderRadius: BorderRadius.circular(300),
+                            hasShadow: false,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _formatDate(_selectedDate),
+                                    style: AppFonts.c1Regular.copyWith(
+                                      color: selectedSpecialistId == null
+                                          ? AppColors.grey
+                                          : primaryText,
+                                    ),
+                                  ),
+                                ),
+
+                                Image.asset(
+                                  AppImages.calendarTab,
+                                  width: 18,
+                                  height: 18,
+                                  color: selectedSpecialistId == null
+                                      ? AppColors.grey
+                                      : accent,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
+                  ),
+
+                  for (var index = 0; index < _services.length; index++) ...[
+                    Divider(height: 32, color: divider),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Услуга ${index + 1}', style: AppFonts.c1Medium),
+                        GestureDetector(
+                          onTap: () => _removeServiceBlock(index),
+                          behavior: HitTestBehavior.opaque,
+                          child: const Icon(
+                            Icons.delete_outline,
+                            size: 20,
+                            color: AppColors.red,
+                          ),
+                        ),
+                      ],
+                    ),
                     const Gap(12),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Text(
-                          '${_services[index].totalDurationMinutes} минут',
-                          style: AppFonts.c1Regular,
+                        Expanded(
+                          child: DropdownButtonFormField2<int>(
+                            valueListenable: ValueNotifier<int?>(
+                              _services[index].selectedServiceId,
+                            ),
+                            isExpanded: true,
+                            onMenuStateChange: (isOpen) {
+                              if (!isOpen) {
+                                _services[index].serviceSearchController
+                                    .clear();
+                              }
+                            },
+                            style: AppFonts.c1Regular.copyWith(
+                              color: primaryText,
+                            ),
+                            hint: Text(
+                              selectedSpecialistId == null
+                                  ? workerLabels.selectWorkerFirst
+                                  : (workerServicesAsync.isLoading
+                                        ? 'Загрузка услуг...'
+                                        : 'Название услуги'),
+                              style: AppFonts.c1Regular.copyWith(
+                                color: primaryText,
+                              ),
+                            ),
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: mutedFill,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(300),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(300),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(300),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                            iconStyleData: IconStyleData(
+                              icon: Image.asset(AppImages.arrowOutlinedDown),
+                            ),
+                            buttonStyleData: const FormFieldButtonStyleData(
+                              padding: EdgeInsets.zero,
+                            ),
+                            dropdownStyleData: DropdownStyleData(
+                              offset: const Offset(0, 8),
+                              padding: EdgeInsets.zero,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                color: mutedFill,
+                              ),
+                            ),
+                            menuItemStyleData: const MenuItemStyleData(
+                              useDecorationHorizontalPadding: true,
+                            ),
+                            dropdownSearchData: DropdownSearchData<int>(
+                              searchController:
+                                  _services[index].serviceSearchController,
+                              searchBarWidgetHeight: 52,
+                              searchBarWidget: Padding(
+                                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                                child: TextField(
+                                  controller:
+                                      _services[index].serviceSearchController,
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    hintText: 'Поиск услуги',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(color: divider),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(color: divider),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              searchMatchFn: (item, searchValue) {
+                                final service = workerServices.firstWhere(
+                                  (s) => s.id == item.value,
+                                  orElse: () => WorkerServiceItem(
+                                    id: 0,
+                                    branch: 0,
+                                    worker: 0,
+                                    price: 0,
+                                    duration: 0,
+                                    addDuration: 0,
+                                    service: WorkerServiceInfo(
+                                      id: 0,
+                                      name: '',
+                                      price: 0,
+                                      duration: 0,
+                                    ),
+                                  ),
+                                );
+                                return service.service.name
+                                    .toLowerCase()
+                                    .contains(searchValue.toLowerCase());
+                              },
+                            ),
+                            items: workerServices
+                                .map(
+                                  (service) => DropdownItem<int>(
+                                    value: service.id,
+                                    child: _ServiceDropdownLabel(
+                                      name: service.service.name,
+                                      hasInventory:
+                                          service.service.hasInventory,
+                                      textColor: primaryText,
+                                      accent: accent,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: selectedSpecialistId == null
+                                ? null
+                                : (value) {
+                                    final selected = _selectedWorkerService(
+                                      workerServices,
+                                      value,
+                                    );
+                                    setState(() {
+                                      _services[index].selectedServiceId =
+                                          value;
+                                      if (selected != null) {
+                                        _services[index].catalogServiceId =
+                                            selected.service.id;
+                                        _services[index].durationMinutes =
+                                            selected.duration;
+                                        _services[index].addDurationMinutes =
+                                            selected.addDuration;
+                                      }
+                                      // id строки услуги в записи сохраняем — API обновляет
+                                      // существующую позицию, а не создаёт новую без id.
+                                      _recalculateChainedServiceTimes(
+                                        fromIndex: index + 1,
+                                      );
+                                    });
+                                  },
+                          ),
                         ),
                         const Gap(12),
-                        Container(
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            () {
+                              final selected = _selectedWorkerService(
+                                workerServices,
+                                _services[index].selectedServiceId,
+                              );
+                              if (selected == null) return '0 ₽';
+                              final p = selected.price;
+                              final formatted = p % 1 == 0
+                                  ? p.toInt().toString()
+                                  : p.toStringAsFixed(2);
+                              return '$formatted ₽';
+                            }(),
+                            style: AppFonts.c1Medium.copyWith(color: accent),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Gap(16),
+                    if (index == 0) ...[
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _services[index].isTimeExpanded =
+                                !_services[index].isTimeExpanded;
+                          });
+                        },
+                        behavior: HitTestBehavior.opaque,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Время', style: AppFonts.c1Medium),
+                            Image.asset(
+                              _services[index].isTimeExpanded
+                                  ? AppImages.arrowOutlinedDown
+                                  : AppImages.arrowOutlinedTop,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_services[index].isTimeExpanded) ...[
+                        const Gap(12),
+                        if (selectedSpecialistId == null)
+                          Text(
+                            workerLabels.selectWorkerFirst,
+                            style: AppFonts.c1Regular.copyWith(
+                              color: AppColors.grey,
+                            ),
+                          )
+                        else if (selectedShiftAsync.isLoading ||
+                            specialistAppointmentsAsync.isLoading)
+                          const Center(child: CircularProgressIndicator())
+                        else
+                          Builder(
+                            builder: (context) {
+                              final hasSelectedService =
+                                  _services[index].selectedServiceId != null;
+                              final slotDuration = _services.length > 1
+                                  ? _chainedServicesTotalMinutes()
+                                  : _services[index].totalDurationMinutes;
+                              final availableSlots = _availableSlotsForService(
+                                date: selectedDateOnly,
+                                durationMinutes: slotDuration,
+                                shift: selectedShift,
+                                daily: workerDailySchedule,
+                                appointments: specialistAppointments,
+                                currentServiceIndex: index,
+                              );
+
+                              final selectedTime =
+                                  _services[index].selectedTime;
+                              final initialAppointment =
+                                  widget.initialAppointment;
+                              final preserveEditTime =
+                                  initialAppointment != null &&
+                                  selectedTime != null &&
+                                  _isInitialServiceTime(
+                                    initialAppointment,
+                                    index,
+                                    selectedTime,
+                                  );
+                              if (hasSelectedService &&
+                                  selectedTime != null &&
+                                  !availableSlots.contains(selectedTime) &&
+                                  !preserveEditTime) {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  if (!mounted) return;
+                                  if (index >= _services.length) return;
+                                  if (_services[index].selectedTime != null &&
+                                      !availableSlots.contains(
+                                        _services[index].selectedTime,
+                                      )) {
+                                    setState(() {
+                                      _services[index].selectedTime = null;
+                                      _recalculateChainedServiceTimes(
+                                        fromIndex: 1,
+                                      );
+                                    });
+                                    if (!mounted) return;
+                                    final messenger = ScaffoldMessenger.maybeOf(
+                                      this.context,
+                                    );
+                                    showAppServiceMessage(
+                                      this.context,
+                                      message:
+                                          'Временной слот не подходит. Выберите другой',
+                                      variant: AppServiceMessageVariant.info,
+                                      messenger: messenger,
+                                    );
+                                  }
+                                });
+                              }
+
+                              if (availableSlots.isEmpty) {
+                                return Text(
+                                  'Нет свободного времени на выбранную длительность',
+                                  style: AppFonts.c1Regular.copyWith(
+                                    color: AppColors.grey,
+                                  ),
+                                );
+                              }
+
+                              final morning = _slotsByHourRange(
+                                availableSlots,
+                                fromHourInclusive: 0,
+                                toHourExclusive: 12,
+                              );
+                              final day = _slotsByHourRange(
+                                availableSlots,
+                                fromHourInclusive: 12,
+                                toHourExclusive: 17,
+                              );
+                              final evening = _slotsByHourRange(
+                                availableSlots,
+                                fromHourInclusive: 17,
+                                toHourExclusive: 24,
+                              );
+
+                              Widget section(String title, List<String> slots) {
+                                if (slots.isEmpty)
+                                  return const SizedBox.shrink();
+                                return Column(
+                                  children: [
+                                    Center(
+                                      child: Text(
+                                        title,
+                                        style: AppFonts.c1Regular,
+                                      ),
+                                    ),
+                                    const Gap(8),
+                                    _buildTimeRows(
+                                      context: context,
+                                      slots: slots,
+                                      selectedTime:
+                                          _services[index].selectedTime,
+                                      onSelect: (time) {
+                                        if (!canPickEntryDateTime) return;
+                                        setState(() {
+                                          _services[index].selectedTime = time;
+                                          _recalculateChainedServiceTimes(
+                                            fromIndex: 1,
+                                          );
+                                        });
+                                      },
+                                      onLongPressSlot: (initialTime) {
+                                        _showManualTimePickerDialog(
+                                          availableSlots: availableSlots,
+                                          initialTime: initialTime,
+                                          onSelect: (time) {
+                                            if (!canPickEntryDateTime) return;
+                                            setState(() {
+                                              _services[index].selectedTime =
+                                                  time;
+                                              _recalculateChainedServiceTimes(
+                                                fromIndex: 1,
+                                              );
+                                            });
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                );
+                              }
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (!hasSelectedService) ...[
+                                    Text(
+                                      'Сначала выберите услугу',
+                                      style: AppFonts.c1Regular.copyWith(
+                                        color: AppColors.grey,
+                                      ),
+                                    ),
+                                    const Gap(8),
+                                  ],
+                                  section('Утро', morning),
+                                  if (morning.isNotEmpty &&
+                                      (day.isNotEmpty || evening.isNotEmpty))
+                                    const Gap(12),
+                                  section('День', day),
+                                  if (day.isNotEmpty && evening.isNotEmpty)
+                                    const Gap(12),
+                                  section('Вечер', evening),
+                                ],
+                              );
+                            },
+                          ),
+                        const Gap(12),
+                        _buildServiceDurationControls(
+                          index: index,
+                          mutedFill: mutedFill,
+                          divider: divider,
+                        ),
+                      ],
+                    ] else ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Время', style: AppFonts.c1Medium),
+                          Text(
+                            _formatServiceTimeRange(index) ?? '—',
+                            style: AppFonts.c1Regular.copyWith(
+                              color: _formatServiceTimeRange(index) != null
+                                  ? accent
+                                  : AppColors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_formatServiceTimeRange(index) == null) ...[
+                        const Gap(8),
+                        Text(
+                          'Сначала выберите время для первой услуги',
+                          style: AppFonts.c1Regular.copyWith(
+                            color: AppColors.grey,
+                          ),
+                        ),
+                      ],
+                      const Gap(12),
+                      _buildServiceDurationControls(
+                        index: index,
+                        mutedFill: mutedFill,
+                        divider: divider,
+                      ),
+                    ],
+                  ],
+                  const Gap(16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      GestureDetector(
+                        onTap: _addServiceBlock,
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 13,
+                          ),
                           decoration: BoxDecoration(
                             color: mutedFill,
                             borderRadius: BorderRadius.circular(300),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    final current =
-                                        _services[index].durationMinutes;
-                                    _services[index].durationMinutes =
-                                        (current - 10) < 0 ? 0 : current - 10;
-                                  });
-                                },
-                                behavior: HitTestBehavior.opaque,
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 8,
-                                  ),
-                                  child: Image.asset(AppImages.minus),
-                                ),
+                              Text(
+                                'Добавить услугу',
+                                style: AppFonts.c1Semi.copyWith(color: accent),
                               ),
-                              Container(width: 1, height: 20, color: divider),
-                              GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _services[index].durationMinutes += 10;
-                                  });
-                                },
-                                behavior: HitTestBehavior.opaque,
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 8,
-                                  ),
-                                  child: Image.asset(AppImages.plus),
+                              const Gap(8),
+                              Text(
+                                '+',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  color: accent,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ],
-                const Gap(16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: _addServiceBlock,
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 13,
-                        ),
-                        decoration: BoxDecoration(
-                          color: mutedFill,
-                          borderRadius: BorderRadius.circular(300),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Добавить услугу',
-                              style: AppFonts.c1Semi.copyWith(color: accent),
-                            ),
-                            const Gap(8),
-                            Text(
-                              '+',
-                              style: TextStyle(
-                                fontSize: 20,
-                                color: accent,
-                                fontWeight: FontWeight.w500,
-                                height: 1,
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 ],
               ],
             ),
@@ -3972,11 +4138,13 @@ class _BottomActionsBar extends ConsumerWidget {
     required this.isEditMode,
     required this.initialAppointmentId,
     this.initialAppointmentDatetime,
+    this.initialServiceCount = 0,
   });
 
   final bool isEditMode;
   final int? initialAppointmentId;
   final String? initialAppointmentDatetime;
+  final int initialServiceCount;
 
   String _formatMoney(double value) => '${value.round()}₽';
   String _formatDiscount(double value) => '${value.round()}%';
@@ -3984,21 +4152,24 @@ class _BottomActionsBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final permissions = ref.watch(workerPermissionsProvider).maybeWhen(
-          data: (v) => v,
-          orElse: () => null,
-        );
+    final permissions = ref
+        .watch(workerPermissionsProvider)
+        .maybeWhen(data: (v) => v, orElse: () => null);
     final canCreateSchedule = permissions?.createSchedule ?? true;
     final canEditSchedule =
         (permissions?.transferSchedule ?? true) ||
         (permissions?.changeWorker ?? true) ||
         (permissions?.changeStatus ?? true) ||
         (permissions?.change ?? true);
-    final canSubmitByPermissions = isEditMode ? canEditSchedule : canCreateSchedule;
+    final canSubmitByPermissions = isEditMode
+        ? canEditSchedule
+        : canCreateSchedule;
 
     final totalPrice = ref.watch(createEntryTotalPriceProvider);
     final discount = ref.watch(createEntryDiscountProvider);
-    final isLoadingClientDetails = ref.watch(createEntryClientDetailsLoadingProvider);
+    final isLoadingClientDetails = ref.watch(
+      createEntryClientDetailsLoadingProvider,
+    );
     final canSave = ref.watch(createEntryCanSaveProvider);
     final isSaving = ref.watch(createEntrySavingProvider);
     final isPaymentProcessing = ref.watch(createEntryPaymentProcessingProvider);
@@ -4007,7 +4178,8 @@ class _BottomActionsBar extends ConsumerWidget {
     final cardSurface = _entryCardSurface(context);
     final mutedFill = _entryMutedFill(context);
     final accent = _entryAccent(context);
-    final showPayButton = isEditMode &&
+    final showPayButton =
+        isEditMode &&
         initialAppointmentId != null &&
         !isPaid &&
         (draft?.status ?? -1) == kClientArrivedStatusIndex;
@@ -4047,13 +4219,31 @@ class _BottomActionsBar extends ConsumerWidget {
             if (appointmentId == null) {
               throw Exception('Appointment id is missing');
             }
-            await ref.read(appointmentsServiceProvider).updateAppointment(
-                  appointmentId: appointmentId,
-                  payload: draft.toUpdateRequestBody(
-                    overrideClientId: resolvedClientId,
-                  ),
-                  createAnyway: createAnyway,
-                );
+            // Добавление услуги: POST с id записи (как на сайте) — иначе
+            // новая позиция без id уходит отдельной записью.
+            // Смена/удаление услуги: PATCH — иначе POST создаёт дубликат.
+            final servicesAdded =
+                draft.services.length > initialServiceCount;
+            if (servicesAdded) {
+              await ref
+                  .read(appointmentsServiceProvider)
+                  .createAppointment(
+                    payload: draft.toRequestBody(
+                      overrideClientId: resolvedClientId,
+                    ),
+                    createAnyway: createAnyway,
+                  );
+            } else {
+              await ref
+                  .read(appointmentsServiceProvider)
+                  .updateAppointment(
+                    appointmentId: appointmentId,
+                    payload: draft.toUpdateRequestBody(
+                      overrideClientId: resolvedClientId,
+                    ),
+                    createAnyway: createAnyway,
+                  );
+            }
             createdId = appointmentId;
             return;
           }
@@ -4385,8 +4575,7 @@ class _PassthroughPhoneFormatter extends TextInputFormatter {
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
-  ) =>
-      newValue;
+  ) => newValue;
 }
 
 class _PhoneMaskFormatter extends TextInputFormatter {
