@@ -190,6 +190,8 @@ class _CreateAppointmentDraft {
     required this.clientLastName,
     required this.clientCommentText,
     required this.shouldCreateClient,
+    required this.paid,
+    required this.hasEditedServices,
   });
 
   final int? appointmentId;
@@ -208,6 +210,8 @@ class _CreateAppointmentDraft {
   final String clientLastName;
   final String clientCommentText;
   final bool shouldCreateClient;
+  final bool paid;
+  final bool hasEditedServices;
 
   @override
   bool operator ==(Object other) {
@@ -228,6 +232,8 @@ class _CreateAppointmentDraft {
             other.clientLastName == clientLastName &&
             other.clientCommentText == clientCommentText &&
             other.shouldCreateClient == shouldCreateClient &&
+            other.paid == paid &&
+            other.hasEditedServices == hasEditedServices &&
             listEquals(other.services, services));
   }
 
@@ -248,8 +254,27 @@ class _CreateAppointmentDraft {
     clientLastName,
     clientCommentText,
     shouldCreateClient,
+    paid,
+    hasEditedServices,
     Object.hashAll(services),
   );
+
+  Map<String, dynamic> _toPatchRequestBody({int? overrideClientId}) {
+    return {
+      'services': services.map((service) => service.toJson()).toList(),
+      'status': status,
+      'comment': {'id': commentId, 'user': null, 'text': commentText},
+      'worker': workerId,
+      'branch': branchId,
+      'client': overrideClientId ?? clientId,
+      'datetime': startDateTime.toUtc().toIso8601String(),
+      'discount': discountPercent,
+      'sum': totalSum,
+      'pay_due': totalSum,
+      'paid': paid,
+      'has_edited_services': hasEditedServices,
+    };
+  }
 
   Map<String, dynamic> toRequestBody({int? overrideClientId}) {
     return {
@@ -270,33 +295,11 @@ class _CreateAppointmentDraft {
     };
   }
 
-  Map<String, dynamic> toPaymentUpdateRequestBody({int? overrideClientId}) {
-    return {
-      'services': services.map((service) => service.toJson()).toList(),
-      'status': status,
-      'comment': {'id': commentId, 'user': null, 'text': commentText},
-      'worker': workerId,
-      'branch': branchId,
-      'client': overrideClientId ?? clientId,
-      'datetime': startDateTime.toUtc().toIso8601String(),
-      'discount': discountPercent,
-      'sum': totalSum,
-      'pay_due': totalSum,
-      'paid': false,
-      'has_edited_services': false,
-    };
-  }
+  Map<String, dynamic> toPaymentUpdateRequestBody({int? overrideClientId}) =>
+      _toPatchRequestBody(overrideClientId: overrideClientId);
 
-  Map<String, dynamic> toUpdateRequestBody({int? overrideClientId}) {
-    return {
-      'services': services.map((service) => service.toJson()).toList(),
-      'status': status,
-      'comment': {'id': commentId, 'user': null, 'text': commentText},
-      'worker': workerId,
-      'branch': branchId,
-      'client': overrideClientId ?? clientId,
-    };
-  }
+  Map<String, dynamic> toUpdateRequestBody({int? overrideClientId}) =>
+      _toPatchRequestBody(overrideClientId: overrideClientId);
 }
 
 class _CreateAppointmentServiceDraft {
@@ -1832,6 +1835,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       clientLastName: _lastNameController.text.trim(),
       clientCommentText: _commentClientController.text.trim(),
       shouldCreateClient: shouldCreateClient,
+      paid: ref.read(createEntryAppointmentPaidProvider),
+      hasEditedServices: _hasEditedServicesComparedTo(
+        widget.initialAppointment,
+        workerServices,
+      ),
     );
   }
 
@@ -2176,6 +2184,48 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final discounted = total * (1 - normalizedDiscount / 100);
     if (discounted < 0) return 0;
     return discounted;
+  }
+
+  bool _hasEditedServicesComparedTo(
+    AppointmentApi? initial,
+    List<WorkerServiceItem> workerServices,
+  ) {
+    if (initial == null || initial.services.isEmpty) return false;
+    if (_services.length != initial.services.length) return true;
+
+    for (var i = 0; i < _services.length; i++) {
+      final block = _services[i];
+      final orig = initial.services[i];
+
+      if (block.appointmentServiceId == null && orig.id != null) {
+        return true;
+      }
+
+      final origDt = DateTime.tryParse(orig.datetime ?? '')?.toLocal();
+      final origTime = origDt != null ? _formatSlot(origDt) : null;
+      if ((block.selectedTime ?? '') != (origTime ?? '')) {
+        return true;
+      }
+
+      final selected = _selectedWorkerService(
+        workerServices,
+        block.selectedServiceId,
+      );
+      if (selected != null && orig.serviceId != null) {
+        if (selected.id != orig.serviceId &&
+            selected.service.id != orig.serviceId) {
+          return true;
+        }
+      } else if (block.selectedServiceId != null && orig.serviceId != null) {
+        return true;
+      }
+
+      if (block.durationMinutes != orig.duration ||
+          block.addDurationMinutes != orig.addDuration) {
+        return true;
+      }
+    }
+    return false;
   }
 
   void _syncInitialServicesWithWorkerServices(
@@ -3522,8 +3572,6 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                     value,
                                   );
                                   setState(() {
-                                    final previousServiceId =
-                                        _services[index].selectedServiceId;
                                     _services[index].selectedServiceId = value;
                                     if (selected != null) {
                                       _services[index].catalogServiceId =
@@ -3533,14 +3581,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                       _services[index].addDurationMinutes =
                                           selected.addDuration;
                                     }
-                                    // Время не сбрасываем заранее: после смены услуги
-                                    // оставляем слот, если он валиден для новой длительности.
-                                    // Если невалиден — ниже сработает авто-очистка и сообщение.
-                                    if (previousServiceId != value &&
-                                        previousServiceId != null) {
-                                      _services[index].appointmentServiceId =
-                                          null;
-                                    }
+                                    // id строки услуги в записи сохраняем — API обновляет
+                                    // существующую позицию, а не создаёт новую без id.
                                   });
                                 },
                         ),
@@ -3938,21 +3980,7 @@ class _BottomActionsBar extends ConsumerWidget {
 
   String _formatMoney(double value) => '${value.round()}₽';
   String _formatDiscount(double value) => '${value.round()}%';
-  String _extractErrorMessage(Object error) {
-    if (error is CustomException) {
-      final caused = error.causedError;
-      if (caused is DioException) {
-        final data = caused.response?.data;
-        if (data is Map<String, dynamic>) return data.toString();
-        if (data is List<dynamic>) return data.toString();
-        if (data is String && data.trim().isNotEmpty) return data;
-      }
-      if (error.message != null && error.message!.trim().isNotEmpty) {
-        return error.message!;
-      }
-    }
-    return error.toString();
-  }
+  String _extractErrorMessage(Object error) => extractApiErrorMessage(error);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

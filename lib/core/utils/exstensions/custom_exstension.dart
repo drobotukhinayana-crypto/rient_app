@@ -1,6 +1,85 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart' show debugPrint, immutable;
 
+String? formatApiErrorResponse(dynamic data) {
+  if (data is Map<String, dynamic>) {
+    final detail = data['detail'];
+    if (detail is String && detail.trim().isNotEmpty) return detail;
+    if (detail is List && detail.isNotEmpty) {
+      return detail.first.toString();
+    }
+    final nonField = data['non_field_errors'];
+    if (nonField is List && nonField.isNotEmpty) {
+      return nonField.first.toString();
+    }
+    final parts = <String>[];
+    data.forEach((key, value) {
+      if (key == 'detail' || key == 'non_field_errors') return;
+      if (value is List && value.isNotEmpty) {
+        final first = value.first;
+        if (first is Map) {
+          final nested = formatApiErrorResponse(
+            first.map((k, v) => MapEntry(k.toString(), v)),
+          );
+          parts.add('$key: ${nested ?? first}');
+        } else {
+          parts.add('$key: $first');
+        }
+      } else if (value is Map) {
+        final nested = formatApiErrorResponse(
+          value.map((k, v) => MapEntry(k.toString(), v)),
+        );
+        if (nested != null) parts.add('$key: $nested');
+      } else if (value is String && value.trim().isNotEmpty) {
+        parts.add('$key: $value');
+      }
+    });
+    if (parts.isNotEmpty) return parts.join('; ');
+  }
+  if (data is List && data.isNotEmpty) {
+    for (final item in data) {
+      final nested = formatApiErrorResponse(item);
+      if (nested != null) return nested;
+    }
+    return data.first.toString();
+  }
+  if (data is String && data.trim().isNotEmpty) return data;
+  return null;
+}
+
+DioException? findDioException(Object? error) {
+  var current = error;
+  while (current != null) {
+    if (current is DioException) return current;
+    if (current is CustomException) {
+      current = current.causedError;
+      continue;
+    }
+    return null;
+  }
+  return null;
+}
+
+String extractApiErrorMessage(Object error) {
+  final dio = findDioException(error);
+  if (dio != null) {
+    final parsed = formatApiErrorResponse(dio.response?.data);
+    if (parsed != null) return parsed;
+    if (dio.message != null && dio.message!.trim().isNotEmpty) {
+      return dio.message!;
+    }
+  }
+  if (error is CustomException) {
+    if (error.message != null && error.message!.trim().isNotEmpty) {
+      return error.message!;
+    }
+    if (error.causedError != null) {
+      return extractApiErrorMessage(error.causedError!);
+    }
+  }
+  return error.toString();
+}
+
 /// causedError - ошибка, которая вызвала CustomException
 @immutable
 class CustomException implements Exception {

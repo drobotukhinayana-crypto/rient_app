@@ -251,16 +251,20 @@ class AppointmentsService {
           raw != null) {
         return Map<String, dynamic>.from(raw);
       }
+      final apiMessage = formatApiErrorResponse(response.data) ??
+          'Failed to update appointment: ${response.statusCode}';
       throw CustomException(
+        message: apiMessage,
         causedError: DioException(
           requestOptions: response.requestOptions,
           response: response,
           type: DioExceptionType.badResponse,
-          message: 'Failed to update appointment: ${response.statusCode}',
+          message: apiMessage,
         ),
       );
     } catch (e) {
       if (e is AppointmentInventoryConflictException) rethrow;
+      if (e is CustomException) rethrow;
       if (e is DioException) {
         await handleUnauthorizedIfNeeded(ref, e);
         _throwIfInventoryConflictResponse(
