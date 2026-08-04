@@ -23,6 +23,8 @@ import 'package:rient_app/features/home/view/providers/current_worker_id_provide
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/organization_settings_provider.dart';
+import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
+import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
@@ -82,9 +84,25 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     _dayCalendarScrollController.addListener(_onCalendarScrolled);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      _syncWeekStartToSelectedDate();
       unawaited(ref.read(organizationSettingsProvider.future));
       unawaited(_restoreSelectedSpecialistFromStorage());
+      unawaited(_prefetchDayHeaderStatistics());
     });
+  }
+
+  void _syncWeekStartToSelectedDate() {
+    final selected = ref.read(selectedScheduleDateProvider);
+    final monday = _mondayOf(selected);
+    if (!isSameCalendarDay(monday, _weekStart)) {
+      setState(() => _weekStart = monday);
+    }
+  }
+
+  Future<void> _prefetchDayHeaderStatistics() async {
+    try {
+      await ref.read(statisticsProvider.future);
+    } catch (_) {}
   }
 
   Future<void> _restoreSelectedSpecialistFromStorage() async {
@@ -1130,26 +1148,57 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     /// День: owner — загруженность филиала; мастер — своя.
     final dayStatisticsWorkerId =
         isWorkerRole ? specialistStatisticsWorkerId : null;
-    final dayHeaderWeekStart =
-        _viewMode == ViewMode.day ? _weekStart : selectedDate;
-    final dayHeaderWeekKey = scheduleWeekKey(dayHeaderWeekStart);
-    final dayHeaderStatisticsAsync = ref.watch(
-      scheduleStatisticsForWeekProvider(
-        ScheduleStatisticsQuery(
-          periodKey: dayHeaderWeekKey,
-          workerId: dayStatisticsWorkerId,
-        ),
-      ),
+    final dayVisibleWeekStart = _viewMode == ViewMode.day
+        ? _mondayOf(selectedDate)
+        : _weekStart;
+    final dayHeaderStatsQuery = ScheduleStatisticsQuery(
+      periodKey: scheduleWeekKey(dayVisibleWeekStart),
+      workerId: dayStatisticsWorkerId,
+      enabled: _viewMode == ViewMode.day,
     );
-    final dayOccupancyByDay =
-        dayHeaderStatisticsAsync.value?.occupancyByDay ?? [];
+    final dayHeaderStatisticsAsync = ref.watch(
+      scheduleStatisticsForWeekProvider(dayHeaderStatsQuery),
+    );
+    final homeStatisticsAsync = ref.watch(statisticsProvider);
+    final homeWeekKey = scheduleWeekKey(ref.watch(selectedDateProvider));
+    final scheduleHeaderWeekKey = scheduleWeekKey(dayVisibleWeekStart);
+    final canReuseHomeOccupancy = _viewMode == ViewMode.day &&
+        homeWeekKey == scheduleHeaderWeekKey &&
+        dayStatisticsWorkerId ==
+            (isWorkerRole ? specialistStatisticsWorkerId : null);
+    ref.listen(
+      scheduleStatisticsForWeekProvider(dayHeaderStatsQuery),
+      (previous, next) {
+        if (next.hasValue && previous?.hasValue != true) {
+          _bumpScheduleUiVersion();
+        }
+      },
+    );
+    ref.listen(selectedScheduleDateProvider, (previous, next) {
+      if (previous == null) return;
+      final monday = _mondayOf(next);
+      if (!isSameCalendarDay(monday, _weekStart)) {
+        setState(() => _weekStart = monday);
+      }
+    });
+    final dayOccupancyByDay = dayHeaderStatisticsAsync.value?.occupancyByDay ??
+        (canReuseHomeOccupancy
+            ? (homeStatisticsAsync.value?.occupancyByDay ?? const [])
+            : const []);
+    final dayOccupancyLoading = !isScheduleOffline &&
+        _viewMode == ViewMode.day &&
+        dayOccupancyByDay.isEmpty &&
+        (dayHeaderStatisticsAsync.isLoading ||
+            (canReuseHomeOccupancy && homeStatisticsAsync.isLoading));
     final workerWeekStatisticsQuery = ScheduleStatisticsQuery(
       periodKey: weekKey,
       workerId: specialistStatisticsWorkerId,
+      enabled: _viewMode == ViewMode.week,
     );
     final monthStatisticsQuery = ScheduleStatisticsQuery(
       periodKey: monthKey,
       workerId: specialistStatisticsWorkerId,
+      enabled: _viewMode == ViewMode.month,
     );
     final weekStatisticsAsync = ref.watch(
       scheduleStatisticsForWeekProvider(workerWeekStatisticsQuery),
@@ -1485,8 +1534,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                         );
                       },
                 scheduleSelectedDate: selectedDate,
-                weekStart: _weekStart,
+                weekStart: dayVisibleWeekStart,
                 occupancyByDay: dayOccupancyByDay,
+                scheduleOccupancyLoading: dayOccupancyLoading,
                 resolveScheduleNonWorkingDay: dayHeaderResolveNonWorkingDay,
                 onScheduleDateSelected: (date) {
                   final normalized = _toDateOnly(date);

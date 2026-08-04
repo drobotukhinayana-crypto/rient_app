@@ -55,6 +55,7 @@ final statisticsProvider = FutureProvider<Statistics>((ref) async {
       endDate: weekEnd,
       branchId: branchId,
       workerId: workerId,
+      bustCache: ref.read(homeReloadTokenProvider) > 0,
     );
     markScheduleServerReachable(ref);
     return stats;

@@ -37,6 +37,7 @@ class TopPanel extends StatefulWidget {
     this.scheduleSelectedDate,
     this.resolveScheduleNonWorkingDay,
     this.onScheduleDateSelected,
+    this.scheduleOccupancyLoading = false,
     this.scheduleCellIntervalMinutes,
     this.onScheduleCellIntervalChanged,
     this.selectedDate,
@@ -85,6 +86,9 @@ class TopPanel extends StatefulWidget {
 
   /// Callback при выборе даты в полоске в режиме «День».
   final ValueChanged<DateTime>? onScheduleDateSelected;
+
+  /// Загруженность в полоске дат режима «День» ещё грузится.
+  final bool scheduleOccupancyLoading;
 
   /// Интервал одной ячейки расписания (в минутах).
   final int? scheduleCellIntervalMinutes;
@@ -254,10 +258,14 @@ class _TopPanelState extends State<TopPanel> {
 
   Widget _buildDayDateStrip() {
     final weekStart = widget.weekStart;
+    final occupancy = widget.occupancyByDay;
+    final occupancyKey = occupancy == null || occupancy.isEmpty
+        ? 0
+        : Object.hashAll(occupancy.map((e) => e.occupancy));
     return DateStrip(
       key: weekStart != null
           ? ValueKey(
-              'day_strip_${weekStart.year}_${weekStart.month}_${weekStart.day}',
+              'day_strip_${weekStart.year}_${weekStart.month}_${weekStart.day}_$occupancyKey',
             )
           : null,
       initialDate: widget.scheduleSelectedDate ?? DateTime.now(),
@@ -266,6 +274,7 @@ class _TopPanelState extends State<TopPanel> {
       onDateSelected: widget.onScheduleDateSelected,
       useGreyCircles: true,
       occupancyByDay: widget.occupancyByDay,
+      occupancyLoading: widget.scheduleOccupancyLoading,
       showFullDateLabel: widget.showFullDateLabel,
       resolveNonWorkingDay: widget.resolveScheduleNonWorkingDay,
     );

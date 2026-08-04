@@ -29,20 +29,23 @@ class ScheduleStatisticsQuery {
   const ScheduleStatisticsQuery({
     required this.periodKey,
     this.workerId,
+    this.enabled = true,
   });
 
   final String periodKey;
   final int? workerId;
+  final bool enabled;
 
   @override
   bool operator ==(Object other) {
     return other is ScheduleStatisticsQuery &&
         other.periodKey == periodKey &&
-        other.workerId == workerId;
+        other.workerId == workerId &&
+        other.enabled == enabled;
   }
 
   @override
-  int get hashCode => Object.hash(periodKey, workerId);
+  int get hashCode => Object.hash(periodKey, workerId, enabled);
 }
 
 /// Статистика (в т.ч. заполненность по дням) для заданного месяца.
@@ -51,6 +54,9 @@ class ScheduleStatisticsQuery {
 /// [query.periodKey] — ключ в формате YYYY-MM (см. [scheduleMonthKey]).
 final scheduleStatisticsForMonthProvider =
     FutureProvider.family<Statistics, ScheduleStatisticsQuery>((ref, query) async {
+  if (!query.enabled) {
+    return scheduleOfflineEmptyStatistics();
+  }
   if (ref.watch(scheduleOfflineModeProvider)) {
     return scheduleOfflineEmptyStatistics();
   }
@@ -143,6 +149,9 @@ DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 /// [query.periodKey] — ключ понедельника в формате YYYY-MM-DD (см. [scheduleWeekKey]).
 final scheduleStatisticsForWeekProvider =
     FutureProvider.family<Statistics, ScheduleStatisticsQuery>((ref, query) async {
+  if (!query.enabled) {
+    return scheduleOfflineEmptyStatistics();
+  }
   if (ref.watch(scheduleOfflineModeProvider)) {
     return scheduleOfflineEmptyStatistics();
   }

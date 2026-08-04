@@ -23,6 +23,7 @@ class StatisticsService {
   StatisticsService(this.ref);
 
   final Ref ref;
+  final Map<String, Future<Statistics>> _statisticsInFlight = {};
 
   Map<String, dynamic>? _normalizeStatisticsPayload(dynamic payload) {
     Map<String, dynamic>? mapPayload;
@@ -193,24 +194,63 @@ class StatisticsService {
     required DateTime endDate,
     int? branchId,
     int? workerId,
+    bool bustCache = false,
   }) async {
     final token = ref.read(tokenProvider);
     final organizationId = ref.read(organizationIdProvider);
-    final currentBranchId = branchId ?? ref.read(currentBranchIdProvider);
+    final int resolvedBranchId = branchId ?? ref.read(currentBranchIdProvider);
 
     if (token == null || token.isEmpty) {
       throw CustomException(causedError: Exception('Token is missing'));
     }
 
+    final startDateStr =
+        '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}T00:00:00+03:00';
+    final endDateStr =
+        '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}T23:59:00+03:00';
+    final inFlightKey =
+        '$organizationId|$resolvedBranchId|$startDateStr|$endDateStr|${workerId ?? 0}';
+
+    if (!bustCache) {
+      final inFlight = _statisticsInFlight[inFlightKey];
+      if (inFlight != null) return inFlight;
+    }
+
+    final request = _fetchStatistics(
+      organizationId: organizationId,
+      branchId: resolvedBranchId,
+      startDateStr: startDateStr,
+      endDateStr: endDateStr,
+      workerId: workerId,
+      token: token,
+      bustCache: bustCache,
+    );
+
+    if (!bustCache) {
+      _statisticsInFlight[inFlightKey] = request;
+    }
+    try {
+      return await request;
+    } finally {
+      if (!bustCache) {
+        _statisticsInFlight.remove(inFlightKey);
+      }
+    }
+  }
+
+  Future<Statistics> _fetchStatistics({
+    required int organizationId,
+    required int branchId,
+    required String startDateStr,
+    required String endDateStr,
+    required int? workerId,
+    required String token,
+    required bool bustCache,
+  }) async {
     try {
       final url = ApiConsts().createUrl(
-        'organizations/$organizationId/branches/$currentBranchId/statistics_one/',
+        'organizations/$organizationId/branches/$branchId/statistics_one/',
       );
-
-      final startDateStr =
-          '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}T00:00:00+03:00';
-      final endDateStr =
-          '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}T23:59:00+03:00';
 
       final response = await createAppDio().get<dynamic>(
         url,
@@ -218,9 +258,8 @@ class StatisticsService {
           'datetime__gte': startDateStr,
           'datetime__lte': endDateStr,
           if (workerId != null && workerId > 0) 'worker': workerId,
-          // Снимаем промежуточный HTTP-кэш: после первой записи на день ответ
-          // должен сразу отличаться от «пустого» диапазона.
-          '_': DateTime.now().microsecondsSinceEpoch.toString(),
+          if (bustCache)
+            '_': DateTime.now().microsecondsSinceEpoch.toString(),
         },
         options: Options(headers: {'Authorization': 'JWT $token'}),
       );
@@ -234,8 +273,7 @@ class StatisticsService {
             ),
           );
         }
-        final statistics = Statistics.fromJson(payload);
-        return statistics;
+        return Statistics.fromJson(payload);
       } else {
         throw CustomException(
           causedError: Exception(

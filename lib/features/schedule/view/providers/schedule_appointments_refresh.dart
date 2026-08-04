@@ -31,8 +31,7 @@ void prepareScheduleTabOnOpen(dynamic ref) {
   syncScheduleDateFromHome(ref);
   beginScheduleNetworkRecovery(ref);
   ref.invalidate(scheduleAppointmentsProvider);
-  ref.invalidate(scheduleStatisticsForWeekProvider);
-  ref.invalidate(scheduleStatisticsForMonthProvider);
+  unawaited(ref.read(statisticsProvider.future));
 }
 
 /// Перед открытием вкладки «Главная» из таббара — сразу тянем свежую статистику.

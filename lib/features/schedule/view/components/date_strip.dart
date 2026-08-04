@@ -57,6 +57,8 @@ class DateStrip extends StatefulWidget {
     this.workScheduleWeekDates = false,
     /// Отступ слева, чтобы дни совпали с колонками сетки (колонка сотрудников).
     this.leadingInset = 0,
+    /// Загруженность по дням ещё не пришла — показываем индикатор поверх кружков.
+    this.occupancyLoading = false,
   });
 
   /// Начальная выбранная дата (по умолчанию сегодня).
@@ -95,6 +97,8 @@ class DateStrip extends StatefulWidget {
   final bool workScheduleWeekDates;
 
   final double leadingInset;
+
+  final bool occupancyLoading;
 
   static const _workScheduleCircleFill = Color(0xFFECEEF2);
 
@@ -185,62 +189,88 @@ class _DateStripState extends State<DateStrip> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
           height: 72,
-          child: Row(
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              if (widget.leadingInset > 0)
-                SizedBox(width: widget.leadingInset),
-              Expanded(
-                child: Row(
-                  children: [
-                    for (var i = 0; i < _dates.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 4),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: widget.onDateSelected != null
-                              ? () => widget.onDateSelected!(_dates[i])
-                              : null,
-                          child: _DateCircleItem(
-                            date: _dates[i],
-                            isSelected:
-                                _stateFor(_dates[i]) == _DayState.selected,
-                            showArc:
-                                !widget.workScheduleWeekDates &&
-                                _stateFor(_dates[i]) ==
-                                    _DayState.pastWithData &&
-                                _hasData(_dates[i]),
-                            size: _circleSize,
-                            useGreyCircles: widget.useGreyCircles,
-                            useMonthCalendarCircleFill:
-                                widget.useMonthCalendarCircleFill,
-                            workScheduleWeekDates:
-                                widget.workScheduleWeekDates,
-                            isDark:
-                                Theme.of(context).brightness ==
-                                Brightness.dark,
-                            occupancyPercent:
-                                widget.occupancyByDay
-                                    ?.firstWhereOrNull(
-                                      (element) =>
-                                          isSameCalendarDay(
-                                            element.date,
-                                            _dates[i],
-                                          ),
-                                    )
-                                    ?.occupancy ??
-                                0,
-                            isNonWorkingDay: _isNonWorkingDay(_dates[i]),
+              Row(
+                children: [
+                  if (widget.leadingInset > 0)
+                    SizedBox(width: widget.leadingInset),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < _dates.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 4),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: widget.onDateSelected != null
+                                  ? () => widget.onDateSelected!(_dates[i])
+                                  : null,
+                              child: _DateCircleItem(
+                                date: _dates[i],
+                                isSelected:
+                                    _stateFor(_dates[i]) == _DayState.selected,
+                                showArc:
+                                    !widget.workScheduleWeekDates &&
+                                    _stateFor(_dates[i]) ==
+                                        _DayState.pastWithData &&
+                                    _hasData(_dates[i]),
+                                size: _circleSize,
+                                useGreyCircles: widget.useGreyCircles,
+                                useMonthCalendarCircleFill:
+                                    widget.useMonthCalendarCircleFill,
+                                workScheduleWeekDates:
+                                    widget.workScheduleWeekDates,
+                                isDark: isDark,
+                                occupancyPercent:
+                                    widget.occupancyByDay
+                                        ?.firstWhereOrNull(
+                                          (element) =>
+                                              isSameCalendarDay(
+                                                element.date,
+                                                _dates[i],
+                                              ),
+                                        )
+                                        ?.occupancy ??
+                                    0,
+                                isNonWorkingDay: _isNonWorkingDay(_dates[i]),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (widget.occupancyLoading)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: ColoredBox(
+                      color: isDark
+                          ? AppColors.secondaryDarkLight.withValues(alpha: 0.72)
+                          : AppColors.tabBarScreenBackground.withValues(
+                              alpha: 0.72,
+                            ),
+                      child: Center(
+                        child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.themeAccent(context),
                           ),
                         ),
                       ),
-                    ],
-                  ],
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
