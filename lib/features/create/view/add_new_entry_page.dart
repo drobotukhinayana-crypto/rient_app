@@ -3876,15 +3876,16 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                 'Услуга ${index + 1}',
                                 style: AppFonts.c1Medium,
                               ),
-                              GestureDetector(
-                                onTap: () => _removeServiceBlock(index),
-                                behavior: HitTestBehavior.opaque,
-                                child: const Icon(
-                                  Icons.delete_outline,
-                                  size: 20,
-                                  color: AppColors.red,
+                              if (_services.length > 1)
+                                GestureDetector(
+                                  onTap: () => _removeServiceBlock(index),
+                                  behavior: HitTestBehavior.opaque,
+                                  child: const Icon(
+                                    Icons.delete_outline,
+                                    size: 20,
+                                    color: AppColors.red,
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                           const Gap(12),
