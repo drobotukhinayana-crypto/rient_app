@@ -1155,6 +1155,45 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     _prefetchDatePickerPredicate(workerId);
   }
 
+  _SpecialistOption? _editingSpecialistFallback() {
+    final worker = widget.initialAppointment?.worker;
+    if (worker == null || worker.id <= 0) return null;
+    final name = '${worker.firstName ?? ''} ${worker.lastName ?? ''}'.trim();
+    return _SpecialistOption(
+      id: worker.id,
+      fullName: name.isEmpty ? '—' : name,
+    );
+  }
+
+  List<_SpecialistOption> _ensureEditingSpecialistInList(
+    List<_SpecialistOption> list,
+  ) {
+    if (widget.initialAppointment == null) return list;
+    final fallback = _editingSpecialistFallback();
+    if (fallback == null) return list;
+    if (list.any((s) => s.id == fallback.id)) return list;
+    return [fallback, ...list];
+  }
+
+  List<_SpecialistOption> _specialistsKeepingSelected(
+    List<_SpecialistOption> list,
+  ) {
+    final keepId = _selectedSpecialistId;
+    if (keepId == null || keepId <= 0) {
+      return _ensureEditingSpecialistInList(list);
+    }
+    if (list.any((s) => s.id == keepId)) {
+      return _ensureEditingSpecialistInList(list);
+    }
+    final fromBase = list;
+    if (fromBase.isNotEmpty) return fromBase;
+    final fallback = _editingSpecialistFallback();
+    if (fallback != null && fallback.id == keepId) {
+      return [fallback];
+    }
+    return _ensureEditingSpecialistInList(list);
+  }
+
   void _resetDatePickerPredicateCache() {
     _datePickerPredicateCache = null;
     _datePickerPredicatePrefetch = null;
@@ -3008,7 +3047,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     final selectedShiftAsync = ref.watch(
       availableWorkersForDateProvider(selectedDateOnly),
     );
-    final specialistsBase = workersAsync.maybeWhen(
+    final specialistsBaseRaw = workersAsync.maybeWhen(
       data: (response) => response.results
           .map(
             (worker) => _SpecialistOption(
@@ -3021,6 +3060,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           .toList(),
       orElse: () => const <_SpecialistOption>[],
     );
+    final specialistsBase = _ensureEditingSpecialistInList(specialistsBaseRaw);
     final List<_SpecialistOption> specialistsBeforeWorkingDayFilter;
     if (isWorkerRole) {
       if (currentWorkerId != null && currentWorkerId > 0) {
@@ -3029,12 +3069,10 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             data: (eligible) =>
                 specialistsBase.where((s) => eligible.contains(s.id)).toList(),
             loading: () {
-              final keepId = _selectedSpecialistId ?? currentWorkerId;
-              return specialistsBase.where((s) => s.id == keepId).toList();
+              return _specialistsKeepingSelected(specialistsBase);
             },
             error: (_, __) {
-              final keepId = _selectedSpecialistId ?? currentWorkerId;
-              return specialistsBase.where((s) => s.id == keepId).toList();
+              return _specialistsKeepingSelected(specialistsBase);
             },
           );
         } else {
@@ -3052,39 +3090,32 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       specialistsBeforeWorkingDayFilter = eligibleSpecialistIdsAsync.when(
         data: (eligible) =>
             specialistsBase.where((s) => eligible.contains(s.id)).toList(),
-        loading: () {
-          final keepId = _selectedSpecialistId;
-          if (keepId != null && keepId > 0) {
-            final match = specialistsBase.where((s) => s.id == keepId).toList();
-            if (match.isNotEmpty) return match;
-          }
-          return const <_SpecialistOption>[];
-        },
-        error: (_, __) => specialistsBase,
+        loading: () => _specialistsKeepingSelected(specialistsBase),
+        error: (_, __) => _specialistsKeepingSelected(specialistsBase),
       );
     }
-    final specialists = _limitSpecialistsToWorkingDay
-        ? selectedShiftAsync.when(
-            data: (shifts) {
-              final workingIds = shifts.map((s) => s.worker.id).toSet();
-              return specialistsBeforeWorkingDayFilter
-                  .where((s) => workingIds.contains(s.id))
-                  .toList();
-            },
-            loading: () {
-              final keepId = _selectedSpecialistId;
-              if (keepId != null && keepId > 0) {
+    final specialists = _ensureEditingSpecialistInList(
+      _limitSpecialistsToWorkingDay
+          ? selectedShiftAsync.when(
+              data: (shifts) {
+                final workingIds = shifts.map((s) => s.worker.id).toSet();
                 return specialistsBeforeWorkingDayFilter
-                    .where((s) => s.id == keepId)
+                    .where((s) => workingIds.contains(s.id))
                     .toList();
-              }
-              return const <_SpecialistOption>[];
-            },
-            error: (_, __) => specialistsBeforeWorkingDayFilter,
-          )
-        : specialistsBeforeWorkingDayFilter;
+              },
+              loading: () => _specialistsKeepingSelected(
+                specialistsBeforeWorkingDayFilter,
+              ),
+              error: (_, __) => specialistsBeforeWorkingDayFilter,
+            )
+          : specialistsBeforeWorkingDayFilter,
+    );
     final selectedSpecialistId =
-        specialists.any((item) => item.id == _selectedSpecialistId)
+        _selectedSpecialistId != null &&
+            (specialists.any((item) => item.id == _selectedSpecialistId) ||
+                (isEditingEntry &&
+                    widget.initialAppointment?.worker?.id ==
+                        _selectedSpecialistId))
         ? _selectedSpecialistId
         : null;
     final workerServicesAsync = selectedSpecialistId == null
@@ -3877,6 +3908,15 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                   hint: Text(
                                     selectedSpecialistId == null
                                         ? workerLabels.selectWorkerFirst
+                                        : (_services[index].selectedServiceId ==
+                                                  null &&
+                                              (_services[index]
+                                                      .initialServiceName
+                                                      ?.trim()
+                                                      .isNotEmpty ??
+                                                  false))
+                                        ? _services[index].initialServiceName!
+                                              .trim()
                                         : (workerServicesAsync.isLoading
                                               ? 'Загрузка услуг...'
                                               : 'Название услуги'),
