@@ -195,6 +195,7 @@ class _CreateAppointmentDraft {
     required this.shouldCreateClient,
     required this.paid,
     required this.hasEditedServices,
+    this.deletedServices = const [],
   });
 
   final int? appointmentId;
@@ -215,6 +216,7 @@ class _CreateAppointmentDraft {
   final bool shouldCreateClient;
   final bool paid;
   final bool hasEditedServices;
+  final List<_CreateAppointmentServiceDraft> deletedServices;
 
   @override
   bool operator ==(Object other) {
@@ -237,7 +239,8 @@ class _CreateAppointmentDraft {
             other.shouldCreateClient == shouldCreateClient &&
             other.paid == paid &&
             other.hasEditedServices == hasEditedServices &&
-            listEquals(other.services, services));
+            listEquals(other.services, services) &&
+            listEquals(other.deletedServices, deletedServices));
   }
 
   @override
@@ -260,11 +263,15 @@ class _CreateAppointmentDraft {
     paid,
     hasEditedServices,
     Object.hashAll(services),
+    Object.hashAll(deletedServices),
   );
 
   Map<String, dynamic> _toPatchRequestBody({int? overrideClientId}) {
     return {
-      'services': services.map((service) => service.toJson()).toList(),
+      'services': [
+        ...services.map((service) => service.toJson()),
+        ...deletedServices.map((service) => service.toJson()),
+      ],
       'status': status,
       'comment': {'id': commentId, 'user': null, 'text': commentText},
       'worker': workerId,
@@ -275,7 +282,7 @@ class _CreateAppointmentDraft {
       'sum': totalSum,
       'pay_due': totalSum,
       'paid': paid,
-      'has_edited_services': hasEditedServices,
+      'has_edited_services': hasEditedServices || deletedServices.isNotEmpty,
     };
   }
 
@@ -314,6 +321,7 @@ class _CreateAppointmentServiceDraft {
     required this.addDurationMinutes,
     required this.price,
     this.linkedToPrevious = false,
+    this.isDeleted = false,
   });
 
   final int? appointmentServiceId;
@@ -326,6 +334,9 @@ class _CreateAppointmentServiceDraft {
   /// Время выставлено как продолжение предыдущей услуги (одна запись).
   final bool linkedToPrevious;
 
+  /// Удалённая из записи позиция — PATCH с `is_deleted: true`.
+  final bool isDeleted;
+
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
@@ -336,7 +347,8 @@ class _CreateAppointmentServiceDraft {
             other.durationMinutes == durationMinutes &&
             other.addDurationMinutes == addDurationMinutes &&
             other.price == price &&
-            other.linkedToPrevious == linkedToPrevious);
+            other.linkedToPrevious == linkedToPrevious &&
+            other.isDeleted == isDeleted);
   }
 
   @override
@@ -348,9 +360,18 @@ class _CreateAppointmentServiceDraft {
     addDurationMinutes,
     price,
     linkedToPrevious,
+    isDeleted,
   );
 
   Map<String, dynamic> toJson() {
+    if (isDeleted) {
+      return {
+        if (appointmentServiceId != null) 'id': appointmentServiceId,
+        'is_deleted': true,
+        'datetime': dateTime.toUtc().toIso8601String(),
+        'duration': durationMinutes,
+      };
+    }
     return {
       if (appointmentServiceId != null) 'id': appointmentServiceId,
       'duration': durationMinutes,
@@ -438,12 +459,28 @@ bool _addedServicesContinueSequentially(
   return true;
 }
 
+_CreateAppointmentServiceDraft _deletedServiceDraftFrom(
+  AppointmentApi appointment,
+  AppointmentServiceApi service,
+) {
+  return _CreateAppointmentServiceDraft(
+    appointmentServiceId: service.id,
+    serviceId: service.serviceId ?? 0,
+    dateTime: appointment.resolveServiceStartLocal(service),
+    durationMinutes: service.duration,
+    addDurationMinutes: service.addDuration,
+    price: 0,
+    isDeleted: true,
+  );
+}
+
 _CreateAppointmentDraft _draftForServiceChain(
   _CreateAppointmentDraft source,
   List<_CreateAppointmentServiceDraft> services, {
   int? appointmentId,
   bool clearServiceLineIds = false,
   bool? paid,
+  bool includeDeletedServices = false,
 }) {
   final chainServices = clearServiceLineIds
       ? services.map((s) => s.copyWithoutLineId()).toList()
@@ -471,7 +508,10 @@ _CreateAppointmentDraft _draftForServiceChain(
     clientCommentText: source.clientCommentText,
     shouldCreateClient: source.shouldCreateClient,
     paid: paid ?? false,
-    hasEditedServices: source.hasEditedServices,
+    hasEditedServices:
+        source.hasEditedServices || source.deletedServices.isNotEmpty,
+    deletedServices:
+        includeDeletedServices ? source.deletedServices : const [],
   );
 }
 
@@ -2119,6 +2159,24 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (completeServices.isEmpty) return null;
     completeServices.sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
+    final deletedServices = <_CreateAppointmentServiceDraft>[];
+    final initialAppointment = widget.initialAppointment;
+    if (initialAppointment != null) {
+      final currentLineIds = _services
+          .map((block) => block.appointmentServiceId)
+          .whereType<int>()
+          .toSet();
+      for (final service in initialAppointment.services) {
+        final lineId = service.id;
+        if (lineId != null && !currentLineIds.contains(lineId)) {
+          deletedServices.add(
+            _deletedServiceDraftFrom(initialAppointment, service),
+          );
+        }
+      }
+      deletedServices.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    }
+
     final effectivePhone = _effectiveClientPhoneForSubmit(
       canSeeContactData,
     ).trim();
@@ -2149,10 +2207,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       clientCommentText: _commentClientController.text.trim(),
       shouldCreateClient: shouldCreateClient,
       paid: ref.read(createEntryAppointmentPaidProvider),
-      hasEditedServices: _hasEditedServicesComparedTo(
-        widget.initialAppointment,
-        workerServices,
-      ),
+      hasEditedServices:
+          _hasEditedServicesComparedTo(
+            widget.initialAppointment,
+            workerServices,
+          ) ||
+          deletedServices.isNotEmpty,
+      deletedServices: deletedServices,
     );
   }
 
@@ -4466,6 +4527,7 @@ class _BottomActionsBar extends ConsumerWidget {
                 appointmentId: i == 0 ? appointmentId : null,
                 clearServiceLineIds: i > 0,
                 paid: i == 0 ? draft.paid : false,
+                includeDeletedServices: i == 0,
               );
               if (i == 0) {
                 // Добавление подряд: POST с id. Смена/разрыв: PATCH.
