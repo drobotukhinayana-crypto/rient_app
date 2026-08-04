@@ -1224,6 +1224,23 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         shiftConfig: workerShiftConfigForSpecialist,
       );
     }
+    bool resolveBranchNonWorkingDay(DateTime date) {
+      final normalized = _toDateOnly(date);
+      final daySchedules = isSameCalendarDay(normalized, normalizedSelectedDate)
+          ? dayBranchSchedules
+          : const <ScheduleItemApi>[];
+      return !_isBranchWorkingOnDate(
+        normalized,
+        branchPatterns,
+        daySchedules,
+      );
+    }
+    /// Полоска дат в «День»: owner — выходные филиала; мастер — свои.
+    final dayHeaderResolveNonWorkingDay = isWorkerRole
+        ? (specialistIdForData != null ? resolveWorkerNonWorkingDay : null)
+        : (isAdminDayView && !isAdminMultiDayView && dayScheduleReady
+              ? resolveBranchNonWorkingDay
+              : null);
     final slotsByDay = _slotsByDayFromActiveAppointments(
       monthAppointmentsAsync.value ?? const [],
       _monthStart,
@@ -1470,10 +1487,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                 scheduleSelectedDate: selectedDate,
                 weekStart: _weekStart,
                 occupancyByDay: dayOccupancyByDay,
-                resolveScheduleNonWorkingDay:
-                    !multiDayColumns && specialistIdForData != null
-                    ? resolveWorkerNonWorkingDay
-                    : null,
+                resolveScheduleNonWorkingDay: dayHeaderResolveNonWorkingDay,
                 onScheduleDateSelected: (date) {
                   final normalized = _toDateOnly(date);
                   final monday = _mondayOf(normalized);
