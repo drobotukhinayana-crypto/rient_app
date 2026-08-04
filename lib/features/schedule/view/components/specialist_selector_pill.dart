@@ -6,7 +6,7 @@ import 'package:rient_app/core/widgets/worker_avatar_image.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/resources/resources.dart';
 
-/// Пилюля выбора специалиста: аватар, имя, роль, шеврон. По тапу открывает диалог.
+/// Карточка специалиста: аватар, имя, роль. При нескольких мастерах — шеврон и выбор по тапу.
 class SpecialistSelectorPill extends StatefulWidget {
   const SpecialistSelectorPill({
     super.key,
@@ -70,58 +70,59 @@ class _SpecialistSelectorPillState extends State<SpecialistSelectorPill> {
     );
   }
 
+  bool get _isSelectable => widget.specialists.length > 1;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? AppColors.secondaryDarkLight : AppColors.secondaryLight;
     final primaryText = isDark ? AppColors.primaryDarkDark : AppColors.primaryDark;
     final secondaryText = isDark ? AppColors.tabbarGreyDark : AppColors.tabbarGrey;
+    final content = Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          _PillAvatar(pictureUrl: _selected.pictureUrl, name: _selected.name),
+          const Gap(12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _selected.name,
+                  style: AppFonts.b2Medium.copyWith(color: primaryText),
+                ),
+                const Gap(2),
+                Text(
+                  _selected.role,
+                  style: AppFonts.c2Tabbar.copyWith(
+                    color: secondaryText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_isSelectable)
+            Image.asset(
+              AppImages.arrowDown,
+              color: AppColors.themeAccent(context),
+            ),
+        ],
+      ),
+    );
+
     return Material(
       color: surface,
       borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: _openDialog,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: EdgeInsets.all(12),
-          child: Row(
-            children: [
-              _PillAvatar(pictureUrl: _selected.pictureUrl, name: _selected.name),
-              Gap(12),
-
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // имя
-                    Text(
-                      _selected.name,
-                      style: AppFonts.b2Medium.copyWith(color: primaryText),
-                    ),
-                    Gap(2),
-
-                    // роль
-                    Text(
-                      _selected.role,
-                      style: AppFonts.c2Tabbar.copyWith(
-                        color: secondaryText,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // стрелка
-              Image.asset(
-                AppImages.arrowDown,
-                color: AppColors.themeAccent(context),
-              ),
-            ],
-          ),
-        ),
-      ),
+      child: _isSelectable
+          ? InkWell(
+              onTap: _openDialog,
+              borderRadius: BorderRadius.circular(20),
+              child: content,
+            )
+          : content,
     );
   }
 }
