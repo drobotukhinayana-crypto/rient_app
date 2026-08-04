@@ -474,6 +474,33 @@ _CreateAppointmentServiceDraft _deletedServiceDraftFrom(
   );
 }
 
+_CreateAppointmentServiceDraft _deletedServiceDraftFromDraft(
+  _CreateAppointmentServiceDraft service,
+) {
+  return _CreateAppointmentServiceDraft(
+    appointmentServiceId: service.appointmentServiceId,
+    serviceId: service.serviceId,
+    dateTime: service.dateTime,
+    durationMinutes: service.durationMinutes,
+    addDurationMinutes: service.addDurationMinutes,
+    price: 0,
+    isDeleted: true,
+  );
+}
+
+List<_CreateAppointmentServiceDraft> _deletedDraftsForMovedServices(
+  List<List<_CreateAppointmentServiceDraft>> serviceChains,
+) {
+  final moved = <_CreateAppointmentServiceDraft>[];
+  for (var i = 1; i < serviceChains.length; i++) {
+    for (final service in serviceChains[i]) {
+      if (service.appointmentServiceId == null) continue;
+      moved.add(_deletedServiceDraftFromDraft(service));
+    }
+  }
+  return moved;
+}
+
 _CreateAppointmentDraft _draftForServiceChain(
   _CreateAppointmentDraft source,
   List<_CreateAppointmentServiceDraft> services, {
@@ -481,6 +508,7 @@ _CreateAppointmentDraft _draftForServiceChain(
   bool clearServiceLineIds = false,
   bool? paid,
   bool includeDeletedServices = false,
+  List<_CreateAppointmentServiceDraft> extraDeletedServices = const [],
 }) {
   final chainServices = clearServiceLineIds
       ? services.map((s) => s.copyWithoutLineId()).toList()
@@ -510,8 +538,9 @@ _CreateAppointmentDraft _draftForServiceChain(
     paid: paid ?? false,
     hasEditedServices:
         source.hasEditedServices || source.deletedServices.isNotEmpty,
-    deletedServices:
-        includeDeletedServices ? source.deletedServices : const [],
+    deletedServices: includeDeletedServices
+        ? [...source.deletedServices, ...extraDeletedServices]
+        : const [],
   );
 }
 
@@ -1001,18 +1030,28 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
   bool _isInitialServiceTime(
     AppointmentApi appointment,
-    int serviceIndex,
+    _ServiceBlockState block,
     String selectedTime,
   ) {
-    if (serviceIndex < 0 || serviceIndex >= appointment.services.length) {
+    final lineId = block.appointmentServiceId;
+    if (lineId != null) {
+      for (final service in appointment.services) {
+        if (service.id != lineId) continue;
+        final serviceDateTime = DateTime.tryParse(
+          service.datetime ?? '',
+        )?.toLocal();
+        if (serviceDateTime == null) return false;
+        return _formatSlot(serviceDateTime) == selectedTime;
+      }
       return false;
     }
-    final service = appointment.services[serviceIndex];
-    final serviceDateTime = DateTime.tryParse(
-      service.datetime ?? '',
-    )?.toLocal();
-    if (serviceDateTime == null) return false;
-    return _formatSlot(serviceDateTime) == selectedTime;
+    return false;
+  }
+
+  void _syncLinkedToPreviousFlags() {
+    for (var i = 0; i < _services.length; i++) {
+      _services[i].linkedToPrevious = i > 0 && _blockFollowsPrevious(i);
+    }
   }
 
   void _applyInitialAppointment() {
@@ -1068,6 +1107,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                 return ordered.map(_createInitialServiceBlock);
               }(),
       );
+    _syncLinkedToPreviousFlags();
   }
 
   void _applyInitialDataForNewEntry() {
@@ -2574,11 +2614,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (_services.length <= 1) return;
     setState(() {
       _services.removeAt(index);
-      if (index <= 1) {
-        _recalculateChainedServiceTimes(fromIndex: 1);
-      } else {
-        _recalculateChainedServiceTimes(fromIndex: index);
-      }
+      _syncLinkedToPreviousFlags();
     });
   }
 
@@ -4154,7 +4190,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                 selectedTime != null &&
                                 _isInitialServiceTime(
                                   initialAppointment,
-                                  index,
+                                  _services[index],
                                   selectedTime,
                                 );
                             // Не сбрасываем всю цепочку: при 3+ услугах суммарная
@@ -4560,6 +4596,9 @@ class _BottomActionsBar extends ConsumerWidget {
             }
 
             final splitIntoMultipleVisits = serviceChains.length > 1;
+            final movedServiceDeletes = splitIntoMultipleVisits
+                ? _deletedDraftsForMovedServices(serviceChains)
+                : const <_CreateAppointmentServiceDraft>[];
 
             for (var i = 0; i < serviceChains.length; i++) {
               final chainDraft = _draftForServiceChain(
@@ -4569,6 +4608,7 @@ class _BottomActionsBar extends ConsumerWidget {
                 clearServiceLineIds: i > 0,
                 paid: i == 0 ? draft.paid : false,
                 includeDeletedServices: i == 0,
+                extraDeletedServices: i == 0 ? movedServiceDeletes : const [],
               );
               if (i == 0) {
                 // Добавление подряд: POST с id. Смена/разрыв: PATCH.
