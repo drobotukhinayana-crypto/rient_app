@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:rient_app/features/analytics/view/providers/analytics_statistics_provider.dart';
 import 'package:rient_app/features/home/view/providers/selected_date_provider.dart';
 import 'package:rient_app/features/home/view/providers/statistics_provider.dart';
@@ -36,6 +37,7 @@ void prepareScheduleTabOnOpen(dynamic ref) {
 
 /// Перед открытием вкладки «Главная» из таббара — сразу тянем свежую статистику.
 void prepareHomeTabOnOpen(dynamic ref) {
+  FocusManager.instance.primaryFocus?.unfocus();
   syncHomeDateFromSchedule(ref);
   refreshWorkerPermissions(ref);
   beginScheduleNetworkRecovery(ref);

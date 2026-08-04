@@ -193,86 +193,84 @@ class _DateStripState extends State<DateStrip> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          height: 72,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Row(
-                children: [
-                  if (widget.leadingInset > 0)
-                    SizedBox(width: widget.leadingInset),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        for (var i = 0; i < _dates.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 4),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: widget.onDateSelected != null
-                                  ? () => widget.onDateSelected!(_dates[i])
-                                  : null,
-                              child: _DateCircleItem(
-                                date: _dates[i],
-                                isSelected:
-                                    _stateFor(_dates[i]) == _DayState.selected,
-                                showArc:
-                                    !widget.workScheduleWeekDates &&
-                                    _stateFor(_dates[i]) ==
-                                        _DayState.pastWithData &&
-                                    _hasData(_dates[i]),
-                                size: _circleSize,
-                                useGreyCircles: widget.useGreyCircles,
-                                useMonthCalendarCircleFill:
-                                    widget.useMonthCalendarCircleFill,
-                                workScheduleWeekDates:
-                                    widget.workScheduleWeekDates,
-                                isDark: isDark,
-                                occupancyPercent:
-                                    widget.occupancyByDay
-                                        ?.firstWhereOrNull(
-                                          (element) =>
-                                              isSameCalendarDay(
-                                                element.date,
-                                                _dates[i],
-                                              ),
-                                        )
-                                        ?.occupancy ??
-                                    0,
-                                isNonWorkingDay: _isNonWorkingDay(_dates[i]),
-                              ),
+        Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (widget.leadingInset > 0)
+                  SizedBox(width: widget.leadingInset),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var i = 0; i < _dates.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 4),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: widget.onDateSelected != null
+                                ? () => widget.onDateSelected!(_dates[i])
+                                : null,
+                            child: _DateCircleItem(
+                              date: _dates[i],
+                              isSelected:
+                                  _stateFor(_dates[i]) == _DayState.selected,
+                              showArc:
+                                  !widget.workScheduleWeekDates &&
+                                  _stateFor(_dates[i]) ==
+                                      _DayState.pastWithData &&
+                                  _hasData(_dates[i]),
+                              size: _circleSize,
+                              useGreyCircles: widget.useGreyCircles,
+                              useMonthCalendarCircleFill:
+                                  widget.useMonthCalendarCircleFill,
+                              workScheduleWeekDates:
+                                  widget.workScheduleWeekDates,
+                              isDark: isDark,
+                              occupancyPercent:
+                                  widget.occupancyByDay
+                                      ?.firstWhereOrNull(
+                                        (element) => isSameCalendarDay(
+                                          element.date,
+                                          _dates[i],
+                                        ),
+                                      )
+                                      ?.occupancy ??
+                                  0,
+                              isNonWorkingDay: _isNonWorkingDay(_dates[i]),
                             ),
                           ),
-                        ],
+                        ),
                       ],
-                    ),
+                    ],
                   ),
-                ],
-              ),
-              if (widget.occupancyLoading)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: ColoredBox(
-                      color: isDark
-                          ? AppColors.secondaryDarkLight.withValues(alpha: 0.72)
-                          : AppColors.tabBarScreenBackground.withValues(
-                              alpha: 0.72,
-                            ),
-                      child: Center(
-                        child: SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.themeAccent(context),
+                ),
+              ],
+            ),
+            if (widget.occupancyLoading)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: ColoredBox(
+                    color: isDark
+                        ? AppColors.secondaryDarkLight.withValues(alpha: 0.72)
+                        : AppColors.tabBarScreenBackground.withValues(
+                            alpha: 0.72,
                           ),
+                    child: Center(
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.themeAccent(context),
                         ),
                       ),
                     ),
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
         if (widget.showFullDateLabel) ...[
           const SizedBox(height: 8),
@@ -428,7 +426,12 @@ class _DateCircleItem extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           weekdayShort,
-          style: AppFonts.c2Tabbar.copyWith(color: weekdayLabelColor),
+          style: AppFonts.c2Tabbar.copyWith(
+            color: weekdayLabelColor,
+            height: 1,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.clip,
         ),
       ],
     );
