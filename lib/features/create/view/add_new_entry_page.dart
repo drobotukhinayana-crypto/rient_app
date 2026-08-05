@@ -1183,11 +1183,16 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           _selectedSpecialistId != null && _selectedSpecialistId != workerId;
       _selectedSpecialistId = workerId;
       if (hadDifferent) {
+        final isEditing = widget.initialAppointment != null;
         for (final service in _services) {
           service.selectedServiceId = null;
-          service.durationMinutes = 10;
-          service.addDurationMinutes = 0;
-          service.selectedTime = null;
+          if (isEditing) {
+            _restoreSavedServiceFieldsFromAppointment(service);
+          } else {
+            service.durationMinutes = 10;
+            service.addDurationMinutes = 0;
+            service.selectedTime = null;
+          }
         }
       }
     });
@@ -1256,14 +1261,43 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         });
   }
 
+  void _restoreSavedServiceFieldsFromAppointment(_ServiceBlockState block) {
+    final lineId = block.appointmentServiceId;
+    final appointment = widget.initialAppointment;
+    if (lineId == null || appointment == null) return;
+    for (final service in appointment.services) {
+      if (service.id != lineId) continue;
+      if (service.duration >= 0) {
+        block.durationMinutes = service.duration;
+      }
+      if (service.addDuration >= 0) {
+        block.addDurationMinutes = service.addDuration;
+      }
+      final serviceDateTime = DateTime.tryParse(
+        service.datetime ?? '',
+      )?.toLocal();
+      if (serviceDateTime != null) {
+        final h = serviceDateTime.hour.toString().padLeft(2, '0');
+        final m = serviceDateTime.minute.toString().padLeft(2, '0');
+        block.selectedTime = '$h:$m';
+      }
+      return;
+    }
+  }
+
   void _onSpecialistChanged(int? value) {
     setState(() {
       _selectedSpecialistId = value;
+      final isEditing = widget.initialAppointment != null;
       for (final service in _services) {
         service.selectedServiceId = null;
-        service.durationMinutes = 10;
-        service.addDurationMinutes = 0;
-        service.selectedTime = null;
+        if (isEditing) {
+          _restoreSavedServiceFieldsFromAppointment(service);
+        } else {
+          service.durationMinutes = 10;
+          service.addDurationMinutes = 0;
+          service.selectedTime = null;
+        }
       }
     });
     _resetDatePickerPredicateCache();
@@ -2761,15 +2795,13 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       if (matched != null) {
         block.selectedServiceId = matched.id;
         block.catalogServiceId = matched.service.id;
-        // Для уже сохранённых позиций не перезаписываем duration/add из каталога —
-        // иначе разъезжается цепочка времени и новая услуга уходит отдельной записью.
         if (block.appointmentServiceId == null) {
           if (block.durationMinutes <= 0) {
             block.durationMinutes = matched.duration;
           }
           block.addDurationMinutes = matched.addDuration;
-        } else if (block.durationMinutes <= 0) {
-          block.durationMinutes = matched.duration;
+        } else {
+          _restoreSavedServiceFieldsFromAppointment(block);
         }
         block.initialServiceName = null;
         hasChanges = true;

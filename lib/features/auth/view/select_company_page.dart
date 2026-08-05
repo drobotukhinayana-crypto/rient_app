@@ -96,7 +96,12 @@ class _BodyWidget extends StatelessWidget {
 
           // кнопка продолжения
           Padding(
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+            padding: const EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 24,
+              bottom: 24,
+            ),
             child: Consumer(
               builder: (_, ref, __) => MainButton(
                 title: 'Продолжить',
