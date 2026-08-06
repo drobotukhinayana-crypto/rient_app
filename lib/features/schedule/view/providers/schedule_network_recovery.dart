@@ -7,6 +7,7 @@ import 'package:rient_app/core/network/app_connectivity_provider.dart'
         bindPostBootstrapServerConfirm,
         connectivityCheckProvider,
         connectivityHasNetwork,
+        connectivityHasUnderlyingNetwork,
         isScheduleSessionBootstrapActive,
         markScheduleServerReachable,
         markScheduleServerUnreachable,
@@ -37,16 +38,55 @@ Future<bool> refreshConnectivityAndWait(dynamic ref) async {
   return connectivityHasNetwork(results);
 }
 
-/// Выход из оффлайна при появлении сети — без probe, как при перезапуске приложения.
-Future<bool> tryRecoverScheduleNetwork(dynamic ref) async {
-  final now = DateTime.now();
-  if (_scheduleRecoveryInFlight) {
-    return false;
+bool _vpnRecoveryInFlight = false;
+
+/// Восстановление после отключения VPN: интерфейс сети может подняться с задержкой.
+Future<bool> tryRecoverScheduleNetworkAfterVpnOff(dynamic ref) async {
+  if (_vpnRecoveryInFlight) return false;
+  _vpnRecoveryInFlight = true;
+  try {
+    ref.invalidate(connectivityCheckProvider);
+    await Future<void>.delayed(Duration.zero);
+    if (!ref.mounted) return false;
+
+    final results = await readConnectivityStatus();
+    final hasInterface = connectivityHasNetwork(results) ||
+        connectivityHasUnderlyingNetwork(results);
+
+    if (hasInterface) {
+      if (!ref.mounted) return false;
+      markScheduleServerReachable(ref);
+      beginScheduleNetworkRecovery(ref);
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (!ref.mounted) return;
+        invalidateScheduleNetworkProviders(ref);
+      });
+      return true;
+    }
+
+    return tryRecoverScheduleNetwork(ref, force: true);
+  } finally {
+    _vpnRecoveryInFlight = false;
   }
-  // Антидребезг: несколько слушателей (stream / hasNetwork / noConnection) срабатывают разом.
-  if (_lastRecoveryStartedAt != null &&
-      now.difference(_lastRecoveryStartedAt!) <
-          const Duration(milliseconds: 800)) {
+}
+
+/// Выход из оффлайна при появлении сети — без probe, как при перезапуске приложения.
+Future<bool> tryRecoverScheduleNetwork(
+  dynamic ref, {
+  bool force = false,
+}) async {
+  final now = DateTime.now();
+  if (!force) {
+    if (_scheduleRecoveryInFlight) {
+      return false;
+    }
+    // Антидребезг: несколько слушателей (stream / hasNetwork / noConnection) срабатывают разом.
+    if (_lastRecoveryStartedAt != null &&
+        now.difference(_lastRecoveryStartedAt!) <
+            const Duration(milliseconds: 800)) {
+      return false;
+    }
+  } else if (_scheduleRecoveryInFlight) {
     return false;
   }
   _scheduleRecoveryInFlight = true;

@@ -100,6 +100,7 @@ class _AppLockListenerState extends ConsumerState<AppLockListener>
       );
       if (!mounted || !ok) return;
       ref.read(appLockUiProvider.notifier).unlock();
+      FocusManager.instance.primaryFocus?.unfocus();
     } finally {
       _isBiometricUnlockInProgress = false;
     }
@@ -117,6 +118,7 @@ class _AppLockListenerState extends ConsumerState<AppLockListener>
       return;
     }
     ref.read(appLockUiProvider.notifier).unlock();
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
   void _onPinChanged(String _) {
@@ -167,6 +169,7 @@ class _AppLockListenerState extends ConsumerState<AppLockListener>
         }
       }
       if (!next.isLocked && previous?.isLocked == true) {
+        FocusManager.instance.primaryFocus?.unfocus();
         setState(() {
           _resetPinInput();
           _showForgotPinPrompt = false;

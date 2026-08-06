@@ -3,6 +3,23 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/services.dart';
 
+const _underlyingNetwork = {
+  ConnectivityResult.wifi,
+  ConnectivityResult.mobile,
+  ConnectivityResult.ethernet,
+  ConnectivityResult.other,
+};
+
+/// Есть любой сетевой интерфейс (включая VPN).
+bool connectivityHasNetwork(List<ConnectivityResult> results) {
+  return results.any((r) => r != ConnectivityResult.none);
+}
+
+/// Wi‑Fi / мобильная / ethernet — без «голого» VPN-туннеля.
+bool connectivityHasUnderlyingNetwork(List<ConnectivityResult> results) {
+  return results.any(_underlyingNetwork.contains);
+}
+
 /// Когда нативный плагин недоступен (hot restart, тесты) — не блокируем приложение.
 const assumeOnlineConnectivity = [ConnectivityResult.wifi];
 

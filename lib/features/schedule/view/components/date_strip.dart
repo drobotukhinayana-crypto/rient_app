@@ -190,12 +190,20 @@ class _DateStripState extends State<DateStrip> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Stack(
-          clipBehavior: Clip.hardEdge,
-          children: [
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final showLabel = widget.showFullDateLabel && !keyboardOpen;
+    final textScaler = MediaQuery.textScalerOf(
+      context,
+    ).clamp(maxScaleFactor: 1.15);
+
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -272,16 +280,20 @@ class _DateStripState extends State<DateStrip> {
               ),
           ],
         ),
-        if (widget.showFullDateLabel) ...[
-          const SizedBox(height: 8),
+        if (showLabel) ...[
+          const SizedBox(height: 6),
           Text(
             _fullDateText(
               widget.selectedDate ?? widget.initialDate ?? DateTime.now(),
             ),
             style: AppFonts.b2Medium.copyWith(color: AppColors.grey),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
         ],
       ],
+      ),
     );
   }
 }
@@ -423,15 +435,19 @@ class _DateCircleItem extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          weekdayShort,
-          style: AppFonts.c2Tabbar.copyWith(
-            color: weekdayLabelColor,
-            height: 1,
+        const SizedBox(height: 3),
+        SizedBox(
+          height: 14,
+          child: Text(
+            weekdayShort,
+            style: AppFonts.c2Tabbar.copyWith(
+              color: weekdayLabelColor,
+              height: 1,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.clip,
         ),
       ],
     );

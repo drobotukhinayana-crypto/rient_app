@@ -360,7 +360,7 @@ class _TopPanelState extends State<TopPanel> {
       hasShadow: false,
       padding: EdgeInsets.only(
         top: topInset + 8,
-        bottom: 8,
+        bottom: 12,
         left: 16,
         right: 16,
       ),

@@ -106,7 +106,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
               label: 'Почта',
               controller: emailController,
               hasError: ref.watch(_emailErrorProvider).isNotEmpty,
-              hintText: 'example@gmail.com',
+              hintText: 'Ваш адрес электронной почты',
             ),
             if (ref.watch(_emailErrorProvider).isNotEmpty)
               ErrorLabel(ref.watch(_emailErrorProvider)),
@@ -124,9 +124,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             ),
             Gap(16),
 
-            // пользовательское соглашение
             AuthTextButton(
-              title: 'Пользовательское соглашение?',
+              title: 'Пользовательское соглашение',
               onTap: () async {
                 final uri = Uri.parse('https://rient.ru/doc/agreement.pdf');
                 launchUrl(uri, mode: LaunchMode.externalApplication);

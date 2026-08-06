@@ -4,7 +4,12 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:rient_app/core/network/app_connectivity.dart';
+import 'package:rient_app/core/network/app_vpn_provider.dart';
 import 'package:rient_app/core/network/network_failure.dart';
+import 'package:rient_app/core/network/post_vpn_grace_provider.dart';
+
+export 'package:rient_app/core/network/app_connectivity.dart'
+    show connectivityHasNetwork, connectivityHasUnderlyingNetwork;
 
 /// Сбрасывается в `false` при ошибке API расписания; восстанавливается при появлении сети.
 final scheduleServerReachableProvider = StateProvider<bool>((ref) => true);
@@ -41,10 +46,6 @@ final connectivityCheckProvider =
   return readConnectivityStatus();
 });
 
-bool connectivityHasNetwork(List<ConnectivityResult> results) {
-  return results.any((r) => r != ConnectivityResult.none);
-}
-
 bool _onlineFromResults(List<ConnectivityResult> results) =>
     connectivityHasNetwork(results);
 
@@ -52,6 +53,9 @@ bool _onlineFromResults(List<ConnectivityResult> results) =>
 final Provider<bool> appHasNetworkProvider = Provider<bool>((ref) {
   final stream = ref.watch(connectivityStatusProvider);
   final checked = ref.watch(connectivityCheckProvider);
+  final graceUntil = ref.watch(postVpnConnectivityGraceUntilProvider);
+  final postVpnGrace =
+      graceUntil != null && DateTime.now().isBefore(graceUntil);
 
   final streamOnline = stream.when(
     data: _onlineFromResults,
@@ -64,6 +68,10 @@ final Provider<bool> appHasNetworkProvider = Provider<bool>((ref) {
     error: (_, __) => streamOnline,
   );
 
+  // Android: после VPN stream и check расходятся — не показываем «нет интернета».
+  if (postVpnGrace) {
+    return streamOnline || checkOnline;
+  }
   return streamOnline && checkOnline;
 });
 
@@ -120,5 +128,7 @@ void onScheduleNetworkFailure(dynamic ref, Object error) {
   if (!ref.mounted) return;
   if (isScheduleNetworkRecoveryActive(ref)) return;
   if (isScheduleSessionBootstrapActive(ref)) return;
+  // С VPN API часто падает при живом Wi‑Fi; показываем VPN-плашку, не оффлайн.
+  if (ref.read(appVpnActiveProvider)) return;
   markScheduleServerUnreachable(ref);
 }

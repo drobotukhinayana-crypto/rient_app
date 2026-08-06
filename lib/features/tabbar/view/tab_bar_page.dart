@@ -358,6 +358,8 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     final showVpnBanner = ref.watch(showVpnBannerProvider);
 
     ref.watch(connectivityRecoveryListenerProvider);
+    ref.watch(vpnActivePollingListenerProvider);
+    ref.watch(vpnBannerSessionListenerProvider);
     ref.watch(scheduleServerUnreachableListenerProvider);
     ref.watch(appSessionContextListenerProvider);
 

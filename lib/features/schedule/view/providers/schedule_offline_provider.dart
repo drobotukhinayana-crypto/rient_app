@@ -17,7 +17,8 @@ export 'package:rient_app/features/schedule/view/providers/schedule_network_reco
         beginScheduleNetworkRecovery,
         confirmScheduleServerWhenBranchReady,
         refreshConnectivityAndWait,
-        tryRecoverScheduleNetwork;
+        tryRecoverScheduleNetwork,
+        tryRecoverScheduleNetworkAfterVpnOff;
 export 'package:rient_app/features/schedule/view/providers/schedule_offline_invalidation.dart'
     show
         invalidateScheduleNetworkProviders,
