@@ -1261,7 +1261,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         });
   }
 
-  void _restoreSavedServiceFieldsFromAppointment(_ServiceBlockState block) {
+  void _restoreSavedServiceDurationFromAppointment(_ServiceBlockState block) {
     final lineId = block.appointmentServiceId;
     final appointment = widget.initialAppointment;
     if (lineId == null || appointment == null) return;
@@ -1273,6 +1273,17 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       if (service.addDuration >= 0) {
         block.addDurationMinutes = service.addDuration;
       }
+      return;
+    }
+  }
+
+  void _restoreSavedServiceFieldsFromAppointment(_ServiceBlockState block) {
+    _restoreSavedServiceDurationFromAppointment(block);
+    final lineId = block.appointmentServiceId;
+    final appointment = widget.initialAppointment;
+    if (lineId == null || appointment == null) return;
+    for (final service in appointment.services) {
+      if (service.id != lineId) continue;
       final serviceDateTime = DateTime.tryParse(
         service.datetime ?? '',
       )?.toLocal();
@@ -1292,7 +1303,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       for (final service in _services) {
         service.selectedServiceId = null;
         if (isEditing) {
-          _restoreSavedServiceFieldsFromAppointment(service);
+          _restoreSavedServiceDurationFromAppointment(service);
+          service.selectedTime = null;
         } else {
           service.durationMinutes = 10;
           service.addDurationMinutes = 0;
@@ -2004,18 +2016,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     required List<AppointmentApi> appointments,
     required int currentServiceIndex,
   }) {
-    final editingAppointment = widget.initialAppointment;
     final currentTime =
         currentServiceIndex >= 0 && currentServiceIndex < _services.length
         ? _services[currentServiceIndex].selectedTime
         : null;
 
     if (shift == null || durationMinutes <= 0) {
-      if (editingAppointment != null &&
-          currentTime != null &&
-          currentTime.isNotEmpty) {
-        return [currentTime];
-      }
       return const <String>[];
     }
     final shiftBounds = resolveWorkerShiftBoundsForDate(
@@ -2801,7 +2807,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
           }
           block.addDurationMinutes = matched.addDuration;
         } else {
-          _restoreSavedServiceFieldsFromAppointment(block);
+          _restoreSavedServiceDurationFromAppointment(block);
         }
         block.initialServiceName = null;
         hasChanges = true;
@@ -4219,6 +4225,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
                                 widget.initialAppointment;
                             final preserveEditTime =
                                 initialAppointment != null &&
+                                selectedSpecialistId ==
+                                    initialAppointment.worker?.id &&
                                 selectedTime != null &&
                                 _isInitialServiceTime(
                                   initialAppointment,
