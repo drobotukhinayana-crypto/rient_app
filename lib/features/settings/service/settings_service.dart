@@ -30,7 +30,7 @@ class SettingsService {
   static const _captcha = 'dummy';
 
   Future<void> resetWorkerAccess({required int workerId}) async {
-    final metas = await _loadWorkersMetaMap();
+    final metas = await _loadWorkersMetaMap(hasUserAccountOnly: true);
     final brief = metas[workerId];
     if (brief != null && !brief.hasUserAccount) {
       throw SettingsActionException(
@@ -45,7 +45,7 @@ class SettingsService {
       throw SettingsActionException('Нет сотрудников для выбранного филиала');
     }
 
-    final metas = await _loadWorkersMetaMap();
+    final metas = await _loadWorkersMetaMap(hasUserAccountOnly: true);
     var resetCount = 0;
     Object? lastError;
 
@@ -109,13 +109,13 @@ class SettingsService {
     );
   }
 
-  /// Все мастера филиала (workers-full), в т.ч. без доступа к приложению.
+  /// Мастера филиала с доступом к приложению (workers-full, has_user_account=1).
   Future<List<WorkerApi>> loadAllBranchWorkersForPicker() async {
     final branchId = ref.read(currentBranchIdProvider);
     if (branchId <= 0) {
       throw SettingsActionException('Филиал не выбран');
     }
-    final rows = await _getWorkersFull(branchId);
+    final rows = await _getWorkersFull(branchId, hasUserAccount: true);
     return _workersFromRows(rows);
   }
 
@@ -129,13 +129,18 @@ class SettingsService {
     return _workersFromRows(rows);
   }
 
-  Future<Map<int, _WorkerSettingsMeta>> _loadWorkersMetaMap() async {
+  Future<Map<int, _WorkerSettingsMeta>> _loadWorkersMetaMap({
+    bool hasUserAccountOnly = false,
+  }) async {
     final branchId = ref.read(currentBranchIdProvider);
     if (branchId <= 0) {
       throw SettingsActionException('Филиал не выбран');
     }
 
-    final rows = await _getWorkersFull(branchId);
+    final rows = await _getWorkersFull(
+      branchId,
+      hasUserAccount: hasUserAccountOnly ? true : null,
+    );
     final onlineBookingActiveIds = await _loadOnlineBookingActiveWorkerIds(
       branchId,
     );
@@ -196,7 +201,10 @@ class SettingsService {
         .toList();
   }
 
-  Future<List<Map<String, dynamic>>> _getWorkersFull(int branchId) async {
+  Future<List<Map<String, dynamic>>> _getWorkersFull(
+    int branchId, {
+    bool? hasUserAccount,
+  }) async {
     final organizationId = ref.read(organizationIdProvider);
     final url = ApiConsts().createUrl(
       'organizations/$organizationId/workers-full/',
@@ -210,6 +218,7 @@ class SettingsService {
           'ordering': 'last_name,first_name',
           'page_size': 500,
           'page': 1,
+          if (hasUserAccount == true) 'has_user_account': 1,
         },
         options: Options(headers: _authHeaders()),
       ),

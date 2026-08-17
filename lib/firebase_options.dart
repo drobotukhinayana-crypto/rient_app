@@ -50,19 +50,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAzq92PaSqf0Akhijj6UTFuOQDr5u3y5m0',
-    appId: '1:953829578641:android:4467e36f905f5cf68c2c30',
-    messagingSenderId: '953829578641',
-    projectId: 'rient-1e436',
-    storageBucket: 'rient-1e436.firebasestorage.app',
+    apiKey: 'AIzaSyBEdfYP76h0dG-xNpT9PWF86RuWxtqQ4WA',
+    appId: '1:396796664829:android:b0dbedf4f6a87402c5d794',
+    messagingSenderId: '396796664829',
+    projectId: 'rient-admin',
+    storageBucket: 'rient-admin.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCFmlo2HhlaHepr1MsoTqiOVCHW-CFu6sA',
-    appId: '1:953829578641:ios:8fc93e67c7d4a90b8c2c30',
-    messagingSenderId: '953829578641',
-    projectId: 'rient-1e436',
-    storageBucket: 'rient-1e436.firebasestorage.app',
-    iosBundleId: 'com.rientAppp',
+    apiKey: 'AIzaSyDmPAKwq7wahj7QHE_kQixaBTp1_9kXKWo',
+    appId: '1:396796664829:ios:974efe9b68d23047c5d794',
+    messagingSenderId: '396796664829',
+    projectId: 'rient-admin',
+    storageBucket: 'rient-admin.firebasestorage.app',
+    iosBundleId: 'com.rientAdmin',
   );
 }

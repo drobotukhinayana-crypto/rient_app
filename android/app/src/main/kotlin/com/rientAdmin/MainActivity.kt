@@ -1,4 +1,4 @@
-package com.rientAppp
+package com.rientAdmin
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

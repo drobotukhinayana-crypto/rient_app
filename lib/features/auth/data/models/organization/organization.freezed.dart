@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Organization {
 
- int get id; String? get slug; String? get name; String? get brand;@JsonKey(name: 'logotype_thumbnail') String? get logo;
+ int get id; String? get slug; String? get name; String? get brand;@JsonKey(name: 'logotype_thumbnail') String? get logo;@JsonKey(name: 'is_blocked') bool get isBlocked;
 /// Create a copy of Organization
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $OrganizationCopyWith<Organization> get copyWith => _$OrganizationCopyWithImpl<O
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Organization&&(identical(other.id, id) || other.id == id)&&(identical(other.slug, slug) || other.slug == slug)&&(identical(other.name, name) || other.name == name)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.logo, logo) || other.logo == logo));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Organization&&(identical(other.id, id) || other.id == id)&&(identical(other.slug, slug) || other.slug == slug)&&(identical(other.name, name) || other.name == name)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.logo, logo) || other.logo == logo)&&(identical(other.isBlocked, isBlocked) || other.isBlocked == isBlocked));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,slug,name,brand,logo);
+int get hashCode => Object.hash(runtimeType,id,slug,name,brand,logo,isBlocked);
 
 @override
 String toString() {
-  return 'Organization(id: $id, slug: $slug, name: $name, brand: $brand, logo: $logo)';
+  return 'Organization(id: $id, slug: $slug, name: $name, brand: $brand, logo: $logo, isBlocked: $isBlocked)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $OrganizationCopyWith<$Res>  {
   factory $OrganizationCopyWith(Organization value, $Res Function(Organization) _then) = _$OrganizationCopyWithImpl;
 @useResult
 $Res call({
- int id, String? slug, String? name, String? brand,@JsonKey(name: 'logotype_thumbnail') String? logo
+ int id, String? slug, String? name, String? brand,@JsonKey(name: 'logotype_thumbnail') String? logo,@JsonKey(name: 'is_blocked') bool isBlocked
 });
 
 
@@ -65,14 +65,15 @@ class _$OrganizationCopyWithImpl<$Res>
 
 /// Create a copy of Organization
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? slug = freezed,Object? name = freezed,Object? brand = freezed,Object? logo = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? slug = freezed,Object? name = freezed,Object? brand = freezed,Object? logo = freezed,Object? isBlocked = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,slug: freezed == slug ? _self.slug : slug // ignore: cast_nullable_to_non_nullable
 as String?,name: freezed == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String?,brand: freezed == brand ? _self.brand : brand // ignore: cast_nullable_to_non_nullable
 as String?,logo: freezed == logo ? _self.logo : logo // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,isBlocked: null == isBlocked ? _self.isBlocked : isBlocked // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -154,10 +155,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String? slug,  String? name,  String? brand, @JsonKey(name: 'logotype_thumbnail')  String? logo)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String? slug,  String? name,  String? brand, @JsonKey(name: 'logotype_thumbnail')  String? logo, @JsonKey(name: 'is_blocked')  bool isBlocked)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Organization() when $default != null:
-return $default(_that.id,_that.slug,_that.name,_that.brand,_that.logo);case _:
+return $default(_that.id,_that.slug,_that.name,_that.brand,_that.logo,_that.isBlocked);case _:
   return orElse();
 
 }
@@ -175,10 +176,10 @@ return $default(_that.id,_that.slug,_that.name,_that.brand,_that.logo);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String? slug,  String? name,  String? brand, @JsonKey(name: 'logotype_thumbnail')  String? logo)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String? slug,  String? name,  String? brand, @JsonKey(name: 'logotype_thumbnail')  String? logo, @JsonKey(name: 'is_blocked')  bool isBlocked)  $default,) {final _that = this;
 switch (_that) {
 case _Organization():
-return $default(_that.id,_that.slug,_that.name,_that.brand,_that.logo);}
+return $default(_that.id,_that.slug,_that.name,_that.brand,_that.logo,_that.isBlocked);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -192,10 +193,10 @@ return $default(_that.id,_that.slug,_that.name,_that.brand,_that.logo);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String? slug,  String? name,  String? brand, @JsonKey(name: 'logotype_thumbnail')  String? logo)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String? slug,  String? name,  String? brand, @JsonKey(name: 'logotype_thumbnail')  String? logo, @JsonKey(name: 'is_blocked')  bool isBlocked)?  $default,) {final _that = this;
 switch (_that) {
 case _Organization() when $default != null:
-return $default(_that.id,_that.slug,_that.name,_that.brand,_that.logo);case _:
+return $default(_that.id,_that.slug,_that.name,_that.brand,_that.logo,_that.isBlocked);case _:
   return null;
 
 }
@@ -207,7 +208,7 @@ return $default(_that.id,_that.slug,_that.name,_that.brand,_that.logo);case _:
 @JsonSerializable()
 
 class _Organization implements Organization {
-  const _Organization({required this.id, required this.slug, required this.name, required this.brand, @JsonKey(name: 'logotype_thumbnail') required this.logo});
+  const _Organization({required this.id, required this.slug, required this.name, required this.brand, @JsonKey(name: 'logotype_thumbnail') required this.logo, @JsonKey(name: 'is_blocked') this.isBlocked = false});
   factory _Organization.fromJson(Map<String, dynamic> json) => _$OrganizationFromJson(json);
 
 @override final  int id;
@@ -215,6 +216,7 @@ class _Organization implements Organization {
 @override final  String? name;
 @override final  String? brand;
 @override@JsonKey(name: 'logotype_thumbnail') final  String? logo;
+@override@JsonKey(name: 'is_blocked') final  bool isBlocked;
 
 /// Create a copy of Organization
 /// with the given fields replaced by the non-null parameter values.
@@ -229,16 +231,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Organization&&(identical(other.id, id) || other.id == id)&&(identical(other.slug, slug) || other.slug == slug)&&(identical(other.name, name) || other.name == name)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.logo, logo) || other.logo == logo));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Organization&&(identical(other.id, id) || other.id == id)&&(identical(other.slug, slug) || other.slug == slug)&&(identical(other.name, name) || other.name == name)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.logo, logo) || other.logo == logo)&&(identical(other.isBlocked, isBlocked) || other.isBlocked == isBlocked));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,slug,name,brand,logo);
+int get hashCode => Object.hash(runtimeType,id,slug,name,brand,logo,isBlocked);
 
 @override
 String toString() {
-  return 'Organization(id: $id, slug: $slug, name: $name, brand: $brand, logo: $logo)';
+  return 'Organization(id: $id, slug: $slug, name: $name, brand: $brand, logo: $logo, isBlocked: $isBlocked)';
 }
 
 
@@ -249,7 +251,7 @@ abstract mixin class _$OrganizationCopyWith<$Res> implements $OrganizationCopyWi
   factory _$OrganizationCopyWith(_Organization value, $Res Function(_Organization) _then) = __$OrganizationCopyWithImpl;
 @override @useResult
 $Res call({
- int id, String? slug, String? name, String? brand,@JsonKey(name: 'logotype_thumbnail') String? logo
+ int id, String? slug, String? name, String? brand,@JsonKey(name: 'logotype_thumbnail') String? logo,@JsonKey(name: 'is_blocked') bool isBlocked
 });
 
 
@@ -266,14 +268,15 @@ class __$OrganizationCopyWithImpl<$Res>
 
 /// Create a copy of Organization
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? slug = freezed,Object? name = freezed,Object? brand = freezed,Object? logo = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? slug = freezed,Object? name = freezed,Object? brand = freezed,Object? logo = freezed,Object? isBlocked = null,}) {
   return _then(_Organization(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,slug: freezed == slug ? _self.slug : slug // ignore: cast_nullable_to_non_nullable
 as String?,name: freezed == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String?,brand: freezed == brand ? _self.brand : brand // ignore: cast_nullable_to_non_nullable
 as String?,logo: freezed == logo ? _self.logo : logo // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,isBlocked: null == isBlocked ? _self.isBlocked : isBlocked // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

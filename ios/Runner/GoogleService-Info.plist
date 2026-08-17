@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyCFmlo2HhlaHepr1MsoTqiOVCHW-CFu6sA</string>
+	<string>AIzaSyDmPAKwq7wahj7QHE_kQixaBTp1_9kXKWo</string>
 	<key>GCM_SENDER_ID</key>
-	<string>953829578641</string>
+	<string>396796664829</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.rientAppp</string>
+	<string>com.rientAdmin</string>
 	<key>PROJECT_ID</key>
-	<string>rient-1e436</string>
+	<string>rient-admin</string>
 	<key>STORAGE_BUCKET</key>
-	<string>rient-1e436.firebasestorage.app</string>
+	<string>rient-admin.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:953829578641:ios:8fc93e67c7d4a90b8c2c30</string>
+	<string>1:396796664829:ios:974efe9b68d23047c5d794</string>
 </dict>
 </plist>

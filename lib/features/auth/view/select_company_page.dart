@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/widgets/app_service_message.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/features/auth/service/get_auth_company.dart';
+import 'package:rient_app/features/auth/view/auth_page.dart';
 import 'package:rient_app/features/auth/view/auth_password_page.dart';
 import 'package:rient_app/features/auth/view/components/auth_company_list_view.dart';
+import 'package:rient_app/features/auth/view/components/blocked_organization_dialog.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/auth/view/providers/password_provider.dart';
@@ -105,7 +108,7 @@ class _BodyWidget extends StatelessWidget {
             child: Consumer(
               builder: (_, ref, __) => MainButton(
                 title: 'Продолжить',
-                onTap: () {
+                onTap: () async {
                   final selectedMember =
                       ref.read(selectedOrganizationMemberProvider);
                   if (selectedMember == null) {
@@ -114,6 +117,17 @@ class _BodyWidget extends StatelessWidget {
                       message: 'Сначала выберите компанию',
                       variant: AppServiceMessageVariant.info,
                     );
+                    return;
+                  }
+                  if (selectedMember.organization.isBlocked) {
+                    ref.read(selectedOrganizationMemberProvider.notifier).state =
+                        null;
+                    ref.read(organizationIdProvider.notifier).clearOrganizationId();
+                    await ref.read(tokenProvider.notifier).clearToken();
+                    if (!context.mounted) return;
+                    await showBlockedOrganizationDialog(context);
+                    if (!context.mounted) return;
+                    AuthPage.navigate(context);
                     return;
                   }
                   ref

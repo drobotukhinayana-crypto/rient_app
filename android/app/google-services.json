@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "953829578641",
-    "project_id": "rient-1e436",
-    "storage_bucket": "rient-1e436.firebasestorage.app"
+    "project_number": "396796664829",
+    "project_id": "rient-admin",
+    "storage_bucket": "rient-admin.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:953829578641:android:4467e36f905f5cf68c2c30",
+        "mobilesdk_app_id": "1:396796664829:android:b0dbedf4f6a87402c5d794",
         "android_client_info": {
-          "package_name": "com.rientAppp"
+          "package_name": "com.rientAdmin"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAzq92PaSqf0Akhijj6UTFuOQDr5u3y5m0"
+          "current_key": "AIzaSyBEdfYP76h0dG-xNpT9PWF86RuWxtqQ4WA"
         }
       ],
       "services": {

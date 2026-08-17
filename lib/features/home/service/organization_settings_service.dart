@@ -13,13 +13,18 @@ final organizationSettingsServiceProvider =
 class OrganizationSettings {
   const OrganizationSettings({
     required this.allowBackdatedAppointments,
+    required this.isBlocked,
   });
 
   /// `organization.settings.allow_backdated_appointments` из GET /accounts/.
   final bool allowBackdatedAppointments;
 
+  /// `organization.is_blocked` из GET /accounts/.
+  final bool isBlocked;
+
   static const defaults = OrganizationSettings(
     allowBackdatedAppointments: true,
+    isBlocked: false,
   );
 }
 
@@ -45,8 +50,10 @@ class OrganizationSettingsService {
 
       if (response.statusCode == 200 && response.data != null) {
         final raw = _extractAllowBackdatedAppointmentsFromAccounts(response.data);
+        final blockedRaw = _extractOrganizationIsBlockedFromAccounts(response.data);
         return OrganizationSettings(
           allowBackdatedAppointments: _boolFrom(raw, fallback: true),
+          isBlocked: _boolFrom(blockedRaw, fallback: false),
         );
       }
       return OrganizationSettings.defaults;
@@ -69,6 +76,15 @@ dynamic _extractAllowBackdatedAppointmentsFromAccounts(dynamic data) {
   final settingsMap = settings.map((key, value) => MapEntry(key.toString(), value));
   if (!settingsMap.containsKey('allow_backdated_appointments')) return null;
   return settingsMap['allow_backdated_appointments'];
+}
+
+dynamic _extractOrganizationIsBlockedFromAccounts(dynamic data) {
+  if (data is! Map) return null;
+
+  final organization = data['organization'];
+  if (organization is! Map) return null;
+
+  return organization['is_blocked'];
 }
 
 bool _boolFrom(dynamic raw, {required bool fallback}) {

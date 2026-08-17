@@ -4,19 +4,19 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/utils/base_state/base_state.dart';
+import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
 import 'package:rient_app/core/utils/exstensions/string_exstension.dart';
+import 'package:rient_app/core/utils/open_support_link.dart';
 import 'package:rient_app/core/widgets/error_label.dart';
 import 'package:rient_app/core/widgets/main_button.dart';
 import 'package:rient_app/core/widgets/main_text_field.dart';
-import 'package:rient_app/features/auth/view/components/auth_text_button.dart';
 import 'package:rient_app/features/auth/view/components/bottom_panel.dart';
 import 'package:rient_app/features/auth/view/components/country_dropdown.dart';
 import 'package:rient_app/features/auth/view/controllers/get_otp_contoller.dart';
 import 'package:rient_app/features/auth/view/otp_page.dart';
 import 'package:rient_app/resources/resources.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 final _emailProvider = StateProvider.autoDispose<String>((ref) => '');
 final _emailErrorProvider = StateProvider.autoDispose<String>((ref) => '');
@@ -47,6 +47,10 @@ class _BodyWidget extends ConsumerStatefulWidget {
 
 class _BodyWidgetState extends ConsumerState<_BodyWidget> {
   final emailController = TextEditingController();
+  bool _agreementAccepted = false;
+
+  static final Uri _agreementUri =
+      Uri.parse('https://rient.ru/doc/agreement_use_mobile_app.pdf');
 
   @override
   void initState() {
@@ -56,6 +60,19 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
   void emailListener() =>
       ref.read(_emailProvider.notifier).state = emailController.text;
+
+  Future<void> _openAgreement() async {
+    if (!mounted) return;
+    await openExternalUrl(
+      _agreementUri,
+      context: context,
+      failureMessage: 'Не удалось открыть пользовательское соглашение',
+    );
+  }
+
+  void _onAgreementChanged(bool? value) {
+    setState(() => _agreementAccepted = value ?? false);
+  }
 
   @override
   void dispose() {
@@ -105,6 +122,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             MainTextField(
               label: 'Почта',
               controller: emailController,
+              canEdit: _agreementAccepted,
               hasError: ref.watch(_emailErrorProvider).isNotEmpty,
               hintText: 'Ваш адрес электронной почты',
             ),
@@ -115,7 +133,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             // кнопка продолжения
             MainButton(
               title: 'Продолжить',
-              isActive: ref.watch(_emailProvider).isEmail,
+              isActive:
+                  _agreementAccepted && ref.watch(_emailProvider).isEmail,
               isLoading: ref.watch(getOtpControllerProvider).isLoading,
               onTap: () async => ref.read(getOtpControllerProvider.notifier).getOtp(
                     ref.read(_emailProvider),
@@ -124,17 +143,74 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             ),
             Gap(16),
 
-            AuthTextButton(
-              title: 'Пользовательское соглашение',
-              onTap: () async {
-                final uri = Uri.parse('https://rient.ru/doc/agreement.pdf');
-                launchUrl(uri, mode: LaunchMode.externalApplication);
-              },
+            _AgreementCheckbox(
+              value: _agreementAccepted,
+              onChanged: _onAgreementChanged,
+              onAgreementTap: _openAgreement,
             ),
             Gap(8),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AgreementCheckbox extends StatelessWidget {
+  const _AgreementCheckbox({
+    required this.value,
+    required this.onChanged,
+    required this.onAgreementTap,
+  });
+
+  final bool value;
+  final ValueChanged<bool?> onChanged;
+  final VoidCallback onAgreementTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final linkStyle = AppFonts.c1Regular.copyWith(
+      color: AppColors.themeAccent(context),
+      decoration: TextDecoration.underline,
+      decorationColor: AppColors.themeAccent(context),
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 24,
+          height: 24,
+          child: Checkbox(
+            value: value,
+            onChanged: onChanged,
+            activeColor: AppColors.themeAccent(context),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            side: BorderSide(
+              color: value
+                  ? AppColors.themeAccent(context)
+                  : AppColors.grey.withValues(alpha: 0.8),
+            ),
+          ),
+        ),
+        const Gap(8),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text('Я принимаю ', style: AppFonts.c1Regular),
+                GestureDetector(
+                  onTap: onAgreementTap,
+                  child: Text('Пользовательское соглашение', style: linkStyle),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

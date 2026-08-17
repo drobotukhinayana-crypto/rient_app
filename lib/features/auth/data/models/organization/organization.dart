@@ -13,6 +13,7 @@ sealed class Organization with _$Organization {
     required String? name,
     required String? brand,
     @JsonKey(name: 'logotype_thumbnail') required String? logo,
+    @JsonKey(name: 'is_blocked') @Default(false) bool isBlocked,
   }) = _Organization;
 
   factory Organization.fromJson(Map<String, dynamic> json) =>

@@ -14,3 +14,11 @@ final allowBackdatedAppointmentsProvider = Provider<bool>((ref) {
         orElse: () => true,
       );
 });
+
+/// Организация заблокирована (`organization.is_blocked` из GET /accounts/).
+final organizationIsBlockedProvider = Provider<bool>((ref) {
+  return ref.watch(organizationSettingsProvider).maybeWhen(
+        data: (settings) => settings.isBlocked,
+        orElse: () => false,
+      );
+});
