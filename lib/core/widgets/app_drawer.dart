@@ -21,6 +21,7 @@ import 'package:rient_app/features/schedule/view/work_schedule_page.dart';
 import 'package:rient_app/features/settings/view/settings_page.dart';
 import 'package:rient_app/core/models/worker_entity_labels.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
+import 'package:rient_app/core/utils/copyright_notice.dart';
 import 'package:rient_app/core/utils/open_support_link.dart';
 import 'package:rient_app/resources/resources.dart';
 
@@ -416,7 +417,7 @@ class _DrawerFooter extends StatelessWidget {
           enabled: !offlineExceptSchedule,
           onTap: () => onDrawerItemTap(
             enabled: !offlineExceptSchedule,
-            action: () {},
+            action: () => openUserAgreement(context: context),
           ),
         ),
         _DrawerTile(
@@ -440,7 +441,7 @@ class _DrawerFooter extends StatelessWidget {
         const Gap(4),
         Center(
           child: Text(
-            'Copyright Rient, 2025',
+            copyrightNotice(),
             style: AppFonts.c1Regular.copyWith(color: AppColors.grey),
           ),
         ),

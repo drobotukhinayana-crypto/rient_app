@@ -45,29 +45,35 @@ class _BodyWidget extends ConsumerStatefulWidget {
   ConsumerState<_BodyWidget> createState() => _BodyWidgetState();
 }
 
-class _BodyWidgetState extends ConsumerState<_BodyWidget> {
+class _BodyWidgetState extends ConsumerState<_BodyWidget>
+    with WidgetsBindingObserver {
   final emailController = TextEditingController();
   bool _agreementAccepted = false;
-
-  static final Uri _agreementUri =
-      Uri.parse('https://rient.ru/doc/agreement_use_mobile_app.pdf');
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     emailController.addListener(emailListener);
   }
 
   void emailListener() =>
       ref.read(_emailProvider.notifier).state = emailController.text;
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    refreshAfterExternalLinkResume(() {
+      if (mounted) setState(() {});
+    });
+  }
+
   Future<void> _openAgreement() async {
     if (!mounted) return;
-    await openExternalUrl(
-      _agreementUri,
-      context: context,
-      failureMessage: 'Не удалось открыть пользовательское соглашение',
-    );
+    await openUserAgreement(context: context);
+    refreshAfterExternalLinkResume(() {
+      if (mounted) setState(() {});
+    });
   }
 
   void _onAgreementChanged(bool? value) {
@@ -76,6 +82,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     emailController.removeListener(emailListener);
     emailController.dispose();
     super.dispose();

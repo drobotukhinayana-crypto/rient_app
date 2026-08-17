@@ -12,6 +12,7 @@ import 'package:rient_app/core/widgets/notification_permission_prompt.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/app_exit_handler.dart';
+import 'package:rient_app/core/utils/open_support_link.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/widgets/app_drawer.dart';
 import 'package:rient_app/core/providers/app_session_invalidation.dart';
@@ -217,6 +218,9 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
+    refreshAfterExternalLinkResume(() {
+      if (mounted) setState(() {});
+    });
     unawaited(_handleAppResumed());
   }
 
