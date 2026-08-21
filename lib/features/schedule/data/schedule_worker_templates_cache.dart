@@ -129,4 +129,8 @@ class ScheduleWorkerTemplatesCache {
       jsonEncode(snapshot.toJson()),
     );
   }
+
+  Future<void> clear() async {
+    await _storage.removeValue(scheduleWorkerTemplatesCacheStorageKey);
+  }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
@@ -57,6 +58,7 @@ final workerSchedulesRangeProvider =
   if (ref.watch(scheduleOfflineModeProvider)) {
     return const WorkerSchedulesRangeData(schedulesByDate: {});
   }
+  ref.watch(organizationIdProvider);
   ref.watch(workScheduleReloadTokenProvider);
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0 || query.workerId <= 0) {

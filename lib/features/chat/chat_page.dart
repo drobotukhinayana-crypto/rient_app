@@ -6,6 +6,7 @@ import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
 import 'package:rient_app/core/utils/app_exit_handler.dart';
+import 'package:rient_app/core/utils/open_support_link.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/utils/const/app_fonts.dart';
@@ -19,6 +20,7 @@ import 'package:rient_app/core/network/connectivity_recovery_listener.dart';
 import 'package:rient_app/core/widgets/loading_widget.dart';
 import 'package:rient_app/core/widgets/offline_message.dart';
 import 'package:rient_app/core/widgets/schedule_offline_banner.dart';
+import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 import 'package:rient_app/features/chat/service/mobile_push_service.dart';
 import 'package:rient_app/features/chat/view/components/message_notification_card.dart';
 import 'package:rient_app/features/chat/view/components/message_notification_item.dart';
@@ -54,6 +56,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _isLoadingMore = false;
   String? _errorMessage;
   int? _openingNotificationId;
+  int? _markingReadNotificationId;
 
   @override
   void initState() {
@@ -150,8 +153,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
   }
 
-  Future<void> _markNotificationRead(MessageNotificationItem item) async {
+  Future<void> _markNotificationRead(
+    MessageNotificationItem item, {
+    bool showCardLoader = true,
+  }) async {
     if (!item.isUnread) return;
+    if (showCardLoader &&
+        (_markingReadNotificationId != null || _openingNotificationId != null)) {
+      return;
+    }
+
+    if (showCardLoader) {
+      setState(() => _markingReadNotificationId = item.id);
+    }
     try {
       await ref
           .read(mobilePushServiceProvider)
@@ -163,7 +177,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         } else {
           final index = _items.indexWhere((e) => e.id == item.id);
           if (index >= 0) {
-            _items[index] = item.copyWith(isUnread: false, showAccent: false);
+            _items[index] = item.copyWith(
+              isUnread: false,
+              showAccent: false,
+              accentIsWarning: false,
+            );
           }
         }
       });
@@ -175,6 +193,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         message: 'Не удалось отметить сообщение прочитанным',
         variant: AppServiceMessageVariant.error,
       );
+    } finally {
+      if (showCardLoader && mounted) {
+        setState(() => _markingReadNotificationId = null);
+      }
     }
   }
 
@@ -209,6 +231,34 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
   }
 
+  Future<void> _openLicenseFromNotification(
+    MessageNotificationItem item,
+  ) async {
+    if (_openingNotificationId != null) return;
+
+    setState(() => _openingNotificationId = item.id);
+    try {
+      await _markNotificationRead(item, showCardLoader: false);
+      if (!mounted) return;
+
+      final paymentUrl = item.licensePaymentUrl;
+      if (paymentUrl != null && paymentUrl.isNotEmpty) {
+        final uri = Uri.tryParse(paymentUrl);
+        if (uri != null) {
+          await openExternalUrl(
+            uri,
+            context: context,
+            failureMessage: 'Не удалось открыть страницу оплаты',
+          );
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _openingNotificationId = null);
+      }
+    }
+  }
+
   Future<void> _openAppointmentFromNotification(
     MessageNotificationItem item,
   ) async {
@@ -218,7 +268,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     setState(() => _openingNotificationId = item.id);
     try {
-      await _markNotificationRead(item);
+      await _markNotificationRead(item, showCardLoader: false);
       if (!mounted) return;
 
       final appointment = await ref
@@ -291,6 +341,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       unawaited(_loadFirstPage());
     });
 
+    ref.listen<int>(organizationIdProvider, (previous, next) {
+      if (previous == null || next <= 0 || previous == next) return;
+      if (ref.read(appNoConnectionProvider)) return;
+      invalidatePushHistory(ref);
+      unawaited(_loadFirstPage());
+    });
+
     ref.listen<int>(currentBranchIdProvider, (previous, next) {
       if (previous == null || previous <= 0 || next <= 0 || previous == next) {
         return;
@@ -302,6 +359,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     final countsAsync = ref.watch(pushHistoryCountProvider);
 
+    final countsLoading = countsAsync.isLoading || countsAsync.isRefreshing;
     final unreadCount = countsAsync.maybeWhen(
       data: (c) => c.unread,
       orElse: () => 0,
@@ -327,6 +385,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             filter: _filter,
             unreadCount: unreadCount,
             readCount: readCount,
+            countsLoading: countsLoading,
             onFilterChanged: noConnection ? null : _onFilterChanged,
           ),
           if (noConnection) const ScheduleOfflineBanner(message: appNoConnectionMessage),
@@ -464,14 +523,22 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               final item = _items[index];
               final appointmentId = item.appointmentId;
               final isOpening = _openingNotificationId == item.id;
+              final isMarkingRead = _markingReadNotificationId == item.id;
+              final isBusy = isOpening || isMarkingRead;
               return MessageNotificationCard(
                 item: item,
                 isOpening: isOpening,
-                onView: item.isUnread && !isOpening
+                isMarkingRead: isMarkingRead,
+                onView: item.isUnread && !isBusy
                     ? () => unawaited(_markNotificationRead(item))
                     : null,
-                onOpenCard: appointmentId != null && !isOpening
+                onOpenCard: appointmentId != null && !isBusy
                     ? () => unawaited(_openAppointmentFromNotification(item))
+                    : null,
+                onLicenseAction: item.isLicenseNotification &&
+                        item.isUnread &&
+                        !isBusy
+                    ? () => unawaited(_openLicenseFromNotification(item))
                     : null,
               );
             },
@@ -489,6 +556,7 @@ class _MessagesHeader extends StatelessWidget {
     required this.filter,
     required this.unreadCount,
     required this.readCount,
+    required this.countsLoading,
     required this.onFilterChanged,
   });
 
@@ -497,6 +565,7 @@ class _MessagesHeader extends StatelessWidget {
   final MessagesFilter filter;
   final int unreadCount;
   final int readCount;
+  final bool countsLoading;
   final ValueChanged<MessagesFilter>? onFilterChanged;
 
   @override
@@ -575,6 +644,7 @@ class _MessagesHeader extends StatelessWidget {
                 value: filter,
                 unreadCount: unreadCount,
                 readCount: readCount,
+                countsLoading: countsLoading,
                 onChanged: onFilterChanged ?? (_) {},
               ),
             ),

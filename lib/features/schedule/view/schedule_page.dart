@@ -108,7 +108,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   Future<void> _restoreSelectedSpecialistFromStorage() async {
     if (ref.read(restoredSpecialistSelectionProvider)) return;
     final storage = ref.read(localStorageProvider);
-    final idStr = await storage.getString(selectedSpecialistIdStorageKey);
+    final storageKey = ref.read(selectedSpecialistStorageKeyProvider);
+    final idStr = await storage.getString(storageKey);
     final id = int.tryParse(idStr ?? '');
     if (id != null && id > 0 && mounted) {
       ref.read(selectedSpecialistIdProvider.notifier).state = id;
@@ -229,6 +230,33 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
               item.pictureUrl,
         ),
     ];
+  }
+
+  static ({List<SpecialistItem> specialists, SpecialistItem? initial})
+      _dayTopPanelSpecialists({
+    required List<SpecialistItem> allBranchSpecialists,
+    required List<WorkerApi> allWorkers,
+    required WorkerEntityLabels labels,
+    required int? displayWorkerId,
+    required SpecialistItem? fallbackInitial,
+  }) {
+    var list = List<SpecialistItem>.from(allBranchSpecialists);
+    SpecialistItem? initial;
+    if (displayWorkerId != null && displayWorkerId > 0) {
+      for (final item in list) {
+        if (item.id == displayWorkerId) {
+          initial = item;
+          break;
+        }
+      }
+      initial ??= _specialistById(displayWorkerId, allWorkers, labels);
+      if (initial != null && !list.any((s) => s.id == displayWorkerId)) {
+        list = [initial, ...list];
+      }
+    }
+    initial ??=
+        fallbackInitial ?? (list.isNotEmpty ? list.first : null);
+    return (specialists: list, initial: initial);
   }
 
   static SpecialistItem? _specialistById(
@@ -1263,6 +1291,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         : null;
     bool resolveWorkerNonWorkingDay(DateTime date) {
       if (specialistIdForData == null) return false;
+      if (workerWeekdaysAsync.isLoading || !workerWeekdaysAsync.hasValue) {
+        return false;
+      }
       if (workerSchedulesAsync != null && workerSchedulesAsync.isLoading) {
         return false;
       }
@@ -1284,12 +1315,28 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         daySchedules,
       );
     }
-    /// Полоска дат в «День»: owner — выходные филиала; мастер — свои.
+    final Set<int>? workingWeekdaysForWeekCalendar =
+        specialistIdForData == null
+        ? null
+        : (!workerWeekdaysAsync.hasValue
+              ? null
+              : (workerWeekdaysById[specialistIdForData] ?? const <int>{}));
+    final workerCalendarDataReady = specialistIdForData == null ||
+        (workerWeekdaysAsync.hasValue &&
+            (workerSchedulesAsync?.hasValue ?? false));
+    /// Полоска дат в «День»: один мастер — его выходные; несколько — без штриховки (как раньше).
     final dayHeaderResolveNonWorkingDay = isWorkerRole
-        ? (specialistIdForData != null ? resolveWorkerNonWorkingDay : null)
-        : (isAdminDayView && !isAdminMultiDayView && dayScheduleReady
-              ? resolveBranchNonWorkingDay
-              : null);
+        ? (specialistIdForData != null && workerCalendarDataReady
+              ? resolveWorkerNonWorkingDay
+              : null)
+        : isAdminMultiDayView
+        ? null
+        : (isAdminDayView &&
+              !isAdminMultiDayView &&
+              specialistIdForData != null &&
+              workerCalendarDataReady)
+        ? resolveWorkerNonWorkingDay
+        : (isAdminDayView && dayScheduleReady ? resolveBranchNonWorkingDay : null);
     final slotsByDay = _slotsByDayFromActiveAppointments(
       monthAppointmentsAsync.value ?? const [],
       _monthStart,
@@ -1316,6 +1363,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                 start: dayWorkHours.startHour,
                 end: dayWorkHours.endHour,
               );
+            }
+            if (!isAdminMultiDayView &&
+                workerCalendarDataReady &&
+                resolveWorkerNonWorkingDay(selectedDate)) {
+              return (start: null, end: null);
             }
             final byShift = _workerShiftHoursForId(
               availableWorkersAsync.value ?? const [],
@@ -1417,6 +1469,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         _viewMode == ViewMode.day &&
         specialistIdForData != null &&
         (availableWorkersAsync.isLoading ||
+            workerWeekdaysAsync.isLoading ||
             workerSchedulesAsync?.isLoading == true);
     final dayViewContentLoading = dayViewDetailsLoading ||
         workerHoursPending ||
@@ -1442,19 +1495,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
             dayViewContentLoading ||
             weekViewContentLoading ||
             monthViewContentLoading);
-    final Set<int>? workingWeekdaysForWeekCalendar =
-        specialistIdForData == null
-        ? null
-        : (!workerWeekdaysAsync.hasValue
-              ? null
-              : (workerWeekdaysById[specialistIdForData] ?? const <int>{}));
-    final workerSchedulesReady =
-        specialistIdForData == null || (workerSchedulesAsync?.hasValue ?? false);
-    final weekCalendarWorkingWeekdays = workerSchedulesReady
+    final weekCalendarWorkingWeekdays = workerCalendarDataReady
         ? null
         : workingWeekdaysForWeekCalendar;
     final weekCalendarResolveNonWorkingDay =
-        specialistIdForData != null && workerSchedulesReady
+        specialistIdForData != null && workerCalendarDataReady
         ? resolveWorkerNonWorkingDay
         : null;
 
@@ -1476,11 +1521,34 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         ref.read(openScheduleOnDayProvider.notifier).state = null;
       });
     });
+    final List<SpecialistItem> topPanelSpecialistsList;
+    final SpecialistItem? topPanelInitialSelected;
+    if (scheduleViewContentLoading) {
+      topPanelSpecialistsList = const [];
+      topPanelInitialSelected = null;
+    } else if (isAdminMultiDayView) {
+      topPanelSpecialistsList = const [];
+      topPanelInitialSelected = null;
+    } else if (isAdminDayView && !isWorkerRole) {
+      final dayTopPanel = _dayTopPanelSpecialists(
+        allBranchSpecialists: allBranchSpecialists,
+        allWorkers: allWorkers,
+        labels: workerLabels,
+        displayWorkerId: specialistIdForData,
+        fallbackInitial: initialSelected,
+      );
+      topPanelSpecialistsList = dayTopPanel.specialists;
+      topPanelInitialSelected = dayTopPanel.initial;
+    } else {
+      topPanelSpecialistsList = specialists;
+      topPanelInitialSelected = initialSelected;
+    }
     ref.listen<bool>(scheduleOfflineModeProvider, (previous, next) {
       if (next == true && previous != true) {
         unawaited(() async {
           final storage = ref.read(localStorageProvider);
-          final idStr = await storage.getString(selectedSpecialistIdStorageKey);
+          final storageKey = ref.read(selectedSpecialistStorageKeyProvider);
+          final idStr = await storage.getString(storageKey);
           final id = int.tryParse(idStr ?? '');
           if (id != null && id > 0) {
             ref.read(selectedSpecialistIdProvider.notifier).state = id;
@@ -1519,17 +1587,18 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                 showSpecialistSelector: !isWorkerRole,
                 viewMode: _viewMode,
                 onScheduleStateChanged: _onScheduleStateChanged,
-                specialists: scheduleViewContentLoading ? const [] : specialists,
-                initialSelectedSpecialist:
-                    scheduleViewContentLoading ? null : initialSelected,
+                specialists: topPanelSpecialistsList,
+                initialSelectedSpecialist: topPanelInitialSelected,
                 onSpecialistSelected: isWorkerRole
                     ? null
                     : (s) async {
                         ref.read(selectedSpecialistIdProvider.notifier).state =
                             s.id;
                         final storage = ref.read(localStorageProvider);
+                        final storageKey =
+                            ref.read(selectedSpecialistStorageKeyProvider);
                         await storage.saveString(
-                          selectedSpecialistIdStorageKey,
+                          storageKey,
                           s.id.toString(),
                         );
                       },

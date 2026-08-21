@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
+import 'package:rient_app/features/auth/view/providers/role_provider.dart';
+import 'package:rient_app/core/services/email_storage.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/available_workers_api/available_workers_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
@@ -212,6 +214,7 @@ final availableWorkersForDateProvider =
 /// Шаблоны графика сотрудников — те же данные, что в сетке «График работы».
 final workerScheduleTemplatesByIdProvider =
     FutureProvider<Map<int, WorkerScheduleTemplate>>((ref) async {
+  ref.watch(organizationIdProvider);
   final branchId = ref.watch(currentBranchIdProvider);
   if (branchId == 0) return const <int, WorkerScheduleTemplate>{};
 
@@ -275,8 +278,34 @@ final workerWeekdaysByIdProvider = FutureProvider<Map<int, Set<int>>>((
   };
 });
 
-/// Ключ для сохранения id выбранного специалиста в локальное хранилище.
+/// Ключ для сохранения id выбранного специалиста (привязан к org/филиалу/роли).
+String buildSelectedSpecialistStorageKey({
+  required String? email,
+  required int organizationId,
+  required int branchId,
+  required int roleId,
+}) {
+  final safeEmail = (email ?? '').trim().toLowerCase();
+  if (safeEmail.isEmpty || organizationId <= 0 || branchId <= 0 || roleId < 0) {
+    return selectedSpecialistIdStorageKey;
+  }
+  return '${selectedSpecialistIdStorageKey}_${safeEmail}_${organizationId}_${branchId}_$roleId';
+}
+
 const selectedSpecialistIdStorageKey = 'selected_specialist_id';
+
+final selectedSpecialistStorageKeyProvider = Provider<String>((ref) {
+  final email = ref.watch(emailStorageProvider);
+  final organizationId = ref.watch(organizationIdProvider);
+  final branchId = ref.watch(currentBranchIdProvider);
+  final roleId = ref.watch(roleProvider);
+  return buildSelectedSpecialistStorageKey(
+    email: email,
+    organizationId: organizationId,
+    branchId: branchId,
+    roleId: roleId,
+  );
+});
 
 /// Id выбранного специалиста на странице расписания (сохраняется между переключениями и после перезапуска приложения).
 final selectedSpecialistIdProvider = StateProvider<int?>((ref) => null);

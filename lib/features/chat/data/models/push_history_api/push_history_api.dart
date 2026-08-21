@@ -50,4 +50,37 @@ sealed class PushHistoryItemApi with _$PushHistoryItemApi {
     if (raw is String) return int.tryParse(raw);
     return null;
   }
+
+  /// Тип из payload (например `payment_expires_today`) или верхнеуровневый `type`.
+  String? get effectiveType {
+    final payloadType = payload?['type'];
+    if (payloadType is String && payloadType.trim().isNotEmpty) {
+      return payloadType.trim();
+    }
+    final topLevel = type?.trim();
+    if (topLevel != null && topLevel.isNotEmpty) return topLevel;
+    return null;
+  }
+
+  bool get isLicenseNotification {
+    final value = effectiveType ?? '';
+    return value.startsWith('payment_') || value.startsWith('license_');
+  }
+
+  bool get isAppointmentNotification =>
+      effectiveType == 'appointment_created' || appointmentId != null;
+
+  String? get licenseAction {
+    final action = payload?['action'];
+    if (action is String && action.trim().isNotEmpty) return action.trim();
+    return null;
+  }
+
+  String? get licensePaymentUrl {
+    for (final key in const ['payment_url', 'url', 'link']) {
+      final raw = payload?[key];
+      if (raw is String && raw.trim().isNotEmpty) return raw.trim();
+    }
+    return null;
+  }
 }

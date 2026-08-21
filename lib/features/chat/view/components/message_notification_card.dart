@@ -10,14 +10,18 @@ class MessageNotificationCard extends StatelessWidget {
     super.key,
     required this.item,
     this.onOpenCard,
+    this.onLicenseAction,
     this.onView,
     this.isOpening = false,
+    this.isMarkingRead = false,
   });
 
   final MessageNotificationItem item;
   final VoidCallback? onOpenCard;
+  final VoidCallback? onLicenseAction;
   final VoidCallback? onView;
   final bool isOpening;
+  final bool isMarkingRead;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +29,9 @@ class MessageNotificationCard extends StatelessWidget {
     final cardColor = isDark ? AppColors.primaryWhiteDark : Colors.white;
     final titleColor = isDark ? AppColors.primaryWhite : AppColors.primaryDark;
     final bodyColor = AppColors.tabbarGrey;
-    final accent = AppColors.themeAccent(context);
+    final accent = item.accentIsWarning
+        ? (isDark ? AppColors.yelDark : AppColors.yel)
+        : AppColors.themeAccent(context);
 
     final content = Material(
       color: cardColor,
@@ -35,7 +41,8 @@ class MessageNotificationCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (item.showAccent) Container(width: 3, color: accent),
+            if (item.showAccent)
+              Container(width: 3, color: accent),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -78,6 +85,23 @@ class MessageNotificationCard extends StatelessWidget {
                                 ),
                               ),
                       ),
+                    ] else if (item.isLicenseNotification &&
+                        (onLicenseAction != null || isOpening)) ...[
+                      const Gap(16),
+                      Center(
+                        child: isOpening
+                            ? const LoadingWidget(side: 22)
+                            : GestureDetector(
+                                onTap: onLicenseAction,
+                                behavior: HitTestBehavior.opaque,
+                                child: Text(
+                                  _licenseActionLabel(item),
+                                  style: AppFonts.medium14.copyWith(
+                                    color: accent,
+                                  ),
+                                ),
+                              ),
+                      ),
                     ],
                   ],
                 ),
@@ -88,14 +112,38 @@ class MessageNotificationCard extends StatelessWidget {
       ),
     );
 
-    if (onView == null) return content;
+    final cardBody = isMarkingRead
+        ? Stack(
+            children: [
+              Opacity(opacity: 0.55, child: content),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Center(child: LoadingWidget(side: 28)),
+                ),
+              ),
+            ],
+          )
+        : content;
+
+    if (onView == null) return cardBody;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onView,
         borderRadius: BorderRadius.circular(16),
-        child: content,
+        child: cardBody,
       ),
     );
   }
+}
+
+String _licenseActionLabel(MessageNotificationItem item) {
+  if (item.licensePaymentUrl != null && item.licensePaymentUrl!.isNotEmpty) {
+    return 'Перейти к оплате >';
+  }
+  return 'Понятно';
 }

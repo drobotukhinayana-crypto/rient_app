@@ -1,4 +1,5 @@
 import 'package:flutter/scheduler.dart';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
@@ -12,9 +13,11 @@ import 'package:rient_app/features/home/view/providers/worker_permissions_provid
 import 'package:rient_app/features/analytics/view/providers/analytics_statistics_provider.dart';
 import 'package:rient_app/features/chat/view/providers/push_history_provider.dart';
 import 'package:rient_app/features/link/view/providers/widget_link_provider.dart';
+import 'package:rient_app/features/schedule/view/providers/schedule_offline_invalidation.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/work_schedule_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/workers_provider.dart';
+import 'package:rient_app/features/schedule/service/schedule_offline_sync_service.dart';
 
 bool _branchInvalidationScheduled = false;
 
@@ -55,6 +58,8 @@ void invalidateAppDataForOrganizationChange(dynamic ref) {
   ref.read(selectedBranchProvider.notifier).state = null;
   _resetScheduleSelectionState(ref);
 
+  unawaited(ref.read(scheduleWorkerTemplatesCacheProvider).clear());
+
   resetScheduleNetworkStateForSession(ref);
   invalidateScheduleNetworkProviders(ref);
 
@@ -75,10 +80,12 @@ void invalidateAppDataForOrganizationChange(dynamic ref) {
 /// Слушает смену организации / филиала и сбрасывает зависимые провайдеры.
 final appSessionContextListenerProvider = Provider<void>((ref) {
   ref.listen<int>(organizationIdProvider, (previous, next) {
-    if (previous == null || previous <= 0 || next <= 0 || previous == next) {
-      return;
+    if (next <= 0 || previous == next) return;
+    if (previous != null && previous > 0) {
+      invalidateAppDataForOrganizationChange(ref);
+    } else {
+      invalidatePushHistoryCache(ref);
     }
-    invalidateAppDataForOrganizationChange(ref);
   });
 
   ref.listen<int>(currentBranchIdProvider, (previous, next) {

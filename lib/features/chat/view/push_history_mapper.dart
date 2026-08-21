@@ -5,20 +5,42 @@ MessageNotificationItem messageNotificationItemFromPush(
   PushHistoryItemApi item,
 ) {
   final created = item.created ?? item.sentAt;
+  final isUnread = !item.isRead;
+  final showAccent = isUnread &&
+      (item.isAppointmentNotification || item.isLicenseNotification);
   return MessageNotificationItem(
     id: item.id,
     title: item.title?.trim().isNotEmpty == true
         ? item.title!.trim()
-        : 'Уведомление',
+        : _defaultTitle(item),
     description: item.body?.trim().isNotEmpty == true
         ? item.body!.trim()
-        : '',
+        : _defaultDescription(item),
     timestamp: formatPushNotificationDate(created),
-    isUnread: !item.isRead,
-    showAccent: !item.isRead && item.type == 'appointment_created',
+    isUnread: isUnread,
+    showAccent: showAccent,
+    accentIsWarning: isUnread && item.isLicenseNotification,
     appointmentId: item.appointmentId,
-    type: item.type,
+    type: item.effectiveType,
+    isLicenseNotification: item.isLicenseNotification,
+    licenseAction: item.licenseAction,
+    licensePaymentUrl: item.licensePaymentUrl,
   );
+}
+
+String _defaultTitle(PushHistoryItemApi item) {
+  if (item.isLicenseNotification) return 'Лицензия';
+  return 'Уведомление';
+}
+
+String _defaultDescription(PushHistoryItemApi item) {
+  if (!item.isLicenseNotification) return '';
+
+  final endDate = item.payload?['tariff_end_date'];
+  if (endDate is String && endDate.trim().isNotEmpty) {
+    return 'Срок действия лицензии: ${endDate.trim()}';
+  }
+  return 'Проверьте статус лицензии организации';
 }
 
 /// Смещение Москвы (API отдаёт UTC).
