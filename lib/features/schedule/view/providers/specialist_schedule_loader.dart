@@ -1,3 +1,4 @@
+import 'package:rient_app/core/providers/branch_timezone_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
@@ -539,6 +540,7 @@ Future<String?> validateSpecialistWeekPatternAgainstAppointments({
 
   if (boundsByWeekday.isEmpty) return null;
 
+  final branchTz = ref.read(branchTimezoneProvider);
   final now = DateTime.now();
   final rangeStart = DateTime(now.year, now.month, now.day);
   final rangeEnd = rangeStart.add(
@@ -554,7 +556,7 @@ Future<String?> validateSpecialistWeekPatternAgainstAppointments({
   );
 
   for (final appointment in appointments) {
-    final range = appointmentTimeRange(appointment, rangeStart);
+    final range = appointmentTimeRange(appointment, rangeStart, branchTz);
     final appointmentDay = DateTime(
       range.start.year,
       range.start.month,

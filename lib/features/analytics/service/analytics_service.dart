@@ -7,6 +7,7 @@ import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
+import 'package:rient_app/core/providers/branch_timezone_provider.dart';
 import 'package:rient_app/features/analytics/data/models/analytics_summary/analytics_summary.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
 
@@ -19,12 +20,11 @@ class AnalyticsService {
 
   final Ref ref;
 
-  static String _isoDateTime(DateTime date, {required bool endOfDay}) {
-    final y = date.year;
-    final m = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    final time = endOfDay ? '23:59:59' : '00:00:00';
-    return '$y-$m-${day}T$time+03:00';
+  String _isoDateTime(DateTime date, {required bool endOfDay}) {
+    final branchTz = ref.read(branchTimezoneProvider);
+    return endOfDay
+        ? branchTz.formatApiDayEndWithSeconds(date)
+        : branchTz.formatApiDayStart(date);
   }
 
   List<Map<String, dynamic>> _normalizeOccupancyList(dynamic raw) {

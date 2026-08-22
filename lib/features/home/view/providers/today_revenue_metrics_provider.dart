@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/providers/branch_timezone_provider.dart';
 import 'package:rient_app/core/network/app_dio.dart';
 import 'package:rient_app/core/network/app_offline.dart';
 import 'package:rient_app/core/network/ensure_network_for_request.dart';
@@ -42,11 +43,10 @@ final todayRevenueMetricsProvider = FutureProvider<TodayRevenueMetrics>((
       );
     }
 
-    final now = DateTime.now();
-    final dayStart =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}T00:00:00+03:00';
-    final dayEnd =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}T23:59:00+03:00';
+    final branchTz = ref.watch(branchTimezoneProvider);
+    final today = branchTz.todayDateOnly();
+    final dayStart = branchTz.formatApiDayStart(today);
+    final dayEnd = branchTz.formatApiDayEnd(today);
 
     final url = ApiConsts().createUrl(
       'organizations/$organizationId/branches/$branchId/statistics_one/',

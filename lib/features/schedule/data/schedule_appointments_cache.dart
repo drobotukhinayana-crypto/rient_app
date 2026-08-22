@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:rient_app/core/models/worker_entity_labels.dart';
 import 'package:rient_app/core/services/local_storage.dart';
+import 'package:rient_app/core/utils/branch_timezone.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 
@@ -241,12 +242,13 @@ class ScheduleAppointmentsCache {
     required int workerId,
     required DateTime dateTimeGte,
     required DateTime dateTimeLte,
+    required BranchTimezone branchTz,
   }) {
     if (snapshot.branchId != branchId) return const [];
     final list = snapshot.byWorker[workerId] ?? const [];
     return list.where((a) {
       if (!a.isActive) return false;
-      return a.overlapsScheduleInstantRange(dateTimeGte, dateTimeLte);
+      return a.overlapsScheduleInstantRange(dateTimeGte, dateTimeLte, branchTz);
     }).toList();
   }
 }

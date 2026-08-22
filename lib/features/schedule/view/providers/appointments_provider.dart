@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/providers/branch_timezone_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
@@ -48,19 +49,19 @@ final scheduleAppointmentsProvider =
       final isOffline = ref.watch(scheduleOfflineModeProvider);
       final workerId = query.workerId!;
 
+      final branchTz = ref.watch(branchTimezoneProvider);
       List<AppointmentApi> fromCache() {
         if (snapshot == null) return const [];
         final effectiveBranchId =
             branchId > 0 ? branchId : snapshot.branchId;
         if (effectiveBranchId <= 0) return const [];
-        // В оффлайне отдаём всё, что есть в кэше для воркера в видимом диапазоне,
-        // даже если границы snapshot чуть уже/шире запроса.
         return cache.appointmentsForQuery(
           snapshot: snapshot,
           branchId: effectiveBranchId,
           workerId: workerId,
           dateTimeGte: query.dateTimeGte,
           dateTimeLte: query.dateTimeLte,
+          branchTz: branchTz,
         );
       }
 
@@ -100,6 +101,7 @@ final scheduleAppointmentsProvider =
           response.results,
           query.dateTimeGte,
           query.dateTimeLte,
+          branchTz,
         );
       } catch (e) {
         if (!ref.mounted) return fromCache();

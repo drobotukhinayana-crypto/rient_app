@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:rient_app/core/network/app_connectivity.dart';
 import 'package:rient_app/core/network/app_vpn.dart';
 
 /// Стрим: VPN включён / выключен.
@@ -14,7 +16,9 @@ final vpnStatusProvider = StreamProvider<bool>((ref) {
 /// Доп. разовая проверка (как [connectivityCheckProvider]).
 final vpnCheckProvider = FutureProvider<bool>((ref) async {
   ref.watch(vpnStatusProvider);
-  return readVpnActive();
+  if (await readVpnActive()) return true;
+  final connectivity = await readConnectivityStatus();
+  return connectivity.contains(ConnectivityResult.vpn);
 });
 
 /// VPN активен по данным ОС (эвристика на iOS/Android).
@@ -101,9 +105,3 @@ final vpnBannerSessionListenerProvider = Provider<void>((ref) {
 /// Плашку закрыли «Понятно» в этой сессии (до перезапуска приложения).
 final vpnBannerDismissedThisSessionProvider =
     StateProvider<bool>((ref) => false);
-
-/// VPN включён и плашку ещё не закрыли в этой сессии.
-final showVpnBannerProvider = Provider<bool>((ref) {
-  if (!ref.watch(appVpnActiveProvider)) return false;
-  return !ref.watch(vpnBannerDismissedThisSessionProvider);
-});

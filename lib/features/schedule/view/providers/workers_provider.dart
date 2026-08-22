@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:rient_app/core/providers/branch_timezone_provider.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/features/auth/view/providers/organization_id_provider.dart';
@@ -313,10 +314,9 @@ final selectedSpecialistIdProvider = StateProvider<int?>((ref) => null);
 /// Флаг: восстановлен ли выбор специалиста из хранилища в этой сессии.
 final restoredSpecialistSelectionProvider = StateProvider<bool>((ref) => false);
 
-/// Выбранная дата на странице расписания (для фильтра «кто работает в этот день»). По умолчанию — сегодня.
+/// Выбранная дата на странице расписания (для фильтра «кто работает в этот день»). По умолчанию — сегодня в таймзоне филиала.
 final selectedScheduleDateProvider = StateProvider<DateTime>((ref) {
-  final now = DateTime.now();
-  return DateTime(now.year, now.month, now.day);
+  return ref.watch(branchTodayProvider);
 });
 
 /// Открыть расписание в режиме «День» на эту дату (например, из аналитики).

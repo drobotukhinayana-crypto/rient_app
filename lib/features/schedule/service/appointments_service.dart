@@ -5,6 +5,7 @@ import 'package:rient_app/core/services/unauthorized_handler.dart';
 import 'package:rient_app/core/network/app_dio.dart';
 import 'package:rient_app/core/utils/const/api_consts.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
+import 'package:rient_app/core/providers/branch_timezone_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/utils/appointment_inventory_conflict_utils.dart';
 import 'package:rient_app/features/schedule/utils/appointment_transaction_utils.dart';
@@ -79,12 +80,13 @@ class AppointmentsService {
       throw CustomException(causedError: Exception('Token is missing'));
     }
 
+    final branchTz = ref.read(branchTimezoneProvider);
     final url = ApiConsts().createUrl('appointments/');
     final queryParams = <String, dynamic>{
       'branch': branchId,
       'worker': workerId,
-      'datetime__gte': dateTimeGte.toUtc().toIso8601String(),
-      'datetime__lte': dateTimeLte.toUtc().toIso8601String(),
+      'datetime__gte': branchTz.formatApiDayStart(dateTimeGte),
+      'datetime__lte': branchTz.formatApiDayEndWithSeconds(dateTimeLte),
       'page_size': pageSize,
       'more': more,
     };

@@ -11,6 +11,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/providers/branch_timezone_provider.dart';
+import 'package:rient_app/core/utils/branch_timezone.dart';
 import 'package:rient_app/core/models/worker_entity_labels.dart';
 import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
@@ -462,11 +464,12 @@ bool _addedServicesContinueSequentially(
 _CreateAppointmentServiceDraft _deletedServiceDraftFrom(
   AppointmentApi appointment,
   AppointmentServiceApi service,
+  BranchTimezone branchTz,
 ) {
   return _CreateAppointmentServiceDraft(
     appointmentServiceId: service.id,
     serviceId: service.serviceId ?? 0,
-    dateTime: appointment.resolveServiceStartLocal(service),
+    dateTime: appointment.resolveServiceStart(service, branchTz),
     durationMinutes: service.duration,
     addDurationMinutes: service.addDuration,
     price: 0,
@@ -1977,6 +1980,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     List<AppointmentApi> appointments, {
     int? ignoreAppointmentId,
   }) {
+    final branchTz = ref.read(branchTimezoneProvider);
     final result = <_DateTimeRange>[];
     for (final appointment in appointments) {
       if (!appointment.isActive) continue;
@@ -1986,8 +1990,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
       }
       if (appointment.services.isEmpty) continue;
       for (final service in appointment.services) {
-        final serviceStart = appointment.resolveServiceStartLocal(service);
-        final serviceEnd = appointment.resolveServiceEndLocal(service);
+        final serviceStart = appointment.resolveServiceStart(service, branchTz);
+        final serviceEnd = appointment.resolveServiceEnd(service, branchTz);
         if (serviceEnd.isAfter(serviceStart)) {
           result.add(_DateTimeRange(start: serviceStart, end: serviceEnd));
         }
@@ -2289,7 +2293,11 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         final lineId = service.id;
         if (lineId != null && !currentLineIds.contains(lineId)) {
           deletedServices.add(
-            _deletedServiceDraftFrom(initialAppointment, service),
+            _deletedServiceDraftFrom(
+              initialAppointment,
+              service,
+              ref.read(branchTimezoneProvider),
+            ),
           );
         }
       }

@@ -1,3 +1,4 @@
+import 'package:rient_app/core/utils/branch_timezone.dart';
 import 'package:rient_app/features/schedule/utils/appointment_source.dart';
 
 /// Расширяет диапазон запроса до границ месяцев: API фильтрует по
@@ -23,10 +24,17 @@ List<AppointmentApi> filterActiveAppointmentsForVisibleRange(
   Iterable<AppointmentApi> appointments,
   DateTime dateTimeGte,
   DateTime dateTimeLte,
+  BranchTimezone branchTz,
 ) {
   return appointments
       .where((a) => a.isActive)
-      .where((a) => a.overlapsScheduleInstantRange(dateTimeGte, dateTimeLte))
+      .where(
+        (a) => a.overlapsScheduleInstantRange(
+          dateTimeGte,
+          dateTimeLte,
+          branchTz,
+        ),
+      )
       .toList();
 }
 
@@ -107,19 +115,19 @@ class AppointmentApi {
   bool get hasComment => (commentText?.trim().isNotEmpty ?? false);
 
   /// Время для календаря: сначала по услугам, иначе корневой `datetime`.
-  DateTime? get schedulePrimaryDateTimeLocal {
+  DateTime? schedulePrimaryDateTime(BranchTimezone branchTz) {
     for (final service in services) {
-      final parsed = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+      final parsed = branchTz.parseApiDateTime(service.datetime);
       if (parsed != null) return parsed;
     }
-    return DateTime.tryParse(datetime)?.toLocal();
+    return branchTz.parseApiDateTime(datetime);
   }
 
   /// Календарный день записи по услугам (не дата создания).
-  DateTime appointmentCalendarDayLocal() {
+  DateTime appointmentCalendarDay(BranchTimezone branchTz) {
     DateTime? earliestDay;
     for (final service in services) {
-      final parsed = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+      final parsed = branchTz.parseApiDateTime(service.datetime);
       if (parsed == null) continue;
       final day = DateTime(parsed.year, parsed.month, parsed.day);
       if (earliestDay == null || day.isBefore(earliestDay)) {
@@ -127,20 +135,20 @@ class AppointmentApi {
       }
     }
     if (earliestDay != null) return earliestDay;
-    final primary = schedulePrimaryDateTimeLocal;
+    final primary = schedulePrimaryDateTime(branchTz);
     if (primary != null) {
       return DateTime(primary.year, primary.month, primary.day);
     }
-    final root = DateTime.tryParse(datetime)?.toLocal() ?? DateTime.now();
+    final root = branchTz.parseApiDateTime(datetime) ?? branchTz.todayDateOnly();
     return DateTime(root.year, root.month, root.day);
   }
 
-  /// Начало услуги: `services[].datetime`, иначе время на [appointmentCalendarDayLocal].
-  DateTime resolveServiceStartLocal(AppointmentServiceApi service) {
-    final parsed = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+  /// Начало услуги: `services[].datetime`, иначе время на [appointmentCalendarDay].
+  DateTime resolveServiceStart(AppointmentServiceApi service, BranchTimezone branchTz) {
+    final parsed = branchTz.parseApiDateTime(service.datetime);
     if (parsed != null) return parsed;
 
-    final calendarDay = appointmentCalendarDayLocal();
+    final calendarDay = appointmentCalendarDay(branchTz);
     final raw = service.datetime?.trim();
     if (raw != null &&
         raw.isNotEmpty &&
@@ -162,7 +170,7 @@ class AppointmentApi {
       }
     }
 
-    final root = DateTime.tryParse(datetime)?.toLocal();
+    final root = branchTz.parseApiDateTime(datetime);
     if (root != null) {
       return DateTime(
         calendarDay.year,
@@ -176,24 +184,24 @@ class AppointmentApi {
     return calendarDay;
   }
 
-  DateTime resolveServiceEndLocal(AppointmentServiceApi service) {
-    final start = resolveServiceStartLocal(service);
+  DateTime resolveServiceEnd(AppointmentServiceApi service, BranchTimezone branchTz) {
+    final start = resolveServiceStart(service, branchTz);
     final duration =
         service.totalDurationMinutes <= 0 ? 30 : service.totalDurationMinutes;
     return start.add(Duration(minutes: duration));
   }
 
   /// Общий интервал записи: от начала первой до конца последней услуги.
-  ({DateTime start, DateTime end}) mergedScheduleRangeLocal() {
+  ({DateTime start, DateTime end}) mergedScheduleRange(BranchTimezone branchTz) {
     if (services.isEmpty) {
-      final start = DateTime.tryParse(datetime)?.toLocal() ?? DateTime.now();
+      final start = branchTz.parseApiDateTime(datetime) ?? branchTz.todayDateOnly();
       return (start: start, end: start.add(const Duration(minutes: 30)));
     }
-    var minStart = resolveServiceStartLocal(services.first);
-    var maxEnd = resolveServiceEndLocal(services.first);
+    var minStart = resolveServiceStart(services.first, branchTz);
+    var maxEnd = resolveServiceEnd(services.first, branchTz);
     for (final service in services.skip(1)) {
-      final start = resolveServiceStartLocal(service);
-      final end = resolveServiceEndLocal(service);
+      final start = resolveServiceStart(service, branchTz);
+      final end = resolveServiceEnd(service, branchTz);
       if (start.isBefore(minStart)) minStart = start;
       if (end.isAfter(maxEnd)) maxEnd = end;
     }
@@ -201,7 +209,11 @@ class AppointmentApi {
   }
 
   /// Попадает ли запись в диапазон календарных дней [rangeStart, rangeEnd].
-  bool overlapsScheduleDateRange(DateTime rangeStart, DateTime rangeEnd) {
+  bool overlapsScheduleDateRange(
+    DateTime rangeStart,
+    DateTime rangeEnd,
+    BranchTimezone branchTz,
+  ) {
     final startDay = DateTime(
       rangeStart.year,
       rangeStart.month,
@@ -209,26 +221,30 @@ class AppointmentApi {
     );
     final endDay = DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day);
     for (final service in services) {
-      final parsed = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+      final parsed = branchTz.parseApiDateTime(service.datetime);
       if (parsed == null) continue;
       final day = DateTime(parsed.year, parsed.month, parsed.day);
       if (!day.isBefore(startDay) && !day.isAfter(endDay)) return true;
     }
-    final primary = schedulePrimaryDateTimeLocal;
+    final primary = schedulePrimaryDateTime(branchTz);
     if (primary == null) return false;
     final day = DateTime(primary.year, primary.month, primary.day);
     return !day.isBefore(startDay) && !day.isAfter(endDay);
   }
 
   /// Попадает ли запись в интервал моментов времени [gte, lte].
-  bool overlapsScheduleInstantRange(DateTime gte, DateTime lte) {
+  bool overlapsScheduleInstantRange(
+    DateTime gte,
+    DateTime lte,
+    BranchTimezone branchTz,
+  ) {
     for (final service in services) {
-      final parsed = DateTime.tryParse(service.datetime ?? '')?.toLocal();
+      final parsed = branchTz.parseApiDateTime(service.datetime);
       if (parsed != null && !parsed.isBefore(gte) && !parsed.isAfter(lte)) {
         return true;
       }
     }
-    final primary = schedulePrimaryDateTimeLocal;
+    final primary = schedulePrimaryDateTime(branchTz);
     if (primary == null) return false;
     return !primary.isBefore(gte) && !primary.isAfter(lte);
   }

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rient_app/core/providers/branch_timezone_provider.dart';
+import 'package:rient_app/core/utils/branch_timezone.dart';
 import 'package:rient_app/core/models/worker_entity_labels.dart';
 import 'package:rient_app/core/providers/worker_entity_labels_provider.dart';
 import 'package:rient_app/core/services/local_storage.dart';
@@ -11,7 +13,9 @@ import 'package:rient_app/core/utils/const/app_colors.dart';
 import 'package:rient_app/core/utils/app_exit_handler.dart';
 import 'package:rient_app/core/utils/const/app_decoration.dart';
 import 'package:rient_app/core/widgets/app_refresh_indicator.dart';
+import 'package:rient_app/core/network/app_vpn_banner_provider.dart';
 import 'package:rient_app/core/widgets/schedule_offline_banner.dart';
+import 'package:rient_app/core/widgets/vpn_banner.dart';
 import 'package:rient_app/core/widgets/top_panel.dart';
 import 'package:rient_app/features/schedule/service/schedule_offline_sync_service.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
@@ -589,13 +593,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     );
   }
 
-  static DateTime _safeParseToLocal(String? raw, DateTime fallback) {
-    if (raw == null || raw.isEmpty) return fallback;
-    final parsed = DateTime.tryParse(raw);
-    if (parsed == null) return fallback;
-    return parsed.toLocal();
-  }
-
   /// Цвета по статусу записи: 0 жёлтый, 1 фиолетовый, 2 зелёный, 3–4 красный.
   static ({Color backgroundColor, Color accentColor})
   _colorsForAppointmentStatus(int status) {
@@ -638,8 +635,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
 
   static ScheduleAppointmentItem _mapAppointmentToItem(
     AppointmentApi appointment,
+    BranchTimezone branchTz,
   ) {
-    final range = appointment.mergedScheduleRangeLocal();
+    final range = appointment.mergedScheduleRange(branchTz);
     final serviceNames = appointment.services
         .map((s) => (s.name ?? '').trim())
         .where((name) => name.isNotEmpty)
@@ -668,13 +666,16 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     List<AppointmentApi> appointments,
     DateTime start,
     DateTime end,
+    BranchTimezone branchTz,
   ) {
     final startDate = _toDateOnly(start);
     final endDate = _toDateOnly(end);
     final mapped = <ScheduleAppointmentItem>[];
     for (final appointment in appointments) {
-      if (!appointment.overlapsScheduleDateRange(startDate, endDate)) continue;
-      mapped.add(_mapAppointmentToItem(appointment));
+      if (!appointment.overlapsScheduleDateRange(startDate, endDate, branchTz)) {
+        continue;
+      }
+      mapped.add(_mapAppointmentToItem(appointment, branchTz));
     }
     mapped.sort((a, b) => a.startTime.compareTo(b.startTime));
     return mapped;
@@ -952,6 +953,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   static Map<int, int> _slotsByDayFromActiveAppointments(
     List<AppointmentApi> appointments,
     DateTime month, {
+    required BranchTimezone branchTz,
     bool Function(DateTime date)? isNonWorkingDay,
   }) {
     final result = <int, int>{};
@@ -959,9 +961,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final monthNum = month.month;
     for (final appointment in appointments) {
       if (!appointment.isActive) continue;
-      final primary = appointment.schedulePrimaryDateTimeLocal;
+      final primary = appointment.schedulePrimaryDateTime(branchTz);
       final dateOnly = _toDateOnly(
-        primary ?? _safeParseToLocal(appointment.datetime, month),
+        primary ?? branchTz.parseApiDateTime(appointment.datetime) ?? month,
       );
       if (dateOnly.year != year || dateOnly.month != monthNum) continue;
       if (isNonWorkingDay != null && isNonWorkingDay(dateOnly)) continue;
@@ -976,7 +978,9 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final screenBackground = isDark
         ? AppColors.secondaryDarkLight
         : AppColors.tabBarScreenBackground;
+    final branchTz = ref.watch(branchTimezoneProvider);
     final isScheduleOffline = ref.watch(scheduleOfflineModeProvider);
+    final showVpnBannerInOffline = ref.watch(showAppVpnBannerProvider);
     final branchesAsync = ref.watch(branchesProvider);
     final workersAsync = ref.watch(scheduleWorkersProvider);
     final offlineSpecialistsAsync = ref.watch(scheduleOfflineSpecialistsProvider);
@@ -1340,6 +1344,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final slotsByDay = _slotsByDayFromActiveAppointments(
       monthAppointmentsAsync.value ?? const [],
       _monthStart,
+      branchTz: branchTz,
       isNonWorkingDay: specialistIdForData != null
           ? resolveWorkerNonWorkingDay
           : null,
@@ -1455,11 +1460,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       dayAppointmentsSingleAsync.value ?? const [],
       dayStart,
       dayEnd,
+      branchTz,
     );
     final weekItems = _mapAppointmentsForRange(
       weekAppointmentsAsync.value ?? const [],
       weekStartDate,
       weekEndDate,
+      branchTz,
     );
     final dayAppointmentsLoading = !isScheduleOffline &&
         (multiDayColumns
@@ -1625,6 +1632,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                         ).state = value;
                       },
               ),
+              if (isScheduleOffline && showVpnBannerInOffline)
+                const VpnBanner(),
               if (isScheduleOffline) const ScheduleOfflineBanner(),
               Expanded(
                 child: Stack(
@@ -1743,6 +1752,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                                           const [],
                                                       dayStart,
                                                       dayEnd,
+                                                      branchTz,
                                                     ),
                                                     breakStart: _breakForSpecialist(
                                                       shifts,

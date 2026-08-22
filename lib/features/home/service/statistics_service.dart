@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/providers/branch_timezone_provider.dart';
 import 'package:rient_app/core/network/app_dio.dart';
 import 'package:rient_app/core/services/token_storage.dart';
 import 'package:rient_app/core/services/unauthorized_handler.dart';
@@ -137,10 +138,9 @@ class StatisticsService {
       throw CustomException(causedError: Exception('Branch is missing'));
     }
 
-    final startDateStr =
-        '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}T00:00:00+03:00';
-    final endDateStr =
-        '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}T23:59:00+03:00';
+    final branchTz = ref.read(branchTimezoneProvider);
+    final startDateStr = branchTz.formatApiDayStart(startDate);
+    final endDateStr = branchTz.formatApiDayEnd(endDate);
 
     try {
       final url = ApiConsts().createUrl(
@@ -204,10 +204,9 @@ class StatisticsService {
       throw CustomException(causedError: Exception('Token is missing'));
     }
 
-    final startDateStr =
-        '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}T00:00:00+03:00';
-    final endDateStr =
-        '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}T23:59:00+03:00';
+    final branchTz = ref.read(branchTimezoneProvider);
+    final startDateStr = branchTz.formatApiDayStart(startDate);
+    final endDateStr = branchTz.formatApiDayEnd(endDate);
     final inFlightKey =
         '$organizationId|$resolvedBranchId|$startDateStr|$endDateStr|${workerId ?? 0}';
 

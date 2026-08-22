@@ -37,6 +37,8 @@ import 'package:rient_app/features/home/view/providers/worker_permissions_provid
 import 'package:rient_app/features/home/view/home_page.dart';
 import 'package:rient_app/features/link/view/widget_link_share.dart';
 import 'package:rient_app/core/network/app_offline.dart';
+import 'package:rient_app/core/providers/branch_timezone_sync_listener.dart';
+import 'package:rient_app/core/network/app_vpn_banner_provider.dart';
 import 'package:rient_app/core/network/app_vpn_provider.dart';
 import 'package:rient_app/core/network/connectivity_recovery_listener.dart';
 import 'package:rient_app/core/widgets/vpn_banner.dart';
@@ -390,11 +392,16 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     final noConnection = ref.watch(appNoConnectionProvider);
     final scheduleOffline = ref.watch(scheduleOfflineModeProvider);
     final offlineExceptSchedule = noConnection || scheduleOffline;
-    final showVpnBanner = ref.watch(showVpnBannerProvider);
+    final showAppVpnBanner = ref.watch(showAppVpnBannerProvider);
+    final onScheduleTab = widget.navigationShell.currentIndex == 1;
+    // В оффлайне VPN-плашка — на экране расписания, рядом с оффлайн-баннером.
+    final showVpnBanner =
+        showAppVpnBanner && !(onScheduleTab && offlineExceptSchedule);
 
     ref.watch(connectivityRecoveryListenerProvider);
     ref.watch(vpnActivePollingListenerProvider);
     ref.watch(vpnBannerSessionListenerProvider);
+    ref.watch(branchTimezoneSyncListenerProvider);
     ref.watch(scheduleServerUnreachableListenerProvider);
     ref.watch(appSessionContextListenerProvider);
 

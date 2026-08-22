@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/providers/branch_timezone_provider.dart';
+import 'package:rient_app/core/utils/branch_timezone.dart';
 import 'package:rient_app/core/utils/exstensions/custom_exstension.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
@@ -119,8 +121,9 @@ int timeStringToMinutes(String time) {
 ({DateTime start, DateTime end}) appointmentTimeRange(
   AppointmentApi appointment,
   DateTime day,
+  BranchTimezone branchTz,
 ) {
-  return appointment.mergedScheduleRangeLocal();
+  return appointment.mergedScheduleRange(branchTz);
 }
 
 DateTime _timeOnDay(DateTime day, String time) {
@@ -215,6 +218,7 @@ Future<String?> validateWorkScheduleDayAgainstAppointments({
 }) async {
   if (branchId <= 0 || workerId <= 0) return null;
 
+  final branchTz = ref.read(branchTimezoneProvider);
   final normalized = DateTime(date.year, date.month, date.day);
   final dayEnd = normalized
       .add(const Duration(days: 1))
@@ -231,7 +235,7 @@ Future<String?> validateWorkScheduleDayAgainstAppointments({
   if (active.isEmpty) return null;
 
   for (final appointment in active) {
-    final range = appointmentTimeRange(appointment, normalized);
+    final range = appointmentTimeRange(appointment, normalized, branchTz);
     if (appointmentConflictsWithWorkScheduleChange(
       day: normalized,
       appointmentStart: range.start,

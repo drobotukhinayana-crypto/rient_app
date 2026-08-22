@@ -1,14 +1,14 @@
+import 'package:rient_app/core/providers/branch_timezone_provider.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 /// Провайдер для выбранной даты на главной странице.
-/// По умолчанию устанавливается сегодняшний день.
+/// По умолчанию — сегодня в таймзоне филиала.
 final selectedDateProvider = StateNotifierProvider<SelectedDateNotifier, DateTime>(
-  (ref) => SelectedDateNotifier(),
+  (ref) => SelectedDateNotifier(ref.watch(branchTodayProvider)),
 );
 
 class SelectedDateNotifier extends StateNotifier<DateTime> {
-  SelectedDateNotifier()
-      : super(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day));
+  SelectedDateNotifier(super.initialDate);
 
   void setDate(DateTime date) {
     final next = DateTime(date.year, date.month, date.day);
