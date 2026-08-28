@@ -34,12 +34,12 @@ AppointmentSourceInfo? appointmentSourceInfo(int? source) {
       assetPath: 'assets/vk_source.svg',
       isSvg: true,
     ),
-    -2 => const AppointmentSourceInfo(
+    2 || -2 => const AppointmentSourceInfo(
       label: 'Яндекс',
       assetPath: 'assets/yandex_source.svg',
       isSvg: true,
     ),
-    -5 => const AppointmentSourceInfo(
+    5 || -5 => const AppointmentSourceInfo(
       label: '2GIS',
       assetPath: 'assets/2gis.png',
       isSvg: false,

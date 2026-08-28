@@ -113,6 +113,7 @@ final scheduleWorkerScheduleRowsProvider =
           workers: workers,
         ),
       );
+      unawaited(registerOfflineBranchMeta(ref, branchId));
     }
     markScheduleServerReachable(ref);
     return rows;
@@ -256,6 +257,7 @@ final workerScheduleTemplatesByIdProvider =
           templates: templates,
         ),
       );
+      unawaited(registerOfflineBranchMeta(ref, branchId));
     }
     return templates;
   } catch (_) {

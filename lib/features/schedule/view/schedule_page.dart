@@ -1036,6 +1036,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         workerTemplatesAsync.hasValue &&
         scheduleForDayAsync.hasValue;
     final isAdminDayView = !isWorkerRole && _viewMode == ViewMode.day;
+    final branchClosedOnSelectedDate = isAdminDayView &&
+        dayScheduleReady &&
+        !_isBranchWorkingOnDate(
+          normalizedSelectedDate,
+          branchPatterns,
+          dayBranchSchedules,
+        );
     final dayViewDetailsLoading =
         !isScheduleOffline && isAdminDayView && !dayScheduleReady;
     final weekKey = scheduleWeekKey(
@@ -1068,12 +1075,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         : isAdminDayView
         ? specialistsOnSelectedDate
         : allBranchSpecialists;
-    // Один мастер в «День»: на выходной сохраняем контекст только онлайн после загрузки дня.
+    // Один мастер в «День»: на выходной мастера сохраняем контекст; выходной филиала — нет.
     if (!isScheduleOffline &&
         isAdminDayView &&
         specialistsOnSelectedDate.length <= 1 &&
         dayScheduleReady &&
-        specialistsOnSelectedDate.isEmpty) {
+        specialistsOnSelectedDate.isEmpty &&
+        !branchClosedOnSelectedDate) {
       final persistId = _dayViewSingleWorkerId ?? savedSelectedId;
       if (persistId != null && persistId > 0) {
         final saved = _specialistById(
@@ -1136,7 +1144,8 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     if (!isScheduleOffline &&
         isAdminDayView &&
         !isAdminMultiDayView &&
-        dayScheduleReady) {
+        dayScheduleReady &&
+        !branchClosedOnSelectedDate) {
       final candidate = initialSelected?.id ??
           (savedSelectedId != null && savedSelectedId > 0
               ? savedSelectedId
@@ -1159,13 +1168,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         : isAdminDayView
         ? (dayViewDetailsLoading
               ? null
-              : (isAdminMultiDayView
-                    ? initialSelected?.id
-                    : (_dayViewSingleWorkerId ??
-                        initialSelected?.id ??
-                        (savedSelectedId != null && savedSelectedId > 0
-                            ? savedSelectedId
-                            : null))))
+              : (branchClosedOnSelectedDate
+                    ? null
+                    : (isAdminMultiDayView
+                          ? initialSelected?.id
+                          : (_dayViewSingleWorkerId ??
+                              initialSelected?.id ??
+                              (savedSelectedId != null && savedSelectedId > 0
+                                  ? savedSelectedId
+                                  : null)))))
         : (savedSelectedId != null && savedSelectedId > 0
               ? savedSelectedId
               : selectedSpecialistId);
@@ -1538,7 +1549,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       topPanelInitialSelected = null;
     } else if (isAdminDayView && !isWorkerRole) {
       final dayTopPanel = _dayTopPanelSpecialists(
-        allBranchSpecialists: allBranchSpecialists,
+        allBranchSpecialists: specialists,
         allWorkers: allWorkers,
         labels: workerLabels,
         displayWorkerId: specialistIdForData,

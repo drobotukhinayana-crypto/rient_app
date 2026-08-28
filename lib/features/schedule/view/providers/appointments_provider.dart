@@ -45,7 +45,7 @@ final scheduleAppointmentsProvider =
       }
 
       final cache = ref.read(scheduleAppointmentsCacheProvider);
-      final snapshot = await cache.read();
+      final snapshot = await cache.readForBranch(branchId);
       final isOffline = ref.watch(scheduleOfflineModeProvider);
       final workerId = query.workerId!;
 
@@ -97,6 +97,7 @@ final scheduleAppointmentsProvider =
             rangeTo: fetchRange.lte,
           ),
         );
+        unawaited(registerOfflineBranchMeta(ref, branchId));
         return filterActiveAppointmentsForVisibleRange(
           response.results,
           query.dateTimeGte,

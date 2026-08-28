@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -7,6 +6,7 @@ import 'package:rient_app/core/models/worker_entity_labels.dart';
 import 'package:rient_app/core/network/app_dio.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
+import 'package:rient_app/features/schedule/data/schedule_offline_multi_branch_store.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 
 const scheduleWorkersCacheStorageKey = 'schedule_workers_offline_cache_v1';
@@ -128,22 +128,15 @@ class ScheduleWorkersCache {
     return 'file://$path';
   }
 
-  Future<ScheduleWorkersCacheSnapshot?> read() async {
-    final raw = await _storage.getString(scheduleWorkersCacheStorageKey);
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) return null;
-      return ScheduleWorkersCacheSnapshot.fromJson(decoded);
-    } catch (_) {
-      return null;
-    }
+  Future<ScheduleWorkersCacheSnapshot?> readForBranch(int branchId) async {
+    final payloads = await loadBranchPayloads(_storage, scheduleWorkersCacheStorageKey);
+    final payload = payloads[branchId];
+    if (payload == null) return null;
+    return ScheduleWorkersCacheSnapshot.fromJson(payload);
   }
 
-  Future<ScheduleWorkersCacheSnapshot?> readForBranch(int branchId) async {
-    final snapshot = await read();
-    if (snapshot == null || snapshot.branchId != branchId) return null;
-    return snapshot;
+  Future<Set<int>> cachedBranchIds() async {
+    return cachedBranchIdsFromStore(_storage, scheduleWorkersCacheStorageKey);
   }
 
   Future<void> saveForBranch({
@@ -161,9 +154,11 @@ class ScheduleWorkersCache {
       workers: workers,
       localPictures: localPictures,
     );
-    await _storage.saveString(
+    await saveBranchPayload(
+      _storage,
       scheduleWorkersCacheStorageKey,
-      jsonEncode(snapshot.toJson()),
+      branchId,
+      snapshot.toJson(),
     );
   }
 

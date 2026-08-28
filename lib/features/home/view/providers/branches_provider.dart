@@ -10,6 +10,7 @@ import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/data/models/branches_api/branches_api.dart';
 import 'package:rient_app/features/home/service/branches_service.dart';
 import 'package:rient_app/features/schedule/data/schedule_appointments_cache.dart';
+import 'package:rient_app/features/schedule/data/schedule_offline_branches_registry.dart';
 
 /// Ключ для сохранения id выбранного филиала в локальное хранилище.
 const selectedBranchIdStorageKey = 'selected_branch_id';
@@ -91,7 +92,21 @@ final branchesProvider = FutureProvider<BranchesApiResponse>((ref) async {
   final isOffline = ref.watch(appNoConnectionProvider) ||
       !ref.watch(scheduleServerReachableProvider);
   if (isOffline) {
+    final storage = ref.read(localStorageProvider);
+    var cachedBranches = await readOfflineCachedBranches(storage);
     selectedBranch ??= await ensureSelectedBranchRestored(ref);
+    final current = selectedBranch;
+    if (current != null && !cachedBranches.any((b) => b.id == current.id)) {
+      cachedBranches = [...cachedBranches, current];
+    }
+    if (cachedBranches.isNotEmpty) {
+      return BranchesApiResponse(
+        count: cachedBranches.length,
+        next: null,
+        previous: null,
+        results: cachedBranches,
+      );
+    }
     if (selectedBranch != null) {
       return BranchesApiResponse(
         count: 1,

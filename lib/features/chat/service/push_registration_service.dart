@@ -384,13 +384,13 @@ class PushRegistrationService {
     try {
       final deviceId = await deviceStorage.getOrCreateDeviceId();
       final apiId = await deviceStorage.getRegisteredDeviceApiId();
-      final fcmToken = await resolveFcmToken();
 
+      // При logout не ждём FCM token (на iOS это может занять до 20 с) —
+      // передаём одно из: id записи или device_id.
       await ref.read(mobilePushServiceProvider).deactivateDevice(
             organizationId: organizationId,
             id: apiId,
-            token: fcmToken,
-            deviceId: deviceId,
+            deviceId: apiId == null ? deviceId : null,
           );
       debugPrint('PushRegistrationService: device deactivated on logout');
     } catch (e, st) {

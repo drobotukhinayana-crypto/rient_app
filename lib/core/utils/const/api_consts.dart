@@ -4,10 +4,10 @@ class ApiConsts {
   factory ApiConsts() => ApiConsts._();
   ApiConsts._();
 
-  final bool _isProd = false;
+  final bool _isProd = true;
 
   final _stageUrl = 'https://apistage.triobot.ru/';
-  final _prodUrl = '';
+  final _prodUrl = 'https://api.rient.ru';
   // Старый тест с префиксом /api/.
   // ignore: unused_field
   final _testUrl = 'https://apptest.triobot.ru/api/';

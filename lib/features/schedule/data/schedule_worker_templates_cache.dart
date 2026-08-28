@@ -1,7 +1,6 @@
-import 'dart:convert';
-
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
+import 'package:rient_app/features/schedule/data/schedule_offline_multi_branch_store.dart';
 import 'package:rient_app/features/schedule/utils/worker_schedule_template.dart';
 
 const scheduleWorkerTemplatesCacheStorageKey =
@@ -95,24 +94,21 @@ class ScheduleWorkerTemplatesCache {
 
   final LocalStorage _storage;
 
-  Future<ScheduleWorkerTemplatesCacheSnapshot?> read() async {
-    final raw = await _storage.getString(scheduleWorkerTemplatesCacheStorageKey);
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) return null;
-      return ScheduleWorkerTemplatesCacheSnapshot.fromJson(decoded);
-    } catch (_) {
-      return null;
-    }
-  }
-
   Future<ScheduleWorkerTemplatesCacheSnapshot?> readForBranch(
     int branchId,
   ) async {
-    final snapshot = await read();
-    if (snapshot == null || snapshot.branchId != branchId) return null;
-    return snapshot;
+    final payloads =
+        await loadBranchPayloads(_storage, scheduleWorkerTemplatesCacheStorageKey);
+    final payload = payloads[branchId];
+    if (payload == null) return null;
+    return ScheduleWorkerTemplatesCacheSnapshot.fromJson(payload);
+  }
+
+  Future<Set<int>> cachedBranchIds() async {
+    return cachedBranchIdsFromStore(
+      _storage,
+      scheduleWorkerTemplatesCacheStorageKey,
+    );
   }
 
   Future<void> saveForBranch({
@@ -124,13 +120,15 @@ class ScheduleWorkerTemplatesCache {
       cachedAt: DateTime.now(),
       templates: templates,
     );
-    await _storage.saveString(
+    await saveBranchPayload(
+      _storage,
       scheduleWorkerTemplatesCacheStorageKey,
-      jsonEncode(snapshot.toJson()),
+      branchId,
+      snapshot.toJson(),
     );
   }
 
   Future<void> clear() async {
-    await _storage.removeValue(scheduleWorkerTemplatesCacheStorageKey);
+    await clearBranchStore(_storage, scheduleWorkerTemplatesCacheStorageKey);
   }
 }

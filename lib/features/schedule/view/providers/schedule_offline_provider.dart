@@ -88,6 +88,7 @@ final scheduleOfflineSpecialistsProvider =
       return workersSnapshot.toSpecialistItems(labels);
     }
   }
-  final snapshot = await ref.read(scheduleAppointmentsCacheProvider).read();
+  final snapshot =
+      await ref.read(scheduleAppointmentsCacheProvider).readForBranch(branchId);
   return ScheduleAppointmentsCache.specialistsFromSnapshot(snapshot, labels);
 });

@@ -1,9 +1,8 @@
-import 'dart:convert';
-
 import 'package:rient_app/core/models/worker_entity_labels.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/utils/branch_timezone.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
+import 'package:rient_app/features/schedule/data/schedule_offline_multi_branch_store.dart';
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 
 const scheduleOfflineCacheStorageKey = 'schedule_appointments_offline_cache_v1';
@@ -144,22 +143,38 @@ class ScheduleAppointmentsCache {
     return !date.isBefore(start) && !date.isAfter(end);
   }
 
+  Future<ScheduleAppointmentsCacheSnapshot?> readForBranch(int branchId) async {
+    final payloads = await loadBranchPayloads(_storage, scheduleOfflineCacheStorageKey);
+    final payload = payloads[branchId];
+    if (payload == null) return null;
+    return ScheduleAppointmentsCacheSnapshot.fromJson(payload);
+  }
+
+  /// Последний сохранённый снимок — для восстановления филиала при холодном старте.
   Future<ScheduleAppointmentsCacheSnapshot?> read() async {
-    final raw = await _storage.getString(scheduleOfflineCacheStorageKey);
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) return null;
-      return ScheduleAppointmentsCacheSnapshot.fromJson(decoded);
-    } catch (_) {
-      return null;
+    final payloads = await loadBranchPayloads(_storage, scheduleOfflineCacheStorageKey);
+    if (payloads.isEmpty) return null;
+    ScheduleAppointmentsCacheSnapshot? latest;
+    for (final payload in payloads.values) {
+      final snapshot = ScheduleAppointmentsCacheSnapshot.fromJson(payload);
+      if (snapshot == null) continue;
+      if (latest == null || snapshot.cachedAt.isAfter(latest.cachedAt)) {
+        latest = snapshot;
+      }
     }
+    return latest;
+  }
+
+  Future<Set<int>> cachedBranchIds() async {
+    return cachedBranchIdsFromStore(_storage, scheduleOfflineCacheStorageKey);
   }
 
   Future<void> save(ScheduleAppointmentsCacheSnapshot snapshot) async {
-    await _storage.saveString(
+    await saveBranchPayload(
+      _storage,
       scheduleOfflineCacheStorageKey,
-      jsonEncode(snapshot.toJson()),
+      snapshot.branchId,
+      snapshot.toJson(),
     );
   }
 
@@ -171,12 +186,12 @@ class ScheduleAppointmentsCache {
     required DateTime rangeFrom,
     required DateTime rangeTo,
   }) async {
-    final existing = await read();
+    final existing = await readForBranch(branchId);
     final Map<int, List<AppointmentApi>> byWorker;
     final DateTime mergedFrom;
     final DateTime mergedTo;
 
-    if (existing != null && existing.branchId == branchId) {
+    if (existing != null) {
       byWorker = {
         for (final entry in existing.byWorker.entries)
           entry.key: List<AppointmentApi>.from(entry.value),

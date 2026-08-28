@@ -333,14 +333,16 @@ class MobilePushService {
   }) async {
     try {
       final url = ApiConsts().createUrl('mobile-push/devices/deactivate/');
+      final payload = DeactivatePushDeviceRequest(
+        organization: organizationId,
+        id: id,
+        token: token,
+        deviceId: deviceId,
+      ).toJson()
+        ..removeWhere((_, value) => value == null);
       final response = await createAppDio().post<Map<String, dynamic>>(
         url,
-        data: DeactivatePushDeviceRequest(
-          organization: organizationId,
-          id: id,
-          token: token,
-          deviceId: deviceId,
-        ).toJson(),
+        data: payload,
         options: Options(
           headers: {
             ...await _authHeaders(),

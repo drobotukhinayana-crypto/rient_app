@@ -4,7 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 const supportWhatsAppUrl = 'https://wa.me/79854230137';
 const supportTelegramUrl = 'https://t.me/rientSupport';
-const userAgreementUrl = 'https://rient.ru/doc/agreement_use_mobile_app.pdf';
+const userAgreementUrl =
+    'https://rient.ru/doc/agreement_use_mobile_app.pdf?v=1';
 
 final Uri supportWhatsAppUri = Uri.parse(supportWhatsAppUrl);
 final Uri supportTelegramUri = Uri.parse(supportTelegramUrl);

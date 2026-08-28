@@ -29,6 +29,8 @@ import 'package:rient_app/features/home/view/providers/statistics_provider.dart'
 import 'package:rient_app/features/home/view/providers/today_revenue_metrics_provider.dart';
 import 'package:rient_app/features/home/view/providers/worker_permissions_provider.dart';
 import 'package:rient_app/features/schedule/data/schedule_appointments_cache.dart';
+import 'package:rient_app/features/schedule/data/schedule_offline_branches_registry.dart';
+import 'package:rient_app/features/schedule/data/schedule_worker_templates_cache.dart';
 import 'package:rient_app/features/schedule/data/schedule_workers_cache.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
@@ -77,6 +79,8 @@ Future<void> clearUserSession(dynamic ref) async {
   await storage.removeValue(scheduleOfflineCacheStorageKey);
   await storage.removeValue(scheduleOfflineCurrentWorkerIdKey);
   await storage.removeValue(scheduleWorkersCacheStorageKey);
+  await storage.removeValue(scheduleWorkerTemplatesCacheStorageKey);
+  await ScheduleOfflineBranchesRegistry(storage).clear();
 
   await ref.read(appLockServiceProvider).clearAll();
   await ref.read(appLockUiProvider.notifier).onSessionEnded();

@@ -5,6 +5,7 @@ import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/appointments_api/appointments_api.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_api/schedule_patterns_api.dart';
 import 'package:rient_app/features/schedule/data/schedule_appointments_cache.dart';
+import 'package:rient_app/features/schedule/data/schedule_offline_branches_registry.dart';
 import 'package:rient_app/features/schedule/data/schedule_worker_templates_cache.dart';
 import 'package:rient_app/features/schedule/data/schedule_workers_cache.dart';
 import 'package:rient_app/features/schedule/service/appointments_service.dart';
@@ -32,6 +33,21 @@ final scheduleWorkerTemplatesCacheProvider =
 final scheduleOfflineSyncServiceProvider = Provider<ScheduleOfflineSyncService>(
   (ref) => ScheduleOfflineSyncService(ref),
 );
+
+Future<void> registerOfflineBranchMeta(dynamic ref, int branchId) async {
+  if (branchId <= 0) return;
+  final branch = ref.read(currentBranchProvider);
+  if (branch != null && branch.id == branchId) {
+    await ScheduleOfflineBranchesRegistry(ref.read(localStorageProvider))
+        .registerFromBranch(branch);
+    return;
+  }
+  final selected = ref.read(selectedBranchProvider);
+  if (selected != null && selected.id == branchId) {
+    await ScheduleOfflineBranchesRegistry(ref.read(localStorageProvider))
+        .registerFromBranch(selected);
+  }
+}
 
 class ScheduleOfflineSyncService {
   ScheduleOfflineSyncService(this.ref);
@@ -97,6 +113,7 @@ class ScheduleOfflineSyncService {
           byWorker: byWorker,
         ),
       );
+      await registerOfflineBranchMeta(ref, branchId);
       ref.read(scheduleServerReachableProvider.notifier).state = true;
     } catch (e) {
       if (isClientHttpError(e)) return;
