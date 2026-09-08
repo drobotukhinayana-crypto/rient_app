@@ -464,18 +464,6 @@ class _Avatar extends StatelessWidget {
       pictureUrl: pictureUrl,
       name: name,
       size: 32,
-      placeholder: _placeholder(isDark),
-    );
-  }
-
-  Widget _placeholder(bool isDark) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.forthLightDark : AppColors.forthLight,
-        shape: BoxShape.circle,
-      ),
     );
   }
 

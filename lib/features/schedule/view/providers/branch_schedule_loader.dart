@@ -35,17 +35,20 @@ List<SchedulePatternBranchItemApi> mergeBranchSchedulePatterns({
   }
   if (fromBranch == null) return byDay.values.toList();
 
+  // Только дни, которых нет в API — как на сайте, schedule_patterns_branch важнее.
   for (final pattern in fromBranch) {
     final day = pattern.day;
     if (day == null || day.isEmpty) continue;
     final patternBranch = pattern.branch;
     if (patternBranch != null && patternBranch != branchId) continue;
+    final key = canonicalScheduleDayKey(day);
+    if (byDay.containsKey(key)) continue;
     putBranchSchedulePattern(
       byDay,
       SchedulePatternBranchItemApi(
         id: pattern.id ?? 0,
         branch: patternBranch ?? branchId,
-        day: canonicalScheduleDayKey(day),
+        day: key,
         timeStart: pattern.timeStart,
         timeEnd: pattern.timeEnd,
         active: pattern.active ?? false,

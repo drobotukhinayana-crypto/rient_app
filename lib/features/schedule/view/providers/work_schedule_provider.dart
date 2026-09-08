@@ -7,11 +7,13 @@ import 'package:rient_app/features/auth/view/providers/role_provider.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/home/view/providers/current_worker_id_provider.dart';
 import 'package:rient_app/features/schedule/data/models/schedule_patterns_branch_api/schedule_patterns_branch_api.dart';
+import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/data/models/workers_api/workers_api.dart';
 import 'package:rient_app/features/schedule/service/schedule_patterns_service.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
 import 'package:rient_app/features/schedule/service/workers_service.dart';
 import 'package:rient_app/features/schedule/service/worker_daily_schedules_loader.dart';
+import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mapper.dart';
 import 'package:rient_app/features/schedule/view/components/work_schedule_mock_data.dart';
 import 'package:rient_app/features/schedule/view/providers/branch_schedule_loader.dart';
@@ -152,6 +154,25 @@ Future<List<WorkScheduleEmployeeRow>> _loadWorkScheduleMonthRows(
   final branchPatternsByDay =
       branchSchedulePatternsMapFromList(branchPatternsList);
 
+  final monthEnd = DateTime(
+    query.monthStart.year,
+    query.monthStart.month + 1,
+    0,
+  );
+  Map<String, ScheduleItemApi> branchDailyByDate = const {};
+  try {
+    final branchDailyResponse = await schedulesService.getSchedules(
+      branchId: branchId,
+      dateGte: query.monthStart,
+      dateLte: monthEnd,
+      pageSize: 500,
+      bustCache: bustCache,
+    );
+    branchDailyByDate = indexDailySchedulesByDate(
+      branchDailyResponse.results.where((item) => item.workerId == null),
+    );
+  } catch (_) {}
+
   final patternsResponse = await container
       .read(schedulePatternsServiceProvider)
       .getSchedulePatterns(branchId: branchId);
@@ -190,6 +211,7 @@ Future<List<WorkScheduleEmployeeRow>> _loadWorkScheduleMonthRows(
           workerRow: workerRows[i],
         ),
         branchPatternsByDay: branchPatternsByDay,
+        branchDailyByDate: branchDailyByDate,
         workerRow: workerRows[i],
         highlightedCellDate: query.highlightedCellDate,
       ),
@@ -200,6 +222,7 @@ Future<List<WorkScheduleEmployeeRow>> _loadWorkScheduleMonthRows(
     monthStart: query.monthStart,
     branchName: branchName,
     patternsByDay: branchPatternsByDay,
+    branchDailyByDate: branchDailyByDate,
   );
   return [branchRow, ...rows];
 }

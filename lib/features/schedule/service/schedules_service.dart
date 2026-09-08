@@ -221,4 +221,28 @@ class SchedulesService {
       throw CustomException(causedError: e);
     }
   }
+
+  /// Создать дневной график филиала.
+  /// POST /organizations/{id}/workers/{branch_id}/schedules/
+  /// (как на сайте: nested endpoint, в теле `subject: branch`).
+  Future<ScheduleItemApi> createBranchSchedule({
+    required int branchId,
+    required CreateWorkerScheduleRequest body,
+  }) {
+    return createWorkerSchedule(workerId: branchId, body: body);
+  }
+
+  /// Обновить дневной график филиала.
+  /// PATCH /organizations/{id}/workers/{branch_id}/schedules/{schedule_id}/
+  Future<ScheduleItemApi> updateBranchSchedule({
+    required int branchId,
+    required int scheduleId,
+    required CreateWorkerScheduleRequest body,
+  }) {
+    return updateWorkerSchedule(
+      workerId: branchId,
+      scheduleId: scheduleId,
+      body: body,
+    );
+  }
 }

@@ -44,7 +44,7 @@ List<ScheduleItemApi> mergeWorkerScheduleSources({
   for (final item in fromWorkerEndpoint) {
     if (item.branch != branchId) continue;
     final itemWorkerId = item.workerId;
-    if (itemWorkerId != null && itemWorkerId != workerId) continue;
+    if (itemWorkerId != workerId) continue;
     final dateKey = item.canonicalDate;
     final existing = byDate[dateKey];
     if (existing == null || preferDailyScheduleItem(item, existing)) {
@@ -146,9 +146,46 @@ WorkScheduleShiftTone _toneForShiftHours(String start, String end) {
 
 WorkScheduleDayCell clampWorkScheduleCellToBranchPattern(
   WorkScheduleDayCell cell,
+  SchedulePatternBranchItemApi? branchPattern, {
+  ScheduleItemApi? branchDaily,
+}) =>
+    _clampCellToBranchPattern(
+      _clampCellWhenBranchClosed(
+        cell,
+        branchDaily: branchDaily,
+        branchPattern: branchPattern,
+      ),
+      branchPattern,
+    );
+
+/// Та же логика, что [workScheduleCellFromBranchDay]: дневная запись, иначе шаблон недели.
+bool isBranchClosedOnDate({
+  ScheduleItemApi? branchDaily,
   SchedulePatternBranchItemApi? branchPattern,
-) =>
-    _clampCellToBranchPattern(cell, branchPattern);
+}) {
+  if (branchDaily != null) return !branchDaily.active;
+  return branchPattern == null || !branchPattern.active;
+}
+
+WorkScheduleDayCell _clampCellWhenBranchClosed(
+  WorkScheduleDayCell cell, {
+  ScheduleItemApi? branchDaily,
+  SchedulePatternBranchItemApi? branchPattern,
+}) {
+  if (!isBranchClosedOnDate(
+    branchDaily: branchDaily,
+    branchPattern: branchPattern,
+  )) {
+    return cell;
+  }
+  if (cell.isManuallyEdited) return cell;
+  return WorkScheduleDayCell.dayOff(
+    isManuallyEdited: false,
+    scheduleId: cell.scheduleId,
+    breakStart: cell.breakStart,
+    breakEnd: cell.breakEnd,
+  );
+}
 
 WorkScheduleDayCell _clampCellToBranchPattern(
   WorkScheduleDayCell cell,
@@ -157,6 +194,8 @@ WorkScheduleDayCell _clampCellToBranchPattern(
   if (cell.kind != WorkScheduleCellKind.shift || branchPattern == null) {
     return cell;
   }
+  // active: false в schedule_patterns_branch — шаблон недели отключён (сменный график),
+  // а не «филиал закрыт». Конкретный день задаёт дневная запись /schedules/.
   if (!branchPattern.active) return cell;
 
   final branchStart = branchPattern.timeStartShort;
@@ -264,6 +303,46 @@ WorkScheduleDayCell workScheduleCellFromBranchPattern(
   );
 }
 
+/// Ячейка филиала: дневная запись `/schedules/` (как на сайте), иначе шаблон недели.
+WorkScheduleDayCell workScheduleCellFromBranchDay({
+  SchedulePatternBranchItemApi? pattern,
+  ScheduleItemApi? daily,
+}) {
+  if (daily != null) {
+    if (!daily.active) {
+      return WorkScheduleDayCell.dayOff(
+        isManuallyEdited: isManualWorkScheduleDaily(daily),
+        scheduleId: daily.id,
+        breakStart: daily.breakStartShort,
+        breakEnd: daily.breakEndShort,
+      );
+    }
+    final start = daily.timeStartShort ?? pattern?.timeStartShort;
+    final end = daily.timeEndShort ?? pattern?.timeEndShort;
+    if (start == null ||
+        end == null ||
+        start.isEmpty ||
+        end.isEmpty) {
+      return workScheduleCellFromBranchPattern(pattern);
+    }
+    final startH = int.tryParse(start.split(':').first) ?? 0;
+    final endH = int.tryParse(end.split(':').first) ?? 0;
+    final hours = (endH - startH).clamp(0, 24).toDouble();
+    return WorkScheduleDayCell.shift(
+      timeStart: start,
+      timeEnd: end,
+      tone: hours >= 10
+          ? WorkScheduleShiftTone.full
+          : WorkScheduleShiftTone.short,
+      isManuallyEdited: isManualWorkScheduleDaily(daily),
+      scheduleId: daily.id,
+      breakStart: daily.breakStartShort,
+      breakEnd: daily.breakEndShort,
+    );
+  }
+  return workScheduleCellFromBranchPattern(pattern);
+}
+
 SchedulePatternBranchItemApi? _branchPatternForWeekday(
   Map<String, SchedulePatternBranchItemApi> patternsByDay,
   int weekday,
@@ -317,6 +396,7 @@ WorkScheduleEmployeeRow workScheduleBranchRow({
   required DateTime monthStart,
   required String branchName,
   required Map<String, SchedulePatternBranchItemApi> patternsByDay,
+  Map<String, ScheduleItemApi> branchDailyByDate = const {},
 }) {
   final days = daysOfMonth(monthStart);
   final displayName = branchName.trim().isEmpty ? 'Филиал' : branchName.trim();
@@ -327,8 +407,9 @@ WorkScheduleEmployeeRow workScheduleBranchRow({
     isBranchRow: true,
     monthCells: [
       for (final date in days)
-        workScheduleCellFromBranchPattern(
-          _branchPatternForWeekday(patternsByDay, date.weekday),
+        workScheduleCellFromBranchDay(
+          pattern: _branchPatternForWeekday(patternsByDay, date.weekday),
+          daily: branchDailyByDate[SchedulesService.dateToApi(date)],
         ),
     ],
   );
@@ -340,12 +421,11 @@ WorkScheduleDayCell workScheduleCellFromPattern(
   ScheduleItemApi? daily,
 }) {
   if (pattern == null || !pattern.active) {
-    // Ручной рабочий день поверх шаблонного выходного.
-    if (daily != null && daily.active && !daily.auto) {
-      return workScheduleCellFromScheduleItem(
-        daily,
+    if (daily != null) {
+      return _workScheduleCellFromWorkerDaily(
+        daily: daily,
+        templateCell: const WorkScheduleDayCell.dayOff(),
         selected: selected,
-        isManuallyEdited: true,
       );
     }
     return _dayOffFromDaily(
@@ -367,7 +447,7 @@ WorkScheduleDayCell workScheduleCellFromPattern(
       ? WorkScheduleShiftTone.full
       : WorkScheduleShiftTone.short;
   // Ручная правка дня перекрывает часы шаблона.
-  if (daily != null && !daily.auto) {
+  if (daily != null) {
     return _workScheduleCellFromWorkerDaily(
       daily: daily,
       templateCell: WorkScheduleDayCell.shift(
@@ -437,35 +517,10 @@ WorkScheduleDayCell _workScheduleCellFromWorkerDaily({
   required WorkScheduleDayCell templateCell,
   bool selected = false,
 }) {
-  // auto: true — день из недельного шаблона («…»). Дальние даты часто
-  // остаются со старой дневной записью; шаблон важнее, иначе 10 авг.
-  // остаётся «рабочим», когда пн уже выходной.
-  if (daily.auto) {
-    if (templateCell.kind == WorkScheduleCellKind.shift) {
-      final ts = templateCell.timeStart ?? '09:00';
-      final te = templateCell.timeEnd ?? '20:00';
-      return WorkScheduleDayCell.shift(
-        timeStart: ts,
-        timeEnd: te,
-        tone: _toneForShiftHours(ts, te),
-        isSelected: selected,
-        isManuallyEdited: false,
-        scheduleId: daily.id,
-        breakStart: daily.breakStartShort ?? templateCell.breakStart,
-        breakEnd: daily.breakEndShort ?? templateCell.breakEnd,
-      );
-    }
-    return WorkScheduleDayCell.dayOff(
-      isManuallyEdited: false,
-      scheduleId: daily.id,
-      breakStart: daily.breakStartShort,
-      breakEnd: daily.breakEndShort,
-    );
-  }
-
-  // auto: false — ручная правка по ячейке.
+  // Как на сайте: дневная запись `/schedules/` задаёт active и часы,
+  // даже если auto: true (автогенерация из шаблона).
   if (!daily.active) {
-    return _dayOffFromDaily(daily, isManuallyEdited: true);
+    return _dayOffFromDaily(daily, isManuallyEdited: !daily.auto);
   }
 
   final start = daily.timeStartShort;
@@ -477,11 +532,11 @@ WorkScheduleDayCell _workScheduleCellFromWorkerDaily({
     return workScheduleCellFromScheduleItem(
       daily,
       selected: selected,
-      isManuallyEdited: true,
+      isManuallyEdited: !daily.auto,
     );
   }
 
-  // На сайте active: true без time_start/time_end — рабочий день, часы из шаблона.
+  // active: true без time_start/time_end — часы из недельного шаблона.
   if (templateCell.kind == WorkScheduleCellKind.shift) {
     final ts = templateCell.timeStart ?? '09:00';
     final te = templateCell.timeEnd ?? '20:00';
@@ -490,7 +545,7 @@ WorkScheduleDayCell _workScheduleCellFromWorkerDaily({
       timeEnd: te,
       tone: _toneForShiftHours(ts, te),
       isSelected: selected,
-      isManuallyEdited: true,
+      isManuallyEdited: false,
       scheduleId: daily.id,
       breakStart: daily.breakStartShort ?? templateCell.breakStart,
       breakEnd: daily.breakEndShort ?? templateCell.breakEnd,
@@ -500,7 +555,7 @@ WorkScheduleDayCell _workScheduleCellFromWorkerDaily({
   return workScheduleCellFromScheduleItem(
     daily,
     selected: selected,
-    isManuallyEdited: true,
+    isManuallyEdited: !daily.auto,
   );
 }
 
@@ -514,6 +569,7 @@ WorkScheduleDayCell resolveWorkerWorkScheduleDayCell({
   Map<String, dynamic>? configMap,
   ScheduleItemApi? daily,
   SchedulePatternBranchItemApi? branchPattern,
+  ScheduleItemApi? branchDaily,
   bool selected = false,
 }) {
   final resolvedConfig =
@@ -530,7 +586,7 @@ WorkScheduleDayCell resolveWorkerWorkScheduleDayCell({
   );
 
   final WorkScheduleDayCell cell;
-  if (daily != null && daily.workerId == workerId) {
+  if (daily != null) {
     cell = _workScheduleCellFromWorkerDaily(
       daily: daily,
       templateCell: templateCell,
@@ -546,7 +602,11 @@ WorkScheduleDayCell resolveWorkerWorkScheduleDayCell({
       selected: selected,
     );
   }
-  return _clampCellToBranchPattern(cell, branchPattern);
+  return clampWorkScheduleCellToBranchPattern(
+    cell,
+    branchPattern,
+    branchDaily: branchDaily,
+  );
 }
 
 WorkScheduleDayCell _cellFromTemplate({
@@ -558,36 +618,39 @@ WorkScheduleDayCell _cellFromTemplate({
   bool selected = false,
 }) {
   if (_isShiftSchedule(configMap)) {
-    if (!isShiftWorkerWorkDay(date, configMap)) {
-      if (daily != null && daily.active) {
-        return workScheduleCellFromScheduleItem(
-          daily,
-          selected: selected,
-          isManuallyEdited: isManualWorkScheduleDaily(daily),
-        );
-      }
-      return _dayOffFromDaily(
-        daily,
-        isManuallyEdited:
-            daily != null ? isManualWorkScheduleDaily(daily) : false,
-      );
-    }
+    final shiftWorkDay = isShiftWorkerWorkDay(date, configMap);
     final start = _shortTimeFromDynamic(configMap?['time_start']) ?? '09:00';
     final end = _shortTimeFromDynamic(configMap?['time_end']) ?? '20:00';
     final startH = int.tryParse(start.split(':').first) ?? 9;
     final endH = int.tryParse(end.split(':').first) ?? 20;
     final hours = (endH - startH).clamp(0, 24).toDouble();
-    return WorkScheduleDayCell.shift(
-      timeStart: start,
-      timeEnd: end,
-      tone: hours >= 10
-          ? WorkScheduleShiftTone.full
-          : WorkScheduleShiftTone.short,
-      isSelected: selected,
-      scheduleId: daily?.id,
-      breakStart: daily?.breakStartShort,
-      breakEnd: daily?.breakEndShort,
-    );
+    final shiftTemplate = shiftWorkDay
+        ? WorkScheduleDayCell.shift(
+            timeStart: start,
+            timeEnd: end,
+            tone: hours >= 10
+                ? WorkScheduleShiftTone.full
+                : WorkScheduleShiftTone.short,
+            isSelected: selected,
+            scheduleId: daily?.id,
+            breakStart: daily?.breakStartShort,
+            breakEnd: daily?.breakEndShort,
+          )
+        : WorkScheduleDayCell.dayOff(
+            scheduleId: daily?.id,
+            breakStart: daily?.breakStartShort,
+            breakEnd: daily?.breakEndShort,
+          );
+
+    if (daily != null) {
+      return _workScheduleCellFromWorkerDaily(
+        daily: daily,
+        templateCell: shiftTemplate,
+        selected: selected,
+      );
+    }
+
+    return shiftTemplate;
   }
 
   return workScheduleCellFromPattern(
@@ -604,8 +667,7 @@ ScheduleItemApi? _dailyScheduleForWorker({
 }) {
   final item = byDate[dateKey];
   if (item == null) return null;
-  final itemWorkerId = item.workerId;
-  if (itemWorkerId != null && itemWorkerId != workerId) return null;
+  if (item.workerId != workerId) return null;
   return item;
 }
 
@@ -616,6 +678,7 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
   required int branchId,
   List<SchedulePatternItemApi> patterns = const [],
   Map<String, SchedulePatternBranchItemApi> branchPatternsByDay = const {},
+  Map<String, ScheduleItemApi> branchDailyByDate = const {},
   Map<String, dynamic>? workerRow,
   DateTime? highlightedCellDate,
 }) {
@@ -632,7 +695,7 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
   for (final item in schedules) {
     if (item.branch != branchId) continue;
     final itemWorkerId = item.workerId;
-    if (itemWorkerId != null && itemWorkerId != worker.id) continue;
+    if (itemWorkerId != worker.id) continue;
     final dateKey = item.canonicalDate;
     final existing = byDate[dateKey];
     if (existing == null || preferDailyScheduleItem(item, existing)) {
@@ -674,6 +737,7 @@ WorkScheduleEmployeeRow workScheduleEmployeeRow({
               branchPatternsByDay,
               date.weekday,
             ),
+            branchDaily: branchDailyByDate[dateKey],
             selected: selected,
           );
         }(),

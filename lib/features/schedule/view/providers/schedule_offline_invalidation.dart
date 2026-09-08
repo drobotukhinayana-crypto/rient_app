@@ -24,6 +24,7 @@ void invalidateScheduleNetworkProviders(dynamic ref) {
   ref.invalidate(workerScheduleTemplatesByIdProvider);
   ref.invalidate(workerWeekdaysByIdProvider);
   ref.invalidate(scheduleForDateProvider);
+  ref.invalidate(branchSchedulesWeekProvider);
   ref.invalidate(workerSchedulesRangeProvider);
   ref.invalidate(scheduleStatisticsForWeekProvider);
   ref.invalidate(scheduleStatisticsForMonthProvider);

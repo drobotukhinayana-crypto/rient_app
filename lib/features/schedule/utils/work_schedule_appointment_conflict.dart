@@ -82,13 +82,18 @@ String? humanizeScheduleApiError(String? raw) {
   if (raw == null) return null;
   var trimmed = raw.trim();
   if (trimmed.isEmpty) return null;
+  final lower = trimmed.toLowerCase();
+  if (lower.contains('<!doctype html') ||
+      lower.contains('<html') ||
+      lower.contains('<h1>not found</h1>')) {
+    return null;
+  }
   if (trimmed.toLowerCase().startsWith('detail:')) {
     trimmed = trimmed.substring('detail:'.length).trim();
   }
   if (isScheduleAppointmentConflictApiMessage(trimmed)) {
     return workScheduleAppointmentsConflictMessage;
   }
-  final lower = trimmed.toLowerCase();
   if (lower.contains('no rights') || lower.contains('недостаточно прав')) {
     return workScheduleNoPermissionMessage;
   }
@@ -244,6 +249,31 @@ Future<String?> validateWorkScheduleDayAgainstAppointments({
     )) {
       return workScheduleAppointmentsConflictMessage;
     }
+  }
+
+  return null;
+}
+
+/// Проверка записей филиала перед изменением строки филиала (как на сайте).
+Future<String?> validateBranchWorkScheduleDayAgainstAppointments({
+  required WidgetRef ref,
+  required int branchId,
+  required Iterable<int> workerIds,
+  required DateTime date,
+  required WorkScheduleDayBounds proposed,
+}) async {
+  if (branchId <= 0) return null;
+
+  for (final workerId in workerIds) {
+    if (workerId <= 0) continue;
+    final conflict = await validateWorkScheduleDayAgainstAppointments(
+      ref: ref,
+      branchId: branchId,
+      workerId: workerId,
+      date: date,
+      proposed: proposed,
+    );
+    if (conflict != null) return conflict;
   }
 
   return null;

@@ -47,6 +47,7 @@ import 'package:rient_app/features/schedule/view/components/specialist_list_view
 import 'package:rient_app/features/schedule/view/components/specialist_select_dialog.dart';
 import 'package:rient_app/features/schedule/view/components/view_mode_segmented_control.dart';
 import 'package:rient_app/features/schedule/view/providers/appointments_provider.dart';
+import 'package:rient_app/features/schedule/service/schedules_service.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_cell_interval_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_statistics_provider.dart';
 import 'package:rient_app/features/schedule/view/providers/schedules_provider.dart';
@@ -288,12 +289,14 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   static bool _isBranchWorkingOnDate(
     DateTime date,
     List<SchedulePattern> patterns,
-    List<ScheduleItemApi> daySchedules,
-  ) {
-    final daily = pickPreferredDailySchedule(
-      daySchedules.where((s) => s.workerId == null),
-      date,
-    );
+    List<ScheduleItemApi> daySchedules, {
+    ScheduleItemApi? branchDailyOverride,
+  }) {
+    final daily = branchDailyOverride ??
+        pickPreferredDailySchedule(
+          daySchedules.where((s) => s.workerId == null),
+          date,
+        );
     if (daily != null) {
       return daily.active;
     }
@@ -305,6 +308,24 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       if (isSameDay) return item.active ?? false;
     }
     return false;
+  }
+
+  static ScheduleItemApi? _branchDailyForDayViewDate(
+    DateTime date, {
+    required DateTime selectedDate,
+    required Map<String, ScheduleItemApi> branchDailyByWeek,
+    required List<ScheduleItemApi> selectedDaySchedules,
+  }) {
+    final normalized = _toDateOnly(date);
+    final fromWeek = branchDailyByWeek[SchedulesService.dateToApi(normalized)];
+    if (fromWeek != null) return fromWeek;
+    if (isSameCalendarDay(normalized, _toDateOnly(selectedDate))) {
+      return pickPreferredDailySchedule(
+        selectedDaySchedules.where((s) => s.workerId == null),
+        normalized,
+      );
+    }
+    return null;
   }
 
   /// Кто работает в выбранный день — та же логика, что штриховка в «Неделя».
@@ -470,6 +491,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     ref.invalidate(workerWeekdaysByIdProvider);
     ref.invalidate(workerSchedulesRangeProvider);
     ref.invalidate(scheduleForDateProvider);
+    ref.invalidate(branchSchedulesWeekProvider);
 
     _bumpScheduleUiVersion();
   }
@@ -1015,6 +1037,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     );
     final selectedDate = ref.watch(selectedScheduleDateProvider);
     final normalizedSelectedDate = dateOnly(selectedDate);
+    final dayVisibleWeekStart = _viewMode == ViewMode.day
+        ? _mondayOf(selectedDate)
+        : _weekStart;
+    final branchDailyByWeekAsync = _viewMode == ViewMode.day
+        ? ref.watch(branchSchedulesWeekProvider(dayVisibleWeekStart))
+        : null;
+    final branchDailyByWeek = branchDailyByWeekAsync?.value ?? const {};
     final workerWeekdaysAsync = ref.watch(workerWeekdaysByIdProvider);
     final workerWeekdaysById = workerWeekdaysAsync.hasValue
         ? workerWeekdaysAsync.requireValue
@@ -1036,12 +1065,19 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         workerTemplatesAsync.hasValue &&
         scheduleForDayAsync.hasValue;
     final isAdminDayView = !isWorkerRole && _viewMode == ViewMode.day;
+    final selectedBranchDaily = _branchDailyForDayViewDate(
+      normalizedSelectedDate,
+      selectedDate: normalizedSelectedDate,
+      branchDailyByWeek: branchDailyByWeek,
+      selectedDaySchedules: dayBranchSchedules,
+    );
     final branchClosedOnSelectedDate = isAdminDayView &&
         dayScheduleReady &&
         !_isBranchWorkingOnDate(
           normalizedSelectedDate,
           branchPatterns,
           dayBranchSchedules,
+          branchDailyOverride: selectedBranchDaily,
         );
     final dayViewDetailsLoading =
         !isScheduleOffline && isAdminDayView && !dayScheduleReady;
@@ -1191,9 +1227,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     /// День: owner — загруженность филиала; мастер — своя.
     final dayStatisticsWorkerId =
         isWorkerRole ? specialistStatisticsWorkerId : null;
-    final dayVisibleWeekStart = _viewMode == ViewMode.day
-        ? _mondayOf(selectedDate)
-        : _weekStart;
     final dayHeaderStatsQuery = ScheduleStatisticsQuery(
       periodKey: scheduleWeekKey(dayVisibleWeekStart),
       workerId: dayStatisticsWorkerId,
@@ -1253,7 +1286,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     );
     final monthOccupancyByDay =
         monthStatisticsAsync.value?.occupancyByDay ?? [];
-    final monthStatisticsLoading = monthStatisticsAsync.isLoading;
     final AsyncValue<List<AppointmentApi>> monthAppointmentsAsync;
     if (_viewMode == ViewMode.month) {
       final monthEndDate = DateTime(
@@ -1277,8 +1309,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     } else {
       monthAppointmentsAsync = const AsyncValue.data(<AppointmentApi>[]);
     }
-    final monthAppointmentsLoading =
-        _viewMode == ViewMode.month && monthAppointmentsAsync.isLoading;
     final scheduleRangeBounds = _scheduleRangeBounds(
       viewMode: _viewMode,
       weekStart: _weekStart,
@@ -1321,15 +1351,29 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     }
     bool resolveBranchNonWorkingDay(DateTime date) {
       final normalized = _toDateOnly(date);
-      final daySchedules = isSameCalendarDay(normalized, normalizedSelectedDate)
-          ? dayBranchSchedules
-          : const <ScheduleItemApi>[];
+      if (branchDailyByWeekAsync != null &&
+          !branchDailyByWeekAsync.hasValue &&
+          !dayScheduleReady &&
+          !isSameCalendarDay(normalized, normalizedSelectedDate)) {
+        return false;
+      }
+      final branchDaily = _branchDailyForDayViewDate(
+        normalized,
+        selectedDate: normalizedSelectedDate,
+        branchDailyByWeek: branchDailyByWeek,
+        selectedDaySchedules: dayBranchSchedules,
+      );
       return !_isBranchWorkingOnDate(
         normalized,
         branchPatterns,
-        daySchedules,
+        isSameCalendarDay(normalized, normalizedSelectedDate)
+            ? dayBranchSchedules
+            : const <ScheduleItemApi>[],
+        branchDailyOverride: branchDaily,
       );
     }
+    final branchWeekScheduleReady =
+        branchDailyByWeekAsync == null || branchDailyByWeekAsync.hasValue;
     final Set<int>? workingWeekdaysForWeekCalendar =
         specialistIdForData == null
         ? null
@@ -1338,20 +1382,24 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
               : (workerWeekdaysById[specialistIdForData] ?? const <int>{}));
     final workerCalendarDataReady = specialistIdForData == null ||
         (workerWeekdaysAsync.hasValue &&
+            workerTemplatesAsync.hasValue &&
             (workerSchedulesAsync?.hasValue ?? false));
-    /// Полоска дат в «День»: один мастер — его выходные; несколько — без штриховки (как раньше).
+    /// Месяц: статистика, записи и (если выбран мастер) график для выходных/рабочих.
+    final monthCalendarLoading = !isScheduleOffline &&
+        _viewMode == ViewMode.month &&
+        (!monthStatisticsAsync.hasValue ||
+            monthStatisticsAsync.isLoading ||
+            !monthAppointmentsAsync.hasValue ||
+            monthAppointmentsAsync.isLoading ||
+            (specialistIdForData != null && !workerCalendarDataReady));
+    /// Полоска дат в «День» (админ): выходные и заполняемость по филиалу.
     final dayHeaderResolveNonWorkingDay = isWorkerRole
         ? (specialistIdForData != null && workerCalendarDataReady
               ? resolveWorkerNonWorkingDay
               : null)
-        : isAdminMultiDayView
-        ? null
-        : (isAdminDayView &&
-              !isAdminMultiDayView &&
-              specialistIdForData != null &&
-              workerCalendarDataReady)
-        ? resolveWorkerNonWorkingDay
-        : (isAdminDayView && dayScheduleReady ? resolveBranchNonWorkingDay : null);
+        : (isAdminDayView && (dayScheduleReady || branchWeekScheduleReady)
+              ? resolveBranchNonWorkingDay
+              : null);
     final slotsByDay = _slotsByDayFromActiveAppointments(
       monthAppointmentsAsync.value ?? const [],
       _monthStart,
@@ -1498,25 +1546,25 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
             weekAppointmentsAsync.isLoading ||
             (specialistIdForData != null &&
                 (workerSchedulesAsync?.isLoading == true ||
-                    workerWeekdaysAsync.isLoading)));
-    final monthViewContentLoading = !isScheduleOffline &&
-        _viewMode == ViewMode.month &&
-        (monthStatisticsLoading ||
-            monthAppointmentsLoading ||
-            (specialistIdForData != null &&
-                (workerSchedulesAsync?.isLoading == true ||
-                    workerWeekdaysAsync.isLoading)));
+                    workerWeekdaysAsync.isLoading ||
+                    workerTemplatesAsync.isLoading)));
     final scheduleViewContentLoading = !isScheduleOffline &&
         (branchesAsync.isLoading ||
             workersAsync.isLoading ||
             (isWorkerRole && currentWorkerIdAsync.isLoading) ||
             dayViewContentLoading ||
-            weekViewContentLoading ||
-            monthViewContentLoading);
+            weekViewContentLoading);
     final weekCalendarWorkingWeekdays = workerCalendarDataReady
         ? null
         : workingWeekdaysForWeekCalendar;
     final weekCalendarResolveNonWorkingDay =
+        specialistIdForData != null && workerCalendarDataReady
+        ? resolveWorkerNonWorkingDay
+        : null;
+    final monthCalendarWorkingWeekdays = workerCalendarDataReady
+        ? null
+        : workingWeekdaysForWeekCalendar;
+    final monthCalendarResolveNonWorkingDay =
         specialistIdForData != null && workerCalendarDataReady
         ? resolveWorkerNonWorkingDay
         : null;
@@ -1953,26 +2001,28 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                                   padding: AppDecoration.padding16.copyWith(
                                     top: 20,
                                   ),
-                                  child: SingleChildScrollView(
-                                    child: MonthCalendar(
-                                      key: ValueKey(
-                                        'month_${monthKey}_'
-                                        'w${specialistStatisticsWorkerId ?? 0}_'
-                                        '${Object.hashAll(workingWeekdaysForWeekCalendar ?? const <int>{})}_'
-                                        '$_refreshVersion',
-                                      ),
-                                      month: _monthStart,
-                                      slotsByDay: slotsByDay,
-                                      occupancyByDay: monthOccupancyByDay,
-                                      workingWeekdays:
-                                          workingWeekdaysForWeekCalendar,
-                                      resolveNonWorkingDay:
-                                          specialistIdForData != null
-                                          ? resolveWorkerNonWorkingDay
-                                          : null,
-                                      onDayTap: _switchToDayMode,
-                                    ),
-                                  ),
+                                  child: monthCalendarLoading
+                                      ? const Center(
+                                          child: CircularProgressIndicator(),
+                                        )
+                                      : SingleChildScrollView(
+                                          child: MonthCalendar(
+                                            key: ValueKey(
+                                              'month_${monthKey}_'
+                                              'w${specialistStatisticsWorkerId ?? 0}_'
+                                              '${Object.hashAll(workingWeekdaysForWeekCalendar ?? const <int>{})}_'
+                                              '$_refreshVersion',
+                                            ),
+                                            month: _monthStart,
+                                            slotsByDay: slotsByDay,
+                                            occupancyByDay: monthOccupancyByDay,
+                                            workingWeekdays:
+                                                monthCalendarWorkingWeekdays,
+                                            resolveNonWorkingDay:
+                                                monthCalendarResolveNonWorkingDay,
+                                            onDayTap: _switchToDayMode,
+                                          ),
+                                        ),
                                 ),
                               ),
                           ],

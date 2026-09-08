@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rient_app/features/home/view/providers/branches_provider.dart';
 import 'package:rient_app/features/schedule/data/models/schedules_api/schedules_api.dart';
 import 'package:rient_app/features/schedule/service/schedules_service.dart';
+import 'package:rient_app/features/schedule/utils/worker_work_day.dart';
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_provider.dart';
 
 /// Строка даты DD.MM.YYYY для ключа кэша и API.
@@ -42,6 +43,37 @@ final scheduleForDateProvider =
         bustCache: true,
       );
     });
+
+/// Дневные записи филиала (без worker/N) на Mon–Sun — полоска дат в режиме «День».
+final branchSchedulesWeekProvider =
+    FutureProvider.family<Map<String, ScheduleItemApi>, DateTime>((
+  ref,
+  weekStart,
+) async {
+  if (ref.watch(scheduleOfflineModeProvider)) {
+    return const {};
+  }
+  final branchId = ref.watch(currentBranchIdProvider);
+  if (branchId == 0) return const {};
+
+  final monday = DateTime(weekStart.year, weekStart.month, weekStart.day);
+  final sunday = monday.add(const Duration(days: 6));
+  final service = ref.read(schedulesServiceProvider);
+  try {
+    final response = await service.getSchedules(
+      branchId: branchId,
+      dateGte: monday,
+      dateLte: sunday,
+      pageSize: 500,
+      bustCache: true,
+    );
+    return indexDailySchedulesByDate(
+      response.results.where((item) => item.workerId == null),
+    );
+  } catch (_) {
+    return const {};
+  }
+});
 
 /// Id сотрудников, которые работают в указанный день.
 final workerIdsWorkingOnDateProvider = Provider.family<List<int>, DateTime>((

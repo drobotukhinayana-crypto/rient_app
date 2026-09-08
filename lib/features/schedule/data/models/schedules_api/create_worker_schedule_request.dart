@@ -61,6 +61,37 @@ class CreateWorkerScheduleRequest {
 
   static String workerScheduleKey(int workerId) => 'worker/$workerId';
 
+  static String branchScheduleKey(int branchId) => 'branch/$branchId';
+
+  /// POST/PATCH `/workers/{branch_id}/schedules/` с `subject: branch`, `auto: false`.
+  factory CreateWorkerScheduleRequest.forBranch({
+    required DateTime date,
+    required String timeStart,
+    required String timeEnd,
+    required bool active,
+    required int branchId,
+    String? scheduleKey,
+    String? breakStart,
+    String? breakEnd,
+    bool auto = false,
+    String captcha = 'dummy',
+  }) {
+    return CreateWorkerScheduleRequest(
+      date: dateToApi(date),
+      key: scheduleKey ?? branchScheduleKey(branchId),
+      timeStart: timeToApi(timeStart),
+      timeEnd: timeToApi(timeEnd),
+      active: active,
+      subject: 'branch',
+      subjectPk: branchId,
+      branch: branchId,
+      breakStart: breakStart == null ? null : timeToApi(breakStart),
+      breakEnd: breakEnd == null ? null : timeToApi(breakEnd),
+      auto: auto,
+      captcha: captcha,
+    );
+  }
+
   static String dateToApi(DateTime date) {
     final y = date.year;
     final m = date.month.toString().padLeft(2, '0');
