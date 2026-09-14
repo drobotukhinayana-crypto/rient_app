@@ -72,9 +72,12 @@ final connectivityRecoveryListenerProvider = Provider<void>((ref) {
       await Future<void>.delayed(Duration.zero);
       if (!ref.mounted) return;
 
-      beginPostVpnConnectivityGrace(ref);
-      _invalidateVpnCheckDeferred(ref);
-      _invalidateConnectivityDeferred(ref);
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (!ref.mounted) return;
+        beginPostVpnConnectivityGrace(ref);
+        _invalidateVpnCheckDeferred(ref);
+        _invalidateConnectivityDeferred(ref);
+      });
       await Future<void>.delayed(const Duration(milliseconds: 50));
       if (!ref.mounted) return;
 
@@ -170,8 +173,7 @@ final connectivityRecoveryListenerProvider = Provider<void>((ref) {
     if (previous == true && next == false) {
       _scheduleVpnDeactivated(ref, onVpnDeactivated);
     }
-    if (previous != next) {
-      _invalidateVpnCheckDeferred(ref);
-    }
+    // Перепроверку VPN делает [vpnActivePollingListenerProvider] — повторный
+    // invalidate здесь давал двойной rebuild Provider<bool> в одном кадре.
   });
 });

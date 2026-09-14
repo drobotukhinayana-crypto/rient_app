@@ -150,6 +150,28 @@ final currentBranchIdProvider = Provider<int>((ref) {
   );
 });
 
+/// Переключает активный филиал по id (сообщения, push и т.п.).
+Future<bool> selectBranchById(dynamic ref, int branchId) async {
+  if (branchId <= 0) return false;
+  try {
+    final branches = await ref.read(branchesProvider.future);
+    final branch =
+        branches.results.where((b) => b.id == branchId).firstOrNull;
+    if (branch == null) return false;
+
+    final current = ref.read(selectedBranchProvider);
+    if (current?.id == branchId) return true;
+
+    ref.read(selectedBranchProvider.notifier).state = branch;
+    final storage = ref.read(localStorageProvider);
+    final storageKey = ref.read(selectedBranchStorageKeyProvider);
+    await storage.saveString(storageKey, branch.id.toString());
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 // Provider для получения текущего выбранного филиала
 final currentBranchProvider = Provider<BranchApi?>((ref) {
   final selectedBranch = ref.watch(selectedBranchProvider);

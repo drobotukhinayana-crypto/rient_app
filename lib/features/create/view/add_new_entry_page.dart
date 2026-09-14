@@ -1020,15 +1020,25 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
 
   /// Дата записи для формы: по услугам (как в календаре), не только `appointment.datetime`.
   DateTime? _appointmentCalendarDate(AppointmentApi appointment) {
-    for (final service in appointment.services) {
-      final parsed = DateTime.tryParse(service.datetime ?? '')?.toLocal();
-      if (parsed != null) {
-        return DateTime(parsed.year, parsed.month, parsed.day);
-      }
-    }
-    final parsed = DateTime.tryParse(appointment.datetime)?.toLocal();
-    if (parsed == null) return null;
-    return DateTime(parsed.year, parsed.month, parsed.day);
+    final branchTz = ref.read(branchTimezoneProvider);
+    return appointment.appointmentCalendarDay(branchTz);
+  }
+
+  DateTime? _serviceStartFromAppointment(
+    AppointmentApi appointment,
+    AppointmentServiceApi service,
+  ) {
+    final branchTz = ref.read(branchTimezoneProvider);
+    return appointment.resolveServiceStart(service, branchTz);
+  }
+
+  String? _selectedTimeFromAppointmentService(
+    AppointmentApi appointment,
+    AppointmentServiceApi service,
+  ) {
+    final start = _serviceStartFromAppointment(appointment, service);
+    if (start == null) return null;
+    return _formatSlot(start);
   }
 
   bool _isInitialServiceTime(
@@ -1040,11 +1050,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (lineId != null) {
       for (final service in appointment.services) {
         if (service.id != lineId) continue;
-        final serviceDateTime = DateTime.tryParse(
-          service.datetime ?? '',
-        )?.toLocal();
-        if (serviceDateTime == null) return false;
-        return _formatSlot(serviceDateTime) == selectedTime;
+        final formatted = _selectedTimeFromAppointmentService(
+          appointment,
+          service,
+        );
+        if (formatted == null) return false;
+        return formatted == selectedTime;
       }
       return false;
     }
@@ -1107,7 +1118,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
             : () {
                 final ordered = [...appointment.services];
                 sortAppointmentServicesByDatetime(ordered);
-                return ordered.map(_createInitialServiceBlock);
+                return ordered
+                    .map((service) => _createInitialServiceBlock(
+                          appointment,
+                          service,
+                        ))
+                    .toList();
               }(),
       );
     _syncLinkedToPreviousFlags();
@@ -1287,13 +1303,12 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (lineId == null || appointment == null) return;
     for (final service in appointment.services) {
       if (service.id != lineId) continue;
-      final serviceDateTime = DateTime.tryParse(
-        service.datetime ?? '',
-      )?.toLocal();
-      if (serviceDateTime != null) {
-        final h = serviceDateTime.hour.toString().padLeft(2, '0');
-        final m = serviceDateTime.minute.toString().padLeft(2, '0');
-        block.selectedTime = '$h:$m';
+      final selectedTime = _selectedTimeFromAppointmentService(
+        appointment,
+        service,
+      );
+      if (selectedTime != null) {
+        block.selectedTime = selectedTime;
       }
       return;
     }
@@ -1712,12 +1727,16 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     setState(() => _selectedStatusIndex = index);
   }
 
-  _ServiceBlockState _createInitialServiceBlock(AppointmentServiceApi service) {
+  _ServiceBlockState _createInitialServiceBlock(
+    AppointmentApi appointment,
+    AppointmentServiceApi service,
+  ) {
     final block = _ServiceBlockState();
     final serviceName = (service.name ?? '').trim();
-    final serviceDateTime = DateTime.tryParse(
-      service.datetime ?? '',
-    )?.toLocal();
+    final selectedTime = _selectedTimeFromAppointmentService(
+      appointment,
+      service,
+    );
 
     if (serviceName.isNotEmpty) {
       block.initialServiceName = serviceName;
@@ -1727,10 +1746,8 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
     if (service.serviceId != null && service.serviceId! > 0) {
       block.catalogServiceId = service.serviceId;
     }
-    if (serviceDateTime != null) {
-      final h = serviceDateTime.hour.toString().padLeft(2, '0');
-      final m = serviceDateTime.minute.toString().padLeft(2, '0');
-      block.selectedTime = '$h:$m';
+    if (selectedTime != null) {
+      block.selectedTime = selectedTime;
     }
     final totalMinutes = service.totalDurationMinutes;
     if (service.duration >= 0) {
@@ -2718,8 +2735,7 @@ class _BodyWidgetState extends ConsumerState<_BodyWidget> {
         return true;
       }
 
-      final origDt = DateTime.tryParse(orig.datetime ?? '')?.toLocal();
-      final origTime = origDt != null ? _formatSlot(origDt) : null;
+      final origTime = _selectedTimeFromAppointmentService(initial, orig);
       if ((block.selectedTime ?? '') != (origTime ?? '')) {
         return true;
       }

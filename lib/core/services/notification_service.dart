@@ -84,8 +84,11 @@ class NotificationService {
 
   void _onNotificationTap(NotificationResponse response) {
     debugPrint('Notification tap: ${response.payload}');
-    final branchId = parseBranchIdFromNotificationPayload(response.payload);
-    PushNotificationNavigation.openMessagesTab(branchId: branchId);
+    final payload = parsePushNavigationPayload(response.payload);
+    PushNotificationNavigation.openMessagesTab(
+      branchId: payload.branchId,
+      organizationId: payload.organizationId,
+    );
   }
 
   void _handleOpenedMessage(RemoteMessage? message) {
@@ -95,6 +98,7 @@ class NotificationService {
     );
     PushNotificationNavigation.openMessagesTab(
       branchId: parseBranchIdFromRemoteMessage(message),
+      organizationId: parseOrganizationIdFromRemoteMessage(message),
     );
   }
 

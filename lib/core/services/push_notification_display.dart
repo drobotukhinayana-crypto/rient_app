@@ -56,29 +56,99 @@ int? _parseBranchIdFromMap(Map<dynamic, dynamic> data) {
   return null;
 }
 
+int? _parseOrganizationIdFromMap(Map<dynamic, dynamic> data) {
+  final direct = _parsePushInt(data['organization']) ??
+      _parsePushInt(data['organization_id']);
+  if (direct != null && direct > 0) return direct;
+
+  final payload = data['payload'];
+  if (payload is Map) {
+    final fromPayload = _parsePushInt(payload['organization']) ??
+        _parsePushInt(payload['organization_id']);
+    if (fromPayload != null && fromPayload > 0) return fromPayload;
+  }
+  if (payload is String && payload.isNotEmpty) {
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map) {
+        return _parseOrganizationIdFromMap(decoded);
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
 /// Извлекает id филиала из data-секции FCM (поля branch / branch_id / payload).
 int? parseBranchIdFromPushData(Map<String, dynamic> data) {
   return _parseBranchIdFromMap(data);
+}
+
+/// Извлекает id организации из data-секции FCM.
+int? parseOrganizationIdFromPushData(Map<String, dynamic> data) {
+  return _parseOrganizationIdFromMap(data);
 }
 
 int? parseBranchIdFromRemoteMessage(RemoteMessage message) {
   return parseBranchIdFromPushData(message.data);
 }
 
-/// Payload для локального уведомления — чтобы при тапе переключить филиал.
+int? parseOrganizationIdFromRemoteMessage(RemoteMessage message) {
+  return parseOrganizationIdFromPushData(message.data);
+}
+
+class PushNavigationPayload {
+  const PushNavigationPayload({this.organizationId, this.branchId});
+
+  final int? organizationId;
+  final int? branchId;
+
+  bool get isEmpty =>
+      (organizationId == null || organizationId! <= 0) &&
+      (branchId == null || branchId! <= 0);
+}
+
+/// Payload для локального уведомления — чтобы при тапе переключить контекст.
 String? buildPushNavigationPayload(Map<String, dynamic> data) {
+  final organizationId = parseOrganizationIdFromPushData(data);
   final branchId = parseBranchIdFromPushData(data);
-  if (branchId == null) return null;
-  return 'branch_id=$branchId';
+  if ((organizationId == null || organizationId <= 0) &&
+      (branchId == null || branchId <= 0)) {
+    return null;
+  }
+
+  final parts = <String>[];
+  if (organizationId != null && organizationId > 0) {
+    parts.add('organization_id=$organizationId');
+  }
+  if (branchId != null && branchId > 0) {
+    parts.add('branch_id=$branchId');
+  }
+  return parts.join('&');
+}
+
+PushNavigationPayload parsePushNavigationPayload(String? payload) {
+  if (payload == null || payload.isEmpty) {
+    return const PushNavigationPayload();
+  }
+
+  int? organizationId;
+  int? branchId;
+  for (final part in payload.split('&')) {
+    if (part.startsWith('organization_id=')) {
+      organizationId = int.tryParse(part.substring('organization_id='.length));
+    } else if (part.startsWith('branch_id=')) {
+      branchId = int.tryParse(part.substring('branch_id='.length));
+    }
+  }
+
+  return PushNavigationPayload(
+    organizationId: organizationId,
+    branchId: branchId,
+  );
 }
 
 int? parseBranchIdFromNotificationPayload(String? payload) {
-  if (payload == null || payload.isEmpty) return null;
-  const prefix = 'branch_id=';
-  if (payload.startsWith(prefix)) {
-    return int.tryParse(payload.substring(prefix.length));
-  }
-  return null;
+  return parsePushNavigationPayload(payload).branchId;
 }
 
 final FlutterLocalNotificationsPlugin _localNotificationsPlugin =

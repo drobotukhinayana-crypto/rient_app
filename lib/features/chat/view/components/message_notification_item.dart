@@ -9,6 +9,7 @@ class MessageNotificationItem {
     this.showAccent = false,
     this.accentIsWarning = false,
     this.appointmentId,
+    this.branchId,
     this.type,
     this.isLicenseNotification = false,
     this.licenseAction,
@@ -28,6 +29,7 @@ class MessageNotificationItem {
   final bool accentIsWarning;
 
   final int? appointmentId;
+  final int? branchId;
   final String? type;
   final bool isLicenseNotification;
   final String? licenseAction;
@@ -47,6 +49,7 @@ class MessageNotificationItem {
       showAccent: showAccent ?? this.showAccent,
       accentIsWarning: accentIsWarning ?? this.accentIsWarning,
       appointmentId: appointmentId,
+      branchId: branchId,
       type: type,
       isLicenseNotification: isLicenseNotification,
       licenseAction: licenseAction,

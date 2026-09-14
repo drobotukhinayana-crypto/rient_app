@@ -230,8 +230,13 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     if (!mounted) return;
     // Не сбрасываем «Понятно»: на iOS resumed часто приходит сразу после тапа
     // (шторка/фокус) и плашка всплывала второй раз.
-    ref.invalidate(vpnCheckProvider);
-    ref.invalidate(workerEntityLabelsProvider);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.invalidate(vpnCheckProvider);
+      ref.invalidate(workerEntityLabelsProvider);
+    });
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
     try {
       final offline = ref.read(scheduleOfflineModeProvider);
       final hasNetwork = ref.read(appHasNetworkProvider);
@@ -256,6 +261,7 @@ class _TabBarPageState extends ConsumerState<TabBarPage>
     }
     _lastResumeRefreshAt = now;
     if (!mounted) return;
+    PushNotificationNavigation.tryOpenMessagesTabNow();
     await _ensurePushPermissionAndRegistration(
       showDeniedSettingsPrompt: false,
     );

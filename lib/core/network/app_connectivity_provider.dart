@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:rient_app/core/network/app_connectivity.dart';
@@ -94,7 +95,10 @@ void resetScheduleNetworkStateForSession(dynamic ref) {
   markScheduleServerReachable(ref);
   ref.read(scheduleSessionBootstrapUntilProvider.notifier).state =
       DateTime.now().add(const Duration(seconds: 6));
-  ref.invalidate(connectivityCheckProvider);
+  SchedulerBinding.instance.addPostFrameCallback((_) {
+    if (!ref.mounted) return;
+    ref.invalidate(connectivityCheckProvider);
+  });
   Future<void>.delayed(const Duration(seconds: 6), () {
     if (!ref.mounted) return;
     ref.read(scheduleSessionBootstrapUntilProvider.notifier).state = null;

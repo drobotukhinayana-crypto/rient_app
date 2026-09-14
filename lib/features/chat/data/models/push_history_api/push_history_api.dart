@@ -51,6 +51,15 @@ sealed class PushHistoryItemApi with _$PushHistoryItemApi {
     return null;
   }
 
+  int? get branchId {
+    if (branch != null && branch! > 0) return branch;
+    final raw = payload?['branch_id'] ?? payload?['branch'];
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw);
+    return null;
+  }
+
   /// Тип из payload (например `payment_expires_today`) или верхнеуровневый `type`.
   String? get effectiveType {
     final payloadType = payload?['type'];

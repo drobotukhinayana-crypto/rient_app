@@ -21,6 +21,7 @@ MessageNotificationItem messageNotificationItemFromPush(
     showAccent: showAccent,
     accentIsWarning: isUnread && item.isLicenseNotification,
     appointmentId: item.appointmentId,
+    branchId: item.branchId,
     type: item.effectiveType,
     isLicenseNotification: item.isLicenseNotification,
     licenseAction: item.licenseAction,

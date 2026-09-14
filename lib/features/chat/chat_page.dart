@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/keys/app_shell_scaffold_key.dart';
+import 'package:rient_app/core/routes/route_notifier.dart' show rootNavigatorKey;
 import 'package:rient_app/core/utils/app_exit_handler.dart';
 import 'package:rient_app/core/utils/open_support_link.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
@@ -263,13 +264,23 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     MessageNotificationItem item,
   ) async {
     final appointmentId = item.appointmentId;
-    if (appointmentId == null || appointmentId <= 0) return;
+    if (appointmentId == null || appointmentId <= 0) {
+      showAppServiceMessage(
+        context,
+        message: 'Не удалось открыть запись',
+        variant: AppServiceMessageVariant.error,
+      );
+      return;
+    }
     if (_openingNotificationId != null) return;
 
     setState(() => _openingNotificationId = item.id);
     try {
-      await _markNotificationRead(item, showCardLoader: false);
-      if (!mounted) return;
+      final branchId = item.branchId;
+      if (branchId != null && branchId > 0) {
+        await selectBranchById(ref, branchId);
+        if (!mounted) return;
+      }
 
       final appointment = await ref
           .read(appointmentsServiceProvider)
@@ -283,7 +294,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         );
         return;
       }
-      await context.pushNamed<bool>(AddNewEntryPage.name, extra: appointment);
+
+      final navContext = rootNavigatorKey.currentContext;
+      if (navContext == null || !navContext.mounted) {
+        showAppServiceMessage(
+          context,
+          message: 'Не удалось открыть запись',
+          variant: AppServiceMessageVariant.error,
+        );
+        return;
+      }
+      await navContext.pushNamed<bool>(AddNewEntryPage.name, extra: appointment);
+      if (!mounted) return;
+      unawaited(_markNotificationRead(item, showCardLoader: false));
     } catch (_) {
       if (!mounted) return;
       showAppServiceMessage(
@@ -529,7 +552,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 item: item,
                 isOpening: isOpening,
                 isMarkingRead: isMarkingRead,
-                onView: item.isUnread && !isBusy
+                onView: item.isUnread &&
+                        !isBusy &&
+                        appointmentId == null &&
+                        !item.isLicenseNotification
                     ? () => unawaited(_markNotificationRead(item))
                     : null,
                 onOpenCard: appointmentId != null && !isBusy

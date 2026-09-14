@@ -63,6 +63,8 @@ class _BodyWidget extends ConsumerWidget {
       final recovered = await tryRecoverScheduleNetwork(ref);
       if (!recovered) return;
       ref.invalidate(connectivityCheckProvider);
+      await Future<void>.delayed(Duration.zero);
+      if (!context.mounted) return;
       ref.invalidate(vpnCheckProvider);
       prepareHomeTabOnOpen(ref);
       try {
