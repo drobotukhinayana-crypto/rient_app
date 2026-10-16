@@ -133,6 +133,15 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
       borderSide: BorderSide.none,
     );
 
+    final textColor = isDark
+        ? AppColors.primaryDarkDark
+        : AppColors.primaryDark;
+    final fillColor = isDark
+        ? AppColors.secondaryDarkLight
+        : widget.canEdit
+        ? AppColors.secondaryLight
+        : const Color(0xFFDBDBDB);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -151,16 +160,12 @@ class _MainTextFieldState extends ConsumerState<MainTextField> {
           controller: widget.controller,
           obscureText: widget.isPassword && isHidden,
           obscuringCharacter: '*',
-          style: AppFonts.c1Regular,
+          style: AppFonts.c1Regular.copyWith(color: textColor),
           inputFormatters: widget.inputFormatters,
           decoration: InputDecoration(
             filled: true,
-            fillColor: widget.canEdit
-                ? isDark
-                      ? AppColors.secondaryDarkLight
-                      : AppColors.secondaryLight
-                : const Color.fromARGB(255, 219, 219, 219),
-            suffixIcon: _buildSuffixIcon(),
+            fillColor: fillColor,
+            suffixIcon: widget.canEdit ? _buildSuffixIcon() : null,
             prefixIconConstraints: const BoxConstraints(),
             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             border: border,
