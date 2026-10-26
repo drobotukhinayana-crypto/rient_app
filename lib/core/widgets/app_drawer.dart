@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rient_app/core/network/app_offline.dart';
 import 'package:rient_app/core/utils/const/app_colors.dart';
@@ -357,6 +358,8 @@ class _DrawerOptionRow extends StatelessWidget {
   }
 }
 
+final Future<PackageInfo> _appPackageInfo = PackageInfo.fromPlatform();
+
 class _DrawerFooter extends StatelessWidget {
   const _DrawerFooter({
     required this.isDark,
@@ -433,9 +436,15 @@ class _DrawerFooter extends StatelessWidget {
         ),
         const Gap(8),
         Center(
-          child: Text(
-            'v1.0',
-            style: AppFonts.c1Regular.copyWith(color: AppColors.grey),
+          child: FutureBuilder<PackageInfo>(
+            future: _appPackageInfo,
+            builder: (context, snapshot) {
+              final version = snapshot.data?.version.trim() ?? '';
+              return Text(
+                version.isEmpty ? '' : 'v$version',
+                style: AppFonts.c1Regular.copyWith(color: AppColors.grey),
+              );
+            },
           ),
         ),
         const Gap(4),
