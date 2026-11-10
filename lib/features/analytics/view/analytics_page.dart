@@ -404,7 +404,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
             selectedSpecialist: _selectedSpecialist.id != null
                 ? _selectedSpecialist
                 : SpecialistItem(
-                    name: _selectedSpecialist.name,
+                    name: allSpecialistsItem.name,
                     role: branchLabel,
                   ),
             onSpecialistSelected: (selected) =>

@@ -11,7 +11,8 @@ import 'package:rient_app/core/network/app_connectivity_provider.dart'
         isScheduleSessionBootstrapActive,
         markScheduleServerReachable,
         markScheduleServerUnreachable,
-        scheduleNetworkRecoveryUntilProvider;
+        scheduleNetworkRecoveryUntilProvider,
+        scheduleServerReachableProvider;
 import 'package:rient_app/features/schedule/view/providers/schedule_offline_invalidation.dart';
 
 bool _scheduleRecoveryInFlight = false;
@@ -118,6 +119,8 @@ Future<void> confirmScheduleServerWhenBranchReady(dynamic ref) async {
     return;
   }
   if (!ref.mounted) return;
+  // Handshake уже перевёл сервер в оффлайн — Wi‑Fi это не отменяет.
+  if (!ref.read(scheduleServerReachableProvider)) return;
   markScheduleServerReachable(ref);
   SchedulerBinding.instance.addPostFrameCallback((_) {
     if (!ref.mounted) return;

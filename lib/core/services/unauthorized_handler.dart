@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rient_app/core/network/app_connectivity_provider.dart';
 import 'package:rient_app/core/network/network_failure.dart';
 import 'package:rient_app/core/services/local_storage.dart';
 import 'package:rient_app/core/services/token_storage.dart';
@@ -164,6 +165,10 @@ Future<bool> refreshTokenSilentlyIfPossible(dynamic ref) async {
 /// При 401 (просроченный токен) пробует обновить токен; logout только при ошибке авторизации.
 /// 403 — нет прав на ресурс, сессию не сбрасываем.
 Future<void> handleUnauthorizedIfNeeded(Ref ref, Object error) async {
+  if (isHandshakeFailure(error)) {
+    onScheduleNetworkFailure(ref, error);
+    return;
+  }
   if (_isUnauthorizedHandlingInProgress) return;
 
   final dio = dioExceptionFrom(error);

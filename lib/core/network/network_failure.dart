@@ -32,6 +32,18 @@ bool isNetworkFailure(Object? error) {
       error is TimeoutException;
 }
 
+/// Обрыв TLS: `HandshakeException: Connection terminated during handshake`.
+bool isHandshakeFailure(Object? error) {
+  if (error == null) return false;
+  if (error is HandshakeException) return true;
+  if (error is CustomException) return isHandshakeFailure(error.causedError);
+  if (error is DioException) {
+    if (isHandshakeFailure(error.error)) return true;
+    return error.toString().contains('HandshakeException');
+  }
+  return error.toString().contains('HandshakeException');
+}
+
 /// 4xx — ошибка запроса (валидация, неверные параметры), не сетевой сбой.
 bool isClientHttpError(Object? error) {
   if (error == null) return false;

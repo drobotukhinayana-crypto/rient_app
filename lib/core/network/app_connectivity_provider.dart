@@ -127,9 +127,14 @@ void markAppNetworkAvailable(dynamic ref) => markScheduleServerReachable(ref);
 
 /// Сетевая ошибка API — сразу включаем оффлайн-режим (не ждём таймауты других запросов).
 void onScheduleNetworkFailure(dynamic ref, Object error) {
+  if (!ref.mounted) return;
+  // Обрыв TLS включаем сразу: не ждём старт сессии, pull-to-refresh и VPN.
+  if (isHandshakeFailure(error)) {
+    markScheduleServerUnreachable(ref);
+    return;
+  }
   if (isClientHttpError(error)) return;
   if (!isNetworkFailure(error)) return;
-  if (!ref.mounted) return;
   if (isScheduleNetworkRecoveryActive(ref)) return;
   if (isScheduleSessionBootstrapActive(ref)) return;
   // С VPN API часто падает при живом Wi‑Fi; показываем VPN-плашку, не оффлайн.
